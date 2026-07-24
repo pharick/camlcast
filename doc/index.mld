@@ -1,0 +1,54 @@
+{0 camlcast}
+
+A small first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
+
+It began as a Wolfenstein-style grid raycaster and grew past it. Rooms are built
+from wall {e segments} at any angle, not cells of a grid; the floor is an
+inclined {!Raycaster.Plane} and the ceiling is an inclined plane or open
+{!Raycaster.Sky}; walls carry their own heights and textures, can be see-through,
+and can be hung with decals; {!Raycaster.Image} sprites stand in the world facing
+the player; and there is mouse look with pitch. Each frame is drawn into a CPU
+pixel buffer: the floor, ceiling and sky are cast per pixel, the opaque walls
+(with their decals) are painted over them, then the sprites, then the see-through
+walls last so the room behind shows through. Surfaces take their patterns from a
+procedural {!Raycaster.Texture}, tinted by the {!Raycaster.Palette}. The buffer is then scaled to the window by the GPU.
+
+{1 Where to start}
+
+{!Raycaster.Ray} carries the ray-versus-segment derivation and why the distance
+it reports is free of fish-eye. {!Raycaster.Plane} carries the one-line equation
+that casts the sloped floor and ceiling per pixel. {!Raycaster.Viewport} ties
+them to the screen: the projection, the eye height, the pitch shear, and — since
+the window is resizable and can go fullscreen at any frame — the rules that
+decide what a resize does. {!Raycaster.Renderer} puts it all together.
+
+{1 Modules}
+
+Each depends only on the ones above it.
+
+- {!Raycaster.Config} — every tunable constant, in one place
+- {!Raycaster.Result_ext} — [let*] and a short-circuiting range loop, for
+  chaining fallible SDL calls
+- {!Raycaster.Vec} — immutable 2-D vectors, with the dot and cross products the
+  geometry needs
+- {!Raycaster.Plane} — an inclined floor/ceiling plane and its casting equation
+- {!Raycaster.World} — the wall segments (with decals), the floor plane, the
+  optional ceiling, the sprites, and collision; with helpers for building levels
+- {!Raycaster.Ray} — ray-versus-segment intersection: every wall the ray
+  crosses, farthest first
+- {!Raycaster.Player} — the camera, as position + unit [dir] + unit [right],
+  plus the pitch it looks up and down by
+- {!Raycaster.Viewport} — window size to camera geometry; the eye height, the
+  pitch shear and the resize rules
+- {!Raycaster.Texture} — procedural greyscale wall and plane patterns
+- {!Raycaster.Color} — 8-bit RGB, shading and blending
+- {!Raycaster.Palette} — the wall colour and pattern tables, the plane textures,
+  fog and orientation shading
+- {!Raycaster.Sky} — the open sky where a level has no ceiling
+- {!Raycaster.Image} — full-colour images with alpha, for decals and sprites
+- {!Raycaster.Input} — SDL keyboard and mouse-look, as engine intent
+- {!Raycaster.Framebuffer} — a CPU pixel buffer and the streaming texture it
+  uploads through
+- {!Raycaster.Renderer} — the software renderer: casts the planes, paints the
+  walls, per pixel
+- {!Raycaster.Engine} — window lifetime, fullscreen state, and the game loop

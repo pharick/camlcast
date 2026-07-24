@@ -1,0 +1,4 @@
+(executable
+ (public_name camlcast)
+ (name main)
+ (libraries raycaster))

@@ -1,0 +1,4 @@
+; Makes index.mld the landing page of the camlcast package docs.
+
+(documentation
+ (package camlcast))
