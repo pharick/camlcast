@@ -10,7 +10,7 @@ homepage: "https://github.com/pharick/camlcast"
 bug-reports: "https://github.com/pharick/camlcast/issues"
 depends: [
   "dune" {>= "3.21"}
-  "ocaml"
+  "ocaml" {>= "5.1"}
   "tsdl"
   "alcotest" {with-test}
   "ocaml-lsp-server" {with-dev-setup}

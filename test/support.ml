@@ -112,14 +112,17 @@ let world =
     The second room has a short wall standing just inside its doorway. The two
     rooms' jambs are collinear — they are the same opening — so that wall is the
     only thing in either room that the {e other} one cannot see, which is what
-    makes it possible to test that collision consults the neighbour at all. *)
-let two_rooms =
+    makes it possible to test that collision consults the neighbour at all.
+
+    [door] hangs a leaf in the opening. It goes to both sides at once because
+    {!World.make} refuses a link whose two thresholds disagree about one. *)
+let joined_rooms ?door () =
   let first_jambs, east =
-    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
-      (Vec.make 4. 0.) (Vec.make 4. 4.)
+    Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
+      ~material:pale (Vec.make 4. 0.) (Vec.make 4. 4.)
   and second_jambs, west =
-    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
-      (Vec.make 0. 4.) (Vec.make 0. 0.)
+    Room.doorway ~name:"west" ?door ~width:1. ~opening:2. ~height:3.
+      ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
   let first =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
@@ -145,6 +148,13 @@ let two_rooms =
     ~links:[ (("first", "east"), ("second", "west")) ]
     ~atmosphere:air
     ~spawn:("first", Vec.make 2. 2.)
+
+(** The pair with the doorway standing open. *)
+let two_rooms = joined_rooms ()
+
+(** The pair with a leaf hung in it, which is the only fixture that puts anything
+    down the door path of {!World.can_step} or the renderer. *)
+let two_rooms_with_a_door = joined_rooms ~door:dim ()
 
 (** The portal behind a threshold that is certainly linked. A world may hold
     doorways that lead nowhere yet, so [World.portals] hands back options; the

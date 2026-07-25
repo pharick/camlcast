@@ -93,9 +93,15 @@ let check_names ~who ~room name (r : Room.t) =
 
 (** The two {!portal}s a link makes, each the other's inverse, after refusing
     everything that would make the link meaningless: a threshold with no length
-    (its transform would collapse the world to a point), and two thresholds
+    (its transform would collapse the world to a point), two thresholds
     differing in length or height (the opening would not line up, so the seam
-    would be visible from both sides).
+    would be visible from both sides), and two that disagree about a door (a leaf
+    on one side and an opening on the other would be a door you could see through
+    from behind).
+
+    Only whether a leaf hangs there is compared, not what it is made of: the
+    renderer draws the near side's, so a door that is oak from the hall and stone
+    from the cellar is a choice and not a mistake.
 
     Shared by {!make} and {!link} so a world that grew is held to exactly the
     same standard as one that was written down. *)
@@ -112,6 +118,8 @@ let pair ~who ~describe (ia, ja, (a : Room.threshold))
     invalid_arg (who ^ ": linked thresholds differ in length: " ^ both);
   if Float.abs (a.Room.height -. b.Room.height) > epsilon then
     invalid_arg (who ^ ": linked thresholds differ in height: " ^ both);
+  if Option.is_some a.Room.door <> Option.is_some b.Room.door then
+    invalid_arg (who ^ ": linked thresholds disagree about a door: " ^ both);
   let onto =
     Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
   in
@@ -129,9 +137,10 @@ let pair ~who ~describe (ia, ja, (a : Room.threshold))
     name that does not exist, two thresholds of one room sharing a name (no link
     could tell them apart), a threshold with no length (its transform would
     collapse the world to a point), a threshold linked more than once, a
-    threshold nothing links to (a hole in the wall opening onto nowhere), and
-    two linked thresholds differing in length or height — the opening would not
-    line up, so the seam would be visible from both sides.
+    threshold nothing links to (a hole in the wall opening onto nowhere), two
+    linked thresholds differing in length or height — the opening would not line
+    up, so the seam would be visible from both sides — and two that disagree
+    about a door.
 
     What is {e not} refused is a floor mismatch across a doorway; see
     {!seam_gap}. *)
@@ -316,9 +325,17 @@ let link t (room_a, name_a) (room_b, name_b) =
   { t with portals }
 
 (** Everything {!make} guarantees, asserted over a world that was grown instead:
-    every room's thresholds uniquely named, every one of them linked, and every
-    portal's [twin] the same doorway seen from the other side. A generator's
-    tests run this; nothing at run time needs to. *)
+    every room's thresholds uniquely named, every one of them linked, every
+    portal's [twin] the same doorway seen from the other side, and the two sides
+    of every link agreed about a door.
+
+    That last one is asked of the rooms as they stand now and not of the
+    [threshold] each {!portal} is carrying, which is the copy taken when the link
+    was made. {!same_opening} lets a leaf be hung into an opening that is already
+    linked, so the two can differ, and it is the room the renderer and
+    {!can_step} read that has to be right.
+
+    A generator's tests run this; nothing at run time needs to. *)
 let check t =
   Array.iteri
     (fun room r -> check_names ~who:"World.check" ~room t.names.(room) r)
@@ -340,6 +357,16 @@ let check t =
               | Some back when back.to_room = room && back.twin = index -> ()
               | _ -> invalid_arg ("World.check: twin does not lead back: " ^ describe));
               if
+                Option.is_some
+                  t.rooms.(room).Room.thresholds.(index).Room.door
+                <> Option.is_some
+                     t.rooms.(portal.to_room).Room.thresholds.(portal.twin)
+                       .Room.door
+              then
+                invalid_arg
+                  ("World.check: linked thresholds disagree about a door: "
+                 ^ describe);
+              if
                 not
                   (same_opening portal.threshold
                      t.rooms.(room).Room.thresholds.(index))
@@ -357,10 +384,14 @@ let check t =
     neighbour's own jamb is right there. Straddling an open threshold, a step
     that this room finds clear can be flush against a wall of the next.
 
-    So for every {e open} portal the swept step comes near, the step is carried
-    into the neighbour's frame and asked again there. A doorway with a leaf is
-    skipped: walking into a door is how you go through it, so it must not
-    collide.
+    So for every portal the swept step comes near, the step is carried into the
+    neighbour's frame and asked again there. Whether a leaf hangs in the opening
+    makes no difference to that, and nothing here reads the [door] field: walking
+    into a door is how you go through it, so it must not collide — and asking the
+    neighbour cannot make it collide, because {!Room.can_step} measures against
+    walls and a leaf is a {!Room.type-threshold}, never a wall. What the question
+    does catch is the wall or fitting standing just beyond a door, which is
+    otherwise as invisible to collision as it is to the eye.
 
     A doorway that leads nowhere yet blocks like the wall it was cut into. There
     is no room to carry the step into, and the alternative — letting the player
@@ -375,14 +406,11 @@ let can_step t ~room:index ~from ~dest =
   let clear j (threshold : Room.threshold) =
     match t.portals.(index).(j) with
     | None -> not (near threshold)
-    | Some portal -> (
-        match threshold.Room.door with
-        | Some _ -> true
-        | None when near threshold ->
-            Room.can_step t.rooms.(portal.to_room)
-              ~from:(Transform.point portal.onto from)
-              ~dest:(Transform.point portal.onto dest)
-        | None -> true)
+    | Some portal ->
+        (not (near threshold))
+        || Room.can_step t.rooms.(portal.to_room)
+             ~from:(Transform.point portal.onto from)
+             ~dest:(Transform.point portal.onto dest)
   in
   let rec every j =
     j >= Array.length here.Room.thresholds

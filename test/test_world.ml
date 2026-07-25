@@ -58,12 +58,28 @@ let a_step_into_the_neighbour_is_refused () =
     (World.can_step two_rooms ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.))
 
+(* A leaf in the opening changes none of that. Walking into a door is how you go
+   through it, so the door itself must not collide — but the room behind it is as
+   real as the room behind an open doorway, and used to go unasked. *)
+let a_step_through_a_door_is_refused_by_the_neighbour () =
+  let from = Vec.make 3.7 2.2 and dest = Vec.make 4.3 2.35 in
+  Alcotest.(check bool)
+    "this room sees nothing in the way" true
+    (Room.can_step (World.room two_rooms_with_a_door 0) ~from ~dest);
+  Alcotest.(check bool)
+    "but the world sees the neighbour's wall" false
+    (World.can_step two_rooms_with_a_door ~room:0 ~from ~dest);
+  Alcotest.(check bool)
+    "and the door is still one you can walk through" true
+    (World.can_step two_rooms_with_a_door ~room:0 ~from:(Vec.make 3.5 2.)
+       ~dest:(Vec.make 4.5 2.))
+
 let square ?(thresholds = []) () =
   Room.make ~thresholds ~floor:flat_floor ~ceiling:flat_ceiling
     [ Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) ]
 
-let gate ?(name = "gate") ?(length = 1.) ?(height = 2.) () =
-  Room.threshold ~name ~height (Vec.make 0. 0.) (Vec.make 0. length)
+let gate ?(name = "gate") ?(length = 1.) ?(height = 2.) ?door () =
+  Room.threshold ~name ?door ~height (Vec.make 0. 0.) (Vec.make 0. length)
 
 (* Every one of these is an authoring mistake with no sensible run-time
    behaviour, so make refuses the world outright rather than building one that
@@ -117,6 +133,18 @@ let invalid_worlds_are_refused () =
              [
                ("a", square ~thresholds:[ gate () ] ());
                ("b", square ~thresholds:[ gate ~height:3. () ] ());
+             ]
+           ~links:[ (("a", "gate"), ("b", "gate")) ]
+           ~atmosphere:air ~spawn:("a", centre)));
+  raises "mismatched door"
+    "World.make: linked thresholds disagree about a door: a.gate and b.gate"
+    (fun () ->
+      ignore
+        (World.make
+           ~rooms:
+             [
+               ("a", square ~thresholds:[ gate ~door:pale () ] ());
+               ("b", square ~thresholds:[ gate () ] ());
              ]
            ~links:[ (("a", "gate"), ("b", "gate")) ]
            ~atmosphere:air ~spawn:("a", centre)));
@@ -321,6 +349,39 @@ let invalid_growth_is_refused () =
              ~ceiling:flat_ceiling jambs)
       in
       ignore (World.link bigger (0, "north") (next, "south")));
+  raises "linking a door to an opening"
+    "World.link: linked thresholds disagree about a door: start.north and next.south"
+    (fun () ->
+      let jambs, south =
+        Room.doorway ~name:"south" ~door:pale ~width:1. ~opening:2. ~height:3.
+          ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
+      in
+      let bigger, next =
+        World.add_room grown ~name:"next"
+          (Room.make ~thresholds:[ south ] ~floor:flat_floor
+             ~ceiling:flat_ceiling jambs)
+      in
+      ignore (World.link bigger (0, "north") (next, "south")));
+  (* A leaf may be hung into an opening that is already linked, which is the one
+     way the two sides of a link can come to disagree after make and link have
+     both had their say — so check has to ask as well. Hanging one takes an
+     open_doorway, which insists on a new threshold at the same time; the
+     disagreement is at index 0, so it is what check reaches first. *)
+  raises "a leaf hung on one side only"
+    "World.check: linked thresholds disagree about a door: first.east" (fun () ->
+      let first = World.room two_rooms 0 in
+      let jambs, extra = cut ~name:"extra" (Vec.make 4. 4.) (Vec.make 0. 4.) in
+      World.check
+        (World.open_doorway two_rooms ~room:0
+           ~opened:
+             (Room.make
+                ~thresholds:
+                  [
+                    { (first.Room.thresholds.(0)) with Room.door = Some pale };
+                    extra;
+                  ]
+                ~floor:flat_floor ~ceiling:flat_ceiling
+                (Array.to_list first.Room.walls @ jambs))));
   raises "an unlinked doorway" "World.check: nothing links threshold start.north"
     (fun () -> World.check grown)
 
@@ -333,6 +394,8 @@ let () =
           case "crossing changes frame" crossing_changes_frame;
           case "a step into the neighbour is refused"
             a_step_into_the_neighbour_is_refused;
+          case "a step through a door is refused by the neighbour"
+            a_step_through_a_door_is_refused_by_the_neighbour;
           case "invalid worlds are refused" invalid_worlds_are_refused;
         ] );
       ( "growing",

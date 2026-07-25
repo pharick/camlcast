@@ -103,6 +103,23 @@ let a_blocked_axis_does_not_block_the_other () =
     (Vec.make 3.7 (2. +. (0.5 /. Float.sqrt 2.)))
     (Player.walk world player ~forward:0.5 ~strafe:0.5).Player.pos
 
+(* A diagonal step through a doorway has to resolve its second leg in the room it
+   has arrived in. The first leg carries it far enough through that the second no
+   longer comes anywhere near the opening, so nothing in the first room can
+   vouch for where it goes — and what it would otherwise finish inside is the low
+   wall standing just inside the second. *)
+let a_diagonal_through_a_doorway_lands_clear () =
+  let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.2) ~angle:0. in
+  let moved = Player.walk two_rooms start ~forward:0.5 ~strafe:0.3 in
+  Alcotest.(check int) "ends up in the second room" 1 moved.Player.room;
+  Alcotest.(check bool)
+    "and not inside its wall" false
+    (Room.blocked (World.room two_rooms moved.Player.room) moved.Player.pos);
+  let scale = 0.5 /. Vec.length (Vec.make 0.5 0.3) in
+  Alcotest.check vec "having slid along that wall instead"
+    (Vec.make (3.8 +. (0.5 *. scale) -. 4.) 2.2)
+    moved.Player.pos
+
 let spawn_uses_the_world () =
   Alcotest.check vec "spawn point" two_rooms.World.spawn.pos
     (Player.spawn two_rooms).Player.pos
@@ -167,5 +184,7 @@ let () =
           case "walls block movement" walls_block_movement;
           case "a blocked axis does not block the other"
             a_blocked_axis_does_not_block_the_other;
+          case "a diagonal through a doorway lands clear"
+            a_diagonal_through_a_doorway_lands_clear;
         ] );
     ]

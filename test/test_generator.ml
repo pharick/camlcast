@@ -311,7 +311,13 @@ let the_spawn_is_walkable () =
 
 (* Nothing inside a room may stand in a doorway. A fitting that did would wall
    the player into the room it was in, and with the house generated ahead of
-   them there would be no way to tell that had happened until they were stuck. *)
+   them there would be no way to tell that had happened until they were stuck.
+
+   Asked of the world rather than of the room alone, so the room on the far side
+   is asked too — and so a doored opening goes through the same question as an
+   open one. Every doorway in a generated house has a leaf on both sides or
+   neither, and roughly a third of them have one, so this is what says a shut
+   door in the house is still a door you can walk through. *)
 let nothing_stands_in_a_doorway () =
   let house, _ = wander ~seed:8675309 ~steps:40 in
   let world = house.Generator.world in
@@ -328,7 +334,7 @@ let nothing_stands_in_a_doorway () =
             (Printf.sprintf "%s.%s is clear" world.World.names.(room)
                t.Room.name)
             true
-            (Room.can_step r ~from ~dest))
+            (World.can_step world ~room ~from ~dest))
         r.Room.thresholds)
     world.World.rooms
 

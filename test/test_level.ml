@@ -106,6 +106,79 @@ let the_default_world_is_varied () =
          <> Plane.elevation r.Room.floor.Room.plane (Vec.make 1. 0.))
        rooms)
 
+(* The hall's cellar door is the one solid leaf in the level, and a leaf has to
+   be walked into to be gone through. Collision carries a step near any doorway
+   into the room on the far side and asks again there, a doored one included, so
+   this is what says that question has not made the one door in the level
+   impassable — and that a step through it is checked against the room it arrives
+   in rather than the one it left. *)
+let the_cellar_door_can_be_walked_through () =
+  let hall = 1 in
+  let room = World.room Level.default hall in
+  let door = room.Room.thresholds.(1) in
+  Alcotest.(check string) "the second doorway of the hall" "cellar"
+    door.Room.name;
+  Alcotest.(check bool) "has a leaf hanging in it" true (door.Room.door <> None);
+  (* This threshold's normal points out of the hall, so a step against it starts
+     inside. Standing there is asserted rather than assumed: were the sign the
+     other way about, the walk below would begin in the cellar's own space while
+     still calling itself the hall, and cross nothing. *)
+  let middle = Vec.scale (Vec.add door.Room.a door.Room.b) 0.5 in
+  let inward = Vec.scale door.Room.normal (-0.3) in
+  let start =
+    Player.create ~room:hall ~pos:(Vec.add middle inward)
+      ~angle:(Float.atan2 (-.inward.Vec.y) (-.inward.Vec.x))
+  in
+  Alcotest.(check bool)
+    "the near side of the door is somewhere you can stand" false
+    (Room.blocked room start.Player.pos);
+  let through = Player.walk Level.default start ~forward:0.6 ~strafe:0. in
+  Alcotest.(check int)
+    "walking into the door goes through it"
+    (link Level.default ~room:hall ~index:1).World.to_room through.Player.room;
+  Alcotest.(check bool)
+    "and not into the cellar's wall" false
+    (Room.blocked
+       (World.room Level.default through.Player.room)
+       through.Player.pos);
+  let back = Player.walk Level.default through ~forward:(-0.6) ~strafe:0. in
+  Alcotest.(check int) "and it opens from the other side too" hall
+    back.Player.room;
+  Alcotest.check vec "landing where it set out from" start.Player.pos
+    back.Player.pos
+
+(* A step is resolved one axis at a time, and the leg that has not been taken yet
+   is measured along the axes of the room the first leg may just have left. The
+   plaza's doorways are cut into three different sides of its ring, so the links
+   through them turn as well as move, and a leg carried through one has to turn
+   with it.
+
+   What says it did is that the whole step, carried back into the room it began
+   in, is the plain L it would have been had there been no doorway there at all:
+   a link is a rigid motion, and going through one cannot change the shape of a
+   step. Leave the remaining leg in the old room's axes and it comes back bent by
+   the angle of the link. *)
+let a_diagonal_through_a_turning_doorway_keeps_its_shape () =
+  let hall = 1 in
+  let west = link Level.default ~room:hall ~index:0 in
+  Alcotest.(check string) "the hall's own way out" "west"
+    west.World.threshold.Room.name;
+  Alcotest.(check bool)
+    "through a link that turns and does not merely move" true
+    (Float.abs west.World.onto.Transform.sin > 1e-6);
+  (* Facing the doorway from a short step inside the hall, then a diagonal: the
+     first leg crosses, the second is taken in the plaza. *)
+  let start = Player.create ~room:hall ~pos:(Vec.make 0.3 0.) ~angle:Float.pi in
+  let moved = Player.walk Level.default start ~forward:0.5 ~strafe:0.3 in
+  Alcotest.(check int) "the step went through" west.World.to_room
+    moved.Player.room;
+  let delta =
+    Vec.scale (Vec.make (-0.5) (-0.3)) (0.5 /. Vec.length (Vec.make 0.5 0.3))
+  in
+  Alcotest.check vec "and kept its shape across the seam"
+    (Vec.add start.Player.pos delta)
+    (Transform.point (Transform.inverse west.World.onto) moved.Player.pos)
+
 (* A floor mismatch across a doorway is a visible step you walk into, so every
    room's floor is built from its neighbour's with Plane.through and the gap
    should be zero to the last bit. *)
@@ -134,5 +207,9 @@ let () =
           case "is connected" the_default_world_is_connected;
           case "is varied" the_default_world_is_varied;
           case "has no seams" the_default_world_has_no_seams;
+          case "the cellar door can be walked through"
+            the_cellar_door_can_be_walked_through;
+          case "a diagonal through a turning doorway keeps its shape"
+            a_diagonal_through_a_turning_doorway_keeps_its_shape;
         ] );
     ]

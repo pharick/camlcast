@@ -125,15 +125,23 @@ haze, so cyclic room graphs terminate.
 
 A doorway is a gap in a room's boundary, so nothing in that room stops a step
 taken through it. `World.can_step` therefore also carries any step that comes
-near an open threshold into the neighbour's frame and asks again there,
-otherwise you clip through the far side's wall while straddling the opening.
+near a threshold into the neighbour's frame and asks again there, otherwise you
+clip through the far side's wall while straddling the opening. A leaf makes no
+difference to that: a door has to be walked into to be gone through, and asking
+the neighbour cannot make it solid, because a leaf is a threshold and collision
+measures against walls. And because a step is resolved one axis at a time,
+whichever leg goes through a doorway carries the pose into the next room before
+the other leg is taken — a diagonal through an opening finishes in the room it
+ended up in, checked against that room's walls.
 
 `Room.path`, `Room.regular_polygon` and `Room.doorway` build the geometry —
 `doorway` splits a wall around a gap and returns the jambs together with the
 threshold that fills it, so a boundary and its openings cannot drift apart.
 `World.make` rejects the authoring mistakes that would make a link meaningless:
-unknown names, a threshold linked twice or not at all, and linked thresholds
-that differ in length or height. A world can also be **grown** rather than
+unknown names, a threshold linked twice or not at all, linked thresholds that
+differ in length or height, and linked thresholds that disagree about a door —
+a leaf on one side and an opening on the other would be a door you could see
+through from behind. A world can also be **grown** rather than
 authored: `open_doorway`, `add_room` and `link` each append and nothing else, so
 every index anything is holding — a player's room, a portal's twin — keeps
 meaning what it meant. Between cutting a doorway and linking it, the doorway
