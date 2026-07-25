@@ -14,6 +14,16 @@ small software renderer.
 > trigonometry, and the will to derive a few formulas. No graphics background is
 > assumed — every projection is derived from similar triangles.
 
+> **This tutorial is behind the code.** It teaches the engine as it stood before
+> content was split out of it, so a wall here takes a `~texture` id looked up in
+> a global `Palette` table, and the shipped engine takes a `~material` carrying
+> its colour and pattern by value. The same is true of `Atmosphere` (which now
+> holds the fog and light constants), of `Room.ceiling` (a variant rather than an
+> option), and of the world-growing primitives, none of which appear below. Every
+> derivation here is still correct — the geometry has not moved — but the names
+> and signatures no longer match `lib/`. Read it for the reasoning and the
+> current docstrings for the API.
+
 ---
 
 ## Table of contents

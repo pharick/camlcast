@@ -21,8 +21,56 @@ let color =
 
 (** {1 Fixtures} *)
 
-let flat_floor = Plane.horizontal 0.
-let flat_ceiling = Some (Plane.horizontal 3.)
+(* Two materials for the fixtures to wear. They exist only to be told apart —
+   the geometry suites never care what a wall looks like, only that a hit
+   reports the wall it was actually cast at — so they are the simplest thing
+   that is distinguishable: one flat bright, one flat dim. *)
+
+let material brightness =
+  Material.make ~color:(Color.rgb 200 200 200)
+    ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> brightness))
+
+let pale = material 230
+let dim = material 90
+
+(* A material you see through, for the one test that needs the renderer's
+   translucent routing to have something to route. *)
+let mesh =
+  Material.make ~color:(Color.rgb 120 120 130)
+    ~pattern:
+      (Texture.generate_masked (fun ~u ~v ->
+           if u mod 8 < 3 || v mod 8 < 3 then (180, 255) else (0, 0)))
+
+let air =
+  Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:12.
+    ~min_brightness:0.25
+    ~light:(Vec.make (-0.4) (-0.9))
+    ~ambient:0.6 ~directional:0.4
+
+(* Something to hang on a wall. Four quadrants, so a test can tell which corner
+   of it a sample came from, and a clear border so the cut-out path is covered
+   too. *)
+let poster =
+  Image.make 8 (fun ~u ~v ->
+      if u = 0 || v = 0 || u = 7 || v = 7 then Image.clear
+      else (Color.rgb (if u < 4 then 200 else 40) (if v < 4 then 200 else 40) 0, 255))
+
+let flat_floor = { Room.plane = Plane.horizontal 0.; material = pale }
+
+let flat_ceiling = Room.Roof { Room.plane = Plane.horizontal 3.; material = dim }
+
+(** A cloudless sky, for the fixture room that is open to one. *)
+let open_sky =
+  Room.Open
+    {
+      Sky.horizon = Color.rgb 176 196 222;
+      zenith = Color.rgb 40 62 126;
+      sun = Color.rgb 255 246 216;
+      sun_azimuth = -0.9;
+      sun_height = 0.5;
+      sun_radius = 0.55;
+      gradient = 2.2;
+    }
 
 (** A square room, 4 x 4, its four walls given counter-clockwise so [along]
     grows predictably. Small enough that every expected distance is obvious:
@@ -30,24 +78,25 @@ let flat_ceiling = Some (Plane.horizontal 3.)
 let room =
   Room.make ~floor:flat_floor ~ceiling:flat_ceiling
     [
-      Room.wall ~height:3. ~texture:1 (Vec.make 0. 0.) (Vec.make 4. 0.);
-      Room.wall ~height:3. ~texture:1 (Vec.make 4. 0.) (Vec.make 4. 4.);
-      Room.wall ~height:3. ~texture:1 (Vec.make 4. 4.) (Vec.make 0. 4.);
-      Room.wall ~height:3. ~texture:1 (Vec.make 0. 4.) (Vec.make 0. 0.);
+      Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+      Room.wall ~height:3. ~material:pale (Vec.make 4. 0.) (Vec.make 4. 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
     ]
 
-(** The same room with a short free-standing wall of texture id 2, one cell east
+(** The same room with a short free-standing dim wall, one cell east
     of the centre, spanning the ray fired east from it. Used to check that a ray
     keeps the walls behind a near one. *)
 let room_with_pillar =
   Room.make ~floor:flat_floor ~ceiling:flat_ceiling
     (Array.to_list room.Room.walls
-    @ [ Room.wall ~height:1. ~texture:2 (Vec.make 3. 1.5) (Vec.make 3. 2.5) ])
+    @ [ Room.wall ~height:1. ~material:dim (Vec.make 3. 1.5) (Vec.make 3. 2.5) ])
 
 (** The same room as the only room of a world, for the suites that need a
     {!World.t} but nothing to do with doorways. *)
 let world =
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~spawn:("room", Vec.make 2. 2.)
+  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
+    ~spawn:("room", Vec.make 2. 2.)
 
 (** Two 4 x 4 rooms joined through a doorway one cell wide, each authored in its
     own coordinates so both rooms occupy [0..4] squared and the link's transform
@@ -66,35 +115,41 @@ let world =
     makes it possible to test that collision consults the neighbour at all. *)
 let two_rooms =
   let first_jambs, east =
-    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~texture:1
+    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
       (Vec.make 4. 0.) (Vec.make 4. 4.)
   and second_jambs, west =
-    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~texture:2
+    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
       (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
   let first =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
       (first_jambs
       @ [
-          Room.wall ~height:3. ~texture:1 (Vec.make 0. 0.) (Vec.make 4. 0.);
-          Room.wall ~height:3. ~texture:1 (Vec.make 4. 4.) (Vec.make 0. 4.);
-          Room.wall ~height:3. ~texture:1 (Vec.make 0. 4.) (Vec.make 0. 0.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
         ])
   and second =
-    Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:None
+    Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:open_sky
       (second_jambs
       @ [
-          Room.wall ~height:3. ~texture:2 (Vec.make 0. 0.) (Vec.make 4. 0.);
-          Room.wall ~height:3. ~texture:2 (Vec.make 4. 0.) (Vec.make 4. 4.);
-          Room.wall ~height:3. ~texture:2 (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:dim (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.);
+          Room.wall ~height:3. ~material:dim (Vec.make 4. 4.) (Vec.make 0. 4.);
           (* Just inside the doorway, and invisible to the first room. *)
-          Room.wall ~height:1. ~texture:2 (Vec.make 0.25 2.45)
+          Room.wall ~height:1. ~material:dim (Vec.make 0.25 2.45)
             (Vec.make 1.2 2.45);
         ])
   in
   World.make ~rooms:[ ("first", first); ("second", second) ]
     ~links:[ (("first", "east"), ("second", "west")) ]
+    ~atmosphere:air
     ~spawn:("first", Vec.make 2. 2.)
+
+(** The portal behind a threshold that is certainly linked. A world may hold
+    doorways that lead nowhere yet, so [World.portals] hands back options; the
+    fixtures here are all finished worlds. *)
+let portal world ~room ~index = Option.get (World.portals world room).(index)
 
 (** Centre of the room, 2 cells from every wall. *)
 let centre = Vec.make 2. 2.

@@ -1,14 +1,16 @@
-(** Procedurally generated wall patterns.
+(** The machinery for procedurally generated surface patterns.
 
     The patterns are {e greyscale}: a texel says how bright that point of the
-    wall is, not what colour it is. The colour arrives later, when the renderer
-    modulates the whole slice by {!Palette.shaded_wall}. Splitting it that way
-    means one pattern can dress walls of any colour, and the distance fog and
-    face shading that were already there keep working untouched.
+    surface is, not what colour it is. The colour arrives later, from the
+    {!Material} the pattern is half of. Splitting it that way means one pattern
+    can dress surfaces of any colour, and the distance fog and face shading in
+    {!Atmosphere} keep working untouched.
 
-    Generating the patterns in code rather than loading images keeps the project
-    free of binary assets, and keeps them testable: every pattern below is a
-    pure function of [u] and [v]. *)
+    This module holds no patterns of its own. It is the type, the samplers and
+    the two generators; the patterns themselves are content and belong to
+    whatever is being drawn. Generating them in code rather than loading images
+    keeps the project free of binary assets, and keeps them testable: a pattern
+    is a pure function of [u] and [v]. *)
 
 (** Texels per side. A power of two, and small enough that the whole set stays
     comfortably in cache. *)
@@ -59,66 +61,34 @@ let generate_masked f =
     to stop a surface looking machine-made, and reproducible so the tests can
     pin what it produces. *)
 let hash a b =
-  let h = a * 73856093 lxor (b * 19349663) in
-  h lxor (h lsr 13) land max_int
+  let h = (a * 73856093) lxor (b * 19349663) in
+  (h lxor (h lsr 13)) land max_int
 
-(** Running bond masonry: courses 16 texels high, every other one shifted by
-    half a brick so the vertical joints never line up between courses. *)
-let brick =
-  generate (fun ~u ~v ->
-      let course = v / 16 in
-      let u = (u + if course land 1 = 0 then 0 else 16) mod size in
-      let in_mortar = v mod 16 < 2 || u mod 32 < 2 in
-      if in_mortar then 130 else 225 + (hash (u / 32) course mod 30))
+(** Smooth value noise, 0 .. 255: a hashed value at each corner of a lattice of
+    [cell]-texel squares, interpolated between them with a smoothstep so the
+    result has no lattice edges in it. [seed] picks an independent field, so
+    several octaves can be summed without their features lining up.
 
-(** Bevelled panels: a lit edge along the top and left, a shadow along the
-    bottom and right. The eye reads the pair as depth. *)
-let panel =
-  generate (fun ~u ~v ->
-      let x = u mod 32 and y = v mod 32 in
-      if x < 2 || y < 2 then 255 else if x >= 30 || y >= 30 then 140 else 215)
+    The lattice {b wraps} at {!size}, which is the whole reason this is here
+    rather than in a caller. A wall's pattern repeats once per world unit, so a
+    field that did not wrap would put a hard seam down every wall in the game,
+    one per unit — the very thing noise is being used to avoid.
 
-(** Vertical planks crossed by a sturdy horizontal rail. *)
-let door =
-  generate (fun ~u ~v ->
-      if v >= 28 && v < 36 then 150
-      else if u mod 16 < 2 then 115
-      else 205 + (hash (u / 16) 19 mod 30))
-
-(** Irregular blocks: each course is shifted by a hashed amount, so unlike
-    {!brick} the courses do not repeat in step with each other. *)
-let stone =
-  generate (fun ~u ~v ->
-      let course = v / 16 in
-      let u = (u + (hash course 7 mod size)) mod size in
-      let in_joint = v mod 16 < 2 || u mod 21 < 2 in
-      if in_joint then 120 else 200 + (hash (u / 21) course mod 45))
-
-(** A plain check, for walls that should read as tiled rather than built. *)
-let checker =
-  generate (fun ~u ~v -> if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
-
-(** No pattern at all, for wall ids that have none of their own. *)
-let plain = generate (fun ~u:_ ~v:_ -> 235)
-
-(** A metal grille: a lattice of solid bars with clear holes between them, so
-    the room behind shows through the gaps. *)
-let bars =
-  generate_masked (fun ~u ~v ->
-      if u mod 16 < 5 || v mod 16 < 5 then
-        (70 + (hash (u / 16) (v / 16) mod 30), 255)
-      else (0, 0))
-
-(** A leaded window: solid mullions around and across, translucent panes
-    between, so the room behind is dimly visible through the glass. *)
-let glass =
-  generate_masked (fun ~u ~v ->
-      let mullion =
-        u < 2
-        || u >= size - 2
-        || v < 2
-        || v >= size - 2
-        || abs (u - (size / 2)) < 2
-        || abs (v - (size / 2)) < 2
-      in
-      if mullion then (150, 255) else (235, 80))
+    [cell] must divide {!size}, or the lattice would not close on itself. *)
+let noise ~seed ~cell ~u ~v =
+  if cell <= 0 || size mod cell <> 0 then
+    invalid_arg "Texture.noise: cell must divide Texture.size";
+  let cells = size / cell in
+  let corner x y =
+    float_of_int (hash ((x mod cells) + (seed * 7919)) ((y mod cells) + seed) land 255)
+  in
+  (* Smoothstep, so the interpolation arrives at each corner with zero slope and
+     the eye cannot pick out the lattice the values hang on. *)
+  let smooth t = t *. t *. (3. -. (2. *. t)) in
+  let mix a b t = a +. ((b -. a) *. t) in
+  let x0 = u / cell and y0 = v / cell in
+  let fx = smooth (float_of_int (u mod cell) /. float_of_int cell)
+  and fy = smooth (float_of_int (v mod cell) /. float_of_int cell) in
+  let top = mix (corner x0 y0) (corner (x0 + 1) y0) fx
+  and bottom = mix (corner x0 (y0 + 1)) (corner (x0 + 1) (y0 + 1)) fx in
+  int_of_float (mix top bottom fy)

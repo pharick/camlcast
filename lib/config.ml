@@ -31,13 +31,6 @@ let rot_speed = 2.1
     against a wall and see through the corner. *)
 let collision_padding = 0.15
 
-(** Walls fade to [min_brightness] once they are [fog_distance] cells away. This
-    is pure eye candy, but it also gives a strong sense of depth in a world made
-    of flat colours. *)
-let fog_distance = 12.
-
-let min_brightness = 0.25
-
 (** The player's eye sits half a cell above the floor — the middle of a normal
     one-cell wall. Walls are projected relative to this height, so a taller wall
     rises further above the horizon and a shorter one drops below the top of its
@@ -72,9 +65,13 @@ let max_render_height = 480
     so nothing about the world's shape makes the portal recursion terminate;
     this budget is what does. Raising it costs another full column of drawing
     per doorway still in view, and buys very little: by the third room an
-    opening is a few pixels across. Beyond it the doorway is filled with
-    {!Palette.haze}, the colour the distance fog already fades into, so running
-    out reads as depth rather than as a hole. *)
+    opening is a few pixels across. Beyond it the doorway is filled with the
+    world's {!Atmosphere.haze}, the colour its distance fog already fades into,
+    so running out reads as depth rather than as a hole.
+
+    A world that grows as the player walks reads this too: the generator has to
+    keep every room within this many doorways of the player built, or the player
+    would watch a blank wall turn into a doorway as they approached it. *)
 let max_portal_depth = 3
 
 (** Seconds a frame is allowed to take (~60 FPS). {!Engine} sleeps off whatever

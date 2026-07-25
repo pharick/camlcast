@@ -1,0 +1,8 @@
+; The showcase level and the art it is built from. Nothing in the engine
+; depends on this, which is the point: it is content, and it lives outside the
+; library it is content for.
+
+(library
+ (name camlcast_demo)
+ (public_name camlcast.demo)
+ (libraries raycaster))

@@ -1,0 +1,8 @@
+; The game: what gets built, and when. Depends on the engine for geometry and
+; on the assets for how it looks, and nothing depends on it — so a change to
+; the shape of the house cannot reach back into either.
+
+(library
+ (name house)
+ (public_name camlcast.house)
+ (libraries raycaster assets))

@@ -1,4 +1,16 @@
+; Two games on one engine. `camlcast` is the House; `camlcast-demo` is the
+; showcase level the engine was built against, kept runnable because it
+; exercises corners the House deliberately does not — decals, see-through
+; walls, sloped floors and the open sky.
+
 (executable
  (public_name camlcast)
  (name main)
- (libraries raycaster))
+ (modules main)
+ (libraries raycaster house))
+
+(executable
+ (public_name camlcast-demo)
+ (name demo)
+ (modules demo)
+ (libraries raycaster camlcast_demo))

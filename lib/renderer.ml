@@ -22,7 +22,7 @@
     - {b Paint the opaque walls.} {!Ray.cast} returns every wall the ray
       crosses, farthest first. Each solid wall is drawn from its foot on the
       sloped floor up to its height (capped at the ceiling), its {!Texture}
-      sampled per pixel and tinted by {!Palette}, with any {!Room.decal}s —
+      sampled per pixel and tinted by its {!Material}, with any {!Room.decal}s —
       paintings, posters — blended over it. Painting far-to-front lets a near
       wall cover the ones behind it while a tall wall still shows over a short
       one. Each wall records its distance into a per-pixel depth, so the passes
@@ -64,7 +64,8 @@
     preserves distance, a distance measured several rooms deep is directly
     comparable with everything else in the shared depth buffer. Rooms may form a
     cycle, so it is {!Config.max_portal_depth} and nothing else that ends the
-    recursion — out of budget, the opening is filled with {!Palette.haze}.
+    recursion — out of budget, the opening is filled with the world's
+    {!Atmosphere.haze}.
 
     The sky belongs to the room. A room open to the sky takes its azimuth from
     the {e nested} direction, so it has its own sun: with per-room local
@@ -114,29 +115,32 @@ let clampi n v = Int.max 0 (Int.min (n - 1) v)
     casts the relevant plane with {!Plane.view_distance} (one division), then
     shows its texture in world space, tinted and fogged; sky pixels come from
     {!Sky} and depend only on the direction looked in. *)
-let draw_planes fb viewport world (player : Player.t) ~column ~dir ~first ~last =
+let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
+    ~last =
   let open Viewport in
   let height = fb.Framebuffer.height in
   let eye_z = viewport.eye_z in
   let px = player.Player.pos.Vec.x and py = player.Player.pos.Vec.y in
   let dx = dir.Vec.x and dy = dir.Vec.y in
-  let floor_base = Plane.elevation world.Room.floor player.Player.pos in
-  let gf = Plane.gradient world.Room.floor dir in
-  (* Paint one floor/ceiling pixel: the plane's texture at the world point it
+  let floor = room.Room.floor in
+  let floor_base = Plane.elevation floor.Room.plane player.Player.pos in
+  let gf = Plane.gradient floor.Room.plane dir in
+  (* Paint one floor/ceiling pixel: the surface's material at the world point it
      casts to, tinted by its colour and faded by fog. *)
-  let surface y d (color : Color.t) pattern =
+  let surface y d (m : Material.t) =
     let wx = px +. (d *. dx) and wy = py +. (d *. dy) in
-    let texel = Palette.plane_texel pattern ~x:wx ~y:wy in
-    let f = Palette.fog d in
+    let texel = Material.plane_texel m ~x:wx ~y:wy in
+    let f = Atmosphere.fog air d in
+    let c = m.Material.color in
     Framebuffer.set fb ~x:column ~y
-      ~r:(clamp8 (int_of_float (float_of_int (color.r * texel / 255) *. f)))
-      ~g:(clamp8 (int_of_float (float_of_int (color.g * texel / 255) *. f)))
-      ~b:(clamp8 (int_of_float (float_of_int (color.b * texel / 255) *. f)))
+      ~r:(clamp8 (int_of_float (float_of_int (c.Color.r * texel / 255) *. f)))
+      ~g:(clamp8 (int_of_float (float_of_int (c.Color.g * texel / 255) *. f)))
+      ~b:(clamp8 (int_of_float (float_of_int (c.Color.b * texel / 255) *. f)))
   in
-  match world.Room.ceiling with
-  | Some ceiling ->
-      let ceil_base = Plane.elevation ceiling player.Player.pos in
-      let gc = Plane.gradient ceiling dir in
+  match room.Room.ceiling with
+  | Room.Roof ceiling ->
+      let ceil_base = Plane.elevation ceiling.Room.plane player.Player.pos in
+      let gc = Plane.gradient ceiling.Room.plane dir in
       for y = Int.max 0 first to Int.min (height - 1) last do
         let r = row_factor viewport ~row:y in
         (* A plane is only in view on its side of the horizon, so at most one of
@@ -148,15 +152,13 @@ let draw_planes fb viewport world (player : Player.t) ~column ~dir ~first ~last 
           let dn = r +. gc in
           if dn < -1e-9 then (eye_z -. ceil_base) /. dn else infinity
         in
-        if Float.is_finite df && df <= dc then
-          surface y df Palette.floor_color Palette.floor_pattern
-        else if Float.is_finite dc then
-          surface y dc Palette.ceiling_color Palette.ceiling_pattern
+        if Float.is_finite df && df <= dc then surface y df floor.Room.material
+        else if Float.is_finite dc then surface y dc ceiling.Room.material
         else
-          Framebuffer.set fb ~x:column ~y ~r:Palette.haze.Color.r
-            ~g:Palette.haze.Color.g ~b:Palette.haze.Color.b
+          let h = air.Atmosphere.haze in
+          Framebuffer.set fb ~x:column ~y ~r:h.Color.r ~g:h.Color.g ~b:h.Color.b
       done
-  | None ->
+  | Room.Open sky ->
       (* No roof: below the horizon is floor, above it is sky. The sky depends
          only on the column's azimuth and the pixel's elevation. *)
       let azimuth = Float.atan2 dy dx in
@@ -164,11 +166,9 @@ let draw_planes fb viewport world (player : Player.t) ~column ~dir ~first ~last 
         let r = row_factor viewport ~row:y in
         let dn = r +. gf in
         if dn > 1e-9 then
-          surface y
-            ((eye_z -. floor_base) /. dn)
-            Palette.floor_color Palette.floor_pattern
+          surface y ((eye_z -. floor_base) /. dn) floor.Room.material
         else
-          let s = Sky.color ~azimuth ~up:(-.r) in
+          let s = Sky.color sky ~azimuth ~up:(-.r) in
           Framebuffer.set fb ~x:column ~y ~r:s.Color.r ~g:s.Color.g ~b:s.Color.b
       done
 
@@ -182,7 +182,7 @@ let draw_planes fb viewport world (player : Player.t) ~column ~dir ~first ~last 
     wall is blended rather than written, so a grille or a window unveils what is
     behind. Decals — pictures placed by {!Room.along} and height — are blended
     over the wall's own texture, in the same light. *)
-let draw_wall fb viewport world (player : Player.t) ~column ~dir ~occlude
+let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     ~first:clip_first ~last:clip_last (hit : Ray.hit) =
   let open Viewport in
   let depth = fb.Framebuffer.depth and width = fb.Framebuffer.width in
@@ -193,16 +193,16 @@ let draw_wall fb viewport world (player : Player.t) ~column ~dir ~occlude
       (player.Player.pos.Vec.x +. (d *. dir.Vec.x))
       (player.Player.pos.Vec.y +. (d *. dir.Vec.y))
   in
-  let floor_z = Plane.elevation world.Room.floor hit_point in
+  let floor_z = Plane.elevation room.Room.floor.Room.plane hit_point in
   (* The wall rises to its own height, but a roof caps it so it never draws over
      the ceiling in front of it; with open sky there is nothing to cap against. *)
   let top_z =
-    match world.Room.ceiling with
-    | Some ceiling ->
+    match room.Room.ceiling with
+    | Room.Roof ceiling ->
         Float.min
           (floor_z +. w.Room.height)
-          (Plane.elevation ceiling hit_point)
-    | None -> floor_z +. w.Room.height
+          (Plane.elevation ceiling.Room.plane hit_point)
+    | Room.Open _ -> floor_z +. w.Room.height
   in
   if top_z > floor_z then begin
     let y_foot = project_height viewport ~z:floor_z ~distance:d in
@@ -217,9 +217,11 @@ let draw_wall fb viewport world (player : Player.t) ~column ~dir ~occlude
     in
     (* One light factor — orientation and fog — dims both the wall and its
        decals, so the decals sit in the same light as the wall they are on. *)
-    let light = Palette.face_shading w.Room.normal *. Palette.fog d in
-    let tint = Color.shade (Palette.wall_color w.Room.texture) light in
-    let pattern = Palette.pattern w.Room.texture in
+    let light =
+      Atmosphere.face_shading air w.Room.normal *. Atmosphere.fog air d
+    in
+    let tint = Color.shade w.Room.material.Material.color light in
+    let pattern = w.Room.material.Material.pattern in
     let u =
       Texture.column_of_offset (hit.Ray.along -. Float.floor hit.Ray.along)
     in
@@ -319,7 +321,7 @@ type mask = Full | Within of { column : int; first : int; last : int }
     onto the sloped floor and its top a [size] above, and drawn per pixel only
     where it stands nearer than the opaque wall noted there, so a wall in front
     — even a short one — hides just the part of it behind. *)
-let draw_sprite fb viewport world (player : Player.t) (s : Room.sprite)
+let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
     ~depth_s ~mask =
   let open Viewport in
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
@@ -330,7 +332,7 @@ let draw_sprite fb viewport world (player : Player.t) (s : Room.sprite)
      space sits at this fraction across the screen. *)
   let camera_x = lateral /. (depth_s *. viewport.half_width) in
   let center = (camera_x +. 1.) *. float_of_int width /. 2. in
-  let floor_z = Plane.elevation world.Room.floor s.Room.pos in
+  let floor_z = Plane.elevation room.Room.floor.Room.plane s.Room.pos in
   let y_base = project_height viewport ~z:floor_z ~distance:depth_s in
   let y_top =
     project_height viewport ~z:(floor_z +. s.Room.size) ~distance:depth_s
@@ -341,7 +343,7 @@ let draw_sprite fb viewport world (player : Player.t) (s : Room.sprite)
   let span = rightx -. left and vspan = y_base -. y_top in
   let img = s.Room.image in
   let n = img.Image.size in
-  let f = Palette.fog depth_s in
+  let f = Atmosphere.fog air depth_s in
   let col0 = Int.max 0 (int_of_float (Float.round left)) in
   let col1 = Int.min (width - 1) (int_of_float (Float.round rightx)) in
   let row0 = Int.max 0 (int_of_float (Float.round y_top)) in
@@ -429,20 +431,30 @@ let rec merge walls openings =
     three rooms deep is directly comparable with everything already in the
     shared depth buffer. Only [pos], [dir] and [right] move.
 
+    [entered] is the threshold this room was reached through, which must be
+    ignored. Stepping through a doorway lands the camera {e behind} the
+    neighbour's own copy of it — that is what standing in a doorway looking in
+    means — so the ray meets that opening again immediately, and without this
+    the recursion would bounce straight back where it came from and spend its
+    whole budget going nowhere.
+
     Rooms may form a cycle, so it is [budget] and nothing else that ends the
-    recursion; when it runs out the opening is filled with {!Palette.haze}, the
-    same colour the planes already fade into. *)
+    recursion; when it runs out the opening is filled with the world's
+    {!Atmosphere.haze}, the same colour the planes already fade into. A doorway
+    onto a room that has not been built yet takes the same fill, so a world
+    still being grown renders rather than raising. *)
 let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
-    ~clip:(top, bottom) ~budget ~translucent =
+    ~clip:(top, bottom) ~budget ~entered ~translucent =
   let current = World.room world room in
   let portals = World.portals world room in
-  draw_planes fb viewport current pose ~column ~dir ~first:top ~last:bottom;
+  let air = world.World.atmosphere in
+  draw_planes fb viewport ~air current pose ~column ~dir ~first:top ~last:bottom;
   (* One wall strip: painted straight over the column if it is opaque, held back
      for the translucent pass if you can see through it. *)
   let paint ~first ~last (hit : Ray.hit) =
-    if (Palette.pattern hit.Ray.wall.Room.texture).Texture.opaque then
-      draw_wall fb viewport current pose ~column ~dir ~occlude:true ~first ~last
-        hit
+    if Material.opaque hit.Ray.wall.Room.material then
+      draw_wall fb viewport ~air current pose ~column ~dir ~occlude:true ~first
+        ~last hit
     else
       translucent :=
         {
@@ -457,13 +469,13 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
   (* A threshold drawn as though it were a wall — the leaf of a door, or the
      lintel above an opening, which is the strip of the surrounding wall left
      standing over the gap. *)
-  let as_wall (threshold : Room.threshold) ~height ~texture ~distance ~along =
+  let as_wall (threshold : Room.threshold) ~height ~material ~distance ~along =
     let wall : Room.wall =
       {
         a = threshold.a;
         b = threshold.b;
         height;
-        texture;
+        material;
         decals = [];
         edge = threshold.edge;
         length = threshold.length;
@@ -485,12 +497,15 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
     (fun (_, step) ->
       match step with
       | Wall hit -> paint ~first:top ~last:bottom hit
+      (* The doorway we are already looking through. *)
+      | Opening opening when entered = Some opening.Ray.index -> ()
       | Opening opening ->
-          let portal = portals.(opening.Ray.index) in
-          let threshold = portal.World.threshold in
+          let threshold = current.Room.thresholds.(opening.Ray.index) in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
-          let floor_z = Plane.elevation current.Room.floor hit_point in
+          let floor_z =
+            Plane.elevation current.Room.floor.Room.plane hit_point
+          in
           let row z =
             int_of_float
               (Float.round (Viewport.project_height viewport ~z ~distance))
@@ -503,48 +518,57 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
             (fun (l : Room.lintel) ->
               paint ~first:top
                 ~last:(Int.min bottom (head - 1))
-                (as_wall threshold ~height:l.Room.top ~texture:l.Room.texture
+                (as_wall threshold ~height:l.Room.top ~material:l.Room.material
                    ~distance ~along:opening.Ray.along))
             threshold.lintel;
           if head <= foot then
+            (* Out of budget, or a doorway onto a room that has not been built
+               yet: either way there is nothing behind it to draw, so it takes
+               the colour the distance fog already fades into. *)
+            let nothing_behind () =
+              let h = air.Atmosphere.haze in
+              for y = head to foot do
+                Framebuffer.set fb ~x:column ~y ~r:h.Color.r ~g:h.Color.g
+                  ~b:h.Color.b
+              done
+            in
             match threshold.door with
-            | Some texture ->
+            | Some material ->
                 paint ~first:head ~last:foot
-                  (as_wall threshold ~height:threshold.height ~texture
+                  (as_wall threshold ~height:threshold.height ~material
                      ~distance ~along:opening.Ray.along)
-            | None when budget > 0 ->
-                let nested =
-                  Player.through portal.World.onto ~room:portal.World.to_room
-                    pose
-                in
-                let mask = Within { column; first = head; last = foot } in
-                Array.iter
-                  (fun sprite ->
-                    let distance =
-                      Vec.dot
-                        (Vec.sub sprite.Room.pos nested.Player.pos)
-                        nested.Player.dir
+            | None -> (
+                match portals.(opening.Ray.index) with
+                | Some portal when budget > 0 ->
+                    let nested =
+                      Player.through portal.World.onto
+                        ~room:portal.World.to_room pose
                     in
-                    if distance > 0.1 then
-                      translucent :=
-                        {
-                          distance;
-                          pose = nested;
-                          room = portal.World.to_room;
-                          mask;
-                          what = Sprite sprite;
-                        }
-                        :: !translucent)
-                  (World.room world portal.World.to_room).Room.sprites;
-                draw_room_column fb viewport world ~room:portal.World.to_room
-                  ~pose:nested ~column
-                  ~dir:(Transform.direction portal.World.onto dir)
-                  ~clip:(head, foot) ~budget:(budget - 1) ~translucent
-            | None ->
-                for y = head to foot do
-                  Framebuffer.set fb ~x:column ~y ~r:Palette.haze.Color.r
-                    ~g:Palette.haze.Color.g ~b:Palette.haze.Color.b
-                done)
+                    let mask = Within { column; first = head; last = foot } in
+                    Array.iter
+                      (fun sprite ->
+                        let distance =
+                          Vec.dot
+                            (Vec.sub sprite.Room.pos nested.Player.pos)
+                            nested.Player.dir
+                        in
+                        if distance > 0.1 then
+                          translucent :=
+                            {
+                              distance;
+                              pose = nested;
+                              room = portal.World.to_room;
+                              mask;
+                              what = Sprite sprite;
+                            }
+                            :: !translucent)
+                      (World.room world portal.World.to_room).Room.sprites;
+                    draw_room_column fb viewport world
+                      ~room:portal.World.to_room ~pose:nested ~column
+                      ~dir:(Transform.direction portal.World.onto dir)
+                      ~clip:(head, foot) ~budget:(budget - 1)
+                      ~entered:(Some portal.World.twin) ~translucent
+                | Some _ | None -> nothing_behind ()))
     (merge walls openings)
 
 (** Composite the sprites and see-through walls together, farthest first, each
@@ -552,12 +576,13 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
     what lets a sprite occlude a window behind it and show through one in front.
 *)
 let draw_translucent fb viewport world fragments =
+  let air = world.World.atmosphere in
   List.iter
     (fun fragment ->
       let current = World.room world fragment.room in
       match fragment.what with
       | Sprite s ->
-          draw_sprite fb viewport current fragment.pose s
+          draw_sprite fb viewport ~air current fragment.pose s
             ~depth_s:fragment.distance ~mask:fragment.mask
       | See_through (column, dir, hit) ->
           let first, last =
@@ -565,7 +590,7 @@ let draw_translucent fb viewport world fragments =
             | Full -> (0, fb.Framebuffer.height - 1)
             | Within m -> (m.first, m.last)
           in
-          draw_wall fb viewport current fragment.pose ~column ~dir
+          draw_wall fb viewport ~air current fragment.pose ~column ~dir
             ~occlude:false ~first ~last hit)
     (List.stable_sort
        (fun a b -> Float.compare b.distance a.distance)
@@ -579,7 +604,8 @@ let draw_frame fb world (player : Player.t) =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let current = World.room world player.room in
   let eye_z =
-    Plane.elevation current.Room.floor player.Player.pos +. Config.eye_height
+    Plane.elevation current.Room.floor.Room.plane player.Player.pos
+    +. Config.eye_height
   in
   let viewport =
     Viewport.create ~pitch:player.Player.pitch ~eye_z ~width ~height
@@ -603,7 +629,8 @@ let draw_frame fb world (player : Player.t) =
   for column = 0 to width - 1 do
     let dir = Viewport.ray_direction viewport player ~column in
     draw_room_column fb viewport world ~room:player.room ~pose:player ~column
-      ~dir ~clip:(0, height - 1) ~budget:Config.max_portal_depth ~translucent
+      ~dir ~clip:(0, height - 1) ~budget:Config.max_portal_depth ~entered:None
+      ~translucent
   done;
   draw_translucent fb viewport world !translucent
 

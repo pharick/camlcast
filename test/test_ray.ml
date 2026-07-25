@@ -25,7 +25,9 @@ let diagonal_distance () =
 
 let reports_the_wall_that_was_hit () =
   let hit = cast (Vec.make 1. 0.) in
-  Alcotest.(check int) "the east wall's texture id" 1 hit.Ray.wall.Room.texture;
+  Alcotest.(check bool)
+    "and it is the room's own wall, not a copy" true
+    (hit.Ray.wall.Room.material == pale);
   (* The east wall runs (4,0) -> (4,4); the ray from (2,2) meets it at (4,2),
      halfway, which is 2 along its length of 4. *)
   Alcotest.check close "how far along the wall it struck" 2. hit.Ray.along
@@ -44,11 +46,11 @@ let collects_every_wall_back_to_front () =
   Alcotest.(check int) "the pillar and the wall behind it" 2 (List.length hits);
   Alcotest.check (Alcotest.list close) "farthest first" [ 2.; 1. ]
     (List.map (fun (h : Ray.hit) -> h.Ray.distance) hits);
-  Alcotest.(check int)
-    "the nearest is the pillar" 2
-    (Option.get (Ray.nearest hits)).Ray.wall.Room.texture
+  Alcotest.(check bool)
+    "the nearest is the pillar" true
+    ((Option.get (Ray.nearest hits)).Ray.wall.Room.material == dim)
 
-(* [along] threads the texture across the wall, so it has to stay within the
+(* [along] threads the material across the wall, so it has to stay within the
    wall's length whatever direction the ray comes from. *)
 let along_stays_on_the_wall () =
   List.iter

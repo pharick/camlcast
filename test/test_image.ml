@@ -7,35 +7,52 @@ let make_builds_a_square () =
   Alcotest.check color "and pixels are addressable" (Color.rgb 3 2 0)
     (fst (Image.sample img ~u:3 ~v:2))
 
-(* A decal is a solid rectangle: every pixel opaque, so it covers the wall
-   behind it. *)
-let decals_are_opaque () =
+(* The hot drawing loop reads [pixels] and [alpha] directly rather than through
+   [sample], to avoid allocating a tuple per pixel, so the two have to agree
+   about where a pixel is. *)
+let index_agrees_with_sample () =
+  let img = Image.make 8 (fun ~u ~v -> (Color.rgb (u * 8) (v * 8) 0, u + v)) in
   List.iter
-    (fun (name, img) ->
-      let solid = ref true in
-      for v = 0 to img.Image.size - 1 do
-        for u = 0 to img.Image.size - 1 do
-          if snd (Image.sample img ~u ~v) <> 255 then solid := false
-        done
-      done;
-      Alcotest.(check bool) (name ^ " is fully opaque") true !solid)
-    [ ("painting", Image.painting); ("poster", Image.poster) ]
+    (fun (u, v) ->
+      let i = Image.index img ~u ~v in
+      let c, a = Image.sample img ~u ~v in
+      Alcotest.check color
+        (Printf.sprintf "(%d, %d) colour" u v)
+        c img.Image.pixels.(i);
+      Alcotest.(check int) (Printf.sprintf "(%d, %d) alpha" u v) a
+        img.Image.alpha.(i))
+    [ (0, 0); (7, 0); (0, 7); (3, 5); (7, 7) ]
 
-(* A sprite is cut out against a transparent background: its corners are clear,
-   its middle is solid, so only the object itself is drawn. *)
-let sprites_are_cut_out () =
+(* Unlike a Texture, whose size is a module constant, an image carries its own,
+   so decals and sprites of different resolutions can sit in the same world. *)
+let images_carry_their_own_size () =
   List.iter
-    (fun (name, img) ->
-      let mid = img.Image.size / 2 in
+    (fun n ->
+      let img = Image.make n (fun ~u:_ ~v:_ -> (Color.rgb 1 2 3, 255)) in
       Alcotest.(check int)
-        (name ^ " has a clear corner")
-        0
-        (snd (Image.sample img ~u:0 ~v:0));
-      Alcotest.(check bool)
-        (name ^ " has a solid middle")
-        true
-        (snd (Image.sample img ~u:mid ~v:mid) > 0))
-    [ ("barrel", Image.barrel); ("figure", Image.figure) ]
+        (Printf.sprintf "a %dx%d image" n n)
+        n img.Image.size;
+      Alcotest.(check int)
+        "and has that many pixels" (n * n)
+        (Array.length img.Image.pixels))
+    [ 1; 8; 32; 64 ]
+
+let disc_is_a_circle () =
+  Alcotest.(check bool)
+    "the centre is inside" true
+    (Image.disc ~cx:8. ~cy:8. ~r:4. 8 8);
+  Alcotest.(check bool)
+    "just inside the rim" true
+    (Image.disc ~cx:8. ~cy:8. ~r:4. 11 8);
+  Alcotest.(check bool)
+    "just outside it" false
+    (Image.disc ~cx:8. ~cy:8. ~r:4. 12 8);
+  Alcotest.(check bool)
+    "and the corner of its box is outside" false
+    (Image.disc ~cx:8. ~cy:8. ~r:4. 11 11)
+
+let clear_is_invisible () =
+  Alcotest.(check int) "nothing shows through it" 0 (snd Image.clear)
 
 let () =
   Alcotest.run "Image"
@@ -43,7 +60,12 @@ let () =
       ( "images",
         [
           case "make builds a square" make_builds_a_square;
-          case "decals are opaque" decals_are_opaque;
-          case "sprites are cut out" sprites_are_cut_out;
+          case "index agrees with sample" index_agrees_with_sample;
+          case "images carry their own size" images_carry_their_own_size;
+        ] );
+      ( "helpers",
+        [
+          case "disc is a circle" disc_is_a_circle;
+          case "clear is invisible" clear_is_invisible;
         ] );
     ]

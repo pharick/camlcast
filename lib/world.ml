@@ -18,15 +18,42 @@
     single floor. A location is a room and a point {e in that room}, and a
     height only means anything within one room — which is why {!seam_gap}
     exists, to report where two rooms disagree about the floor at a doorway
-    they share. *)
+    they share.
+
+    {1 Worlds that grow}
+
+    A world need not be finished. A doorway whose portal is [None] is one that
+    leads nowhere {e yet}: the renderer fills it with the world's
+    {!Atmosphere.haze} and {!can_step} treats it as solid, so an unfinished
+    world is a playable one rather than a crash waiting for the player to walk
+    towards it. {!make} still refuses to produce such a world, because in a
+    hand-authored level a doorway onto nowhere is a mistake; it is
+    {!open_doorway}, {!add_room} and {!link} that leave one, and a generator
+    that composes them can build the house ahead of the player forever.
+
+    Everything that survives a frame refers to a room by a bare index —
+    {!Player.t}'s [room], a portal's [to_room] and [twin]. Appending never
+    disturbs an index, so those three primitives only ever append: a room goes
+    on the end of [rooms], a threshold on the end of a room's, and its portal in
+    the matching slot. Nothing is ever inserted or removed, and nothing is ever
+    reclaimed. *)
 
 type portal = {
   threshold : Room.threshold;  (** the doorway, in this room's own frame *)
   to_room : int;  (** the room on the other side *)
+  twin : int;
+      (** which of [to_room]'s own thresholds is this same doorway, described
+          from that side *)
   onto : Transform.t;  (** this room's frame onto that one's *)
 }
 (** One side of a link: what a room sees when it looks at one of its own
-    doorways. A link makes two of these, each the other's inverse. *)
+    doorways. A link makes two of these, each the other's inverse.
+
+    [twin] matters to anything that steps through. {!Transform.point} lands the
+    camera {e behind} the neighbour's copy of the opening — that is what it means
+    to be standing in the doorway looking in — so a ray cast from there crosses
+    that opening again straight away. Whoever crosses has to know which threshold
+    not to cross back through. *)
 
 type location = { room : int; pos : Vec.t }
 (** A point in a named room. Only meaningful together — the same [pos] in
@@ -35,19 +62,61 @@ type location = { room : int; pos : Vec.t }
 type t = {
   rooms : Room.t array;
   names : string array;  (** [names.(i)] is what [rooms.(i)] was authored as *)
-  portals : portal array array;
+  portals : portal option array array;
       (** [portals.(i)] runs parallel to [rooms.(i).thresholds], so a ray that
-          reports a threshold index can look up its portal directly *)
+          reports a threshold index can look up its portal directly. [None] is a
+          doorway that leads nowhere yet — see {!open_doorway}. *)
+  atmosphere : Atmosphere.t;  (** the air every room of it is seen through *)
   spawn : location;
 }
 
 let room t index = t.rooms.(index)
 let portals t index = t.portals.(index)
 
-(** Tolerance for the authoring checks in {!make}. Lengths and heights are
-    written by hand, so they should agree exactly; this only absorbs the last
-    bit or two of a decimal literal. *)
+(** Tolerance for the checks below. Lengths and heights are either written by
+    hand or built from the same constants, so they should agree exactly; this
+    only absorbs the last bit or two of a decimal literal. *)
 let epsilon = 1e-6
+
+(** Refuse two thresholds of one room sharing a name: no link could tell them
+    apart, and {!link} resolves by name. *)
+let check_names ~who ~room name (r : Room.t) =
+  let seen = Hashtbl.create (Array.length r.Room.thresholds) in
+  Array.iter
+    (fun (t : Room.threshold) ->
+      if Hashtbl.mem seen t.Room.name then
+        invalid_arg
+          (who ^ ": two thresholds named " ^ name ^ "." ^ t.Room.name);
+      Hashtbl.add seen t.Room.name ())
+    r.Room.thresholds;
+  ignore room
+
+(** The two {!portal}s a link makes, each the other's inverse, after refusing
+    everything that would make the link meaningless: a threshold with no length
+    (its transform would collapse the world to a point), and two thresholds
+    differing in length or height (the opening would not line up, so the seam
+    would be visible from both sides).
+
+    Shared by {!make} and {!link} so a world that grew is held to exactly the
+    same standard as one that was written down. *)
+let pair ~who ~describe (ia, ja, (a : Room.threshold))
+    (ib, jb, (b : Room.threshold)) =
+  let length (t : Room.threshold) room =
+    if t.Room.length <= epsilon then
+      invalid_arg (who ^ ": threshold has no length: " ^ describe room t)
+  in
+  length a ia;
+  length b ib;
+  let both = describe ia a ^ " and " ^ describe ib b in
+  if Float.abs (a.Room.length -. b.Room.length) > epsilon then
+    invalid_arg (who ^ ": linked thresholds differ in length: " ^ both);
+  if Float.abs (a.Room.height -. b.Room.height) > epsilon then
+    invalid_arg (who ^ ": linked thresholds differ in height: " ^ both);
+  let onto =
+    Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
+  in
+  ( { threshold = a; to_room = ib; twin = jb; onto },
+    { threshold = b; to_room = ia; twin = ja; onto = Transform.inverse onto } )
 
 (** Assemble a world from named rooms and the links between their named
     thresholds — a link reads [(("plaza", "east"), ("hall", "west"))] — and the
@@ -66,7 +135,7 @@ let epsilon = 1e-6
 
     What is {e not} refused is a floor mismatch across a doorway; see
     {!seam_gap}. *)
-let make ~rooms ~links ~spawn =
+let make ~rooms ~links ~atmosphere ~spawn =
   let names = Array.of_list (List.map fst rooms) in
   let values = Array.of_list (List.map snd rooms) in
   let describe room name = names.(room) ^ "." ^ name in
@@ -76,15 +145,7 @@ let make ~rooms ~links ~spawn =
     | None -> invalid_arg ("World.make: no room named " ^ name)
   in
   Array.iteri
-    (fun room (r : Room.t) ->
-      let seen = Hashtbl.create (Array.length r.thresholds) in
-      Array.iter
-        (fun (t : Room.threshold) ->
-          if Hashtbl.mem seen t.name then
-            invalid_arg
-              ("World.make: two thresholds named " ^ describe room t.name);
-          Hashtbl.add seen t.name ())
-        r.thresholds)
+    (fun room r -> check_names ~who:"World.make" ~room names.(room) r)
     values;
   let find_threshold room name =
     let thresholds = values.(room).Room.thresholds in
@@ -114,40 +175,179 @@ let make ~rooms ~links ~spawn =
       let ia = find_room room_a and ib = find_room room_b in
       let ja, a = find_threshold ia name_a
       and jb, b = find_threshold ib name_b in
-      let check (t : Room.threshold) room name =
-        if t.length <= epsilon then
-          invalid_arg ("World.make: threshold has no length: " ^ describe room name)
+      let here, there =
+        pair ~who:"World.make"
+          ~describe:(fun room (t : Room.threshold) -> describe room t.Room.name)
+          (ia, ja, a) (ib, jb, b)
       in
-      check a ia name_a;
-      check b ib name_b;
-      let pair = describe ia name_a ^ " and " ^ describe ib name_b in
-      if Float.abs (a.length -. b.length) > epsilon then
-        invalid_arg ("World.make: linked thresholds differ in length: " ^ pair);
-      if Float.abs (a.height -. b.height) > epsilon then
-        invalid_arg ("World.make: linked thresholds differ in height: " ^ pair);
-      let onto = Transform.between ~a1:a.a ~a2:a.b ~b1:b.a ~b2:b.b in
-      fill ia ja name_a { threshold = a; to_room = ib; onto };
-      fill ib jb name_b
-        { threshold = b; to_room = ia; onto = Transform.inverse onto })
+      fill ia ja name_a here;
+      fill ib jb name_b there)
     links;
-  let portals =
-    Array.mapi
-      (fun room ->
-        Array.mapi (fun index -> function
-          | Some portal -> portal
-          | None ->
-              let t = values.(room).Room.thresholds.(index) in
-              invalid_arg
-                ("World.make: nothing links threshold " ^ describe room t.name)))
-      slots
-  in
+  Array.iteri
+    (fun room ->
+      Array.iteri (fun index -> function
+        | Some _ -> ()
+        | None ->
+            let t = values.(room).Room.thresholds.(index) in
+            invalid_arg
+              ("World.make: nothing links threshold " ^ describe room t.name)))
+    slots;
   let spawn_room, spawn_pos = spawn in
   {
     rooms = values;
     names;
-    portals;
+    portals = slots;
+    atmosphere;
     spawn = { room = find_room spawn_room; pos = spawn_pos };
   }
+
+(** {1 Growing a world}
+
+    Three primitives that a generator composes to build a house ahead of the
+    player. Each appends and nothing else, so every index anything is holding
+    stays valid; and each leaves a world that renders and walks, so a generator
+    that stops halfway leaves the player facing a doorway onto black rather than
+    an exception in the middle of a frame. *)
+
+(** Do two thresholds describe the same opening? Not physical equality, because
+    a generator that rebuilds a room from its parts hands back thresholds that
+    are equal without being the same value; and not full structural equality
+    either, because a door may be hung in an opening that is already there. What
+    has to hold is that the {e opening} is unmoved, since that is what a
+    [twin] index and a link's {!Transform} were derived from. *)
+let same_opening (x : Room.threshold) (y : Room.threshold) =
+  String.equal x.Room.name y.Room.name
+  && x.Room.a = y.Room.a
+  && x.Room.b = y.Room.b
+  && x.Room.height = y.Room.height
+
+(** Replace a room already in the world with the same room, one doorway further
+    on. [opened] must be [rooms.(room)] rebuilt with exactly one threshold
+    appended; its walls may be anything, since nothing outside the room refers
+    to them, but its existing thresholds must still describe the same openings
+    in the same order.
+
+    Appended and not inserted: every {!portal}'s [twin] is a bare index into
+    this array, and every one of them would mean a different doorway if anything
+    shifted. The new threshold's portal starts [None], so between this call and
+    the {!link} that fills it the doorway is solid and shows as haze — which is
+    exactly what it is. *)
+let open_doorway t ~room ~opened =
+  let before = t.rooms.(room) in
+  let n = Array.length before.Room.thresholds in
+  let where = t.names.(room) in
+  if Array.length opened.Room.thresholds <> n + 1 then
+    invalid_arg
+      (Printf.sprintf
+         "World.open_doorway: %s must gain exactly one threshold, from %d to %d"
+         where n
+         (Array.length opened.Room.thresholds));
+  Array.iteri
+    (fun i (t : Room.threshold) ->
+      if i < n && not (same_opening t before.Room.thresholds.(i)) then
+        invalid_arg
+          ("World.open_doorway: " ^ where ^ " moved its existing threshold "
+         ^ t.Room.name))
+    opened.Room.thresholds;
+  check_names ~who:"World.open_doorway" ~room where opened;
+  let rooms = Array.copy t.rooms and portals = Array.copy t.portals in
+  rooms.(room) <- opened;
+  portals.(room) <- Array.append t.portals.(room) [| None |];
+  { t with rooms; portals }
+
+(** Append a room, and return the index it landed at. Every doorway it brings
+    with it starts unlinked, which is what makes it possible to add a room at
+    all: it is not yet joined to anything, including whatever is about to join
+    it. *)
+let add_room t ~name room =
+  check_names ~who:"World.add_room" ~room:(Array.length t.rooms) name room;
+  ( {
+      t with
+      rooms = Array.append t.rooms [| room |];
+      names = Array.append t.names [| name |];
+      portals =
+        Array.append t.portals
+          [| Array.make (Array.length room.Room.thresholds) None |];
+    },
+    Array.length t.rooms )
+
+(** Join two doorways that both exist and neither of which leads anywhere yet.
+    The same checks as {!make}'s links, and the same two portals.
+
+    Nothing requires the two rooms to be different, or to be near each other, or
+    for the result to be consistent with any path that already runs between
+    them. A link is derived from the two doorways and from nothing else, so
+    joining a room to one four doorways behind it produces a corridor that
+    returns you somewhere it could not possibly go. There is no global frame for
+    that to contradict. *)
+let link t (room_a, name_a) (room_b, name_b) =
+  let find room name =
+    let thresholds = t.rooms.(room).Room.thresholds in
+    match
+      Array.find_index
+        (fun (x : Room.threshold) -> String.equal x.Room.name name)
+        thresholds
+    with
+    | Some index -> (index, thresholds.(index))
+    | None ->
+        invalid_arg
+          ("World.link: no threshold " ^ t.names.(room) ^ "." ^ name)
+  in
+  let describe room (x : Room.threshold) = t.names.(room) ^ "." ^ x.Room.name in
+  let ja, a = find room_a name_a and jb, b = find room_b name_b in
+  let free room j (x : Room.threshold) =
+    if Option.is_some t.portals.(room).(j) then
+      invalid_arg ("World.link: threshold linked twice: " ^ describe room x)
+  in
+  free room_a ja a;
+  free room_b jb b;
+  if room_a = room_b && ja = jb then
+    invalid_arg
+      ("World.link: a threshold cannot lead to itself: " ^ describe room_a a);
+  let here, there = pair ~who:"World.link" ~describe (room_a, ja, a) (room_b, jb, b) in
+  let portals = Array.copy t.portals in
+  let fill room j portal =
+    let row = Array.copy portals.(room) in
+    row.(j) <- Some portal;
+    portals.(room) <- row
+  in
+  fill room_a ja here;
+  fill room_b jb there;
+  { t with portals }
+
+(** Everything {!make} guarantees, asserted over a world that was grown instead:
+    every room's thresholds uniquely named, every one of them linked, and every
+    portal's [twin] the same doorway seen from the other side. A generator's
+    tests run this; nothing at run time needs to. *)
+let check t =
+  Array.iteri
+    (fun room r -> check_names ~who:"World.check" ~room t.names.(room) r)
+    t.rooms;
+  Array.iteri
+    (fun room row ->
+      Array.iteri
+        (fun index -> function
+          | None ->
+              let x = t.rooms.(room).Room.thresholds.(index) in
+              invalid_arg
+                ("World.check: nothing links threshold " ^ t.names.(room) ^ "."
+               ^ x.Room.name)
+          | Some portal ->
+              let describe = t.names.(room) ^ "." ^ portal.threshold.Room.name in
+              if Array.length t.portals.(portal.to_room) <= portal.twin then
+                invalid_arg ("World.check: twin out of range: " ^ describe);
+              (match t.portals.(portal.to_room).(portal.twin) with
+              | Some back when back.to_room = room && back.twin = index -> ()
+              | _ -> invalid_arg ("World.check: twin does not lead back: " ^ describe));
+              if
+                not
+                  (same_opening portal.threshold
+                     t.rooms.(room).Room.thresholds.(index))
+              then
+                invalid_arg
+                  ("World.check: portal and threshold disagree: " ^ describe))
+        row)
+    t.portals
 
 (** May the player step from [from] to [dest], both in [room]'s frame?
 
@@ -160,24 +360,35 @@ let make ~rooms ~links ~spawn =
     So for every {e open} portal the swept step comes near, the step is carried
     into the neighbour's frame and asked again there. A doorway with a leaf is
     skipped: walking into a door is how you go through it, so it must not
-    collide. *)
+    collide.
+
+    A doorway that leads nowhere yet blocks like the wall it was cut into. There
+    is no room to carry the step into, and the alternative — letting the player
+    walk out through a hole in the boundary into a room that has not been built
+    — is the one failure the whole [option] exists to prevent. *)
 let can_step t ~room:index ~from ~dest =
-  let near (portal : portal) =
-    Room.distance_between_segments from dest portal.threshold.a
-      portal.threshold.b
+  let here = t.rooms.(index) in
+  let near (threshold : Room.threshold) =
+    Room.distance_between_segments from dest threshold.Room.a threshold.Room.b
     < Config.collision_padding
   in
-  Room.can_step t.rooms.(index) ~from ~dest
-  && Array.for_all
-       (fun (portal : portal) ->
-         match portal.threshold.door with
-         | Some _ -> true
-         | None when near portal ->
-             Room.can_step t.rooms.(portal.to_room)
-               ~from:(Transform.point portal.onto from)
-               ~dest:(Transform.point portal.onto dest)
-         | None -> true)
-       t.portals.(index)
+  let clear j (threshold : Room.threshold) =
+    match t.portals.(index).(j) with
+    | None -> not (near threshold)
+    | Some portal -> (
+        match threshold.Room.door with
+        | Some _ -> true
+        | None when near threshold ->
+            Room.can_step t.rooms.(portal.to_room)
+              ~from:(Transform.point portal.onto from)
+              ~dest:(Transform.point portal.onto dest)
+        | None -> true)
+  in
+  let rec every j =
+    j >= Array.length here.Room.thresholds
+    || (clear j here.Room.thresholds.(j) && every (j + 1))
+  in
+  Room.can_step here ~from ~dest && every 0
 
 (** The doorway a step from [from] to [dest] passes through, if it passes
     through one — the portal whose {!Player.through} the caller should then
@@ -186,7 +397,11 @@ let can_step t ~room:index ~from ~dest =
     A step could in principle cross two, so they are ranked by how far along the
     step each is met and the nearest wins. A step running {e along} an opening
     rather than through it has no such point at all; that case is ranked
-    [infinity] so it can never displace a genuine crossing. *)
+    [infinity] so it can never displace a genuine crossing.
+
+    A doorway that leads nowhere yet is not a crossing — there is nowhere to
+    cross to — and {!can_step} has already refused any step that would reach
+    one. *)
 let crossing t ~room:index ~from ~dest =
   let step = Vec.sub dest from in
   let parameter (portal : portal) =
@@ -196,14 +411,16 @@ let crossing t ~room:index ~from ~dest =
     else Vec.cross (Vec.sub portal.threshold.a from) edge /. denom
   in
   Array.fold_left
-    (fun best (portal : portal) ->
-      if Room.segments_cross from dest portal.threshold.a portal.threshold.b
-      then
-        let here = parameter portal in
-        match best with
-        | Some (_, there) when there <= here -> best
-        | _ -> Some (portal, here)
-      else best)
+    (fun best -> function
+      | None -> best
+      | Some (portal : portal) ->
+          if Room.segments_cross from dest portal.threshold.a portal.threshold.b
+          then
+            let here = parameter portal in
+            match best with
+            | Some (_, there) when there <= here -> best
+            | _ -> Some (portal, here)
+          else best)
     None
     t.portals.(index)
   |> Option.map fst
@@ -222,221 +439,8 @@ let seam_gap t ~room:index portal =
   let here = t.rooms.(index) and there = t.rooms.(portal.to_room) in
   let difference p =
     Float.abs
-      (Plane.elevation here.Room.floor p
-      -. Plane.elevation there.Room.floor (Transform.point portal.onto p))
+      (Plane.elevation here.Room.floor.Room.plane p
+      -. Plane.elevation there.Room.floor.Room.plane
+           (Transform.point portal.onto p))
   in
   Float.max (difference portal.threshold.a) (difference portal.threshold.b)
-
-(** A demonstration world of five rooms, built to exercise the whole engine at
-    once — every kind of wall, both kinds of threshold, and both a roof and the
-    open {!Sky}:
-
-    - {b plaza}, open to the sky: a twelve-sided ring of tall walls around the
-      spawn, six pillars of differing heights and textures, a gallery wall hung
-      with a painting and a poster, a steel grille and a leaded window to look
-      through, and sprites standing about. Three doorways lead out of it, cut
-      into three different sides of the ring so none of them is axis aligned —
-      the transforms between the plaza and its neighbours are genuine rotations,
-      not just translations.
-    - {b hall}, roofed: a rectangle with a bench, a corner pillar and a barrel,
-      open to the plaza on one side and shut off from the cellar by a door.
-    - {b nook}, roofed and low: a triangle closed off but for its one doorway.
-    - {b garden}, open to the sky: a winding low wall you look over and a tall
-      monolith, walled round.
-    - {b cellar}, roofed and low: a small room with a figure, reached only
-      through the hall's door.
-
-    Every room's floor is the same gently tilted surface seen from its own
-    frame, derived with {!Plane.through} so that {!seam_gap} is zero at every
-    doorway by construction rather than by arithmetic luck. *)
-let default =
-  (* Doorways are cut with {!Room.doorway}, which splits the wall and returns
-     the jambs alongside the threshold, so an opening and the wall it is cut
-     into can never drift apart. *)
-  let plaza_corner k =
-    let angle = float_of_int k *. Float.pi /. 6. in
-    Vec.make (11. *. cos angle) (11. *. sin angle)
-  in
-  let plaza_side k =
-    Room.wall ~height:7. ~texture:3 (plaza_corner k)
-      (plaza_corner ((k + 1) mod 12))
-  in
-  let plaza_gate name k =
-    Room.doorway ~name ~width:2.4 ~opening:2.6 ~height:7. ~texture:3
-      (plaza_corner k)
-      (plaza_corner ((k + 1) mod 12))
-  in
-  let east_jambs, plaza_east = plaza_gate "east" 0
-  and north_jambs, plaza_north = plaza_gate "north" 3
-  and west_jambs, plaza_west = plaza_gate "west" 6 in
-  let hall_jambs, hall_west =
-    Room.doorway ~name:"west" ~width:2.4 ~opening:2.6 ~height:4.5 ~texture:1
-      (Vec.make 0. 5.) (Vec.make 0. (-5.))
-  and hall_door_jambs, hall_cellar =
-    Room.doorway ~name:"cellar" ~door:7 ~width:1.6 ~opening:2.2 ~height:4.5
-      ~texture:1 (Vec.make 6. (-5.)) (Vec.make 6. 5.)
-  in
-  let nook_jambs, nook_south =
-    Room.doorway ~name:"south" ~width:2.4 ~opening:2.6 ~height:3.2 ~texture:4
-      (Vec.make (-3.) 0.) (Vec.make 3. 0.)
-  in
-  let garden_jambs, garden_east =
-    Room.doorway ~name:"east" ~width:2.4 ~opening:2.6 ~height:7. ~texture:3
-      (Vec.make 0. (-5.)) (Vec.make 0. 5.)
-  in
-  let cellar_jambs, cellar_up =
-    Room.doorway ~name:"up" ~door:7 ~width:1.6 ~opening:2.2 ~height:2.8
-      ~texture:3 (Vec.make 0. 3.) (Vec.make 0. (-3.))
-  in
-  (* The transform of a link, exactly as {!make} will derive it, so a
-     neighbour's floor can be built to meet this one across the doorway. *)
-  let link (a : Room.threshold) (b : Room.threshold) =
-    Transform.between ~a1:a.a ~a2:a.b ~b1:b.a ~b2:b.b
-  in
-  let plaza_floor = Plane.make ~a:0.06 ~b:0.03 ~c:0. in
-  let hall_floor = Plane.through (link plaza_east hall_west) plaza_floor in
-  let nook_floor = Plane.through (link plaza_north nook_south) plaza_floor in
-  let garden_floor = Plane.through (link plaza_west garden_east) plaza_floor in
-  let cellar_floor = Plane.through (link hall_cellar cellar_up) hall_floor in
-  let plaza =
-    let pillars =
-      (* Six square pillars ringed around the spawn, each a different height and
-         texture, so you weave between them and see over the low ones. *)
-      List.concat
-        (List.init 6 (fun k ->
-             let angle = float_of_int k *. Float.pi /. 3. in
-             let center = Vec.make (6. *. cos angle) (6. *. sin angle) in
-             let height = [| 3.5; 0.6; 2.2; 4.5; 1.3; 2.8 |].(k) in
-             Room.regular_polygon ~center ~radius:0.6 ~sides:4 ~rotation:0.6
-               ~height ~texture:(1 + (k mod 4))))
-    and gallery =
-      (* A brick wall hung with a painting and a poster. *)
-      [
-        Room.wall ~height:3.2 ~texture:1 (Vec.make (-3.) (-4.))
-          (Vec.make 3. (-4.))
-          ~decals:
-            [
-              {
-                Room.along = 2.;
-                z = 1.6;
-                half_width = 0.9;
-                half_height = 0.9;
-                image = Image.painting;
-              };
-              {
-                Room.along = 4.;
-                z = 1.6;
-                half_width = 0.7;
-                half_height = 0.9;
-                image = Image.poster;
-              };
-            ];
-      ]
-    and see_through =
-      (* A steel grille and a leaded window, each with something behind it. *)
-      [
-        Room.wall ~height:2. ~texture:5 (Vec.make (-4.) 4.) (Vec.make 1. 4.);
-        Room.wall ~height:2.6 ~texture:6 (Vec.make 3. 3.) (Vec.make 6. 3.);
-      ]
-    in
-    Room.make
-      ~thresholds:[ plaza_east; plaza_north; plaza_west ]
-      ~floor:plaza_floor ~ceiling:None
-      ~sprites:
-        [
-          { Room.pos = Vec.make 2.6 0.7; size = 0.9; image = Image.barrel };
-          { Room.pos = Vec.make 2.6 (-0.8); size = 1.8; image = Image.figure };
-          { Room.pos = Vec.make (-1.5) 5.2; size = 1.8; image = Image.figure };
-          { Room.pos = Vec.make 4.5 4.3; size = 0.9; image = Image.barrel };
-        ]
-      (List.concat
-         [
-           east_jambs;
-           north_jambs;
-           west_jambs;
-           List.map plaza_side [ 1; 2; 4; 5; 7; 8; 9; 10; 11 ];
-           pillars;
-           gallery;
-           see_through;
-         ])
-  and hall =
-    Room.make
-      ~thresholds:[ hall_west; hall_cellar ]
-      ~floor:hall_floor
-      ~ceiling:(Some (Plane.above hall_floor 4.))
-      ~sprites:[ { Room.pos = Vec.make 3. (-2.); size = 0.9; image = Image.barrel } ]
-      (List.concat
-         [
-           hall_jambs;
-           hall_door_jambs;
-           [
-             Room.wall ~height:4.5 ~texture:1 (Vec.make 0. (-5.))
-               (Vec.make 6. (-5.));
-             Room.wall ~height:4.5 ~texture:1 (Vec.make 6. 5.) (Vec.make 0. 5.);
-             (* A low bench you see over. *)
-             Room.wall ~height:0.5 ~texture:2 (Vec.make 3. (-4.))
-               (Vec.make 5. (-4.));
-           ];
-           Room.regular_polygon ~center:(Vec.make 4. 3.) ~radius:0.7 ~sides:4
-             ~rotation:0.3 ~height:4.5 ~texture:4;
-         ])
-  and nook =
-    Room.make ~thresholds:[ nook_south ] ~floor:nook_floor
-      ~ceiling:(Some (Plane.above nook_floor 2.9))
-      (nook_jambs
-      @ Room.path ~height:3.2 ~texture:4
-          [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ])
-  and garden =
-    Room.make ~thresholds:[ garden_east ] ~floor:garden_floor ~ceiling:None
-      (List.concat
-         [
-           garden_jambs;
-           [
-             Room.wall ~height:7. ~texture:3 (Vec.make 0. 5.) (Vec.make (-8.) 5.);
-             Room.wall ~height:7. ~texture:3 (Vec.make (-8.) 5.)
-               (Vec.make (-8.) (-5.));
-             Room.wall ~height:7. ~texture:3 (Vec.make (-8.) (-5.))
-               (Vec.make 0. (-5.));
-             (* A lone tall monolith. *)
-             Room.wall ~height:6. ~texture:1 (Vec.make (-6.) (-3.5))
-               (Vec.make (-4.5) (-4.5));
-           ];
-           (* A winding low wall you look over into the sky beyond. *)
-           Room.path ~height:0.5 ~texture:2
-             [
-               Vec.make (-7.) (-3.);
-               Vec.make (-2.) (-2.);
-               Vec.make (-4.) 1.;
-               Vec.make (-1.) 3.;
-               Vec.make (-6.) 4.;
-             ];
-         ])
-  and cellar =
-    Room.make ~thresholds:[ cellar_up ] ~floor:cellar_floor
-      ~ceiling:(Some (Plane.above cellar_floor 2.5))
-      ~sprites:[ { Room.pos = Vec.make 2.5 0.; size = 1.8; image = Image.figure } ]
-      (cellar_jambs
-      @ [
-          Room.wall ~height:2.8 ~texture:3 (Vec.make 0. (-3.))
-            (Vec.make 5. (-3.));
-          Room.wall ~height:2.8 ~texture:3 (Vec.make 5. (-3.)) (Vec.make 5. 3.);
-          Room.wall ~height:2.8 ~texture:3 (Vec.make 5. 3.) (Vec.make 0. 3.);
-        ])
-  in
-  make
-    ~rooms:
-      [
-        ("plaza", plaza);
-        ("hall", hall);
-        ("nook", nook);
-        ("garden", garden);
-        ("cellar", cellar);
-      ]
-    ~links:
-      [
-        (("plaza", "east"), ("hall", "west"));
-        (("plaza", "north"), ("nook", "south"));
-        (("plaza", "west"), ("garden", "east"));
-        (("hall", "cellar"), ("cellar", "up"));
-      ]
-    ~spawn:("plaza", Vec.make 0. 0.)

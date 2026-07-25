@@ -1,37 +1,39 @@
 open Raycaster
 open Support
 
-let patterns =
-  [
-    ("brick", Texture.brick);
-    ("panel", Texture.panel);
-    ("stone", Texture.stone);
-    ("checker", Texture.checker);
-    ("plain", Texture.plain);
-  ]
+(* Two throwaway patterns: one whose value can be read off by eye, one that
+   exercises the masked generator. The named patterns of any particular game are
+   its own content and are tested where they live. *)
+
+let checker =
+  Texture.generate (fun ~u ~v -> if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
+
+let holes =
+  Texture.generate_masked (fun ~u ~v ->
+      if u mod 16 < 5 || v mod 16 < 5 then (200, 255) else (0, 0))
 
 (* Every texel is uploaded straight into a byte of an ARGB pixel, so anything
-   outside 0..255 would wrap round into a different colour. *)
+   outside 0..255 would wrap round into a different colour. The generators clamp
+   rather than trusting the caller. *)
 let texels_are_bytes () =
-  List.iter
-    (fun (name, pattern) ->
-      let worst = ref 128 in
-      for v = 0 to Texture.size - 1 do
-        for u = 0 to Texture.size - 1 do
-          let texel = Texture.sample pattern ~u ~v in
-          if texel < 0 || texel > 255 then worst := texel
-        done
-      done;
-      Alcotest.(check bool)
-        (Printf.sprintf "%s stays in 0..255 (saw %d)" name !worst)
-        true
-        (!worst >= 0 && !worst <= 255))
-    patterns
+  let wild = Texture.generate (fun ~u ~v -> (u * 40) - (v * 30) - 400) in
+  let worst = ref 128 in
+  for v = 0 to Texture.size - 1 do
+    for u = 0 to Texture.size - 1 do
+      let texel = Texture.sample wild ~u ~v in
+      if texel < 0 || texel > 255 then worst := texel
+    done
+  done;
+  Alcotest.(check bool)
+    (Printf.sprintf "a generator that overshoots is clamped (saw %d)" !worst)
+    true
+    (!worst >= 0 && !worst <= 255);
+  Alcotest.(check int) "the low end lands on black" 0 (Texture.sample wild ~u:0 ~v:63);
+  Alcotest.(check int) "the high end on white" 255 (Texture.sample wild ~u:63 ~v:0)
 
 (* checker is the one pattern whose layout can be read off by eye, so it is
    also the one that pins down which way round sample's u and v go. *)
 let sampling_is_row_major () =
-  let checker = Texture.checker in
   let light = Texture.sample checker ~u:0 ~v:0 in
   Alcotest.(check int)
     "one square across is the other shade"
@@ -43,63 +45,6 @@ let sampling_is_row_major () =
   Alcotest.(check int)
     "two squares diagonally is back to the first shade" light
     (Texture.sample checker ~u:16 ~v:16)
-
-let brick_has_mortar_courses () =
-  (* Rows 0 and 1 of every course are mortar, whatever the column. *)
-  List.iter
-    (fun u ->
-      Alcotest.(check int)
-        (Printf.sprintf "column %d of the course line is mortar" u)
-        130
-        (Texture.sample Texture.brick ~u ~v:0))
-    [ 0; 7; 33; 63 ];
-  Alcotest.(check bool)
-    "the body of a brick is brighter than its mortar" true
-    (Texture.sample Texture.brick ~u:8 ~v:8 > 130)
-
-(* Running bond: the vertical joint at the left of one course must not be
-   there in the next, or the wall looks like a stack of columns. *)
-let brick_courses_stagger () =
-  Alcotest.(check int)
-    "course 0 has a joint at u = 0" 130
-    (Texture.sample Texture.brick ~u:0 ~v:8);
-  Alcotest.(check bool)
-    "course 1 does not" true
-    (Texture.sample Texture.brick ~u:0 ~v:24 > 130);
-  Alcotest.(check int)
-    "its joint has moved half a brick along" 130
-    (Texture.sample Texture.brick ~u:16 ~v:24)
-
-let panel_is_bevelled () =
-  Alcotest.(check bool)
-    "the top left edge catches the light" true
-    (Texture.sample Texture.panel ~u:0 ~v:0
-    > Texture.sample Texture.panel ~u:16 ~v:16);
-  Alcotest.(check bool)
-    "the bottom right edge is in shadow" true
-    (Texture.sample Texture.panel ~u:31 ~v:31
-    < Texture.sample Texture.panel ~u:16 ~v:16)
-
-let plain_is_flat () =
-  let first = Texture.sample Texture.plain ~u:0 ~v:0 in
-  let flat = ref true in
-  for v = 0 to Texture.size - 1 do
-    for u = 0 to Texture.size - 1 do
-      if Texture.sample Texture.plain ~u ~v <> first then flat := false
-    done
-  done;
-  Alcotest.(check bool) "every texel is the same" true !flat
-
-let patterns_are_distinct () =
-  let fingerprint pattern =
-    List.map
-      (fun (u, v) -> Texture.sample pattern ~u ~v)
-      [ (0, 0); (8, 8); (16, 16); (31, 5); (40, 33); (63, 63) ]
-  in
-  let fingerprints = List.map (fun (_, p) -> fingerprint p) patterns in
-  Alcotest.(check int)
-    "no two patterns are the same wall" (List.length patterns)
-    (List.length (List.sort_uniq compare fingerprints))
 
 (* Ray.offset reaches 1.0 exactly when a ray strikes a corner; without the
    clamp that would index one past the last column. *)
@@ -118,27 +63,99 @@ let offsets_map_into_the_texture () =
     "the middle of the face is the middle of the texture" (Texture.size / 2)
     (Texture.column_of_offset 0.5)
 
-(* Solid patterns are flagged opaque; the see-through ones are not, and carry
-   real holes (the grille) or translucency (the glass). *)
-let solid_patterns_are_opaque () =
-  List.iter
-    (fun (name, p) ->
-      Alcotest.(check bool) (name ^ " is opaque") true p.Texture.opaque)
-    [ ("brick", Texture.brick); ("checker", Texture.checker) ]
-
-let see_through_patterns_are_not () =
-  Alcotest.(check bool) "bars is not opaque" false Texture.bars.Texture.opaque;
-  Alcotest.(check bool) "glass is not opaque" false Texture.glass.Texture.opaque;
-  Alcotest.(check int)
-    "a bar texel is solid" 255
-    (Texture.alpha Texture.bars ~u:0 ~v:0);
-  Alcotest.(check int)
-    "a gap between bars is clear" 0
-    (Texture.alpha Texture.bars ~u:10 ~v:10);
+let generate_masked_flags_transparency () =
+  Alcotest.(check bool) "a solid pattern is opaque" true checker.Texture.opaque;
   Alcotest.(check bool)
-    "a glass pane is translucent" true
-    (let a = Texture.alpha Texture.glass ~u:16 ~v:16 in
-     a > 0 && a < 255)
+    "one with holes in it is not" false holes.Texture.opaque;
+  Alcotest.(check int) "a bar texel is solid" 255 (Texture.alpha holes ~u:0 ~v:0);
+  Alcotest.(check int)
+    "a gap is clear" 0
+    (Texture.alpha holes ~u:10 ~v:10);
+  (* Masked and solid have to agree on the flag, or the renderer would route a
+     fully solid masked pattern into the translucent pass for nothing. *)
+  let solid_but_masked = Texture.generate_masked (fun ~u:_ ~v:_ -> (100, 255)) in
+  Alcotest.(check bool)
+    "a masked pattern with no holes is still opaque" true
+    solid_but_masked.Texture.opaque
+
+let noise_stays_in_band () =
+  let low = ref 255 and high = ref 0 in
+  for v = 0 to Texture.size - 1 do
+    for u = 0 to Texture.size - 1 do
+      let n = Texture.noise ~seed:3 ~cell:8 ~u ~v in
+      if n < !low then low := n;
+      if n > !high then high := n
+    done
+  done;
+  Alcotest.(check bool)
+    (Printf.sprintf "every sample is a byte (%d .. %d)" !low !high)
+    true
+    (!low >= 0 && !high <= 255);
+  Alcotest.(check bool)
+    "and the field actually varies" true
+    (!high - !low > 32)
+
+(* The reason noise is in the engine rather than in a caller. A wall's pattern
+   repeats once per world unit, so a field whose lattice did not close on itself
+   would put a hard seam down every wall in the game — one per unit. The value
+   one texel before the wrap has to continue smoothly into the value at zero. *)
+let noise_wraps_without_a_seam () =
+  let n ~u ~v = Texture.noise ~seed:1 ~cell:16 ~u ~v in
+  let last = Texture.size - 1 in
+  let jump a b = abs (a - b) in
+  let worst_u = ref 0 and worst_v = ref 0 in
+  for k = 0 to last do
+    worst_u := Int.max !worst_u (jump (n ~u:last ~v:k) (n ~u:0 ~v:k));
+    worst_v := Int.max !worst_v (jump (n ~u:k ~v:last) (n ~u:k ~v:0))
+  done;
+  (* One texel of a 16-texel cell is a sixteenth of the way between two lattice
+     values, and the smoothstep makes the ends flatter still, so the step across
+     the seam must be no worse than a step anywhere else. *)
+  let interior =
+    let worst = ref 0 in
+    for v = 0 to last do
+      for u = 0 to last - 1 do
+        worst := Int.max !worst (jump (n ~u ~v) (n ~u:(u + 1) ~v))
+      done
+    done;
+    !worst
+  in
+  Alcotest.(check bool)
+    (Printf.sprintf "the u seam (%d) is no worse than the interior (%d)"
+       !worst_u interior)
+    true
+    (!worst_u <= interior);
+  Alcotest.(check bool)
+    (Printf.sprintf "and so is the v seam (%d)" !worst_v)
+    true
+    (!worst_v <= interior)
+
+let noise_seeds_are_independent () =
+  let fingerprint seed =
+    List.map
+      (fun (u, v) -> Texture.noise ~seed ~cell:8 ~u ~v)
+      [ (0, 0); (5, 11); (32, 32); (63, 1) ]
+  in
+  let fingerprints = List.map fingerprint [ 0; 1; 2; 3 ] in
+  Alcotest.(check int)
+    "four seeds give four different fields" 4
+    (List.length (List.sort_uniq compare fingerprints));
+  (* Octaves are summed, so a field that is zero at the origin for every seed
+     would put the same dark spot in the corner of every pattern built from it. *)
+  Alcotest.(check bool)
+    "and none of them is pinned to zero at the origin" true
+    (List.exists (fun f -> List.hd f <> 0) fingerprints)
+
+(* A lattice that did not divide the texture could not wrap, so it is refused
+   rather than quietly producing the seam it exists to avoid. *)
+let noise_refuses_a_lattice_that_cannot_wrap () =
+  List.iter
+    (fun cell ->
+      Alcotest.check_raises
+        (Printf.sprintf "cell = %d" cell)
+        (Invalid_argument "Texture.noise: cell must divide Texture.size")
+        (fun () -> ignore (Texture.noise ~seed:0 ~cell ~u:0 ~v:0)))
+    [ 0; -4; 7; 48 ]
 
 let () =
   Alcotest.run "Texture"
@@ -148,18 +165,15 @@ let () =
           case "texels are bytes" texels_are_bytes;
           case "sampling is row major" sampling_is_row_major;
           case "offsets map into the texture" offsets_map_into_the_texture;
+          case "generate_masked flags transparency"
+            generate_masked_flags_transparency;
         ] );
-      ( "patterns",
+      ( "noise",
         [
-          case "brick has mortar courses" brick_has_mortar_courses;
-          case "brick courses stagger" brick_courses_stagger;
-          case "panel is bevelled" panel_is_bevelled;
-          case "plain is flat" plain_is_flat;
-          case "patterns are distinct" patterns_are_distinct;
-        ] );
-      ( "transparency",
-        [
-          case "solid patterns are opaque" solid_patterns_are_opaque;
-          case "see-through patterns are not" see_through_patterns_are_not;
+          case "stays in band" noise_stays_in_band;
+          case "wraps without a seam" noise_wraps_without_a_seam;
+          case "seeds are independent" noise_seeds_are_independent;
+          case "refuses a lattice that cannot wrap"
+            noise_refuses_a_lattice_that_cannot_wrap;
         ] );
     ]

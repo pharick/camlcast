@@ -1,6 +1,7 @@
 {0 camlcast}
 
-A small first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
+A first-person raycasting engine in OCaml on top of SDL2 ([tsdl]), and a game
+built on it.
 
 It began as a Wolfenstein-style grid raycaster and grew past it. A
 {!Raycaster.World} is a graph of independently-authored {!Raycaster.Room}s, each
@@ -9,13 +10,49 @@ through: an open one is a portal, drawn recursively into the opening, and a
 {!Raycaster.Transform} carries the camera and the ray across. Rooms are built
 from wall {e segments} at any angle, not cells of a grid; the floor is an
 inclined {!Raycaster.Plane} and the ceiling — per room — is an inclined plane or
-open {!Raycaster.Sky}; walls carry their own heights and textures, can be see-through,
-and can be hung with decals; {!Raycaster.Image} sprites stand in the world facing
-the player; and there is mouse look with pitch. Each frame is drawn into a CPU
-pixel buffer: the floor, ceiling and sky are cast per pixel, the opaque walls
-(with their decals) are painted over them, then the sprites, then the see-through
-walls last so the room behind shows through. Surfaces take their patterns from a
-procedural {!Raycaster.Texture}, tinted by the {!Raycaster.Palette}. The buffer is then scaled to the window by the GPU.
+open {!Raycaster.Sky}; walls carry their own heights and {!Raycaster.Material}s,
+can be see-through, and can be hung with decals; {!Raycaster.Image} sprites stand
+in the world facing the player; and there is mouse look with pitch. Each frame is
+drawn into a CPU pixel buffer: the floor, ceiling and sky are cast per pixel, the
+opaque walls (with their decals) are painted over them, then the sprites, then
+the see-through walls last so the room behind shows through. Surfaces take their
+patterns from a procedural {!Raycaster.Texture} and their colour from their
+material, dimmed by the world's {!Raycaster.Atmosphere}. The buffer is then
+scaled to the window by the GPU.
+
+{1 Four libraries}
+
+The engine holds no content: not one colour, pattern, picture or room. What it
+has instead are the types those things are values of, so a game supplies its own
+and two games can share an engine without sharing a look. Each library below
+depends only on the ones above it, and dune enforces that rather than a
+convention.
+
+- {b [camlcast.raycaster]} — the engine. Geometry, ray casting, rendering, SDL.
+- {b [camlcast.assets]} — the House's art: its ashen textures, its materials,
+  its air. Depends on the engine and nothing else, so it cannot start deciding
+  what gets built.
+- {b [camlcast.house]} — the game. Room prototypes, the catalogue, the generator
+  that grows the house as it is explored.
+- {b [camlcast.demo]} — the showcase level and the art it is made of. It stays
+  runnable as [camlcast-demo] because it exercises corners the House
+  deliberately does not: decals, see-through walls, sloped floors, the open sky.
+
+{1 A house that grows}
+
+[camlcast] is a roguelike of endless liminal rooms, after {i House of Leaves}. It
+starts as one corridor with no doorways at all. Every time the player walks from
+one room into another, the generator finishes every room within
+{!Raycaster.Config.max_portal_depth} doorways of them — exactly as deep as the
+renderer looks — so no wall the player can see is one that is about to become a
+door, and beyond that ring the house does not yet exist.
+
+Nothing has to fit. Each room is in its own frame and joined to its neighbours
+only by a {!Raycaster.Transform} derived from one shared doorway, so there is no
+global space for two rooms to collide in and no floor plan to satisfy. That is
+also why the generator can join a doorway to a room already several doorways
+behind it: the resulting corridor returns you somewhere it could not possibly
+reach, and there is no global frame for that to contradict.
 
 {1 Where to start}
 
@@ -25,8 +62,10 @@ that casts the sloped floor and ceiling per pixel. {!Raycaster.Viewport} ties
 them to the screen: the projection, the eye height, the pitch shear, and — since
 the window is resizable and can go fullscreen at any frame — the rules that
 decide what a resize does. {!Raycaster.Renderer} puts it all together.
+{!Raycaster.World} carries both the portal machinery and the three primitives a
+world grows by.
 
-{1 Modules}
+{1 The engine}
 
 Each depends only on the ones above it.
 
@@ -37,23 +76,47 @@ Each depends only on the ones above it.
   geometry needs
 - {!Raycaster.Transform} — rigid motions between room-local coordinate frames
 - {!Raycaster.Plane} — an inclined floor/ceiling plane and its casting equation
-- {!Raycaster.Room} — one room's walls, thresholds, planes, sprites and collision
-- {!Raycaster.World} — named rooms, linked portals and the world's spawn
+- {!Raycaster.Color} — 8-bit RGB, shading and blending
+- {!Raycaster.Texture} — the machinery for procedural greyscale patterns, and the
+  wrapping value noise they are built from
+- {!Raycaster.Material} — what a surface is made of: a colour and a pattern
+- {!Raycaster.Atmosphere} — the air a world is seen through: its fog, its haze,
+  and where its light comes from
+- {!Raycaster.Sky} — the open sky where a room has no roof
+- {!Raycaster.Image} — full-colour images with alpha, for decals and sprites
+- {!Raycaster.Room} — one room's walls, thresholds, surfaces, sprites and
+  collision
+- {!Raycaster.World} — named rooms, linked portals, the world's air and spawn,
+  and how a world grows
 - {!Raycaster.Ray} — ray-versus-segment intersection: every wall the ray
   crosses, farthest first
 - {!Raycaster.Player} — the camera, as position + unit [dir] + unit [right],
   plus the pitch it looks up and down by
 - {!Raycaster.Viewport} — window size to camera geometry; the eye height, the
   pitch shear and the resize rules
-- {!Raycaster.Texture} — procedural greyscale wall and plane patterns
-- {!Raycaster.Color} — 8-bit RGB, shading and blending
-- {!Raycaster.Palette} — the wall colour and pattern tables, the plane textures,
-  fog and orientation shading
-- {!Raycaster.Sky} — the open sky where a level has no ceiling
-- {!Raycaster.Image} — full-colour images with alpha, for decals and sprites
 - {!Raycaster.Input} — SDL keyboard and mouse-look, as engine intent
 - {!Raycaster.Framebuffer} — a CPU pixel buffer and the streaming texture it
   uploads through
 - {!Raycaster.Renderer} — the software renderer: casts the planes, paints the
   walls, per pixel
 - {!Raycaster.Engine} — window lifetime, fullscreen state, and the game loop
+
+{1 The House}
+
+- {!Assets.Ash} — the ashen surfaces: three octaves of wrapping noise and
+  nothing else
+- {!Assets.Surfaces} — the House's materials, and the air that does most of the
+  work
+- {!House.Rng} — splitmix64, so a run is a value rather than an event
+- {!House.Prototype} — a kind of room, with every exit still a solid wall
+- {!House.Catalogue} — the six of them, and the weights that keep the house from
+  running away
+- {!House.Generator} — the house, and how it gets built
+- {!House.Run} — starting a run
+
+{1 The demo}
+
+- {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
+- {!Camlcast_demo.Pictures} — two decals and two sprites
+- {!Camlcast_demo.Surfaces} — the demo's materials, its daylight sky and its air
+- {!Camlcast_demo.Level} — the five-room showcase world

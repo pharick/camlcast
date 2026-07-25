@@ -1,20 +1,80 @@
-# CamlCast — a raycasting engine
+# CamlCast — a raycasting engine, and a house
 
-A small first-person raycasting engine in OCaml on top of SDL2 (`tsdl`). It
-started Wolfenstein-style — an axis-aligned grid with flat floors — and has
-since grown past that: a world contains connected rooms built from walls at any
-angle, each with an inclined floor and its own ceiling or open sky, walls have their
-own heights and textures, and there is mouse look with pitch. The floor, ceiling
-and sky are cast per pixel by a small software renderer; the walls are painted
-over them back to front.
+A first-person raycasting engine in OCaml on top of SDL2 (`tsdl`), and a game
+built on it. The engine started Wolfenstein-style — an axis-aligned grid with
+flat floors — and has since grown past that: a world is a graph of rooms built
+from walls at any angle, each in its own coordinate frame with its own inclined
+floor and its own ceiling or open sky, joined at doorways you both see and walk
+through. The floor, ceiling and sky are cast per pixel by a small software
+renderer; the walls are painted over them back to front.
+
+The game is a roguelike of endless liminal rooms, after *House of Leaves*. It
+begins as one ashen corridor and builds itself as you walk, three doorways ahead
+of what you can see.
 
 ## Running
 
 ```sh
 eval $(opam env --switch=. --set-switch)   # this repo uses a local switch
-dune exec camlcast
+dune exec camlcast                         # the house
+dune exec camlcast-demo                    # the engine's showcase level
 dune test                                  # all suites
 ```
+
+## Four libraries
+
+The engine holds no content — not one colour, pattern, picture or room. What it
+has instead are the types those things are values of, so a game supplies its own
+and two games can share an engine without sharing a look. Each depends only on
+the ones above it, and dune enforces that rather than a convention.
+
+| directory  | library              | what it is                                                              |
+| ---------- | -------------------- | ----------------------------------------------------------------------- |
+| `lib/`     | `camlcast.raycaster` | the engine: geometry, ray casting, rendering, SDL                       |
+| `assets/`  | `camlcast.assets`    | the House's art: its ashen textures, its materials, its air             |
+| `game/`    | `camlcast.house`     | the game: room prototypes, the catalogue, the generator                 |
+| `demo/`    | `camlcast.demo`      | the showcase level and the art it is made of, runnable as `camlcast-demo` |
+
+A wall carries its `Material` — a colour and a greyscale `Texture` — by value,
+the way a decal has always carried its `Image`. That replaced an integer id
+looked up in a global table, which had two faults: it put the whole look of the
+game in one module every level had to share, and an id nobody had defined fell
+through to a default grey instead of failing. A world likewise carries its
+`Atmosphere`: how fast it fades things out, what colour it fades them to, and
+where its light comes from. Those five numbers are most of what tells one place
+from another.
+
+## The house
+
+A run starts as one corridor with no doorways at all. Every time you walk from
+one room into another, the generator finishes every room within
+`Config.max_portal_depth` doorways of you — exactly as deep as the renderer
+looks — so no wall you can see is one that is about to become a door, and beyond
+that ring the house does not yet exist. A doorway three rooms out reads as an
+opening onto black, and resolves into a room as you approach.
+
+Nothing has to fit. Each room is in its own frame and joined to its neighbours
+only by a `Transform` derived from one shared doorway, so there is no global
+space for two rooms to collide in and no floor plan to satisfy. Lay the house
+out on a single sheet of paper and rooms would sit on top of each other
+everywhere; nothing ever does that, so nothing ever notices. That is also why
+the generator can join a doorway back to a room already several doorways behind:
+the resulting corridor returns you somewhere it could not possibly reach, four
+left turns leave you somewhere new, and there is no global frame for that to
+contradict.
+
+Two things keep it going. Every doorway in the house is the same size, because
+`World.link` will only join two thresholds that agree in length and height and a
+loop needs to be able to join two the generator never planned for. And the
+generator counts the walls that could still become doorways: a loop spends two
+and returns none, a dead end spends the one it was entered by, and left to
+chance the count reaches zero within the first few rooms and seals the house
+shut at two. So it refuses to spend the last one, and builds something with a
+way on out of it instead.
+
+The house is seeded, so a run is a value rather than an event — `House.Run.play
+~seed` builds the same rooms in the same order every time, which is the only
+reason any of it can be tested.
 
 ## Controls
 
@@ -56,8 +116,9 @@ must therefore follow the room boundary's winding direction.
 
 An open threshold is a portal: the neighbouring room is rendered recursively,
 clipped exactly to the doorway, and walking through transforms the camera pose
-into its frame. A solid threshold instead shows the wooden door texture, while
-walking into it still crosses the link. Either way the threshold's **lintel**
+into its frame. A solid threshold instead shows the leaf of a door, while
+walking into it still crosses the link — so a closed door is a room you have to
+enter to find out about. Either way the threshold's **lintel**
 fills the strip of wall left standing above the opening — without it you would
 see over the top of a closed door. Portal recursion is depth-capped and ends in
 haze, so cyclic room graphs terminate.
@@ -72,7 +133,13 @@ otherwise you clip through the far side's wall while straddling the opening.
 threshold that fills it, so a boundary and its openings cannot drift apart.
 `World.make` rejects the authoring mistakes that would make a link meaningless:
 unknown names, a threshold linked twice or not at all, and linked thresholds
-that differ in length or height. `Ray.cast` intersects the ray with each wall
+that differ in length or height. A world can also be **grown** rather than
+authored: `open_doorway`, `add_room` and `link` each append and nothing else, so
+every index anything is holding — a player's room, a portal's twin — keeps
+meaning what it meant. Between cutting a doorway and linking it, the doorway
+leads nowhere; the renderer fills it with haze and collision treats it as solid,
+so a half-built world is a playable one rather than a crash waiting for someone
+to walk towards it. `Ray.cast` intersects the ray with each wall
 segment directly (there is no grid to step through) and keeps the ones it
 crosses, while `Ray.openings` does the same for thresholds; `Ray`'s docstring
 carries the cross-product derivation. Movement collides with the segments too,
@@ -83,7 +150,7 @@ refusing any step whose path would cross a wall.
 The floor is an inclined `Plane`, `z = a*x + b*y + c`, so it need not be
 horizontal — the demo world's floor tilts into a shallow wedge. The ceiling is
 an _optional_ inclined plane chosen per room: one room may have a roof while its
-neighbour is open to the **sky** (`Room.ceiling = None`). Drawing all of this
+neighbour is open to the **sky** (`Room.ceiling = Open sky`). Drawing all of this
 needs the surface, and its distance, decided **per pixel**, which is why the
 renderer is software: for each pixel `Plane.view_distance` solves a one-line
 equation for how far away the floor (or ceiling) is along that line of sight.
@@ -118,13 +185,22 @@ over a short one, and both cover the background behind them. Under a roof, a wal
 too tall for the sloped ceiling is capped to it so it never pokes through; under
 open sky it simply rises to its full height with sky above.
 
-Walls are textured. The patterns — brick, bevelled panel, stone, checker — are
-generated in code, so the project stays free of binary assets and every pattern
-is a pure, testable function of its texel coordinates. They are **greyscale**: a
-texel is a brightness, not a colour. The colour arrives at draw time, when the
-renderer tints the sampled texel by the wall's palette colour, dimmed by fog and
-by how squarely the wall faces the light — so one pattern can dress a wall of any
-colour. (There is no floor casting of the wall _tops_, so you see the walls'
+Walls are textured. Every pattern is generated in code, so the project stays free
+of binary assets and every one of them is a pure, testable function of its texel
+coordinates. They are **greyscale**: a texel is a brightness, not a colour. The
+colour arrives at draw time, when the renderer tints the sampled texel by the
+wall's material colour, dimmed by fog and by how squarely the wall faces the
+light — so one pattern can dress a wall of any colour. The demo's are masonry:
+brick, bevelled panel, stone, checker. The House's are the opposite of masonry —
+three octaves of wrapping value noise in a band about forty levels wide, with no
+courses, no joints and no grout lines, because a course would tell you how the
+wall was built and there is no answer to that question there.
+
+The noise lattice wraps at the texture's size, which matters more in the House
+than anywhere: a wall's pattern tiles once per world unit, so a field that did
+not wrap would put a hard seam down every wall in the game, one per cell — and
+with no pattern to hide behind it would be the only thing in the whole place with
+a shape. (There is no floor casting of the wall _tops_, so you see the walls'
 faces, not their flat tops.)
 
 ## Transparency, decals and sprites
@@ -176,14 +252,16 @@ Each module is self-contained and depends only on the ones above it.
 | `Vec`               | immutable 2-D vectors, with the dot and cross products the geometry needs                                                  |
 | `Transform`         | rigid rotations and translations between room-local coordinate frames                                                       |
 | `Plane`             | an inclined floor/ceiling plane, and the per-pixel casting equation                                                        |
-| `Room`              | one independently-authored level: walls, thresholds, floor, ceiling or sky, sprites and collision                         |
-| `World`             | named rooms, linked portals, spawn location, crossing and seam-aware collision                                             |
+| `Room`              | one independently-authored level: walls, thresholds, surfaces, ceiling or sky, sprites and collision                      |
+| `World`             | named rooms, linked portals, the world's air and spawn, and the three primitives a world grows by                          |
 | `Ray`               | ray-versus-segment intersection; every wall the ray crosses, farthest first                                                |
 | `Player`            | camera pose: `pos` + unit `dir` + unit `right` + `pitch`; movement with wall sliding                                       |
 | `Viewport`          | window size → camera geometry, projection, eye height and the pitch shear; the resize rules                                |
-| `Texture`           | procedural greyscale wall and plane patterns, with a per-texel alpha for see-through walls                                 |
-| `Color` / `Palette` | colours, blending, orientation shading, fog, and the wall and plane tables                                                 |
-| `Sky`               | the open sky drawn where there is no ceiling — a directional gradient with a sun                                           |
+| `Color`             | 8-bit RGB, shading and blending                                                                                            |
+| `Texture`           | the machinery for procedural greyscale patterns, and the wrapping value noise they are built from                          |
+| `Material`          | what a surface is made of: a colour and a pattern, and whether you see through it                                          |
+| `Atmosphere`        | the air a world is seen through: its fog, its haze, and where its light comes from                                         |
+| `Sky`               | the open sky drawn where a room has no roof — a directional gradient with a sun                                            |
 | `Image`             | full-colour images with alpha, for wall decals and sprites                                                                 |
 | `Input`             | SDL keyboard and mouse-look → engine intent                                                                                |
 | `Framebuffer`       | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
@@ -201,9 +279,9 @@ dune build @doc
 open _build/default/_doc/_html/index.html
 ```
 
-`doc/index.mld` is the landing page; `lib` is published as
-`camlcast.raycaster`, which is what makes `@doc` pick its modules up (odoc
-skips private libraries).
+`doc/index.mld` is the landing page; each of the four libraries has a public
+name under the `camlcast` package, which is what makes `@doc` pick its modules
+up (odoc skips private libraries).
 
 For a from-scratch walkthrough that rebuilds the whole engine feature by feature
 — with the concepts, the derivations and the code — see
@@ -212,9 +290,10 @@ For a from-scratch walkthrough that rebuilds the whole engine feature by feature
 ## Tests
 
 [Alcotest](https://github.com/mirage/alcotest), one executable per module in
-`test/`. They share `test/support.ml`, which holds a hand-checkable 4x4 square
-room (walls two cells from the centre in every direction) and the custom
-testables — a failing `Vec` check prints `(3, 2.5)` rather than a bare `false`.
+`test/`, covering all four libraries. They share `test/support.ml`, which holds
+a hand-checkable 4x4 square room (walls two cells from the centre in every
+direction) and the custom testables — a failing `Vec` check prints `(3, 2.5)`
+rather than a bare `false`.
 
 ```sh
 dune exec test/test_player.exe -- --verbose   # one suite
@@ -223,8 +302,20 @@ dune exec test/test_ray.exe -- test hits      # one group
 
 `Input`, `Framebuffer` and `Renderer` are not covered directly: they all need a
 live SDL surface. Their pure logic lives in `Plane` (the casting equation),
-`Viewport` (the projection and resize rules) and `Palette` (the shading), which
-are tested on their own.
+`Viewport` (the projection and resize rules), `Material` and `Atmosphere` (the
+shading), which are tested on their own.
+
+The generator is the interesting one, because it has no fixed value to assert
+against. `test_generator.ml` walks two dozen seeded houses the way a player
+would — through a doorway, never straight back out the one it came in by — and
+lets the generator catch up after each step, exactly where the engine would ask
+it to. Then it asserts per seed what must always hold (`World.check` passes,
+every doorway leads somewhere, every floor meets at every threshold to the last
+bit, the frontier never reaches zero) and in aggregate what the generator should
+do on average (how much house it builds per room walked, how many different
+rooms a walk of forty finds). A forty-step walk produces anywhere from ten to a
+hundred rooms, so anything asserted against a single seed is really asserting
+that seed.
 
 ## How the rendering works, in one paragraph
 

@@ -2,7 +2,7 @@ open Raycaster
 open Support
 
 let a_wall_precomputes_its_geometry () =
-  let w = Room.wall ~height:2. ~texture:1 (Vec.make 1. 1.) (Vec.make 4. 5.) in
+  let w = Room.wall ~height:2. ~material:pale (Vec.make 1. 1.) (Vec.make 4. 5.) in
   Alcotest.check vec "edge is b - a" (Vec.make 3. 4.) w.Room.edge;
   Alcotest.check close "length is |edge|" 5. w.Room.length;
   Alcotest.check close "the normal is a unit vector" 1.
@@ -17,21 +17,21 @@ let a_wall_can_wear_decals () =
       z = 1.;
       half_width = 0.5;
       half_height = 0.5;
-      image = Image.poster;
+      image = poster;
     }
   in
   let w =
-    Room.wall ~height:2. ~texture:1 ~decals:[ dec ] (Vec.make 0. 0.)
+    Room.wall ~height:2. ~material:pale ~decals:[ dec ] (Vec.make 0. 0.)
       (Vec.make 2. 0.)
   in
   Alcotest.(check int) "the decal is kept" 1 (List.length w.Room.decals);
   let plain =
-    Room.wall ~height:2. ~texture:1 (Vec.make 0. 0.) (Vec.make 2. 0.)
+    Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 2. 0.)
   in
   Alcotest.(check bool) "a plain wall has none" true (plain.Room.decals = [])
 
 let distance_to_a_wall () =
-  let w = Room.wall ~height:2. ~texture:1 (Vec.make 0. 0.) (Vec.make 4. 0.) in
+  let w = Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) in
   Alcotest.check close "straight out from the middle" 3.
     (Room.distance_to_wall w (Vec.make 2. 3.));
   Alcotest.check close "off the end clamps to the endpoint" 5.
@@ -75,7 +75,7 @@ let collinear_segments_still_cross () =
 let a_step_along_a_wall_is_refused () =
   let level =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
-      [ Room.wall ~height:2. ~texture:1 (Vec.make 1. 0.) (Vec.make 2. 0.) ]
+      [ Room.wall ~height:2. ~material:pale (Vec.make 1. 0.) (Vec.make 2. 0.) ]
   in
   Alcotest.(check bool)
     "a step down the line of a wall does not pass through it" false
@@ -102,7 +102,7 @@ let distance_between_two_segments () =
 let a_step_clipping_a_wall_end_is_refused () =
   let level =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
-      [ Room.wall ~height:2. ~texture:1 (Vec.make 0. 1.) (Vec.make 0. 5.) ]
+      [ Room.wall ~height:2. ~material:pale (Vec.make 0. 1.) (Vec.make 0. 5.) ]
   in
   let brushing_the_end = 1. -. (Config.collision_padding /. 2.) in
   Alcotest.(check bool)
@@ -121,15 +121,15 @@ let path_builds_runs_of_walls () =
   let points = [ Vec.make 0. 0.; Vec.make 1. 0.; Vec.make 1. 1. ] in
   Alcotest.(check int)
     "an open path has one fewer wall than points" 2
-    (List.length (Room.path ~height:1. ~texture:1 points));
+    (List.length (Room.path ~height:1. ~material:pale points));
   Alcotest.(check int)
     "a closed path joins back up" 3
-    (List.length (Room.path ~closed:true ~height:1. ~texture:1 points))
+    (List.length (Room.path ~closed:true ~height:1. ~material:pale points))
 
 let regular_polygon_has_a_wall_per_side () =
   let hexagon =
     Room.regular_polygon ~center:(Vec.make 0. 0.) ~radius:2. ~sides:6
-      ~rotation:0. ~height:3. ~texture:1
+      ~rotation:0. ~height:3. ~material:pale
   in
   Alcotest.(check int) "one wall per side" 6 (List.length hexagon);
   List.iter
@@ -143,7 +143,7 @@ let regular_polygon_has_a_wall_per_side () =
    recording the wall that still stands above the opening. *)
 let a_doorway_splits_the_wall_it_is_cut_into () =
   let jambs, t =
-    Room.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:4. ~texture:3
+    Room.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:4. ~material:dim
       (Vec.make 5. 0.) (Vec.make 5. 10.)
   in
   Alcotest.(check int) "two jambs are left" 2 (List.length jambs);
@@ -160,20 +160,22 @@ let a_doorway_splits_the_wall_it_is_cut_into () =
   | None -> Alcotest.fail "the doorway should carry a lintel"
   | Some l ->
       Alcotest.check close "the lintel is the wall's height" 4. l.Room.top;
-      Alcotest.(check int) "and its texture" 3 l.Room.texture
+      Alcotest.(check bool)
+        "and its material, so the strip above matches the wall" true
+        (l.Room.material == dim)
 
 let a_doorway_can_hang_a_door () =
   let _, open_gap =
-    Room.doorway ~name:"a" ~width:1. ~opening:2. ~height:3. ~texture:1
+    Room.doorway ~name:"a" ~width:1. ~opening:2. ~height:3. ~material:pale
       (Vec.make 0. 0.) (Vec.make 4. 0.)
   and _, shut =
-    Room.doorway ~name:"b" ~door:7 ~width:1. ~opening:2. ~height:3. ~texture:1
+    Room.doorway ~name:"b" ~door:mesh ~width:1. ~opening:2. ~height:3. ~material:pale
       (Vec.make 0. 0.) (Vec.make 4. 0.)
   in
   Alcotest.(check bool) "an open threshold has no leaf" true
     (open_gap.Room.door = None);
-  Alcotest.(check bool) "a door names its texture" true
-    (shut.Room.door = Some 7)
+  Alcotest.(check bool) "a door names its material" true
+    (match shut.Room.door with Some m -> m == mesh | None -> false)
 
 let () =
   Alcotest.run "Room"

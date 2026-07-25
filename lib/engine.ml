@@ -8,13 +8,15 @@ open Result_ext
 type context = {
   renderer : Sdl.renderer;
   window : Sdl.window;
-  world : World.t;
   event : Sdl.event;
   framebuffer : Framebuffer.t ref;
+  grow : World.t -> Player.t -> World.t;
 }
-(** The things a frame needs that never change during one. The window size is
-    deliberately not among them: it can change at any moment, so {!Renderer}
-    asks for it per frame and resizes the framebuffer to match. *)
+(** The things a frame needs that never change during one. Two are deliberately
+    not among them. The window size can change at any moment, so {!Renderer}
+    asks for it per frame and resizes the framebuffer to match. And the world
+    itself can grow — see [grow] on {!run} — so the loop threads it beside the
+    player rather than holding it fixed here. *)
 
 (** Advance the simulation by one frame. Pure: input in, new player out. The
     motion already carries finished per-frame deltas (see {!Input.val-motion}),
@@ -67,7 +69,7 @@ let frame_time ~previous ~now =
     {!frame_time} has the simulation keep pace with it rather than slow down. *)
 let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
 
-let rec loop ctx ~player ~fullscreen ~previous =
+let rec loop ctx ~world ~player ~fullscreen ~previous =
   let request = Input.poll ctx.event in
   if request.Input.quit then Ok ()
   else
@@ -77,22 +79,36 @@ let rec loop ctx ~player ~fullscreen ~previous =
       else Ok fullscreen
     in
     let now = seconds () in
-    let player =
-      step ctx.world player (Input.motion ~dt:(frame_time ~previous ~now))
+    let moved = step world player (Input.motion ~dt:(frame_time ~previous ~now)) in
+    (* Walking through a doorway is the one moment the horizon can have moved,
+       so it is the only moment worth asking the world to grow. Every other
+       frame this is a comparison of two ints. *)
+    let world =
+      if moved.Player.room <> player.Player.room then ctx.grow world moved
+      else world
     in
-    let* () = Renderer.render ctx.renderer ctx.framebuffer ctx.world player in
+    let* () = Renderer.render ctx.renderer ctx.framebuffer world moved in
     let idle = idle_time ~spent:(seconds () -. now) in
     Sdl.delay (Int32.of_float (idle *. 1000.));
     (* Frames are timed start to start, so the sleep above counts towards the
        next one's length rather than falling outside every frame. *)
-    loop ctx ~player ~fullscreen ~previous:now
+    loop ctx ~world ~player:moved ~fullscreen ~previous:now
 
 (** Acquire a resource, use it, and release it even if the body raises. *)
 let with_resource acquire release use =
   let* resource = acquire () in
   Fun.protect ~finally:(fun () -> release resource) (fun () -> use resource)
 
-let run world =
+(** Open a window on [world] and run it until the player quits.
+
+    [grow] is called whenever the player walks from one room into another, with
+    the world and the player's new position, and returns the world to draw from
+    now on. A fixed level needs none; a house that is generated as it is
+    explored uses it to build far enough ahead that the player never sees the
+    edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
+    the renderer looks. It runs on a room change and not per frame, so a
+    generator may take its time. *)
+let run ?(grow = fun world _ -> world) world =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
@@ -124,5 +140,6 @@ let run world =
     ~finally:(fun () -> Framebuffer.destroy !framebuffer)
     (fun () ->
       loop
-        { renderer; window; world; event = Sdl.Event.create (); framebuffer }
-        ~player:(Player.spawn world) ~fullscreen:false ~previous:(seconds ()))
+        { renderer; window; event = Sdl.Event.create (); framebuffer; grow }
+        ~world ~player:(Player.spawn world) ~fullscreen:false
+        ~previous:(seconds ()))

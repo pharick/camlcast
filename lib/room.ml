@@ -1,14 +1,22 @@
-(** A room: a set of wall segments in its own flat coordinate frame, with a floor {!Plane}
-    below them and, optionally, a ceiling {!Plane} above.
+(** A room: a set of wall segments in its own flat coordinate frame, with a
+    floor {!Plane} below them and either a roof or the open {!Sky} above.
 
     A grid raycaster can only place walls on cell edges, so every wall faces
     north, south, east or west. Here a wall is an arbitrary line {e segment}
     instead, so a room may have any number of walls facing any direction — an
-    octagon, a triangle, a wedge. Each wall also carries its own height, a
-    texture id (some see-through, see {!Palette}) and any {!decal}s hung on it;
+    octagon, a triangle, a wedge. Each wall also carries its own height, the
+    {!Material} it is made of (some see-through) and any {!decal}s hung on it;
     the floor is an inclined plane so it need not be horizontal; the ceiling is
-    an {e optional} inclined plane — [None] leaves the level open to the {!Sky};
-    and {!sprite}s stand in the world as billboards facing the player. *)
+    either an inclined plane of its own or the open sky; and {!sprite}s stand in
+    the world as billboards facing the player.
+
+    A room knows nothing of any other room, or of the {!World} it is in. Every
+    coordinate here is its own, and the only thing that ever relates two rooms
+    is a {!World} link between a {!type-threshold} of each. That is what lets
+    rooms be authored — or generated — one at a time, in any order. *)
+
+type surface = { plane : Plane.t; material : Material.t }
+(** A floor or a ceiling: where it is, and what it is made of. *)
 
 type decal = {
   along : float;
@@ -26,8 +34,8 @@ type wall = {
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
   height : float;  (** how far the wall rises above the floor, in cells *)
-  texture : int;  (** selects colour and pattern, see {!Palette} *)
-  decals : decal list;  (** decorations over the texture *)
+  material : Material.t;  (** what it is made of, and whether you see through *)
+  decals : decal list;  (** decorations over the material *)
   edge : Vec.t;  (** [b - a], precomputed for intersection tests *)
   length : float;  (** [|b - a|] *)
   normal : Vec.t;  (** unit vector perpendicular to the wall, for shading *)
@@ -38,19 +46,19 @@ type sprite = { pos : Vec.t; size : float; image : Image.t }
     {!Image} that always faces the player. It stands at [pos] on the floor and
     is [size] cells tall. *)
 
-type lintel = { top : float; texture : int }
+type lintel = { top : float; material : Material.t }
 (** The wall a doorway is cut into, so the renderer can fill the strip left
     above the opening: [top] is how far that wall rises above the floor and
-    [texture] is its id. Without one the opening runs the full height of
-    whatever it is cut into and there is nothing above it to draw. *)
+    [material] is what it is made of. Without one the opening runs the full
+    height of whatever it is cut into and there is nothing above it to draw. *)
 
 type threshold = {
   name : string;  (** what a {!World} link refers to it by *)
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
   height : float;  (** how tall the opening is above the floor *)
-  door : int option;
-      (** [Some texture] hangs a solid leaf across it, [None] leaves it open *)
+  door : Material.t option;
+      (** [Some material] hangs a solid leaf across it, [None] leaves it open *)
   lintel : lintel option;  (** the wall above the opening, if any *)
   edge : Vec.t;  (** [b - a], precomputed exactly as on a {!type-wall} *)
   length : float;  (** [|b - a|] *)
@@ -66,26 +74,30 @@ type threshold = {
     {!Transform.between}'s docstring carries the argument in full.
 
     An open threshold is a portal — the neighbour is drawn through it, and the
-    player walks through. One with a [door] draws as a leaf of that texture
+    player walks through. One with a [door] draws as a leaf of that material
     instead; walking into it still crosses. *)
+
+type ceiling =
+  | Roof of surface  (** an inclined plane overhead, of some material *)
+  | Open of Sky.t  (** nothing overhead, and which {!Sky} shows instead *)
 
 type t = {
   walls : wall array;
   thresholds : threshold array;
-  floor : Plane.t;
-  ceiling : Plane.t option;  (** [None] is open sky, see {!Sky} *)
+  floor : surface;
+  ceiling : ceiling;
   sprites : sprite array;
 }
 
 (** Build a wall between two points, precomputing the quantities the renderer
     and the ray caster would otherwise recompute every frame. *)
-let wall ~height ~texture ?(decals = []) a b =
+let wall ~height ~material ?(decals = []) a b =
   let edge = Vec.sub b a in
   {
     a;
     b;
     height;
-    texture;
+    material;
     decals;
     edge;
     length = Vec.length edge;
@@ -197,13 +209,13 @@ let can_step t ~from ~dest =
 
 (** Walls following a run of points; [closed] joins the last point back to the
     first, turning a polyline into a polygon. *)
-let path ?(closed = false) ~height ~texture points =
+let path ?(closed = false) ~height ~material points =
   let arr = Array.of_list points in
   let n = Array.length arr in
   let last = if closed then n - 1 else n - 2 in
   List.init
     (Int.max 0 (last + 1))
-    (fun i -> wall ~height ~texture arr.(i) arr.((i + 1) mod n))
+    (fun i -> wall ~height ~material arr.(i) arr.((i + 1) mod n))
 
 (** Cut a doorway into the wall that would otherwise run from [a] to [b]: the
     two jambs left either side of a gap [width] wide in the middle, and the
@@ -211,23 +223,23 @@ let path ?(closed = false) ~height ~texture points =
 
     The threshold comes out wound the same way as the wall it replaces, which is
     the winding rule {!Transform.between} depends on, and it takes the wall's
-    own height and texture as its {!type-lintel}, so the strip left above the
+    own height and material as its {!type-lintel}, so the strip left above the
     opening is still drawn. Cutting both sides of a doorway this way is what
     keeps a room's boundary and its thresholds honest about each other. *)
-let doorway ~name ?door ~width ~opening ~height ~texture a b =
+let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
   let half = Vec.scale edge (width /. (2. *. Vec.length edge)) in
   let middle = Vec.scale (Vec.add a b) 0.5 in
   let p = Vec.sub middle half and q = Vec.add middle half in
-  ( [ wall ~height ~texture a p; wall ~height ~texture q b ],
-    threshold ~name ?door ~height:opening ~lintel:{ top = height; texture } p q
+  ( [ wall ~height ~material a p; wall ~height ~material q b ],
+    threshold ~name ?door ~height:opening ~lintel:{ top = height; material } p q
   )
 
 (** A regular polygon of [sides] walls, [radius] from [center], turned by
     [rotation]. A cheap way to draw rooms and pillars whose walls face every
     direction. *)
-let regular_polygon ~center ~radius ~sides ~rotation ~height ~texture =
-  path ~closed:true ~height ~texture
+let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
+  path ~closed:true ~height ~material
     (List.init sides (fun k ->
          let angle =
            rotation +. (float_of_int k *. 2. *. Float.pi /. float_of_int sides)
