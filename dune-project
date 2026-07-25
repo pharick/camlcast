@@ -4,6 +4,15 @@
 
 (generate_opam_files true)
 
+(source
+ (github pharick/camlcast))
+
+(license MIT)
+
+(authors "pharick <artemforkunov@gmail.com>")
+
+(maintainers "pharick <artemforkunov@gmail.com>")
+
 (package
  (name camlcast)
  (synopsis "A raycasting engine in OCaml on SDL2")

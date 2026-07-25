@@ -84,6 +84,38 @@ let a_step_along_a_wall_is_refused () =
     "the same step alongside it is free" true
     (World.can_step level ~from:(Vec.make 0. 0.5) ~dest:(Vec.make 3. 0.5))
 
+(* Two segments that miss each other are as far apart as the nearest of their
+   endpoints is from the other segment. *)
+let distance_between_two_segments () =
+  let d = World.distance_between_segments in
+  Alcotest.check close "parallel segments are their offset apart" 2.
+    (d (Vec.make 0. 0.) (Vec.make 4. 0.) (Vec.make 1. 2.) (Vec.make 3. 2.));
+  Alcotest.check close "past the end it is endpoint to endpoint" 5.
+    (d (Vec.make 0. 0.) (Vec.make 4. 0.) (Vec.make 7. 4.) (Vec.make 9. 6.));
+  Alcotest.check close "crossing segments are no distance apart" 0.
+    (d (Vec.make 0. 0.) (Vec.make 4. 0.) (Vec.make 2. (-1.)) (Vec.make 2. 1.))
+
+(* The step sweeps the player's padding disc along the path, so it also catches
+   what a test at the destination cannot see: a step that slips past the end of
+   a wall close enough to have brushed it, ending clear of every wall on the far
+   side without its centre line ever crossing one. *)
+let a_step_clipping_a_wall_end_is_refused () =
+  let level =
+    World.make ~spawn:(Vec.make 0. 0.) ~floor:flat_floor ~ceiling:flat_ceiling
+      [ World.wall ~height:2. ~texture:1 (Vec.make 0. 1.) (Vec.make 0. 5.) ]
+  in
+  let brushing_the_end = 1. -. (Config.collision_padding /. 2.) in
+  Alcotest.(check bool)
+    "a wide step round the end of a wall clips it" false
+    (World.can_step level
+       ~from:(Vec.make (-2.) brushing_the_end)
+       ~dest:(Vec.make 2. brushing_the_end));
+  Alcotest.(check bool)
+    "the same step given the end a wider berth is free" true
+    (World.can_step level
+       ~from:(Vec.make (-2.) (1. -. (Config.collision_padding *. 2.)))
+       ~dest:(Vec.make 2. (1. -. (Config.collision_padding *. 2.))))
+
 (* path and regular_polygon build the walls of the levels. *)
 let path_builds_runs_of_walls () =
   let points = [ Vec.make 0. 0.; Vec.make 1. 0.; Vec.make 1. 1. ] in
@@ -159,6 +191,9 @@ let () =
           case "blocked within the padding" blocked_within_the_padding;
           case "collinear segments still cross" collinear_segments_still_cross;
           case "a step along a wall is refused" a_step_along_a_wall_is_refused;
+          case "distance between two segments" distance_between_two_segments;
+          case "a step clipping a wall end is refused"
+            a_step_clipping_a_wall_end_is_refused;
         ] );
       ( "building",
         [

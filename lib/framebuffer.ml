@@ -7,12 +7,25 @@
     naturally: the renderer writes every pixel by hand, then the whole buffer is
     handed to the GPU in one upload and scaled up to fill the window.
 
-    The buffer is 8-bit BGRA, which is the byte order an [ARGB8888] texture
-    wants on a little-endian machine, and it is written a channel at a time so
-    nothing is boxed in the inner loop. *)
+    The buffer is 8-bit BGRA, written a channel at a time so nothing is boxed in
+    the inner loop, and the texture format is picked to match that byte order —
+    see {!pixel_format}. *)
 
 open Tsdl
 open Result_ext
+
+(** The texture format whose bytes fall in the order {!set} writes them: blue,
+    green, red, alpha.
+
+    SDL names a packed format by its channels from the most significant byte
+    down, so which byte each lands in depends on the machine. [ARGB8888] puts
+    blue in the lowest bits, and so first in memory, on a little-endian machine;
+    [BGRA8888] does the same on a big-endian one. Naming the format the byte
+    order asks for costs nothing here and saves the whole renderer from caring.
+*)
+let pixel_format =
+  if Sys.big_endian then Sdl.Pixel.format_bgra8888
+  else Sdl.Pixel.format_argb8888
 
 type t = {
   texture : Sdl.texture;
@@ -27,8 +40,8 @@ type t = {
 
 let create sdl ~width ~height =
   let+ texture =
-    Sdl.create_texture sdl Sdl.Pixel.format_argb8888
-      Sdl.Texture.access_streaming ~w:width ~h:height
+    Sdl.create_texture sdl pixel_format Sdl.Texture.access_streaming ~w:width
+      ~h:height
   in
   {
     texture;

@@ -18,11 +18,13 @@ let fov = Float.pi /. 3.
     window shows more of the world rather than a stretched version of it. *)
 let reference_aspect = 4. /. 3.
 
-(** Movement is expressed in map cells per frame, rotation in radians per frame.
-    At ~60 FPS this is roughly 3.6 cells and 2 radians per second. *)
-let move_speed = 0.06
+(** Movement is expressed in map cells per second, rotation in radians per
+    second. {!Input} scales both by the length of the frame, so how fast the
+    player walks is a property of the world and not of how long a frame took to
+    render. *)
+let move_speed = 3.6
 
-let rot_speed = 0.035
+let rot_speed = 2.1
 
 (** The player is a point, not a circle, so we probe for walls slightly ahead of
     the point we want to move to. Without this you can press your nose flat
@@ -49,9 +51,9 @@ let look_sensitivity = 0.0025
 
 let pitch_sensitivity = 0.0025
 
-(** Keyboard look speed, for the arrow keys: radians (yaw) and window-height
-    fractions (pitch) per frame. *)
-let pitch_speed = 0.02
+(** Keyboard look speed, for the arrow keys: radians (yaw, see {!rot_speed}) and
+    window-height fractions (pitch) per second. *)
+let pitch_speed = 1.2
 
 (** How far the view may tip up or down, as the fraction of the window height
     the horizon is allowed to slide from the middle. The pitch is faked by
@@ -65,5 +67,13 @@ let max_pitch = 0.75
     GPU, which keeps the frame rate steady no matter how large the window is. *)
 let max_render_height = 480
 
-(** Milliseconds slept at the end of each frame (~60 FPS). *)
-let frame_delay = 16l
+(** Seconds a frame is allowed to take (~60 FPS). {!Engine} sleeps off whatever
+    is left of this after rendering, so a cheap frame does not spin the CPU; a
+    frame that overruns it is simply late and sleeps not at all. *)
+let frame_budget = 1. /. 60.
+
+(** The longest frame the simulation will believe. A frame that took longer —
+    the window was dragged, the machine stalled, the program was suspended — is
+    treated as this long, so the player stutters instead of taking one enormous
+    step across the level. *)
+let max_frame_time = 0.1

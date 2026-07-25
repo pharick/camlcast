@@ -100,7 +100,7 @@ let window_title = "Raycaster"
 let initial_width = 1024 and initial_height = 768
 let fov = Float.pi /. 3.          (* 60°, the classic Wolfenstein value *)
 let reference_aspect = 4. /. 3.   (* the shape fov is quoted for *)
-let frame_delay = 16l             (* ms per frame ≈ 60 FPS *)
+let frame_budget = 1. /. 60.      (* seconds a frame may take ≈ 60 FPS *)
 ```
 
 ### Step 0.4 — A window and a game loop
@@ -128,7 +128,8 @@ let rec loop window event =
     | _ -> ()
   done;
   if !quit then Ok ()
-  else (Sdl.delay Config.frame_delay; loop window event)
+  (* A flat sleep will do until Phase 7, which measures the frame instead. *)
+  else (Sdl.delay 16l; loop window event)
 
 let run () =
   with_resource (fun () -> Sdl.init Sdl.Init.(video + events)) (fun () -> Sdl.quit ())
@@ -382,15 +383,20 @@ type t = {
   width : int; height : int;
 }
 
+(* We write the bytes as B, G, R, A. SDL names a packed format from the most
+   significant byte down, so that order is what ARGB8888 means on a
+   little-endian machine and what BGRA8888 means on a big-endian one. *)
+let pixel_format =
+  if Sys.big_endian then Sdl.Pixel.format_bgra8888 else Sdl.Pixel.format_argb8888
+
 let create sdl ~width ~height =
-  let+ texture = Sdl.create_texture sdl Sdl.Pixel.format_argb8888
+  let+ texture = Sdl.create_texture sdl pixel_format
                    Sdl.Texture.access_streaming ~w:width ~h:height in
   { texture;
     pixels = Bigarray.(Array1.create int8_unsigned c_layout (width * height * 4));
     depth = Array.make (width * height) infinity; width; height }
 
-(* ARGB8888 on a little-endian machine is BGRA in memory. Writing per channel
-   avoids boxing an int32 in the hot loop. *)
+(* Writing per channel avoids boxing an int32 in the hot loop. *)
 let set t ~x ~y ~r ~g ~b =
   let i = ((y * t.width) + x) * 4 and p = t.pixels in
   Bigarray.Array1.unsafe_set p i b;
@@ -453,18 +459,23 @@ the loop out in Phase 7; for now a fixed-size framebuffer created once is fine.)
 Move along `dir` (forward) and `right` (strafe), resolving each axis
 independently so hitting a wall at an angle keeps the free component — you slide
 along instead of sticking. Collision treats the player as a small disc of radius
-`Config.collision_padding` and, crucially, refuses any step whose **path**
-crosses a wall (so a fast step can't tunnel through a thin wall). In `World`:
+`Config.collision_padding` and, crucially, tests the **whole path** and not just
+its endpoint: the step sweeps that disc from `from` to `dest`, so a fast step can
+neither tunnel through a thin wall nor clip past the end of one. That is one
+question — how close do the segments `from..dest` and `a..b` come? In `World`:
 
 ```ocaml
-let distance_to_wall (w : wall) (p : Vec.t) =
-  if w.length = 0. then Vec.length (Vec.sub p w.a)
+let distance_to_segment (p : Vec.t) ~a ~b =
+  let edge = Vec.sub b a in
+  let length2 = Vec.dot edge edge in
+  if length2 = 0. then Vec.length (Vec.sub p a)
   else
-    let s = Vec.dot (Vec.sub p w.a) w.edge /. (w.length *. w.length) in
-    let s = Float.max 0. (Float.min 1. s) in
-    Vec.length (Vec.sub p (Vec.add w.a (Vec.scale w.edge s)))
+    let s = Float.max 0. (Float.min 1. (Vec.dot (Vec.sub p a) edge /. length2)) in
+    Vec.length (Vec.sub p (Vec.add a (Vec.scale edge s)))
 
-let blocked t p =
+let distance_to_wall (w : wall) p = distance_to_segment p ~a:w.a ~b:w.b
+
+let blocked t p =                      (* is standing at p legal at all? *)
   Array.exists (fun w -> distance_to_wall w p < Config.collision_padding) t.walls
 
 let segments_cross a1 a2 b1 b2 =       (* same cross-product test as Ray *)
@@ -475,9 +486,20 @@ let segments_cross a1 a2 b1 b2 =       (* same cross-product test as Ray *)
     let t = Vec.cross off d2 /. denom and u = Vec.cross off d1 /. denom in
     t >= 0. && t <= 1. && u >= 0. && u <= 1.
 
+(* Segments that cross are zero apart; two that miss are closest at an endpoint
+   of one of them, so four point-to-segment distances settle it. *)
+let distance_between_segments a1 a2 b1 b2 =
+  if segments_cross a1 a2 b1 b2 then 0.
+  else
+    let to_b p = distance_to_segment p ~a:b1 ~b:b2
+    and to_a p = distance_to_segment p ~a:a1 ~b:a2 in
+    Float.min (Float.min (to_b a1) (to_b a2)) (Float.min (to_a b1) (to_a b2))
+
 let can_step t ~from ~dest =
-  (not (blocked t dest))
-  && not (Array.exists (fun w -> segments_cross from dest w.a w.b) t.walls)
+  not (Array.exists
+         (fun w -> distance_between_segments from dest w.a w.b
+                   < Config.collision_padding)
+         t.walls)
 ```
 
 In `Player`:
@@ -754,7 +776,11 @@ let pitch_by p ~delta =
 ```
 
 Input (`lib/input.ml`) reads held keys as a snapshot and blends in **relative
-mouse** motion. Each field comes out as a finished per-frame delta:
+mouse** motion. Each field comes out as a finished per-frame delta. Held keys ask
+for a *speed* — `Config.move_speed` is cells per second, `rot_speed` radians per
+second — which `dt`, the length of the frame, turns into the distance covered
+this frame; that is what keeps walking speed independent of the frame rate. Mouse
+deltas are already everything since the last frame, so they are not scaled:
 
 ```ocaml
 let mouse_delta () = let _, (dx, dy) = Sdl.get_relative_mouse_state () in
@@ -762,18 +788,19 @@ let mouse_delta () = let _, (dx, dy) = Sdl.get_relative_mouse_state () in
 
 type motion = { forward : float; strafe : float; turn : float; pitch : float }
 
-let motion () =
+let motion ~dt =
   let keys = Sdl.get_keyboard_state () in
   let down sc = Bigarray.Array1.get keys sc = 1 in
-  let axis ~pos ~neg = (if List.exists down pos then 1. else 0.)
-                    -. (if List.exists down neg then 1. else 0.) in
+  let axis ~speed ~pos ~neg =
+    ((if List.exists down pos then 1. else 0.)
+     -. (if List.exists down neg then 1. else 0.)) *. speed *. dt in
   let mdx, mdy = mouse_delta () in
-  { forward = axis ~pos:Sdl.Scancode.[w] ~neg:Sdl.Scancode.[s] *. Config.move_speed;
-    strafe  = axis ~pos:Sdl.Scancode.[d] ~neg:Sdl.Scancode.[a] *. Config.move_speed;
-    turn = (axis ~pos:Sdl.Scancode.[right] ~neg:Sdl.Scancode.[left] *. Config.rot_speed)
+  { forward = axis ~speed:Config.move_speed ~pos:Sdl.Scancode.[w] ~neg:Sdl.Scancode.[s];
+    strafe  = axis ~speed:Config.move_speed ~pos:Sdl.Scancode.[d] ~neg:Sdl.Scancode.[a];
+    turn = axis ~speed:Config.rot_speed ~pos:Sdl.Scancode.[right] ~neg:Sdl.Scancode.[left]
            +. (mdx *. Config.look_sensitivity);
     (* mouse up is negative dy but should look up, hence the minus *)
-    pitch = (axis ~pos:Sdl.Scancode.[up] ~neg:Sdl.Scancode.[down] *. Config.pitch_speed)
+    pitch = axis ~speed:Config.pitch_speed ~pos:Sdl.Scancode.[up] ~neg:Sdl.Scancode.[down]
             -. (mdy *. Config.pitch_sensitivity) }
 ```
 
@@ -951,20 +978,37 @@ per-pixel depth), then **one combined translucent pass** of sprites and windows.
 
 Nest `with_resource` so SDL init, the window, the renderer, relative mouse mode
 and the framebuffer are all released in reverse order even on error. The loop
-carries the immutable `player` and the `fullscreen` flag between frames:
+carries the immutable `player`, the `fullscreen` flag and the time the previous
+frame started between frames. Pace the loop by measuring, not by assuming: sleep
+only what is *left* of `Config.frame_budget`, and feed the real frame length to
+`Input.motion` as `dt`. Sleep a flat 16 ms after a 10 ms frame and you get 38 FPS
+and a player who walks two thirds as fast as intended:
 
 ```ocaml
-let rec loop ctx ~player ~fullscreen =
+let seconds () =                       (* SDL's high resolution counter *)
+  Int64.to_float (Sdl.get_performance_counter ())
+  /. Int64.to_float (Sdl.get_performance_frequency ())
+
+(* Cap a frame that the machine, not the world, made long — a dragged window, a
+   stall — or one step could leap the player clean over a wall. *)
+let frame_time ~previous ~now =
+  Float.min Config.max_frame_time (Float.max 0. (now -. previous))
+
+let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
+
+let rec loop ctx ~player ~fullscreen ~previous =
   let request = Input.poll ctx.event in                 (* drains the event queue *)
   if request.Input.quit then Ok ()
   else
     let* fullscreen =
       if request.toggle_fullscreen then set_fullscreen ctx.window (not fullscreen)
       else Ok fullscreen in
-    let player = step ctx.world player (Input.motion ()) in
+    let now = seconds () in
+    let player = step ctx.world player (Input.motion ~dt:(frame_time ~previous ~now)) in
     let* () = Renderer.render ctx.renderer ctx.framebuffer ctx.world player in
-    Sdl.delay Config.frame_delay;
-    loop ctx ~player ~fullscreen
+    Sdl.delay (Int32.of_float (idle_time ~spent:(seconds () -. now) *. 1000.));
+    (* Timed start to start, so the sleep counts towards the next frame. *)
+    loop ctx ~player ~fullscreen ~previous:now
 ```
 
 `Renderer.render` reads the output size, resizes the framebuffer to the internal
@@ -1029,11 +1073,11 @@ Engine       (window lifetime, fullscreen, the loop)
 
 ### Constants worth exposing (`Config`)
 
-`fov`, `reference_aspect`, `eye_height` (0.5), `move_speed` (~0.06),
-`rot_speed` (~0.035), `collision_padding` (~0.15), `fog_distance` (~12),
+`fov`, `reference_aspect`, `eye_height` (0.5), `move_speed` (~3.6 cells/s),
+`rot_speed` (~2.1 rad/s), `collision_padding` (~0.15), `fog_distance` (~12),
 `min_brightness` (~0.25), `look_sensitivity`/`pitch_sensitivity` (~0.0025),
-`pitch_speed`, `max_pitch` (~0.75), `max_render_height` (~480), `frame_delay`
-(16 ms).
+`pitch_speed` (~1.2/s), `max_pitch` (~0.75), `max_render_height` (~480),
+`frame_budget` (1/60 s), `max_frame_time` (~0.1 s).
 
 ### Hard-won gotchas
 
@@ -1044,8 +1088,10 @@ Engine       (window lifetime, fullscreen, the loop)
 - **Opaque surfaces:** set the alpha byte to 255 or your captures come out blank.
 - **`World.cell` uses `floor`, not `int_of_float`** if you ever add a grid —
   truncation folds cells −1 and 0 together. (We use segments and sidestep this.)
-- **Collision must test the *path*, not just the endpoint**, or a fast step
-  tunnels through a thin wall.
+- **Collision must sweep the *path*, not just test the endpoint**, or a fast step
+  tunnels through a thin wall — or slips past the end of one and lands clear.
+- **Never scale motion per frame and then sleep a fixed 16 ms.** The sleep is
+  *on top of* the render, so speed follows the frame rate. Measure the frame.
 - **`horizon` is a float**; only convert to an int pixel at the last moment.
 - **Sprites vs transparent walls need one depth-sorted pass**, and occlusion must
   be **per pixel**, or short walls cull whole sprites behind them.

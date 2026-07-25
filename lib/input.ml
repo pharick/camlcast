@@ -19,35 +19,46 @@ let mouse_delta () =
   let _buttons, (dx, dy) = Sdl.get_relative_mouse_state () in
   (float_of_int dx, float_of_int dy)
 
-(** What the user is asking for this frame. Movement is read from the keyboard
-    as a state snapshot — holding a key should move continuously, and events
-    would only report the moment it was pressed — while looking around blends
-    the mouse motion in with the arrow keys. Each field comes out as a finished
-    per-frame delta, already scaled by its {!Config} speed, so {!Engine} can
-    apply it straight to the {!Player}. *)
-let motion () =
+(** What the user is asking for over a frame of [dt] seconds. Movement is read
+    from the keyboard as a state snapshot — holding a key should move
+    continuously, and events would only report the moment it was pressed — while
+    looking around blends the mouse motion in with the arrow keys. Each field
+    comes out as a finished per-frame delta, so {!Engine} can apply it straight
+    to the {!Player}.
+
+    Held keys ask for a speed, in cells or radians per second (see {!Config}),
+    and are scaled by [dt] into the distance that speed covers over this frame:
+    the player walks at the same pace whether the machine renders 30 frames a
+    second or 300. The mouse needs no such scaling — its deltas are already
+    everything that has happened since the last frame. *)
+let motion ~dt =
   let keys = Sdl.get_keyboard_state () in
   let down scancode = Bigarray.Array1.get keys scancode = 1 in
-  let axis ~positive ~negative =
+  (* An axis comes out as the distance its speed covers over the frame. *)
+  let axis ~speed ~positive ~negative =
     let held scancodes = if List.exists down scancodes then 1. else 0. in
-    held positive -. held negative
+    (held positive -. held negative) *. speed *. dt
   in
   let mouse_dx, mouse_dy = mouse_delta () in
   {
     forward =
-      axis ~positive:Sdl.Scancode.[ w ] ~negative:Sdl.Scancode.[ s ]
-      *. Config.move_speed;
+      axis ~speed:Config.move_speed
+        ~positive:Sdl.Scancode.[ w ]
+        ~negative:Sdl.Scancode.[ s ];
     strafe =
-      axis ~positive:Sdl.Scancode.[ d ] ~negative:Sdl.Scancode.[ a ]
-      *. Config.move_speed;
+      axis ~speed:Config.move_speed
+        ~positive:Sdl.Scancode.[ d ]
+        ~negative:Sdl.Scancode.[ a ];
     turn =
-      axis ~positive:Sdl.Scancode.[ right ] ~negative:Sdl.Scancode.[ left ]
-      *. Config.rot_speed
+      axis ~speed:Config.rot_speed
+        ~positive:Sdl.Scancode.[ right ]
+        ~negative:Sdl.Scancode.[ left ]
       +. (mouse_dx *. Config.look_sensitivity);
     (* Mouse up is a negative delta but should look up, hence the subtraction. *)
     pitch =
-      axis ~positive:Sdl.Scancode.[ up ] ~negative:Sdl.Scancode.[ down ]
-      *. Config.pitch_speed
+      axis ~speed:Config.pitch_speed
+        ~positive:Sdl.Scancode.[ up ]
+        ~negative:Sdl.Scancode.[ down ]
       -. (mouse_dy *. Config.pitch_sensitivity);
   }
 

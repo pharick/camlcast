@@ -53,9 +53,10 @@ let pitch_by player ~delta =
 
 (** Move by [delta] cells, resolving the two axes independently so that walking
     into a wall at an angle keeps the component that is still free — you slide
-    along the wall instead of sticking to it. {!World.blocked} already keeps the
-    player a {!Config.collision_padding} disc away from every wall, so it is
-    enough to refuse a step that would land inside that disc. *)
+    along the wall instead of sticking to it. {!World.can_step} sweeps the
+    player's {!Config.collision_padding} disc along each of the two steps, so it
+    is enough here to take the ones it allows and leave the axis where it was
+    otherwise. *)
 let slide world player (delta : Vec.t) =
   let open Vec in
   let step from moved =

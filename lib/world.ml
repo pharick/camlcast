@@ -70,15 +70,21 @@ let make ~spawn ~floor ~ceiling ?(sprites = []) walls =
     sprites = Array.of_list sprites;
   }
 
-(** Shortest distance from a point to a wall segment: project the point onto the
-    line, clamp to the segment's ends, and measure to that nearest point. *)
-let distance_to_wall (w : wall) (p : Vec.t) =
-  if w.length = 0. then Vec.length (Vec.sub p w.a)
+(** Shortest distance from a point to the segment [a..b]: project the point onto
+    the line, clamp to the segment's ends, and measure to that nearest point. *)
+let distance_to_segment (p : Vec.t) ~a ~b =
+  let edge = Vec.sub b a in
+  let length2 = Vec.dot edge edge in
+  if length2 = 0. then Vec.length (Vec.sub p a)
   else
-    let s = Vec.dot (Vec.sub p w.a) w.edge /. (w.length *. w.length) in
-    let s = Float.max 0. (Float.min 1. s) in
-    let foot = Vec.add w.a (Vec.scale w.edge s) in
+    let s =
+      Float.max 0. (Float.min 1. (Vec.dot (Vec.sub p a) edge /. length2))
+    in
+    let foot = Vec.add a (Vec.scale edge s) in
     Vec.length (Vec.sub p foot)
+
+let distance_to_wall (w : wall) (p : Vec.t) =
+  distance_to_segment p ~a:w.a ~b:w.b
 
 (** Is [p] too close to any wall to stand there? The player is treated as a
     small disc of radius {!Config.collision_padding}, so it stops a little short
@@ -114,13 +120,33 @@ let segments_cross a1 a2 b1 b2 =
     let t = Vec.cross off d2 /. denom and u = Vec.cross off d1 /. denom in
     t >= 0. && t <= 1. && u >= 0. && u <= 1.
 
-(** May the player step from [from] to [dest]? Refused if the destination is too
-    close to a wall, or if the path crosses one outright — the latter matters
-    because a single step can be longer than the padding and would otherwise
-    tunnel straight through a thin wall. *)
+(** Shortest distance between the segments [a1..a2] and [b1..b2]. Segments that
+    cross are no distance apart at all; for two that miss, the closest pair of
+    points must include an endpoint of one of them — slide along either segment
+    away from an interior closest point and the distance would keep falling — so
+    the four endpoint-to-segment distances cover every remaining case. *)
+let distance_between_segments a1 a2 b1 b2 =
+  if segments_cross a1 a2 b1 b2 then 0.
+  else
+    let to_b p = distance_to_segment p ~a:b1 ~b:b2
+    and to_a p = distance_to_segment p ~a:a1 ~b:a2 in
+    Float.min (Float.min (to_b a1) (to_b a2)) (Float.min (to_a b1) (to_a b2))
+
+(** May the player step from [from] to [dest]? The player is a disc of radius
+    {!Config.collision_padding}, so the step sweeps that disc along the segment
+    [from..dest] and is refused when the swept shape touches a wall — that is,
+    when the step comes within the padding of a wall {e anywhere along the way}.
+
+    Testing the whole path and not just the destination is what makes a step
+    longer than the padding safe: it can neither tunnel through a thin wall nor
+    clip past the end of one, both of which land clear of every wall and would
+    pass a test taken at the destination alone. *)
 let can_step t ~from ~dest =
-  (not (blocked t dest))
-  && not (Array.exists (fun w -> segments_cross from dest w.a w.b) t.walls)
+  not
+    (Array.exists
+       (fun w ->
+         distance_between_segments from dest w.a w.b < Config.collision_padding)
+       t.walls)
 
 (** Walls following a run of points; [closed] joins the last point back to the
     first, turning a polyline into a polygon. *)

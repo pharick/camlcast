@@ -1,5 +1,6 @@
-(** [Engine.step] is the pure part of the loop: input in, new player out. The
-    rest of the module owns the window and cannot run headless. *)
+(** [Engine.step] is the pure part of the loop: input in, new player out, plus
+    the arithmetic it paces itself by. The rest of the module owns the window
+    and cannot run headless. *)
 
 open Raycaster
 open Support
@@ -13,21 +14,20 @@ let standing_still () =
   Alcotest.check vec "position is unchanged" centre after.Player.pos;
   Alcotest.check close "facing is unchanged" 0. (heading after)
 
-(* Input hands step a finished per-frame delta, so step applies the motion as
-   given rather than scaling it again. *)
+(* Input hands step a finished per-frame delta — the speeds in Config are per
+   second and it has already scaled them by the length of the frame — so step
+   applies the motion as given rather than scaling it again. *)
 let motion_is_applied_as_given () =
-  Alcotest.check close "forward moves by that many cells"
-    (centre.x +. Config.move_speed)
-    (step { Input.still with forward = Config.move_speed }).Player.pos.x;
-  Alcotest.check close "and half as far for half the delta"
-    (centre.x +. (Config.move_speed /. 2.))
-    (step { Input.still with forward = Config.move_speed /. 2. }).Player.pos.x
+  Alcotest.check close "forward moves by that many cells" (centre.x +. 0.5)
+    (step { Input.still with forward = 0.5 }).Player.pos.x;
+  Alcotest.check close "and half as far for half the delta" (centre.x +. 0.25)
+    (step { Input.still with forward = 0.25 }).Player.pos.x
 
 let turning_is_applied_as_given () =
-  Alcotest.check close "turn is the rotation, straight through" Config.rot_speed
-    (heading (step { Input.still with turn = Config.rot_speed }));
-  Alcotest.check close "the other way round" (-.Config.rot_speed)
-    (heading (step { Input.still with turn = -.Config.rot_speed }))
+  Alcotest.check close "turn is the rotation, straight through" 0.4
+    (heading (step { Input.still with turn = 0.4 }));
+  Alcotest.check close "the other way round" (-0.4)
+    (heading (step { Input.still with turn = -0.4 }))
 
 (* Pitch is carried on the player and clamped, so it cannot tip past the limit
    however hard the mouse is thrown. *)
@@ -64,9 +64,39 @@ let collisions_still_apply () =
     "the loop cannot walk through a wall" false
     (World.blocked room far_side.Player.pos)
 
+(* The frame the simulation is advanced by is the real one, so that speed does
+   not depend on how long rendering took — but only up to a limit, past which a
+   stalled program would otherwise move the player an enormous distance in one
+   step. *)
+let a_frame_lasts_as_long_as_it_took () =
+  Alcotest.check close "an ordinary frame is measured as it happened" 0.02
+    (Engine.frame_time ~previous:1.5 ~now:1.52);
+  Alcotest.check close "a very long one is capped" Config.max_frame_time
+    (Engine.frame_time ~previous:1.5 ~now:12.);
+  Alcotest.check close "and a clock that went backwards moves nothing" 0.
+    (Engine.frame_time ~previous:1.5 ~now:1.4)
+
+(* Whatever is left of the budget is slept off, so a cheap frame does not spin
+   the CPU; an expensive one is late already and waits no longer. *)
+let a_short_frame_sleeps_off_the_rest () =
+  Alcotest.check close "a frame that took half the budget sleeps the other half"
+    (Config.frame_budget /. 2.)
+    (Engine.idle_time ~spent:(Config.frame_budget /. 2.));
+  Alcotest.check close "one that filled it sleeps not at all" 0.
+    (Engine.idle_time ~spent:Config.frame_budget);
+  Alcotest.check close "nor does one that overran it" 0.
+    (Engine.idle_time ~spent:(Config.frame_budget *. 3.))
+
 let () =
   Alcotest.run "Engine"
     [
+      ( "pacing",
+        [
+          case "a frame lasts as long as it took"
+            a_frame_lasts_as_long_as_it_took;
+          case "a short frame sleeps off the rest"
+            a_short_frame_sleeps_off_the_rest;
+        ] );
       ( "step",
         [
           case "standing still" standing_still;

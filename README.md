@@ -219,3 +219,7 @@ pixel where an opaque wall is nearer (so a short wall in front hides only the
 lower part of what is behind, and its top still shows). The buffer is uploaded
 once and the GPU scales it to the window. `Plane`, `Sky`, `Ray` and `Viewport`
 carry the full derivations in their docstrings.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

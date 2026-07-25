@@ -40,7 +40,34 @@ let set_fullscreen window enabled =
   in
   enabled
 
-let rec loop ctx ~player ~fullscreen =
+(** The clock the loop paces itself by, in seconds. SDL's high resolution
+    counter, rather than its millisecond one: a frame is only some sixteen
+    milliseconds long, so counting in whole milliseconds would quantise it
+    badly. *)
+let seconds () =
+  Int64.to_float (Sdl.get_performance_counter ())
+  /. Int64.to_float (Sdl.get_performance_frequency ())
+
+(** How long the frame starting at [now] should advance the simulation by, given
+    that the previous one started at [previous]. Speeds are quoted per second
+    (see {!Config}), so measuring the frame is what keeps the player walking at
+    the same pace on a machine that renders slowly as on one that races.
+
+    A frame longer than {!Config.max_frame_time} is capped at it. Those come
+    from the program being held up rather than from the world moving — the
+    window was dragged, the machine swapped — and honouring one would move the
+    player further in a single step than any collision test is meant to cope
+    with. *)
+let frame_time ~previous ~now =
+  Float.min Config.max_frame_time (Float.max 0. (now -. previous))
+
+(** What is left of {!Config.frame_budget} for a frame that has spent [spent]
+    seconds getting here — the time to sleep before starting the next one. A
+    frame that overran its budget gets nothing: it is late already, and
+    {!frame_time} has the simulation keep pace with it rather than slow down. *)
+let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
+
+let rec loop ctx ~player ~fullscreen ~previous =
   let request = Input.poll ctx.event in
   if request.Input.quit then Ok ()
   else
@@ -49,10 +76,16 @@ let rec loop ctx ~player ~fullscreen =
         set_fullscreen ctx.window (not fullscreen)
       else Ok fullscreen
     in
-    let player = step ctx.world player (Input.motion ()) in
+    let now = seconds () in
+    let player =
+      step ctx.world player (Input.motion ~dt:(frame_time ~previous ~now))
+    in
     let* () = Renderer.render ctx.renderer ctx.framebuffer ctx.world player in
-    Sdl.delay Config.frame_delay;
-    loop ctx ~player ~fullscreen
+    let idle = idle_time ~spent:(seconds () -. now) in
+    Sdl.delay (Int32.of_float (idle *. 1000.));
+    (* Frames are timed start to start, so the sleep above counts towards the
+       next one's length rather than falling outside every frame. *)
+    loop ctx ~player ~fullscreen ~previous:now
 
 (** Acquire a resource, use it, and release it even if the body raises. *)
 let with_resource acquire release use =
@@ -92,4 +125,4 @@ let run world =
     (fun () ->
       loop
         { renderer; window; world; event = Sdl.Event.create (); framebuffer }
-        ~player:(Player.spawn world) ~fullscreen:false)
+        ~player:(Player.spawn world) ~fullscreen:false ~previous:(seconds ()))
