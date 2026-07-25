@@ -90,13 +90,27 @@ let blocked t (p : Vec.t) =
 
 (** Do the two segments [a1..a2] and [b1..b2] cross? Solved with the same cross
     product as {!Ray.cast}: the crossing exists when both parameters land in
-    [0, 1]. *)
+    [0, 1].
+
+    That solution does not exist for parallel segments, but two of them can
+    still lie on the same line and overlap — a step taken straight along a wall
+    — which counts as a crossing just as much. Those are settled separately, by
+    projecting [b1..b2] onto [a1..a2] and asking whether the two spans meet. *)
 let segments_cross a1 a2 b1 b2 =
   let d1 = Vec.sub a2 a1 and d2 = Vec.sub b2 b1 in
   let denom = Vec.cross d1 d2 in
-  if Float.abs denom < 1e-12 then false
+  let off = Vec.sub b1 a1 in
+  if Float.abs denom < 1e-12 then
+    let length = Vec.length d1 in
+    (* Parallel, so only an overlap of collinear segments is left to find: the
+       cross product below is the offset of [b1] from the line of [a1..a2],
+       times that line's length. *)
+    if length = 0. || Float.abs (Vec.cross off d1) > 1e-9 *. length then false
+    else
+      let project p = Vec.dot (Vec.sub p a1) d1 /. (length *. length) in
+      let s = project b1 and e = project b2 in
+      Float.max (Float.min s e) 0. <= Float.min (Float.max s e) 1.
   else
-    let off = Vec.sub b1 a1 in
     let t = Vec.cross off d2 /. denom and u = Vec.cross off d1 /. denom in
     t >= 0. && t <= 1. && u >= 0. && u <= 1.
 

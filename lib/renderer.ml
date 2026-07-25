@@ -232,14 +232,18 @@ let draw_wall fb viewport world (player : Player.t) ~column ~dir ~occlude
           Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~a;
         List.iter
           (fun ((dec : World.decal), ui) ->
+            (* A decal hangs a height above the {e floor} under the wall, not at
+               an absolute elevation, so it is placed against [above_foot] — on
+               a sloped floor it then rides with the wall instead of tilting
+               across it. *)
             if
-              z >= dec.World.z -. dec.World.half_height
-              && z <= dec.World.z +. dec.World.half_height
+              above_foot >= dec.World.z -. dec.World.half_height
+              && above_foot <= dec.World.z +. dec.World.half_height
             then begin
               let img = dec.World.image in
               let n = img.Image.size in
               let vf =
-                (dec.World.z +. dec.World.half_height -. z)
+                (dec.World.z +. dec.World.half_height -. above_foot)
                 /. (2. *. dec.World.half_height)
               in
               let vi = clampi n (int_of_float (vf *. float_of_int n)) in

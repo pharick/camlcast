@@ -69,7 +69,18 @@ let slide world player (delta : Vec.t) =
 
 (** The two movement axes of a first person camera: [forward] along [dir],
     [strafe] along [right]. Both vectors are unit length, so a step of the same
-    size costs the same distance whichever way it points. *)
+    size costs the same distance whichever way it points.
+
+    Adding the two outright would make a diagonal step the {e diagonal} of the
+    two — holding forward and strafe together would walk [sqrt 2] times faster
+    than either alone — so the sum is clamped back to the longer of the two
+    axes. A step along one axis alone is left as it is, and half a step still
+    covers half the ground. *)
 let walk world player ~forward ~strafe =
+  let delta =
+    Vec.add (Vec.scale player.dir forward) (Vec.scale player.right strafe)
+  in
+  let limit = Float.max (Float.abs forward) (Float.abs strafe) in
+  let length = Vec.length delta in
   slide world player
-    (Vec.add (Vec.scale player.dir forward) (Vec.scale player.right strafe))
+    (if length > limit then Vec.scale delta (limit /. length) else delta)

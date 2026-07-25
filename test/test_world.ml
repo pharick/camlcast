@@ -52,6 +52,38 @@ let blocked_within_the_padding () =
     "a whisker outside the padding is clear" false
     (World.blocked room (Vec.make (4. -. (Config.collision_padding *. 2.)) 2.))
 
+(* A step taken straight along a wall is parallel to it, so the cross product
+   that finds an ordinary crossing has nothing to find. Collinear overlap has to
+   be caught on its own, or a long enough step walks the whole length of a wall
+   and comes out the far side. *)
+let collinear_segments_still_cross () =
+  let a1 = Vec.make 0. 0. and a2 = Vec.make 4. 0. in
+  let crosses = World.segments_cross a1 a2 in
+  Alcotest.(check bool)
+    "overlapping collinear segments cross" true
+    (crosses (Vec.make 1. 0.) (Vec.make 6. 0.));
+  Alcotest.(check bool)
+    "so does one lying wholly inside the other" true
+    (crosses (Vec.make 1. 0.) (Vec.make 2. 0.));
+  Alcotest.(check bool)
+    "collinear but clear of it does not" false
+    (crosses (Vec.make 5. 0.) (Vec.make 6. 0.));
+  Alcotest.(check bool)
+    "nor does a parallel one off to the side" false
+    (crosses (Vec.make 0. 1.) (Vec.make 4. 1.))
+
+let a_step_along_a_wall_is_refused () =
+  let level =
+    World.make ~spawn:(Vec.make 0. 0.) ~floor:flat_floor ~ceiling:flat_ceiling
+      [ World.wall ~height:2. ~texture:1 (Vec.make 1. 0.) (Vec.make 2. 0.) ]
+  in
+  Alcotest.(check bool)
+    "a step down the line of a wall does not pass through it" false
+    (World.can_step level ~from:(Vec.make 0. 0.) ~dest:(Vec.make 3. 0.));
+  Alcotest.(check bool)
+    "the same step alongside it is free" true
+    (World.can_step level ~from:(Vec.make 0. 0.5) ~dest:(Vec.make 3. 0.5))
+
 (* path and regular_polygon build the walls of the levels. *)
 let path_builds_runs_of_walls () =
   let points = [ Vec.make 0. 0.; Vec.make 1. 0.; Vec.make 1. 1. ] in
@@ -123,7 +155,11 @@ let () =
           case "distance to a wall" distance_to_a_wall;
         ] );
       ( "collision",
-        [ case "blocked within the padding" blocked_within_the_padding ] );
+        [
+          case "blocked within the padding" blocked_within_the_padding;
+          case "collinear segments still cross" collinear_segments_still_cross;
+          case "a step along a wall is refused" a_step_along_a_wall_is_refused;
+        ] );
       ( "building",
         [
           case "path builds runs of walls" path_builds_runs_of_walls;

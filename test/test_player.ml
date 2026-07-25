@@ -67,6 +67,21 @@ let strafing_matches_walking_speed () =
   Alcotest.check vec "sideways, and the same distance" (Vec.make 2. 2.5)
     strafed.Player.pos
 
+(* The two axes are added together, so a diagonal must be clamped back: without
+   it, holding forward and strafe at once walks [sqrt 2] times faster than
+   either key alone. *)
+let a_diagonal_is_no_faster () =
+  let start = facing_east () in
+  let travelled p = Vec.length (Vec.sub p.Player.pos start.Player.pos) in
+  Alcotest.check close "one axis covers the step" 0.5
+    (travelled (Player.walk room start ~forward:0.5 ~strafe:0.));
+  Alcotest.check close "two axes cover no more" 0.5
+    (travelled (Player.walk room start ~forward:0.5 ~strafe:0.5));
+  let corner = 0.5 /. Float.sqrt 2. in
+  Alcotest.check vec "and it still goes diagonally, evenly split"
+    (Vec.make (2. +. corner) (2. +. corner))
+    (Player.walk room start ~forward:0.5 ~strafe:0.5).Player.pos
+
 let walls_block_movement () =
   let player =
     List.fold_left
@@ -84,7 +99,8 @@ let walls_block_movement () =
    free one — otherwise you stick to walls instead of sliding along. *)
 let a_blocked_axis_does_not_block_the_other () =
   let player = facing_east ~pos:(Vec.make 3.7 2.) () in
-  Alcotest.check vec "x is blocked, y still moves" (Vec.make 3.7 2.5)
+  Alcotest.check vec "x is blocked, y still moves"
+    (Vec.make 3.7 (2. +. (0.5 /. Float.sqrt 2.)))
     (Player.walk room player ~forward:0.5 ~strafe:0.5).Player.pos
 
 let spawn_uses_the_world () =
@@ -108,6 +124,7 @@ let () =
         [
           case "walking follows the facing" walking_follows_the_facing;
           case "strafing matches walking speed" strafing_matches_walking_speed;
+          case "a diagonal is no faster" a_diagonal_is_no_faster;
         ] );
       ( "collision",
         [
