@@ -67,6 +67,16 @@ let max_pitch = 0.75
     GPU, which keeps the frame rate steady no matter how large the window is. *)
 let max_render_height = 480
 
+(** How many rooms deep the {!Renderer} will look through a line of open
+    doorways. Rooms are free to form a cycle — two facing each other is enough —
+    so nothing about the world's shape makes the portal recursion terminate;
+    this budget is what does. Raising it costs another full column of drawing
+    per doorway still in view, and buys very little: by the third room an
+    opening is a few pixels across. Beyond it the doorway is filled with
+    {!Palette.haze}, the colour the distance fog already fades into, so running
+    out reads as depth rather than as a hole. *)
+let max_portal_depth = 3
+
 (** Seconds a frame is allowed to take (~60 FPS). {!Engine} sleeps off whatever
     is left of this after rendering, so a cheap frame does not spin the CPU; a
     frame that overruns it is simply late and sleeps not at all. *)

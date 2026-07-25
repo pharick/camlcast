@@ -2,10 +2,14 @@
 
 A small first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
 
-It began as a Wolfenstein-style grid raycaster and grew past it. Rooms are built
+It began as a Wolfenstein-style grid raycaster and grew past it. A
+{!Raycaster.World} is a graph of independently-authored {!Raycaster.Room}s, each
+in its own coordinates, joined at named doorways that you both see and walk
+through: an open one is a portal, drawn recursively into the opening, and a
+{!Raycaster.Transform} carries the camera and the ray across. Rooms are built
 from wall {e segments} at any angle, not cells of a grid; the floor is an
-inclined {!Raycaster.Plane} and the ceiling is an inclined plane or open
-{!Raycaster.Sky}; walls carry their own heights and textures, can be see-through,
+inclined {!Raycaster.Plane} and the ceiling — per room — is an inclined plane or
+open {!Raycaster.Sky}; walls carry their own heights and textures, can be see-through,
 and can be hung with decals; {!Raycaster.Image} sprites stand in the world facing
 the player; and there is mouse look with pitch. Each frame is drawn into a CPU
 pixel buffer: the floor, ceiling and sky are cast per pixel, the opaque walls
@@ -31,9 +35,10 @@ Each depends only on the ones above it.
   chaining fallible SDL calls
 - {!Raycaster.Vec} — immutable 2-D vectors, with the dot and cross products the
   geometry needs
+- {!Raycaster.Transform} — rigid motions between room-local coordinate frames
 - {!Raycaster.Plane} — an inclined floor/ceiling plane and its casting equation
-- {!Raycaster.World} — the wall segments (with decals), the floor plane, the
-  optional ceiling, the sprites, and collision; with helpers for building levels
+- {!Raycaster.Room} — one room's walls, thresholds, planes, sprites and collision
+- {!Raycaster.World} — named rooms, linked portals and the world's spawn
 - {!Raycaster.Ray} — ray-versus-segment intersection: every wall the ray
   crosses, farthest first
 - {!Raycaster.Player} — the camera, as position + unit [dir] + unit [right],

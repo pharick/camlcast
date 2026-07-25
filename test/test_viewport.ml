@@ -100,7 +100,7 @@ let pitch_shears_the_horizon () =
     ((at ~pitch:(-0.2) ~width:800 ~height:600 ()).Viewport.horizon < middle)
 
 let the_centre_column_looks_straight_ahead () =
-  let player = Player.create ~pos:centre ~angle:0.7 in
+  let player = Player.create ~room:0 ~pos:centre ~angle:0.7 in
   let direction =
     Viewport.ray_direction reference player
       ~column:(reference.Viewport.width / 2)
@@ -115,7 +115,7 @@ let a_flat_wall_stays_flat () =
   List.iter
     (fun (width, height) ->
       let v = at ~width ~height () in
-      let player = Player.create ~pos:centre ~angle:0. in
+      let player = Player.create ~room:0 ~pos:centre ~angle:0. in
       List.iter
         (fun column ->
           let direction = Viewport.ray_direction v player ~column in

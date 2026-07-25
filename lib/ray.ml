@@ -1,4 +1,4 @@
-(** Casting a ray against the wall segments of the {!World}.
+(** Casting a ray against the wall segments of a {!Room}.
 
     {1 Ray versus segment}
 
@@ -44,36 +44,56 @@ type hit = {
   distance : float;  (** perpendicular distance from the camera plane *)
   along : float;
       (** world distance from the wall's start [a] to the hit, for texturing *)
-  wall : World.wall;
+  wall : Room.wall;
 }
+
+type opening = { distance : float; along : float; index : int }
 
 (** Distance floor, so a player standing on a wall cannot divide by zero when
     the hit is turned into a wall height. *)
 let min_distance = 1e-4
 
-let cast (world : World.t) ~(origin : Vec.t) ~(direction : Vec.t) =
+let segment ~origin ~direction ~a ~edge =
+  let denom = Vec.cross direction edge in
+  if Float.abs denom < 1e-12 then None
+  else
+    let ao = Vec.sub a origin in
+    let t = Vec.cross ao edge /. denom in
+    let s = Vec.cross ao direction /. denom in
+    if t > min_distance && s >= 0. && s <= 1. then Some (t, s) else None
+
+let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
   let hits =
     Array.fold_left
-      (fun acc (w : World.wall) ->
-        let denom = Vec.cross direction w.edge in
-        if Float.abs denom < 1e-12 then acc (* parallel to this wall *)
-        else
-          let ao = Vec.sub w.a origin in
-          let t = Vec.cross ao w.edge /. denom in
-          let s = Vec.cross ao direction /. denom in
-          if t > min_distance && s >= 0. && s <= 1. then
+      (fun acc (w : Room.wall) ->
+        match segment ~origin ~direction ~a:w.a ~edge:w.edge with
+        | Some (t, s) ->
             { distance = t; along = s *. w.length; wall = w } :: acc
-          else acc)
+        | None -> acc)
       [] world.walls
   in
   (* Farthest first: the order the painter's-algorithm renderer draws in. *)
-  List.sort (fun h1 h2 -> Float.compare h2.distance h1.distance) hits
+  List.sort
+    (fun (h1 : hit) (h2 : hit) -> Float.compare h2.distance h1.distance)
+    hits
+
+let openings (room : Room.t) ~origin ~direction =
+  Array.to_list
+    (Array.mapi
+       (fun index (threshold : Room.threshold) ->
+         match segment ~origin ~direction ~a:threshold.a ~edge:threshold.edge with
+         | Some (distance, s) ->
+             Some { distance; along = s *. threshold.length; index }
+         | None -> None)
+       room.thresholds)
+  |> List.filter_map Fun.id
+  |> List.sort (fun (a : opening) b -> Float.compare b.distance a.distance)
 
 (** The closest wall along the ray, if it met one — the wall a solid-height
     caster would have stopped at. *)
-let nearest hits =
+let nearest (hits : hit list) =
   List.fold_left
-    (fun best hit ->
+    (fun (best : hit option) (hit : hit) ->
       match best with
       | Some b when b.distance <= hit.distance -> best
       | _ -> Some hit)

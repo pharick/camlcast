@@ -11,6 +11,8 @@
   test_plane
   test_sky
   test_image
+  test_transform
+  test_room
   test_world
   test_ray
   test_player

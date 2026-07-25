@@ -1,4 +1,4 @@
-(** The open sky drawn where a level has no ceiling ({!World.ceiling} is
+(** The open sky drawn where a room has no ceiling ({!Room.ceiling} is
     [None]).
 
     A sky is an infinitely far backdrop, so its colour depends only on the

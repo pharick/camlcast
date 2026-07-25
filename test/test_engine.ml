@@ -5,8 +5,8 @@
 open Raycaster
 open Support
 
-let player () = Player.create ~pos:centre ~angle:0.
-let step motion = Engine.step room (player ()) motion
+let player () = Player.create ~room:0 ~pos:centre ~angle:0.
+let step motion = Engine.step world (player ()) motion
 let heading (p : Player.t) = Float.atan2 p.dir.y p.dir.x
 
 let standing_still () =
@@ -57,12 +57,12 @@ let backwards_and_strafing () =
 let collisions_still_apply () =
   let far_side =
     List.fold_left
-      (fun p _ -> Engine.step room p { Input.still with forward = 1. })
+      (fun p _ -> Engine.step world p { Input.still with forward = 1. })
       (player ()) (List.init 200 Fun.id)
   in
   Alcotest.(check bool)
     "the loop cannot walk through a wall" false
-    (World.blocked room far_side.Player.pos)
+    (Room.blocked room far_side.Player.pos)
 
 (* The frame the simulation is advanced by is the real one, so that speed does
    not depend on how long rendering took — but only up to a limit, past which a

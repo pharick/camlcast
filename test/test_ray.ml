@@ -25,7 +25,7 @@ let diagonal_distance () =
 
 let reports_the_wall_that_was_hit () =
   let hit = cast (Vec.make 1. 0.) in
-  Alcotest.(check int) "the east wall's texture id" 1 hit.Ray.wall.World.texture;
+  Alcotest.(check int) "the east wall's texture id" 1 hit.Ray.wall.Room.texture;
   (* The east wall runs (4,0) -> (4,4); the ray from (2,2) meets it at (4,2),
      halfway, which is 2 along its length of 4. *)
   Alcotest.check close "how far along the wall it struck" 2. hit.Ray.along
@@ -46,7 +46,7 @@ let collects_every_wall_back_to_front () =
     (List.map (fun (h : Ray.hit) -> h.Ray.distance) hits);
   Alcotest.(check int)
     "the nearest is the pillar" 2
-    (Option.get (Ray.nearest hits)).Ray.wall.World.texture
+    (Option.get (Ray.nearest hits)).Ray.wall.Room.texture
 
 (* [along] threads the texture across the wall, so it has to stay within the
    wall's length whatever direction the ray comes from. *)
@@ -57,8 +57,33 @@ let along_stays_on_the_wall () =
       Alcotest.(check bool)
         (Printf.sprintf "along at %.2f rad is on the wall" angle)
         true
-        (hit.Ray.along >= 0. && hit.Ray.along <= hit.Ray.wall.World.length))
+        (hit.Ray.along >= 0. && hit.Ray.along <= hit.Ray.wall.Room.length))
     (List.init 32 (fun i -> float_of_int i *. Float.pi /. 16.))
+
+(* Thresholds are met by exactly the same segment test as walls, but reported
+   separately so the renderer can recurse through them instead of painting them.
+   The index is what ties an opening back to its portal. *)
+let openings_are_found_like_walls () =
+  let first = World.room two_rooms 0 in
+  let through =
+    Ray.openings first ~origin:centre ~direction:(Vec.make 1. 0.)
+  in
+  Alcotest.(check int) "the doorway ahead is found" 1 (List.length through);
+  let opening = List.hd through in
+  Alcotest.check close "at the east wall, two cells away" 2.
+    opening.Ray.distance;
+  Alcotest.(check int) "indexing the room's thresholds" 0 opening.Ray.index;
+  (* The doorway runs (4,1.5) -> (4,2.5); the ray from (2,2) meets its middle,
+     which is 0.5 along its length of 1. *)
+  Alcotest.check close "how far along the opening it passed" 0.5
+    opening.Ray.along;
+  Alcotest.(check int)
+    "a ray that misses it finds nothing" 0
+    (List.length (Ray.openings first ~origin:centre ~direction:(Vec.make 0. 1.)));
+  Alcotest.(check int)
+    "and neither does one pointing away from it" 0
+    (List.length
+       (Ray.openings first ~origin:centre ~direction:(Vec.make (-1.) 0.)))
 
 (* Defensive: standing on a wall must not produce a zero distance, or the
    renderer would divide by it. *)
@@ -84,6 +109,7 @@ let () =
             walls_behind_and_beside_are_missed;
           case "collects every wall back to front"
             collects_every_wall_back_to_front;
+          case "openings are found like walls" openings_are_found_like_walls;
         ] );
       ("texturing", [ case "along stays on the wall" along_stays_on_the_wall ]);
       ("edge cases", [ case "origin on a wall" origin_on_a_wall ]);

@@ -21,6 +21,30 @@ let elevation t (p : Vec.t) = (t.a *. p.x) +. (t.b *. p.y) +. t.c
     distance, and the gradient scales with it in step. *)
 let gradient t (dir : Vec.t) = (t.a *. dir.x) +. (t.b *. dir.y)
 
+(** A plane parallel to [t] and [height] above it — a ceiling that follows the
+    slope of the floor it roofs, rather than closing in on it at one end. *)
+let above t height = { t with c = t.c +. height }
+
+(** The same surface expressed in a neighbouring {!Room}'s frame: given the
+    rigid motion [m] that carries this room's coordinates into the neighbour's,
+    the plane a room reached through [m] must use if the two are to agree — in
+    particular across the doorway they share, where a disagreement shows as a
+    visible step in the floor.
+
+    A point [p] here lands at [q = R p + offset] there, and we want the two
+    heights to match, [elevation result q = elevation t p]. Substituting
+    [p = R⁻¹ (q - offset)] and using that a rotation moves a gradient the same
+    way it moves any direction — [g · R⁻¹ v = (R g) · v] — the neighbour's
+    gradient is this one rotated, and its constant absorbs the translation:
+
+    {v
+      elevation t p = g · R⁻¹ (q - offset) + c
+                    = (R g) · q  -  (R g) · offset  +  c
+    v} *)
+let through m t =
+  let g = Transform.direction m (Vec.make t.a t.b) in
+  { a = g.Vec.x; b = g.Vec.y; c = t.c -. Vec.dot g m.Transform.offset }
+
 (** The perpendicular distance at which a pixel's line of sight meets the plane,
     or [None] if that line runs parallel to the plane or only meets it behind
     the camera.

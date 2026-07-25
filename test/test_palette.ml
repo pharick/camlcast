@@ -72,10 +72,10 @@ let fog_fades_with_distance () =
 (* What the renderer calls per wall: base colour, dimmed by orientation and by
    how far away it is. *)
 let shaded_wall_combines_orientation_and_fog () =
-  let w = World.wall ~height:2. ~texture:1 (Vec.make 0. 0.) (Vec.make 0. 4.) in
+  let w = Room.wall ~height:2. ~texture:1 (Vec.make 0. 0.) (Vec.make 0. 4.) in
   Alcotest.check color "orientation and fog are multiplied"
     (Color.shade (Palette.wall_color 1)
-       (Palette.face_shading w.World.normal *. Palette.fog 4.))
+       (Palette.face_shading w.Room.normal *. Palette.fog 4.))
     (Palette.shaded_wall w ~distance:4.);
   Alcotest.(check bool)
     "a distant wall is darker than a near one" true

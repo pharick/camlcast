@@ -28,21 +28,73 @@ let flat_ceiling = Some (Plane.horizontal 3.)
     grows predictably. Small enough that every expected distance is obvious:
     from the centre each wall is exactly 2 cells away. *)
 let room =
-  World.make ~spawn:(Vec.make 2. 2.) ~floor:flat_floor ~ceiling:flat_ceiling
+  Room.make ~floor:flat_floor ~ceiling:flat_ceiling
     [
-      World.wall ~height:3. ~texture:1 (Vec.make 0. 0.) (Vec.make 4. 0.);
-      World.wall ~height:3. ~texture:1 (Vec.make 4. 0.) (Vec.make 4. 4.);
-      World.wall ~height:3. ~texture:1 (Vec.make 4. 4.) (Vec.make 0. 4.);
-      World.wall ~height:3. ~texture:1 (Vec.make 0. 4.) (Vec.make 0. 0.);
+      Room.wall ~height:3. ~texture:1 (Vec.make 0. 0.) (Vec.make 4. 0.);
+      Room.wall ~height:3. ~texture:1 (Vec.make 4. 0.) (Vec.make 4. 4.);
+      Room.wall ~height:3. ~texture:1 (Vec.make 4. 4.) (Vec.make 0. 4.);
+      Room.wall ~height:3. ~texture:1 (Vec.make 0. 4.) (Vec.make 0. 0.);
     ]
 
 (** The same room with a short free-standing wall of texture id 2, one cell east
     of the centre, spanning the ray fired east from it. Used to check that a ray
     keeps the walls behind a near one. *)
 let room_with_pillar =
-  World.make ~spawn:(Vec.make 2. 2.) ~floor:flat_floor ~ceiling:flat_ceiling
-    (Array.to_list room.World.walls
-    @ [ World.wall ~height:1. ~texture:2 (Vec.make 3. 1.5) (Vec.make 3. 2.5) ])
+  Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+    (Array.to_list room.Room.walls
+    @ [ Room.wall ~height:1. ~texture:2 (Vec.make 3. 1.5) (Vec.make 3. 2.5) ])
+
+(** The same room as the only room of a world, for the suites that need a
+    {!World.t} but nothing to do with doorways. *)
+let world =
+  World.make ~rooms:[ ("room", room) ] ~links:[] ~spawn:("room", Vec.make 2. 2.)
+
+(** Two 4 x 4 rooms joined through a doorway one cell wide, each authored in its
+    own coordinates so both rooms occupy [0..4] squared and the link's transform
+    has real work to do. The first is roofed and the second open to the sky, so
+    a test can tell which room a thing came from.
+
+    Both boundaries are wound counter-clockwise and both doorways are cut with
+    {!Room.doorway}, which is the winding rule {!Transform.between} relies on;
+    the gaps land at [y = 1.5 .. 2.5] of the first room's east wall and of the
+    second's west wall, and the transform between them is a translation by
+    [(-4, 0)].
+
+    The second room has a short wall standing just inside its doorway. The two
+    rooms' jambs are collinear — they are the same opening — so that wall is the
+    only thing in either room that the {e other} one cannot see, which is what
+    makes it possible to test that collision consults the neighbour at all. *)
+let two_rooms =
+  let first_jambs, east =
+    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~texture:1
+      (Vec.make 4. 0.) (Vec.make 4. 4.)
+  and second_jambs, west =
+    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~texture:2
+      (Vec.make 0. 4.) (Vec.make 0. 0.)
+  in
+  let first =
+    Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (first_jambs
+      @ [
+          Room.wall ~height:3. ~texture:1 (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~texture:1 (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~texture:1 (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and second =
+    Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:None
+      (second_jambs
+      @ [
+          Room.wall ~height:3. ~texture:2 (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~texture:2 (Vec.make 4. 0.) (Vec.make 4. 4.);
+          Room.wall ~height:3. ~texture:2 (Vec.make 4. 4.) (Vec.make 0. 4.);
+          (* Just inside the doorway, and invisible to the first room. *)
+          Room.wall ~height:1. ~texture:2 (Vec.make 0.25 2.45)
+            (Vec.make 1.2 2.45);
+        ])
+  in
+  World.make ~rooms:[ ("first", first); ("second", second) ]
+    ~links:[ (("first", "east"), ("second", "west")) ]
+    ~spawn:("first", Vec.make 2. 2.)
 
 (** Centre of the room, 2 cells from every wall. *)
 let centre = Vec.make 2. 2.

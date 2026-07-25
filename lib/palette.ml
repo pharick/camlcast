@@ -1,4 +1,4 @@
-(** Where the colour choices live: the texture id on a {!World.type-wall}
+(** Where the colour choices live: the texture id on a {!Room.type-wall}
     indexes the wall tables here, and everything that dims a surface —
     orientation shading, distance fog — is here too. *)
 
@@ -9,6 +9,7 @@ let wall_color = function
   | 4 -> Color.rgb 220 200 90
   | 5 -> Color.rgb 105 108 120 (* steel grille *)
   | 6 -> Color.rgb 150 205 230 (* glass *)
+  | 7 -> Color.rgb 130 82 45 (* wooden door *)
   | _ -> Color.rgb 160 160 160
 
 (** What each kind of wall is built from. Colour and pattern are chosen
@@ -22,6 +23,7 @@ let pattern = function
   | 4 -> Texture.checker
   | 5 -> Texture.bars
   | 6 -> Texture.glass
+  | 7 -> Texture.door
   | _ -> Texture.plain
 
 (** A fixed direction the light comes from, in the flat world. *)
@@ -44,7 +46,7 @@ let fog distance =
 (** The colour a wall is tinted before its greyscale {!pattern} modulates it:
     the wall colour, dimmed by orientation and distance. A texel at full
     brightness comes out this colour, darker texels proportionally darker. *)
-let shaded_wall (wall : World.wall) ~distance =
+let shaded_wall (wall : Room.wall) ~distance =
   Color.shade (wall_color wall.texture)
     (face_shading wall.normal *. fog distance)
 

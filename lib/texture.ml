@@ -78,6 +78,13 @@ let panel =
       let x = u mod 32 and y = v mod 32 in
       if x < 2 || y < 2 then 255 else if x >= 30 || y >= 30 then 140 else 215)
 
+(** Vertical planks crossed by a sturdy horizontal rail. *)
+let door =
+  generate (fun ~u ~v ->
+      if v >= 28 && v < 36 then 150
+      else if u mod 16 < 2 then 115
+      else 205 + (hash (u / 16) 19 mod 30))
+
 (** Irregular blocks: each course is shifted by a hashed amount, so unlike
     {!brick} the courses do not repeat in step with each other. *)
 let stone =
