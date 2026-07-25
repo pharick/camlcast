@@ -1,7 +1,6 @@
 {0 camlcast}
 
-A first-person raycasting engine in OCaml on top of SDL2 ([tsdl]), and a game
-built on it.
+A first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
 
 It began as a Wolfenstein-style grid raycaster and grew past it. A
 {!Raycaster.World} is a graph of independently-authored {!Raycaster.Room}s, each
@@ -20,39 +19,31 @@ patterns from a procedural {!Raycaster.Texture} and their colour from their
 material, dimmed by the world's {!Raycaster.Atmosphere}. The buffer is then
 scaled to the window by the GPU.
 
-{1 Four libraries}
+{1 Two libraries}
 
 The engine holds no content: not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
-and two games can share an engine without sharing a look. Each library below
-depends only on the ones above it, and dune enforces that rather than a
-convention.
+and two games can share an engine without sharing a look.
 
 - {b [camlcast.raycaster]} — the engine. Geometry, ray casting, rendering, SDL.
-- {b [camlcast.assets]} — the House's art: its ashen textures, its materials,
-  its air. Depends on the engine and nothing else, so it cannot start deciding
-  what gets built.
-- {b [camlcast.house]} — the game. Room prototypes, the catalogue, the generator
-  that grows the house as it is explored.
-- {b [camlcast.demo]} — the showcase level and the art it is made of. It stays
-  runnable as [camlcast-demo] because it exercises corners the House
-  deliberately does not: decals, see-through walls, sloped floors, the open sky.
+- {b [camlcast.demo]} — the showcase level and the art it is made of, runnable as
+  [camlcast-demo]. It is content, and it lives outside the library it is content
+  for; it stays here because it exercises every corner of the engine at once.
 
-{1 A house that grows}
+{1 Building a game on it}
 
-[camlcast] is a roguelike of endless liminal rooms, after {i House of Leaves}. It
-starts as one corridor with no doorways at all. Every time the player walks from
-one room into another, the generator finishes every room within
-{!Raycaster.Config.max_portal_depth} doorways of them — exactly as deep as the
-renderer looks — so no wall the player can see is one that is about to become a
-door, and beyond that ring the house does not yet exist.
+{!Raycaster.Engine.run} takes a {!Raycaster.World} and an optional
+[grow : World.t -> Player.t -> World.t], which it calls whenever the player
+crosses into another room. That one function is the whole interface: the engine
+hands back whatever it was drawing and takes whatever it is given, so any state
+a game needs beyond the world — a catalogue, a random seed, what it has already
+built — stays on the game's side of the line and the engine stays a pure
+function of the world it is handed.
 
-Nothing has to fit. Each room is in its own frame and joined to its neighbours
-only by a {!Raycaster.Transform} derived from one shared doorway, so there is no
-global space for two rooms to collide in and no floor plan to satisfy. That is
-also why the generator can join a doorway to a room already several doorways
-behind it: the resulting corridor returns you somewhere it could not possibly
-reach, and there is no global frame for that to contradict.
+{{:https://github.com/pharick/house}The House} is the game built this way: a
+roguelike of endless liminal rooms that grows itself as the player walks,
+keeping every room within {!Raycaster.Config.max_portal_depth} doorways of them
+finished — exactly as deep as the renderer looks.
 
 {1 Where to start}
 
@@ -100,19 +91,6 @@ Each depends only on the ones above it.
 - {!Raycaster.Renderer} — the software renderer: casts the planes, paints the
   walls, per pixel
 - {!Raycaster.Engine} — window lifetime, fullscreen state, and the game loop
-
-{1 The House}
-
-- {!Assets.Ash} — the ashen surfaces: three octaves of wrapping noise and
-  nothing else
-- {!Assets.Surfaces} — the House's materials, and the air that does most of the
-  work
-- {!House.Rng} — splitmix64, so a run is a value rather than an event
-- {!House.Prototype} — a kind of room, with every exit still a solid wall
-- {!House.Catalogue} — the six of them, and the weights that keep the house from
-  running away
-- {!House.Generator} — the house, and how it gets built
-- {!House.Run} — starting a run
 
 {1 The demo}
 

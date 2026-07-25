@@ -1,39 +1,41 @@
-# CamlCast — a raycasting engine, and a house
+# CamlCast — a raycasting engine
 
-A first-person raycasting engine in OCaml on top of SDL2 (`tsdl`), and a game
-built on it. The engine started Wolfenstein-style — an axis-aligned grid with
-flat floors — and has since grown past that: a world is a graph of rooms built
-from walls at any angle, each in its own coordinate frame with its own inclined
-floor and its own ceiling or open sky, joined at doorways you both see and walk
-through. The floor, ceiling and sky are cast per pixel by a small software
-renderer; the walls are painted over them back to front.
+A first-person raycasting engine in OCaml on top of SDL2 (`tsdl`). It started
+Wolfenstein-style — an axis-aligned grid with flat floors — and has since grown
+past that: a world is a graph of rooms built from walls at any angle, each in its
+own coordinate frame with its own inclined floor and its own ceiling or open sky,
+joined at doorways you both see and walk through. The floor, ceiling and sky are
+cast per pixel by a small software renderer; the walls are painted over them back
+to front.
 
-The game is a roguelike of endless liminal rooms, after *House of Leaves*. It
-begins as one ashen corridor and builds itself as you walk, three doorways ahead
-of what you can see.
+The game built on it — **[the House](https://github.com/pharick/house)**, a
+roguelike of endless liminal rooms after _House of Leaves_ — is a separate repo.
+This one is the engine and the showcase level it was written against.
 
 ## Running
 
 ```sh
 eval $(opam env --switch=. --set-switch)   # this repo uses a local switch
-dune exec camlcast                         # the house
-dune exec camlcast-demo                    # the engine's showcase level
+dune exec camlcast-demo                    # the showcase level
 dune test                                  # all suites
 ```
 
-## Four libraries
+## Two libraries
 
 The engine holds no content — not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
-and two games can share an engine without sharing a look. Each depends only on
-the ones above it, and dune enforces that rather than a convention.
+and two games can share an engine without sharing a look.
 
-| directory  | library              | what it is                                                              |
-| ---------- | -------------------- | ----------------------------------------------------------------------- |
-| `lib/`     | `camlcast.raycaster` | the engine: geometry, ray casting, rendering, SDL                       |
-| `assets/`  | `camlcast.assets`    | the House's art: its ashen textures, its materials, its air             |
-| `game/`    | `camlcast.house`     | the game: room prototypes, the catalogue, the generator                 |
-| `demo/`    | `camlcast.demo`      | the showcase level and the art it is made of, runnable as `camlcast-demo` |
+| directory | library              | what it is                                                                |
+| --------- | -------------------- | ------------------------------------------------------------------------- |
+| `lib/`    | `camlcast.raycaster` | the engine: geometry, ray casting, rendering, SDL                         |
+| `demo/`   | `camlcast.demo`      | the showcase level and the art it is made of, runnable as `camlcast-demo` |
+
+Nothing in the engine depends on `demo/`, which is the point: it is content, and
+it lives outside the library it is content for. It stays in this repo because it
+exercises every corner of the engine at once — decals, see-through walls, sloped
+floors and the open sky — so a change that breaks any of them breaks a level you
+can walk through here.
 
 A wall carries its `Material` — a colour and a greyscale `Texture` — by value,
 the way a decal has always carried its `Image`. That replaced an integer id
@@ -44,37 +46,31 @@ through to a default grey instead of failing. A world likewise carries its
 where its light comes from. Those five numbers are most of what tells one place
 from another.
 
-## The house
+## Building a game on it
 
-A run starts as one corridor with no doorways at all. Every time you walk from
-one room into another, the generator finishes every room within
-`Config.max_portal_depth` doorways of you — exactly as deep as the renderer
-looks — so no wall you can see is one that is about to become a door, and beyond
-that ring the house does not yet exist. A doorway three rooms out reads as an
-opening onto black, and resolves into a room as you approach.
+`Engine.run` takes a `World` and an optional `grow : World.t -> Player.t ->
+World.t`, which it calls whenever the player crosses into another room. That one
+function is the whole interface. The engine hands back whatever it was drawing
+and takes whatever it is given, so any state a game needs beyond the world — a
+room catalogue, a random seed, a record of what it has already built — stays on
+the game's side of the line, and the engine stays a pure function of the world it
+is handed.
 
-Nothing has to fit. Each room is in its own frame and joined to its neighbours
-only by a `Transform` derived from one shared doorway, so there is no global
-space for two rooms to collide in and no floor plan to satisfy. Lay the house
-out on a single sheet of paper and rooms would sit on top of each other
-everywhere; nothing ever does that, so nothing ever notices. That is also why
-the generator can join a doorway back to a room already several doorways behind:
-the resulting corridor returns you somewhere it could not possibly reach, four
-left turns leave you somewhere new, and there is no global frame for that to
-contradict.
+A game supplies the rest by construction: its own `Material`s and `Texture`s, its
+own `Atmosphere`, its own `Room`s assembled from `Room.wall`, `Room.doorway` and
+`Room.path`, joined with the three append-only primitives `World.open_doorway`,
+`World.add_room` and `World.link`. `demo/` does this statically — five rooms
+written out by hand — and [the House](https://github.com/pharick/house) does it
+incrementally, growing the world under the player's feet through the same `grow`
+hook and the same three primitives.
 
-Two things keep it going. Every doorway in the house is the same size, because
-`World.link` will only join two thresholds that agree in length and height and a
-loop needs to be able to join two the generator never planned for. And the
-generator counts the walls that could still become doorways: a loop spends two
-and returns none, a dead end spends the one it was entered by, and left to
-chance the count reaches zero within the first few rooms and seals the house
-shut at two. So it refuses to spend the last one, and builds something with a
-way on out of it instead.
+To depend on the engine from another project, pin it:
 
-The house is seeded, so a run is a value rather than an event — `House.Run.play
-~seed` builds the same rooms in the same order every time, which is the only
-reason any of it can be tested.
+```sh
+opam pin add camlcast git+https://github.com/pharick/camlcast.git
+```
+
+then `(libraries camlcast.raycaster)` in your `dune`.
 
 ## Controls
 
@@ -199,17 +195,18 @@ coordinates. They are **greyscale**: a texel is a brightness, not a colour. The
 colour arrives at draw time, when the renderer tints the sampled texel by the
 wall's material colour, dimmed by fog and by how squarely the wall faces the
 light — so one pattern can dress a wall of any colour. The demo's are masonry:
-brick, bevelled panel, stone, checker. The House's are the opposite of masonry —
-three octaves of wrapping value noise in a band about forty levels wide, with no
-courses, no joints and no grout lines, because a course would tell you how the
-wall was built and there is no answer to that question there.
+brick, bevelled panel, stone, checker. The House's, in the other repo, are the
+opposite — three octaves of wrapping value noise in a band about forty levels
+wide, with no courses, no joints and no grout lines. The engine has no opinion
+either way: `Texture.generate` takes a function from texel coordinates to a
+brightness, and that is the whole of the interface.
 
-The noise lattice wraps at the texture's size, which matters more in the House
-than anywhere: a wall's pattern tiles once per world unit, so a field that did
-not wrap would put a hard seam down every wall in the game, one per cell — and
-with no pattern to hide behind it would be the only thing in the whole place with
-a shape. (There is no floor casting of the wall _tops_, so you see the walls'
-faces, not their flat tops.)
+The noise lattice wraps at the texture's size, which is what makes that second
+kind possible at all: a wall's pattern tiles once per world unit, so a field that
+did not wrap would put a hard seam down every wall, one per cell — and a pattern
+with no courses to hide behind would leave that seam the only thing in the place
+with a shape. (There is no floor casting of the wall _tops_, so you see the
+walls' faces, not their flat tops.)
 
 ## Transparency, decals and sprites
 
@@ -287,9 +284,9 @@ dune build @doc
 open _build/default/_doc/_html/index.html
 ```
 
-`doc/index.mld` is the landing page; each of the four libraries has a public
-name under the `camlcast` package, which is what makes `@doc` pick its modules
-up (odoc skips private libraries).
+`doc/index.mld` is the landing page; both libraries have a public name under the
+`camlcast` package, which is what makes `@doc` pick their modules up (odoc skips
+private libraries).
 
 For a from-scratch walkthrough that rebuilds the whole engine feature by feature
 — with the concepts, the derivations and the code — see
@@ -298,10 +295,10 @@ For a from-scratch walkthrough that rebuilds the whole engine feature by feature
 ## Tests
 
 [Alcotest](https://github.com/mirage/alcotest), one executable per module in
-`test/`, covering all four libraries. They share `test/support.ml`, which holds
-a hand-checkable 4x4 square room (walls two cells from the centre in every
-direction) and the custom testables — a failing `Vec` check prints `(3, 2.5)`
-rather than a bare `false`.
+`test/`, covering both libraries. They share `test/support.ml`, which holds a
+hand-checkable 4x4 square room (walls two cells from the centre in every
+direction), a pair of rooms joined through a doorway, and the custom testables —
+a failing `Vec` check prints `(3, 2.5)` rather than a bare `false`.
 
 ```sh
 dune exec test/test_player.exe -- --verbose   # one suite
@@ -313,17 +310,9 @@ live SDL surface. Their pure logic lives in `Plane` (the casting equation),
 `Viewport` (the projection and resize rules), `Material` and `Atmosphere` (the
 shading), which are tested on their own.
 
-The generator is the interesting one, because it has no fixed value to assert
-against. `test_generator.ml` walks two dozen seeded houses the way a player
-would — through a doorway, never straight back out the one it came in by — and
-lets the generator catch up after each step, exactly where the engine would ask
-it to. Then it asserts per seed what must always hold (`World.check` passes,
-every doorway leads somewhere, every floor meets at every threshold to the last
-bit, the frontier never reaches zero) and in aggregate what the generator should
-do on average (how much house it builds per room walked, how many different
-rooms a walk of forty finds). A forty-step walk produces anywhere from ten to a
-hundred rooms, so anything asserted against a single seed is really asserting
-that seed.
+`test_level.ml` is the closest thing to an integration test: it checks the demo
+world the way a player meets it, which means an engine change that breaks
+portals, sloped floors or the sky fails here rather than in a unit suite.
 
 ## How the rendering works, in one paragraph
 

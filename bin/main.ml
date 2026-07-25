@@ -1,6 +1,0 @@
-let () =
-  match House.Run.play () with
-  | Ok () -> ()
-  | Error (`Msg message) ->
-      prerr_endline ("SDL error: " ^ message);
-      exit 1

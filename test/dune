@@ -4,9 +4,9 @@
 ; live SDL surface, so their pure pieces are tested through Plane, Viewport,
 ; Material and Atmosphere instead.
 ;
-; The suites for the libraries built on the engine live here too, beside the
-; engine's own, because they share these fixtures and there is no reason to run
-; them separately.
+; The demo's suites live here too, beside the engine's own, because they share
+; these fixtures and there is no reason to run them separately. A game built on
+; this engine tests itself in its own repo.
 
 (tests
  (names
@@ -28,9 +28,5 @@
   test_engine
   test_patterns
   test_pictures
-  test_level
-  test_ash
-  test_rng
-  test_prototype
-  test_generator)
- (libraries raycaster assets house camlcast_demo alcotest))
+  test_level)
+ (libraries raycaster camlcast_demo alcotest))

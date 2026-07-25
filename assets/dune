@@ -1,8 +1,0 @@
-; The House's art: its textures, its materials, its air and its fittings.
-; Depends on the engine and on nothing else — in particular not on the
-; generator, so nothing here can quietly start deciding what gets built.
-
-(library
- (name assets)
- (public_name camlcast.assets)
- (libraries raycaster))
