@@ -6,10 +6,10 @@ description:
 depends: [
   "dune" {>= "3.21"}
   "ocaml"
-  "ocaml-lsp-server"
-  "ocamlformat"
   "tsdl"
   "alcotest" {with-test}
+  "ocaml-lsp-server" {with-dev-setup}
+  "ocamlformat" {with-dev-setup}
   "odoc" {with-doc}
 ]
 build: [
