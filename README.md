@@ -48,21 +48,33 @@ from another.
 
 ## Building a game on it
 
-`Engine.run_state` runs a state of whatever type the game likes, and asks four
+`Engine.run_state` runs a state of whatever type the game likes, and asks five
 things of it: `update`, given the frame's length, the movement asked for over it
-and the one-off actions that arrived with it; `view`, which world and which
-player to draw this frame from; `overlay`, anything drawn over the finished
-picture before it reaches the screen; and `finished`, whether the run is over.
-Everything else a game keeps — phases, doors, a journal, a random seed, a record
-of what it has already built — stays on the game's side of the line, and the
-engine stays a pure function of what it is handed. Time passes only while the
-window has focus, so a game left behind another window is not handed the minutes
-it spent there when it comes back.
+and what the player is pressing and holding through it; `view`, which world and
+which player to draw this frame from; `overlay`, anything drawn over the finished
+picture before it reaches the screen; `pointing`, whether the mouse is working a
+cursor over something the game has drawn instead of looking around; and
+`finished`, whether the run is over. Everything else a game keeps — phases,
+doors, a journal, a random seed, a record of what it has already built — stays on
+the game's side of the line, and the engine stays a pure function of what it is
+handed. Time passes only while the window has focus, so a game left behind
+another window is not handed the minutes it spent there when it comes back.
+
+Input arrives as controls rather than as actions: `Input.pressed`,
+`Input.released`, `Input.down` and `Input.held_for`, over a `Key` named by its
+`Sdl.Scancode` or a mouse `Button`. What "interact" or "journal" mean is a game's
+own table from the one to the other — the engine knows only that something went
+down, came up, or has been held for so many seconds. Answering `true` to
+`pointing` releases the mouse capture and puts a real cursor back on the screen,
+whose position arrives in `update` in the framebuffer's own coordinates, which
+are the ones `overlay` draws in.
 
 `Engine.run` is that loop over the only state the engine used to be able to
 hold: a `World` and the player walking it, plus an optional `grow : World.t ->
 Player.t -> World.t`, which it calls whenever the player crosses into another
-room. A fixed level needs nothing more.
+room. A fixed level needs nothing more. `Esc` quitting is this wrapper's rule
+rather than the engine's, because a game with screens in it wants that key for
+closing them.
 
 A game supplies the rest by construction: its own `Material`s and `Texture`s, its
 own `Atmosphere`, its own `Room`s assembled from `Room.wall`, `Room.doorway` and

@@ -1,8 +1,12 @@
 ; One executable per module under test; they all share the Support fixtures
-; and testables. Input (SDL owns the keyboard and mouse state), Framebuffer (a
-; wrapper over an SDL texture) and Renderer (per-pixel SDL output) all need a
-; live SDL surface, so their pure pieces are tested through Plane, Viewport,
-; Material and Atmosphere instead.
+; and testables. Framebuffer (a wrapper over an SDL texture) and Renderer
+; (per-pixel SDL output) need a live SDL surface, so their pure pieces are
+; tested through Plane, Viewport, Material and Atmosphere instead. Input reads
+; SDL for the keyboard and the mouse, but its edges and hold timer are a pure
+; function of two frames and a duration, and test_input drives that directly.
+;
+; tsdl is a direct dependency here because naming a key is naming an
+; Sdl.Scancode — the same way a game binding one has to.
 ;
 ; The demo's suites live here too, beside the engine's own, because they share
 ; these fixtures and there is no reason to run them separately. A game built on
@@ -25,8 +29,9 @@
   test_texture
   test_material
   test_atmosphere
+  test_input
   test_engine
   test_patterns
   test_pictures
   test_level)
- (libraries raycaster camlcast_demo alcotest))
+ (libraries raycaster camlcast_demo alcotest tsdl))

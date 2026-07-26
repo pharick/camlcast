@@ -116,6 +116,7 @@ let counting =
         });
     view = (fun _ -> (world, player ()));
     overlay = (fun _ _ -> ());
+    pointing = (fun _ -> false);
     finished = (fun session -> session.phase = Ended);
   }
 
@@ -126,11 +127,11 @@ let script count =
   List.init count (fun i ->
       (1. /. 60., { Input.still with turn = float_of_int i *. 0.01 }))
 
-let play ~focused frames =
+let play ?(pointing = false) ~focused frames =
   List.fold_left
     (fun session (dt, motion) ->
-      Engine.simulate counting session ~focused ~dt ~motion
-        ~actions:Input.nothing)
+      Engine.simulate counting session ~focused ~pointing ~dt ~motion
+        ~actions:Input.untouched)
     start frames
 
 (* A scripted run lands exactly where the script adds up to: the loop hands the
@@ -165,6 +166,17 @@ let losing_focus_pauses_the_game () =
     "so a run that ends on the clock does not end while paused" false
     (counting.Engine.finished paused)
 
+(* A screen the game draws over its world takes the mouse away from the camera,
+   but not the clock away from the game: whether a journal pauses what is
+   happening outside it is the game's decision, not the engine's. *)
+let pointing_takes_the_mouse_but_not_the_clock () =
+  let pointed = play ~focused:true ~pointing:true (script 30) in
+  Alcotest.check close "the mouse does not turn the camera" 0. pointed.heading;
+  Alcotest.check close "but the clock runs as it always did" 0.5
+    pointed.elapsed;
+  Alcotest.(check int) "and the frames arrive as they always did" 30
+    pointed.frames
+
 let () =
   Alcotest.run "Engine"
     [
@@ -192,5 +204,7 @@ let () =
           case "a phase turns over when the game says so"
             a_phase_turns_over_when_the_game_says_so;
           case "losing focus pauses the game" losing_focus_pauses_the_game;
+          case "pointing takes the mouse but not the clock"
+            pointing_takes_the_mouse_but_not_the_clock;
         ] );
     ]

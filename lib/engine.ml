@@ -6,19 +6,23 @@ open Tsdl
 open Result_ext
 
 type 'a game = {
-  update : 'a -> dt:float -> motion:Input.motion -> actions:Input.request -> 'a;
+  update : 'a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a;
       (** the next state, given how long the frame lasted, the movement asked
-          for over it and the one-off actions that arrived with it *)
+          for over it and what the player is pressing and holding through it *)
   view : 'a -> World.t * Player.t;  (** what this frame is drawn from *)
   overlay : Framebuffer.t -> 'a -> unit;
       (** anything drawn over the finished world, before it reaches the screen *)
+  pointing : 'a -> bool;
+      (** whether the player is working a cursor over something the game has
+          drawn, rather than looking around with the mouse *)
   finished : 'a -> bool;  (** asked after every update; [true] ends the run *)
 }
 (** How the loop reaches a game whose state it knows nothing else about. ['a] is
     the game's own — phases, doors, journal, whatever it keeps — and the engine
-    only ever hands it back to these four functions. What it needs from a game
+    only ever hands it back to these five functions. What it needs from a game
     is small: something to advance, a world and a player to draw it from, an
-    optional layer over the top, and an answer to whether it is over. *)
+    optional layer over the top, which of the two things the mouse is for, and
+    an answer to whether it is over. *)
 
 type 'a context = {
   renderer : Sdl.renderer;
@@ -56,6 +60,17 @@ let set_fullscreen window enabled =
       (if enabled then Sdl.Window.fullscreen_desktop else Sdl.Window.windowed)
   in
   enabled
+
+(** The same again for relative mouse mode, which pins the cursor out of sight
+    and hands the camera bare deltas. Releasing it puts a real cursor back on
+    the screen — what a game wants while the player is pointing at something it
+    has drawn. Setting it to what it already is is not free (SDL warps the
+    cursor), so [current] is checked first. *)
+let set_relative_mouse ~current enabled =
+  if enabled = current then Ok current
+  else
+    let+ () = Sdl.set_relative_mouse_mode enabled in
+    enabled
 
 (** The clock the loop paces itself by, in seconds. SDL's high resolution
     counter, rather than its millisecond one: a frame is only some sixteen
@@ -103,13 +118,30 @@ let has_focus window =
     Motion is dropped rather than scaled down by the zero [dt], because the
     mouse is not scaled by [dt] in the first place: its deltas are already
     everything that has happened since the last read (see {!Input.val-motion}),
-    so a paused frame that passed them on would still turn the camera. *)
-let simulate game state ~focused ~dt ~motion ~actions =
+    so a paused frame that passed them on would still turn the camera.
+
+    A frame the player spends [pointing] at something the game has drawn drops
+    the motion too, for the same reason — the cursor is loose, and every inch of
+    it would otherwise also swing the camera. The clock keeps running through
+    one, though: a screen the game opens over its world is its own business, and
+    whether time stops for it is a question only the game can answer. *)
+let simulate game state ~focused ~pointing ~dt ~motion ~actions =
   let dt = if focused then dt else 0. in
-  let motion = if focused then motion else Input.still in
+  let motion = if focused && not pointing then motion else Input.still in
   game.update state ~dt ~motion ~actions
 
-let rec loop ctx ~state ~fullscreen ~previous =
+(** Where the cursor is in the coordinates the overlay draws in. SDL reports it
+    in window coordinates, and the framebuffer is a fraction of that size (see
+    {!Renderer.internal_size}), so a game that wants to know what its own
+    drawing the player is pointing at has to be told in the buffer's terms. *)
+let in_framebuffer window framebuffer (x, y) =
+  let width, height = Sdl.get_window_size window in
+  if width <= 0 || height <= 0 then (x, y)
+  else
+    ( x * framebuffer.Framebuffer.width / width,
+      y * framebuffer.Framebuffer.height / height )
+
+let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
   let request = Input.poll ctx.event in
   if request.Input.quit then Ok state
   else
@@ -124,13 +156,28 @@ let rec loop ctx ~state ~fullscreen ~previous =
        until somebody reads it, so a paused frame that skipped the read would
        hand the whole idle spell to the frame that resumes. *)
     let motion = Input.motion ~dt in
+    let actions = Input.sample actions ~dt in
+    let actions =
+      {
+        actions with
+        Input.pointer =
+          in_framebuffer ctx.window !(ctx.framebuffer) actions.Input.pointer;
+      }
+    in
     let state =
       simulate ctx.game state
         ~focused:(has_focus ctx.window)
-        ~dt ~motion ~actions:request
+        ~pointing:(ctx.game.pointing state)
+        ~dt ~motion ~actions
     in
     if ctx.game.finished state then Ok state
     else
+      (* Which of the two things the mouse is for is the game's to say and the
+         engine's to carry out, and the state it has just become is the one that
+         says it — a screen opened this frame wants its cursor this frame. *)
+      let* relative =
+        set_relative_mouse ~current:relative (not (ctx.game.pointing state))
+      in
       let world, player = ctx.game.view state in
       let* () =
         Renderer.render ctx.renderer ctx.framebuffer
@@ -141,7 +188,7 @@ let rec loop ctx ~state ~fullscreen ~previous =
       Sdl.delay (Int32.of_float (idle *. 1000.));
       (* Frames are timed start to start, so the sleep above counts towards the
          next one's length rather than falling outside every frame. *)
-      loop ctx ~state ~fullscreen ~previous:now
+      loop ctx ~state ~actions ~fullscreen ~relative ~previous:now
 
 (** Acquire a resource, use it, and release it even if the body raises. *)
 let with_resource acquire release use =
@@ -156,12 +203,14 @@ let with_resource acquire release use =
     actions that arrived with it, and returns the next state. [view] says which
     world and which player to draw the frame from — a game keeps a great deal
     more than those two, and this is the part of it the renderer understands.
-    [overlay] draws over the finished world before it reaches the screen, and
-    [finished] is asked after every update.
+    [overlay] draws over the finished world before it reaches the screen.
+    [pointing] says whether the mouse is working a cursor over what the game has
+    drawn instead of looking around, and the engine releases and recaptures the
+    cursor to match. [finished] is asked after every update.
 
     Time passes only while the window has focus; see {!simulate}. *)
 let run_state ~update ~view ?(overlay = fun _ _ -> ())
-    ?(finished = fun _ -> false) state =
+    ?(pointing = fun _ -> false) ?(finished = fun _ -> false) state =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
@@ -198,9 +247,10 @@ let run_state ~update ~view ?(overlay = fun _ _ -> ())
           window;
           event = Sdl.Event.create ();
           framebuffer;
-          game = { update; view; overlay; finished };
+          game = { update; view; overlay; pointing; finished };
         }
-        ~state ~fullscreen:false ~previous:(seconds ()))
+        ~state ~actions:Input.untouched ~fullscreen:false ~relative:true
+        ~previous:(seconds ()))
 
 (** Open a window on [world] and run it until the player quits.
 
@@ -213,10 +263,12 @@ let run_state ~update ~view ?(overlay = fun _ _ -> ())
     generator may take its time.
 
     This is {!run_state} over the only state the engine used to be able to hold:
-    the world and the player, advanced by {!step}, drawn as they are, and never
-    finished by anything but quitting. *)
+    the world, the player, and whether Escape has been pressed. Escape quitting
+    is this function's rule and not the engine's — a game with screens in it
+    wants that key for closing them (see {!Input.poll}) — but a bare world has
+    no other way out, so the third of the three is here to carry it. *)
 let run ?(grow = fun world _ -> world) world =
-  let update (world, player) ~dt:_ ~motion ~actions:_ =
+  let update (world, player, _) ~dt:_ ~motion ~actions =
     let moved = step world player motion in
     (* Walking through a doorway is the one moment the horizon can have moved,
        so it is the only moment worth asking the world to grow. Every other
@@ -225,7 +277,12 @@ let run ?(grow = fun world _ -> world) world =
       if moved.Player.room <> player.Player.room then grow world moved
       else world
     in
-    (world, moved)
+    (world, moved, Input.pressed actions (Input.Key Sdl.Scancode.escape))
   in
-  let+ _ = run_state ~update ~view:Fun.id (world, Player.spawn world) in
+  let+ _ =
+    run_state ~update
+      ~view:(fun (world, player, _) -> (world, player))
+      ~finished:(fun (_, _, quit) -> quit)
+      (world, Player.spawn world, false)
+  in
   ()
