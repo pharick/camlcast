@@ -55,10 +55,10 @@ able to hold: a {!Raycaster.World} and the player walking it, plus an optional
 [grow : World.t -> Player.t -> World.t], which it calls whenever the player
 crosses into another room.
 
-{{:https://github.com/pharick/house}The House} is the game built this way: a
-roguelike of endless liminal rooms that grows itself as the player walks,
-keeping every room within {!Raycaster.Config.max_portal_depth} doorways of them
-finished — exactly as deep as the renderer looks.
+A game that builds its world as the player explores it uses [grow] to stay far
+enough ahead that the edge is never in shot: {!Raycaster.Config.max_portal_depth}
+doorways, which is exactly as deep as the renderer looks through them.
+{!Camlcast_demo.Endless} does this in miniature.
 
 {1 Where to start}
 

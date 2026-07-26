@@ -8,9 +8,9 @@ joined at doorways you both see and walk through. The floor, ceiling and sky are
 cast per pixel by a small software renderer; the walls are painted over them back
 to front.
 
-The game built on it — **[the House](https://github.com/pharick/house)**, a
-roguelike of endless liminal rooms after _House of Leaves_ — is a separate repo.
-This one is the engine and the demos it was written against.
+This repo is the engine and the demos it was written against. A game built on it
+lives in its own repo and brings its own content — see
+[Building a game on it](#building-a-game-on-it).
 
 ## Running
 
@@ -112,8 +112,8 @@ own `Atmosphere`, its own `Room`s assembled from `Room.wall`, `Room.doorway` and
 `Room.path`, joined with the three append-only primitives `World.open_doorway`,
 `World.add_room` and `World.link`. Most of the demos do this statically, rooms
 written out by hand; `endless` does it incrementally with those three
-primitives, as does [the House](https://github.com/pharick/house), which grows
-a whole building under the player's feet through the same `grow` hook.
+primitives, which is how a game grows a building under the player's feet through
+the same `grow` hook.
 
 To depend on the engine from another project, pin it:
 
@@ -248,12 +248,12 @@ of binary assets and every one of them is a pure, testable function of its texel
 coordinates. They are **greyscale**: a texel is a brightness, not a colour. The
 colour arrives at draw time, when the renderer tints the sampled texel by the
 wall's material colour, dimmed by fog and by how squarely the wall faces the
-light — so one pattern can dress a wall of any colour. The demo's are masonry:
-brick, bevelled panel, stone, checker. The House's, in the other repo, are the
-opposite — three octaves of wrapping value noise in a band about forty levels
-wide, with no courses, no joints and no grout lines. The engine has no opinion
-either way: `Texture.generate` takes a function from texel coordinates to a
-brightness, and that is the whole of the interface.
+light — so one pattern can dress a wall of any colour. The demos' are masonry:
+brick, bevelled panel, stone, checker. A game's could be the opposite — say
+three octaves of wrapping value noise in a band about forty levels wide, with no
+courses, no joints and no grout lines. The engine has no opinion either way:
+`Texture.generate` takes a function from texel coordinates to a brightness, and
+that is the whole of the interface.
 
 The noise lattice wraps at the texture's size, which is what makes that second
 kind possible at all: a wall's pattern tiles once per world unit, so a field that
