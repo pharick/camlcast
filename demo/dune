@@ -1,8 +1,12 @@
-; The showcase level and the art it is built from. Nothing in the engine
-; depends on this, which is the point: it is content, and it lives outside the
-; library it is content for.
+; The demos and the art they are built from: one small world per engine
+; feature, plus the five-room showcase level that has all of them at once.
+; Nothing in the engine depends on any of this, which is the point: it is
+; content, and it lives outside the library it is content for.
+;
+; tsdl is a direct dependency because a demo that binds a key names an
+; Sdl.Scancode, the same way a game does.
 
 (library
  (name camlcast_demo)
  (public_name camlcast.demo)
- (libraries raycaster))
+ (libraries raycaster tsdl))

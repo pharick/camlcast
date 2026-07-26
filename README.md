@@ -10,15 +10,43 @@ to front.
 
 The game built on it — **[the House](https://github.com/pharick/house)**, a
 roguelike of endless liminal rooms after _House of Leaves_ — is a separate repo.
-This one is the engine and the showcase level it was written against.
+This one is the engine and the demos it was written against.
 
 ## Running
 
 ```sh
 eval $(opam env --switch=. --set-switch)   # this repo uses a local switch
-dune exec camlcast-demo                    # the showcase level
+dune exec camlcast-demo                    # what there is to look at
+dune exec camlcast-demo portals            # one of them
 dune test                                  # all suites
 ```
+
+## The demos
+
+One small world per engine feature, and one that has all of them at once. Each
+is a single file under `demo/`, short enough to read in a sitting, with the
+feature it demonstrates as the only thing in it — and each spawns you facing
+the thing it is about.
+
+| demo       | what it shows                                                     |
+| ---------- | ----------------------------------------------------------------- |
+| `masonry`  | materials: a colour and a pattern, chosen apart                   |
+| `gallery`  | decals fixed to walls, sprites standing in the room               |
+| `glass`    | see-through walls and the translucent pass                        |
+| `slopes`   | inclined floors and roofs, and a threshold with no seam           |
+| `daylight` | the open sky, and two rooms under different ones                  |
+| `haze`     | atmosphere: the fade into the distance, and where the light falls |
+| `portals`  | doorways: one room, built once, joined in two places              |
+| `endless`  | the `grow` hook: a corridor built as you walk down it             |
+| `phases`   | `run_state`: a phase, a clock, and a light going out              |
+| `overlay`  | drawing over the finished world                                   |
+| `controls` | press versus hold, mouse buttons, and letting go of the cursor    |
+| `showcase` | the five-room level, with all of the above at once                |
+
+Every one of these worlds is checked by `test_demos`: that you can stand where
+it spawns you, that its rooms enclose themselves, that every room is reachable,
+and that no floor steps across a doorway. Adding a demo to `Catalogue.demos` is
+also adding it to that suite.
 
 ## Two libraries
 
@@ -26,16 +54,16 @@ The engine holds no content — not one colour, pattern, picture or room. What i
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-| directory | library              | what it is                                                                |
-| --------- | -------------------- | ------------------------------------------------------------------------- |
-| `lib/`    | `camlcast.raycaster` | the engine: geometry, ray casting, rendering, SDL                         |
-| `demo/`   | `camlcast.demo`      | the showcase level and the art it is made of, runnable as `camlcast-demo` |
+| directory | library              | what it is                                                     |
+| --------- | -------------------- | -------------------------------------------------------------- |
+| `lib/`    | `camlcast.raycaster` | the engine: geometry, ray casting, rendering, SDL              |
+| `demo/`   | `camlcast.demo`      | the demos and the art they are made of, run by `camlcast-demo` |
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
-it lives outside the library it is content for. It stays in this repo because it
-exercises every corner of the engine at once — decals, see-through walls, sloped
-floors and the open sky — so a change that breaks any of them breaks a level you
-can walk through here.
+it lives outside the library it is content for. It stays in this repo because
+between them the demos exercise every corner of the engine — decals,
+see-through walls, sloped floors, the open sky, growth, overlays and input — so
+a change that breaks any of them breaks something you can walk through here.
 
 A wall carries its `Material` — a colour and a greyscale `Texture` — by value,
 the way a decal has always carried its `Image`. That replaced an integer id
@@ -79,10 +107,10 @@ closing them.
 A game supplies the rest by construction: its own `Material`s and `Texture`s, its
 own `Atmosphere`, its own `Room`s assembled from `Room.wall`, `Room.doorway` and
 `Room.path`, joined with the three append-only primitives `World.open_doorway`,
-`World.add_room` and `World.link`. `demo/` does this statically — five rooms
-written out by hand — and [the House](https://github.com/pharick/house) does it
-incrementally, growing the world under the player's feet through the same `grow`
-hook and the same three primitives.
+`World.add_room` and `World.link`. Most of the demos do this statically, rooms
+written out by hand; `endless` does it incrementally with those three
+primitives, as does [the House](https://github.com/pharick/house), which grows
+a whole building under the player's feet through the same `grow` hook.
 
 To depend on the engine from another project, pin it:
 
@@ -103,6 +131,9 @@ then `(libraries camlcast.raycaster)` in your `dune`.
 | `↑` / `↓`    | look up / down (keyboard fallback)    |
 | `F11`        | toggle fullscreen                     |
 | `Esc`        | quit                                  |
+
+Two demos add to this: `phases` starts on `space`, and `controls` uses `E`,
+`Tab` and the left mouse button — each says so at the top of its own file.
 
 The mouse is captured in relative mode, so the cursor is hidden and never
 reaches a screen edge; `Esc` releases it and quits.

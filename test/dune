@@ -33,5 +33,6 @@
   test_engine
   test_patterns
   test_pictures
-  test_level)
+  test_level
+  test_demos)
  (libraries raycaster camlcast_demo alcotest tsdl))
