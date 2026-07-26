@@ -37,6 +37,7 @@ the thing it is about.
 | `daylight` | the open sky, and two rooms under different ones                  |
 | `haze`     | atmosphere: the fade into the distance, and where the light falls |
 | `portals`  | doorways: one room, built once, joined in two places              |
+| `changing` | replacing a room: an animated sign, rebuilt every frame           |
 | `endless`  | the `grow` hook: a corridor built as you walk down it             |
 | `phases`   | `run_state`: a phase, a clock, and a light going out              |
 | `overlay`  | drawing over the finished world                                   |

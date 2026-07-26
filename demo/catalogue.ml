@@ -63,6 +63,12 @@ let demos =
       run = Portals.run;
     };
     {
+      name = "changing";
+      blurb = "replacing a room: a sign that moves, rebuilt every frame";
+      world = Changing.world;
+      run = Changing.run;
+    };
+    {
       name = "endless";
       blurb = "the grow hook: a corridor built as you walk it";
       world = Endless.world;

@@ -324,6 +324,67 @@ let link t (room_a, name_a) (room_b, name_b) =
   fill room_b jb there;
   { t with portals }
 
+(** {1 Changing a room}
+
+    The three primitives above append, and what they have appended stands. This
+    is the other half of a world that changes: the same room, in the same place,
+    made of something else. *)
+
+(** Replace a room with another version of itself.
+
+    [replacement] must describe the same openings as the room it stands in for —
+    the same thresholds, in the same order, with the same names, endpoints and
+    heights — and may differ in everything else: the walls, their decals, the
+    floor and ceiling surfaces, the sprites, and whether a leaf hangs in a
+    doorway.
+
+    That division is not arbitrary. A threshold's endpoints are what a link's
+    {!Transform} was derived from, and its position in this array is what a
+    portal's [twin] is an index into, so moving or reordering one would leave
+    every portal that points at it meaning a different opening — silently, and
+    from the other side of the world. Nothing outside a room refers to its
+    walls, its planes or its sprites, so those are free to become anything.
+
+    This is how a sign animates, a chalk mark appears on a wall, and a room is
+    lit differently on the way back than it was on the way out: build the room
+    again from its parts with the one thing changed, and hand it over.
+
+    Unlike the three primitives above, the names are not re-checked. They cannot
+    have gone wrong: every threshold here has been compared by name against the
+    one it replaces, so the names are exactly the ones the room already had, and
+    those were checked when it was built.
+
+    {b A door is only half here.} The [door] in an opening may change, since
+    hanging a leaf where there is already a gap is one of the things this is
+    for — but the two sides of a link have to agree about a door and this
+    changes one room, so {!check} will object until the other side has been
+    replaced too.
+
+    {b A floor may open a seam.} Nothing measures whether a new floor plane
+    still meets its neighbour's across a doorway, here or anywhere else;
+    {!seam_gap} is what a generator's tests ask, and a floor that no longer
+    meets is a step you walk into rather than an error. *)
+let replace_room t ~room ~replacement =
+  let before = t.rooms.(room) in
+  let n = Array.length before.Room.thresholds in
+  let where = t.names.(room) in
+  if Array.length replacement.Room.thresholds <> n then
+    invalid_arg
+      (Printf.sprintf
+         "World.replace_room: %s has %d thresholds and its replacement has %d"
+         where n
+         (Array.length replacement.Room.thresholds));
+  Array.iteri
+    (fun i (x : Room.threshold) ->
+      if not (same_opening x before.Room.thresholds.(i)) then
+        invalid_arg
+          ("World.replace_room: " ^ where ^ " moved or reordered its threshold "
+         ^ x.Room.name))
+    replacement.Room.thresholds;
+  let rooms = Array.copy t.rooms in
+  rooms.(room) <- replacement;
+  { t with rooms }
+
 (** Everything {!make} guarantees, asserted over a world that was grown instead:
     every room's thresholds uniquely named, every one of them linked, every
     portal's [twin] the same doorway seen from the other side, and the two sides

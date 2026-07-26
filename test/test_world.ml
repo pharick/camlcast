@@ -385,6 +385,146 @@ let invalid_growth_is_refused () =
   raises "an unlinked doorway" "World.check: nothing links threshold start.north"
     (fun () -> World.check grown)
 
+(* Replacing a room is how a wall comes to have a chalk mark on it, a sign starts
+   moving, and a room is lit differently on the way back than it was on the way
+   out. Everything about the room may change but the openings, which are what
+   the rest of the world is holding on to. *)
+let a_room_can_be_replaced () =
+  let before = World.room two_rooms 0 in
+  let replacement =
+    Room.make
+      ~thresholds:(Array.to_list before.Room.thresholds)
+      ~floor:{ Room.plane = Plane.horizontal 0.5; material = dim }
+      ~ceiling:open_sky
+      ~sprites:[ { Room.pos = centre; size = 1.; image = poster } ]
+      (Array.to_list before.Room.walls
+      @ [ Room.wall ~height:1. ~material:mesh (Vec.make 1. 1.) (Vec.make 2. 1.) ])
+  in
+  let after = World.replace_room two_rooms ~room:0 ~replacement in
+  World.check after;
+  let now = World.room after 0 in
+  Alcotest.(check int)
+    "the new wall is there"
+    (Array.length before.Room.walls + 1)
+    (Array.length now.Room.walls);
+  Alcotest.(check int) "and the sprite" 1 (Array.length now.Room.sprites);
+  Alcotest.(check bool)
+    "the roof came off" true
+    (match now.Room.ceiling with Room.Open _ -> true | Room.Roof _ -> false);
+  Alcotest.check close "and the floor moved" 0.5
+    (Plane.elevation now.Room.floor.Room.plane centre);
+  Alcotest.(check int)
+    "the room next door is untouched"
+    (Array.length (World.room two_rooms 1).Room.walls)
+    (Array.length (World.room after 1).Room.walls);
+  (* The world is persistent, so the one it was made from still stands. *)
+  Alcotest.(check int)
+    "and so is the world it was made from"
+    (Array.length before.Room.walls)
+    (Array.length (World.room two_rooms 0).Room.walls)
+
+(* What the rest of the world holds is a portal: a room index, a twin index and
+   a transform, none of which is re-derived when a room is replaced. So they
+   have to still mean what they meant — even when the room they describe has
+   nothing left in common with the one they were derived from. *)
+let replacing_never_disturbs_a_portal () =
+  let there = portal two_rooms ~room:0 ~index:0 in
+  let before = World.room two_rooms 0 in
+  let stripped =
+    (* Not one wall left, which the checks permit: nothing outside a room refers
+       to its walls. *)
+    Room.make
+      ~thresholds:(Array.to_list before.Room.thresholds)
+      ~floor:flat_floor ~ceiling:flat_ceiling []
+  in
+  let after = World.replace_room two_rooms ~room:0 ~replacement:stripped in
+  World.check after;
+  let now = portal after ~room:0 ~index:0 in
+  Alcotest.(check int) "it leads to the same room" there.World.to_room
+    now.World.to_room;
+  Alcotest.(check int) "by the same twin" there.World.twin now.World.twin;
+  Alcotest.check vec "and lands in the same place"
+    (Transform.point there.World.onto centre)
+    (Transform.point now.World.onto centre);
+  Alcotest.(check int)
+    "and the neighbour still points back at it" 0
+    (portal after ~room:1 ~index:now.World.twin).World.to_room
+
+(* A leaf hung through one side leaves the two halves of the link disagreeing,
+   which is a world check refuses. Hanging one is still permitted — it is half of
+   an operation, not a mistake — and the other half is the same call again on the
+   room next door. *)
+let a_door_takes_two_replacements () =
+  (* Both fixture rooms have exactly the one doorway, so this hangs a leaf in
+     the only opening the room has. *)
+  let hang world ~room =
+    let before = World.room world room in
+    World.replace_room world ~room
+      ~replacement:
+        (Room.make
+           ~thresholds:
+             (List.map
+                (fun (x : Room.threshold) -> { x with Room.door = Some pale })
+                (Array.to_list before.Room.thresholds))
+           ~floor:before.Room.floor ~ceiling:before.Room.ceiling
+           (Array.to_list before.Room.walls))
+  in
+  let half = hang two_rooms ~room:0 in
+  raises "one side only"
+    "World.check: linked thresholds disagree about a door: first.east" (fun () ->
+      World.check half);
+  let both = hang half ~room:1 in
+  World.check both;
+  Alcotest.(check bool)
+    "a leaf hangs on both sides now" true
+    ((World.room both 0).Room.thresholds.(0).Room.door <> None
+    && (World.room both 1).Room.thresholds.(0).Room.door <> None)
+
+let invalid_replacement_is_refused () =
+  let first = World.room two_rooms 0 in
+  let like thresholds =
+    Room.make ~thresholds ~floor:flat_floor ~ceiling:flat_ceiling
+      (Array.to_list first.Room.walls)
+  in
+  raises "a doorway dropped"
+    "World.replace_room: first has 1 thresholds and its replacement has 0"
+    (fun () ->
+      ignore (World.replace_room two_rooms ~room:0 ~replacement:(like [])));
+  (* An opening that moved would leave the twin pointing at it, and the
+     transform derived from it, describing a doorway that is no longer there. *)
+  let _, moved = cut ~name:"east" (Vec.make 4. 0.) (Vec.make 4. 3.) in
+  raises "an opening moved"
+    "World.replace_room: first moved or reordered its threshold east" (fun () ->
+      ignore (World.replace_room two_rooms ~room:0 ~replacement:(like [ moved ])));
+  (* Same opening, different height: the two sides would no longer line up. *)
+  let _, taller =
+    Room.doorway ~name:"east" ~width:1. ~opening:2.5 ~height:3. ~material:pale
+      (Vec.make 4. 0.) (Vec.make 4. 4.)
+  in
+  raises "an opening that changed height"
+    "World.replace_room: first moved or reordered its threshold east" (fun () ->
+      ignore (World.replace_room two_rooms ~room:0 ~replacement:(like [ taller ])));
+  (* Reordering is the same fault seen from another angle: a twin is a bare
+     index, so the doorway at 0 has to still be the doorway at 0. *)
+  let jambs, extra = cut ~name:"extra" (Vec.make 4. 4.) (Vec.make 0. 4.) in
+  let two =
+    World.open_doorway two_rooms ~room:0
+      ~opened:
+        (Room.make
+           ~thresholds:(Array.to_list first.Room.thresholds @ [ extra ])
+           ~floor:flat_floor ~ceiling:flat_ceiling
+           (Array.to_list first.Room.walls @ jambs))
+  in
+  raises "the order changed"
+    "World.replace_room: first moved or reordered its threshold extra" (fun () ->
+      ignore
+        (World.replace_room two ~room:0
+           ~replacement:
+             (Room.make
+                ~thresholds:[ extra; first.Room.thresholds.(0) ]
+                ~floor:flat_floor ~ceiling:flat_ceiling
+                (Array.to_list first.Room.walls @ jambs))))
+
 let () =
   Alcotest.run "World"
     [
@@ -405,5 +545,13 @@ let () =
           case "a loop may contradict itself" a_loop_may_contradict_itself;
           case "a doorway onto nowhere is solid" a_doorway_onto_nowhere_is_solid;
           case "invalid growth is refused" invalid_growth_is_refused;
+        ] );
+      ( "replacing",
+        [
+          case "a room can be replaced" a_room_can_be_replaced;
+          case "replacing never disturbs a portal"
+            replacing_never_disturbs_a_portal;
+          case "a door takes two replacements" a_door_takes_two_replacements;
+          case "invalid replacement is refused" invalid_replacement_is_refused;
         ] );
     ]
