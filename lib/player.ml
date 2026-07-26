@@ -87,6 +87,26 @@ let crosses (portal : World.portal) ~from ~dest =
   in
   side from *. side dest < 0.
 
+type crossing = {
+  from_room : int;
+  from_threshold : int;  (** which of that room's thresholds was gone through *)
+  to_room : int;
+  to_threshold : int;  (** the same doorway, numbered from the other side *)
+  onto : Transform.t;  (** the frame change that was applied on the way *)
+}
+(** One doorway, gone through. Thresholds are given as indices and not as
+    values: an index is what survives {!World.replace_room}, and it is already
+    how a portal names its [twin], so a game that wants to lock the door it has
+    just come through has the two numbers it needs to change both sides.
+
+    [onto] is what the pose was carried by. A game keeping a return route stacks
+    these and walks them back through {!Transform.inverse}, which is exact — so
+    a route home through a loop that could not exist still arrives. *)
+
+type movement = { player : t; crossings : crossing list }
+(** Where a step ended, and every doorway it went through on the way, in the
+    order they were crossed. Most frames cross nothing and the list is empty. *)
+
 (** Move by [delta] cells, resolving the two axes independently so that walking
     into a wall at an angle keeps the component that is still free — you slide
     along the wall instead of sticking to it. {!World.can_step} sweeps the
@@ -107,25 +127,42 @@ let crosses (portal : World.portal) ~from ~dest =
     A step can therefore cross two doorways, or the same one twice: an {e L} that
     rounds a jamb, out through an opening and back in, meets the twin threshold
     on the way back and returns through it. The two transforms of a link are
-    inverses, so it lands where it should, in the room it set out from. *)
+    inverses, so it lands where it should, in the room it set out from.
+
+    Both are reported, in the order they were met. That order is the whole
+    reason this returns a list rather than a count: a game building a route home
+    has to unwind the crossings the way they were made, and a frame that went
+    out and came back has to leave the stack as it found it. *)
 let slide world player (delta : Vec.t) =
-  (* Each leg reports the pose it ended in and the transform it went through to
-     get there — the identity unless it crossed. *)
+  (* Each leg reports the pose it ended in, the transform it went through to get
+     there — the identity unless it crossed — and the crossing itself if there
+     was one. *)
   let step player (leg : Vec.t) =
     let from = player.pos in
     let dest = Vec.add from leg in
     if not (World.can_step world ~room:player.room ~from ~dest) then
-      (player, Transform.identity)
+      (player, Transform.identity, None)
     else
       let moved = { player with pos = dest } in
       match World.crossing world ~room:player.room ~from ~dest with
-      | Some portal when crosses portal ~from ~dest ->
+      | Some (slot, portal) when crosses portal ~from ~dest ->
           ( through portal.World.onto ~room:portal.World.to_room moved,
-            portal.World.onto )
-      | _ -> (moved, Transform.identity)
+            portal.World.onto,
+            Some
+              {
+                from_room = player.room;
+                from_threshold = slot;
+                to_room = portal.World.to_room;
+                to_threshold = portal.World.twin;
+                onto = portal.World.onto;
+              } )
+      | _ -> (moved, Transform.identity, None)
   in
-  let after_x, onto = step player (Vec.make delta.x 0.) in
-  fst (step after_x (Transform.direction onto (Vec.make 0. delta.y)))
+  let after_x, onto, first = step player (Vec.make delta.x 0.) in
+  let after_y, _, second =
+    step after_x (Transform.direction onto (Vec.make 0. delta.y))
+  in
+  { player = after_y; crossings = List.filter_map Fun.id [ first; second ] }
 
 (** The two movement axes of a first person camera: [forward] along [dir],
     [strafe] along [right]. Both vectors are unit length, so a step of the same
@@ -138,8 +175,9 @@ let slide world player (delta : Vec.t) =
     covers half the ground.
 
     A step that went through a doorway comes back from {!slide} already in the
-    room on the other side, pose and all. *)
-let walk world player ~forward ~strafe =
+    room on the other side, pose and all, with the doorways it went through
+    alongside. *)
+let traverse world player ~forward ~strafe =
   let delta =
     Vec.add (Vec.scale player.dir forward) (Vec.scale player.right strafe)
   in
@@ -147,3 +185,10 @@ let walk world player ~forward ~strafe =
   let length = Vec.length delta in
   slide world player
     (if length > limit then Vec.scale delta (limit /. length) else delta)
+
+(** {!traverse} for a caller that only wants to know where the player ended up.
+    Everything that walks and does not care which doorways it went through —
+    the demos, and the compatibility path through {!Engine.run} — goes through
+    here. *)
+let walk world player ~forward ~strafe =
+  (traverse world player ~forward ~strafe).player

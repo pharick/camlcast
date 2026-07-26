@@ -480,8 +480,8 @@ let can_step t ~room:index ~from ~dest =
   Room.can_step here ~from ~dest && every 0
 
 (** The doorway a step from [from] to [dest] passes through, if it passes
-    through one — the portal whose {!Player.through} the caller should then
-    apply.
+    through one: which of this room's thresholds it was, and the portal behind
+    it — whose {!Player.through} the caller should then apply.
 
     A step could in principle cross two, so they are ranked by how far along the
     step each is met and the nearest wins. A step running {e along} an opening
@@ -491,7 +491,7 @@ let can_step t ~room:index ~from ~dest =
     A doorway that leads nowhere yet is not a crossing — there is nowhere to
     cross to — and {!can_step} has already refused any step that would reach
     one. *)
-let crossing t ~room:index ~from ~dest =
+let crossing t ~room ~from ~dest =
   let step = Vec.sub dest from in
   let parameter (portal : portal) =
     let edge = portal.threshold.edge in
@@ -499,20 +499,28 @@ let crossing t ~room:index ~from ~dest =
     if Float.abs denom < 1e-12 then infinity
     else Vec.cross (Vec.sub portal.threshold.a from) edge /. denom
   in
-  Array.fold_left
-    (fun best -> function
-      | None -> best
-      | Some (portal : portal) ->
-          if Room.segments_cross from dest portal.threshold.a portal.threshold.b
-          then
+  let row = t.portals.(room) in
+  (* Walked by index rather than folded over, because which doorway it was is
+     half the answer: an index is what {!replace_room} leaves valid and what a
+     [twin] is already expressed in, where a copy of the threshold would go
+     stale the moment a leaf was hung in it. *)
+  let rec nearest slot best =
+    if slot >= Array.length row then best
+    else
+      let best =
+        match row.(slot) with
+        | Some (portal : portal)
+          when Room.segments_cross from dest portal.threshold.a
+                 portal.threshold.b -> (
             let here = parameter portal in
             match best with
-            | Some (_, there) when there <= here -> best
-            | _ -> Some (portal, here)
-          else best)
-    None
-    t.portals.(index)
-  |> Option.map fst
+            | Some (_, _, there) when there <= here -> best
+            | _ -> Some (slot, portal, here))
+        | _ -> best
+      in
+      nearest (slot + 1) best
+  in
+  Option.map (fun (slot, portal, _) -> (slot, portal)) (nearest 0 None)
 
 (** By how much the two rooms either side of [portal] disagree about the height
     of the floor at the doorway they share, measured at both of its endpoints.

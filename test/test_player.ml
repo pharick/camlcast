@@ -155,6 +155,158 @@ let rounding_a_jamb_is_not_a_crossing () =
   let moved = Player.walk two_rooms player ~forward:0. ~strafe:0.1 in
   Alcotest.(check int) "still in the first room" 0 moved.Player.room
 
+(* {1 Traversal traces}
+
+   A movement reports the doorways it went through, in order. What reads that
+   list is a game locking the door it has just come through, counting the rooms
+   it has seen, and keeping a route home it can walk backwards — so the order
+   and the identities have to be exact, not merely the count. *)
+
+(* Two rooms joined twice over, into a loop a single step can go all the way
+   round. Room a's east doorway leads into b; b's north doorway leads back into
+   a's south one. Both rooms are the same 0..4 square in their own coordinates,
+   so the loop closes on a geometry that could not exist — which is the point:
+   nothing checks it, and a route home is the crossings and not the arithmetic. *)
+let loop =
+  let a_east_jambs, a_east =
+    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 4. 0.) (Vec.make 4. 4.)
+  and a_south_jambs, a_south =
+    Room.doorway ~name:"south" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 0. 0.) (Vec.make 4. 0.)
+  and b_west_jambs, b_west =
+    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
+      (Vec.make 0. 4.) (Vec.make 0. 0.)
+  and b_north_jambs, b_north =
+    Room.doorway ~name:"north" ~width:1. ~opening:2. ~height:3. ~material:dim
+      (Vec.make 4. 4.) (Vec.make 0. 4.)
+  in
+  let a =
+    Room.make ~thresholds:[ a_east; a_south ] ~floor:flat_floor
+      ~ceiling:flat_ceiling
+      (a_east_jambs @ a_south_jambs
+      @ [
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and b =
+    Room.make ~thresholds:[ b_west; b_north ] ~floor:flat_floor
+      ~ceiling:flat_ceiling
+      (b_west_jambs @ b_north_jambs
+      @ [
+          Room.wall ~height:3. ~material:dim (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.);
+        ])
+  in
+  World.make ~rooms:[ ("a", a); ("b", b) ]
+    ~links:[ (("a", "east"), ("b", "west")); (("b", "north"), ("a", "south")) ]
+    ~atmosphere:air ~spawn:("a", centre)
+
+let at world ~room ~pos = Player.create ~room ~pos ~angle:0.
+
+(* Most frames go through no doorway at all, and the list has to be empty rather
+   than approximately empty. *)
+let a_step_that_crosses_nothing_reports_nothing () =
+  let moved = Player.traverse world (at world ~room:0 ~pos:centre) ~forward:0.5 ~strafe:0. in
+  Alcotest.(check int) "no crossings" 0 (List.length moved.Player.crossings);
+  Alcotest.(check int) "and the same room" 0 moved.Player.player.Player.room
+
+let one_crossing_names_both_sides_of_the_doorway () =
+  let start = at two_rooms ~room:0 ~pos:(Vec.make 3.8 2.) in
+  let moved = Player.traverse two_rooms start ~forward:0.4 ~strafe:0. in
+  match moved.Player.crossings with
+  | [ crossing ] ->
+      Alcotest.(check int) "out of the first room" 0 crossing.Player.from_room;
+      Alcotest.(check int) "by its only doorway" 0 crossing.Player.from_threshold;
+      Alcotest.(check int) "into the second" 1 crossing.Player.to_room;
+      Alcotest.(check int)
+        "arriving at the doorway's other side" 0 crossing.Player.to_threshold;
+      (* The transform recorded is the one that was actually applied. *)
+      Alcotest.check vec "and it is the transform that was used"
+        moved.Player.player.Player.pos
+        (Transform.point crossing.Player.onto (Vec.make 4.2 2.));
+      Alcotest.(check int) "the pose agrees about the room" 1
+        moved.Player.player.Player.room
+  | other ->
+      Alcotest.failf "expected one crossing, got %d" (List.length other)
+
+(* One axis-resolved frame is an L, and each of its two legs can go through a
+   doorway of its own. The first leg carries far enough into the second room
+   that the second leg starts nowhere near the opening it came in by — and there
+   meets a different one. *)
+let one_frame_can_cross_two_doorways () =
+  let start = at loop ~room:0 ~pos:centre in
+  let moved = Player.slide loop start (Vec.make 4. 2.5) in
+  Alcotest.(check int)
+    "two doorways in one step" 2
+    (List.length moved.Player.crossings);
+  match moved.Player.crossings with
+  | [ first; second ] ->
+      (* In order: the leg along x went first, so its doorway is first. *)
+      Alcotest.(check int) "out of a" 0 first.Player.from_room;
+      Alcotest.(check int) "by a's east doorway" 0 first.Player.from_threshold;
+      Alcotest.(check int) "into b" 1 first.Player.to_room;
+      Alcotest.(check int) "at b's west doorway" 0 first.Player.to_threshold;
+      Alcotest.(check int) "then out of b" 1 second.Player.from_room;
+      Alcotest.(check int) "by b's north doorway" 1 second.Player.from_threshold;
+      Alcotest.(check int) "and back into a" 0 second.Player.to_room;
+      Alcotest.(check int) "at a's south doorway" 1 second.Player.to_threshold
+  | other ->
+      Alcotest.failf "expected two crossings, got %d" (List.length other)
+
+(* Going round the loop comes back to the room it started in — by a route whose
+   two ends do not agree about where that room is. The crossings are what says
+   it happened at all: the room index alone would look like a step that never
+   left. *)
+let a_loop_returns_to_the_room_it_left () =
+  let start = at loop ~room:0 ~pos:centre in
+  let moved = Player.slide loop start (Vec.make 4. 2.5) in
+  Alcotest.(check int)
+    "back in the room it set out from" start.Player.room
+    moved.Player.player.Player.room;
+  Alcotest.(check bool)
+    "somewhere else in it, though" true
+    (Vec.length (Vec.sub moved.Player.player.Player.pos start.Player.pos) > 1e-6);
+  Alcotest.(check int)
+    "having gone through two doorways to get there" 2
+    (List.length moved.Player.crossings)
+
+(* What a return route is: the crossings walked backwards through the inverse of
+   each transform. Every link's two portals carry a transform and its inverse
+   exactly, so unwinding the list lands on the pose it started from — however
+   impossible the loop it went round. *)
+let the_crossings_unwind_to_where_it_started () =
+  let start = at loop ~room:0 ~pos:centre in
+  let moved = Player.slide loop start (Vec.make 4. 2.5) in
+  let home =
+    List.fold_left
+      (fun pose (crossing : Player.crossing) ->
+        Player.through
+          (Transform.inverse crossing.Player.onto)
+          ~room:crossing.Player.from_room pose)
+      moved.Player.player
+      (List.rev moved.Player.crossings)
+  in
+  Alcotest.(check int) "the room it set out from" start.Player.room
+    home.Player.room;
+  (* Unwinding the frames, not the walking: it lands where the step finished,
+     expressed in the frame it began in. *)
+  Alcotest.check vec "and the step measured from there"
+    (Vec.make (centre.x +. 4.) (centre.y +. 2.5))
+    home.Player.pos
+
+(* walk is traverse with the crossings dropped, and has to stay exactly that. *)
+let walk_is_traverse_without_the_trace () =
+  let start = at two_rooms ~room:0 ~pos:(Vec.make 3.8 2.) in
+  let plain = Player.walk two_rooms start ~forward:0.4 ~strafe:0.2 in
+  let traced = Player.traverse two_rooms start ~forward:0.4 ~strafe:0.2 in
+  Alcotest.(check int) "same room" plain.Player.room
+    traced.Player.player.Player.room;
+  Alcotest.check vec "same position" plain.Player.pos
+    traced.Player.player.Player.pos;
+  Alcotest.check vec "same facing" plain.Player.dir
+    traced.Player.player.Player.dir
+
 let () =
   Alcotest.run "Player"
     [
@@ -178,6 +330,21 @@ let () =
             walking_through_and_back_returns_you;
           case "rounding a jamb is not a crossing"
             rounding_a_jamb_is_not_a_crossing;
+        ] );
+      ( "traces",
+        [
+          case "a step that crosses nothing reports nothing"
+            a_step_that_crosses_nothing_reports_nothing;
+          case "one crossing names both sides of the doorway"
+            one_crossing_names_both_sides_of_the_doorway;
+          case "one frame can cross two doorways"
+            one_frame_can_cross_two_doorways;
+          case "a loop returns to the room it left"
+            a_loop_returns_to_the_room_it_left;
+          case "the crossings unwind to where it started"
+            the_crossings_unwind_to_where_it_started;
+          case "walk is traverse without the trace"
+            walk_is_traverse_without_the_trace;
         ] );
       ( "collision",
         [

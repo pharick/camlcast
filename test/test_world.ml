@@ -23,11 +23,12 @@ let links_resolve () =
    0..4 square, so a crossing is only meaningful once the transform has carried
    the point into the neighbour's frame. *)
 let crossing_changes_frame () =
-  let portal =
+  let slot, portal =
     Option.get
       (World.crossing two_rooms ~room:0 ~from:(Vec.make 3.8 2.)
          ~dest:(Vec.make 4.2 2.))
   in
+  Alcotest.(check int) "through the room's only doorway" 0 slot;
   Alcotest.(check int) "crosses into second" 1 portal.to_room;
   Alcotest.check vec "point lands inside neighbour" (Vec.make 0.2 2.)
     (Transform.point portal.onto (Vec.make 4.2 2.));

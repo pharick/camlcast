@@ -37,15 +37,24 @@ type 'a context = {
     state changes every frame by definition, so the loop threads it beside the
     context rather than holding it fixed here. *)
 
-(** Advance the simulation by one frame. Pure: input in, new player out. The
-    motion already carries finished per-frame deltas (see {!Input.val-motion}),
-    so this only decides the order — turn and pitch before walking, so a frame
-    that both turns and moves walks in the direction it ends up facing. *)
-let step world player (motion : Input.motion) =
+(** Advance the simulation by one frame. Pure: input in, new player out, along
+    with every doorway the frame went through. The motion already carries
+    finished per-frame deltas (see {!Input.val-motion}), so this only decides
+    the order — turn and pitch before walking, so a frame that both turns and
+    moves walks in the direction it ends up facing.
+
+    That ordering is the reason this exists rather than a game calling
+    {!Player.traverse} itself: it is a rule about a frame, and there should be
+    one copy of it. *)
+let advance world player (motion : Input.motion) =
   player
   |> Player.turn ~radians:motion.turn
   |> Player.pitch_by ~delta:motion.pitch
-  |> Player.walk world ~forward:motion.forward ~strafe:motion.strafe
+  |> Player.traverse world ~forward:motion.forward ~strafe:motion.strafe
+
+(** {!advance} for a caller with nothing to do with the doorways it crossed. *)
+let step world player (motion : Input.motion) =
+  (advance world player motion).Player.player
 
 (** SDL only offers "set", not "toggle", so the loop carries the current state
     and returns the new one.

@@ -129,6 +129,38 @@ let growing_leaves_a_world_that_still_works () =
         portals)
     !world.World.portals
 
+(* The trail demo builds a return route out of the crossings each frame reports,
+   pushing one unless it undoes the one on top. Walking to the far end of the
+   corridor and back again has to leave that route exactly as it was found —
+   which is the whole point of a traversal trace, asserted over a few hundred
+   frames of walking rather than a single step. *)
+let the_trail_demo_unwinds_its_own_route () =
+  let frame state forward =
+    Trail.update state ~dt:(1. /. 60.)
+      ~motion:{ Input.still with Input.forward }
+      ~actions:Input.untouched
+  in
+  let walk state ~forward ~frames =
+    List.fold_left (fun s _ -> frame s forward) state (List.init frames Fun.id)
+  in
+  Alcotest.(check int)
+    "nothing behind you to begin with" 0
+    (List.length Trail.start.Trail.stack);
+  let out = walk Trail.start ~forward:0.15 ~frames:320 in
+  Alcotest.(check int)
+    "walking east reaches the far chamber" 4
+    out.Trail.player.Player.room;
+  Alcotest.(check int)
+    "with four doorways on the way home" 4
+    (List.length out.Trail.stack);
+  (* Backwards down the same corridor, still facing the same way. *)
+  let home = walk out ~forward:(-0.15) ~frames:320 in
+  Alcotest.(check int) "and back where it started" 0
+    home.Trail.player.Player.room;
+  Alcotest.(check int)
+    "with the route unwound to nothing" 0
+    (List.length home.Trail.stack)
+
 let () =
   Alcotest.run "Demos"
     [
@@ -141,5 +173,7 @@ let () =
           case "names are distinct" names_are_distinct;
           case "growing leaves a world that still works"
             growing_leaves_a_world_that_still_works;
+          case "the trail demo unwinds its own route"
+            the_trail_demo_unwinds_its_own_route;
         ] );
     ]

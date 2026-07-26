@@ -75,6 +75,12 @@ let demos =
       run = Endless.run;
     };
     {
+      name = "trail";
+      blurb = "traversal traces: a return route built from the doorways";
+      world = Trail.world;
+      run = Trail.run;
+    };
+    {
       name = "phases";
       blurb = "run_state: a phase, a clock, and a light going out";
       world = Phases.world;
