@@ -231,18 +231,9 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     let decals =
       List.filter_map
         (fun (dec : Room.decal) ->
-          let off =
-            hit.Ray.along -. (dec.Room.along -. dec.Room.half_width)
-          in
-          if off >= 0. && off <= 2. *. dec.Room.half_width then
-            let n = dec.Room.image.Image.size in
-            let ui =
-              clampi n
-                (int_of_float
-                   (off /. (2. *. dec.Room.half_width) *. float_of_int n))
-            in
-            Some (dec, ui)
-          else None)
+          Option.map
+            (fun ui -> (dec, ui))
+            (Room.decal_column dec ~along:hit.Ray.along))
         w.Room.decals
     in
     for y = first to last do
@@ -282,17 +273,10 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
                an absolute elevation, so it is placed against [above_foot] — on
                a sloped floor it then rides with the wall instead of tilting
                across it. *)
-            if
-              above_foot >= dec.Room.z -. dec.Room.half_height
-              && above_foot <= dec.Room.z +. dec.Room.half_height
-            then begin
+            match Room.decal_row dec ~above:above_foot with
+            | None -> ()
+            | Some vi ->
               let img = dec.Room.image in
-              let n = img.Image.size in
-              let vf =
-                (dec.Room.z +. dec.Room.half_height -. above_foot)
-                /. (2. *. dec.Room.half_height)
-              in
-              let vi = clampi n (int_of_float (vf *. float_of_int n)) in
               let idx = Image.index img ~u:ui ~v:vi in
               let da = img.Image.alpha.(idx) in
               if da > 0 then
@@ -301,8 +285,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
                   ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. light)))
                   ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. light)))
                   ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. light)))
-                  ~a:da
-            end)
+                  ~a:da)
           decals
       end
     done
@@ -327,20 +310,10 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let open Viewport in
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let depth = fb.Framebuffer.depth in
-  let rel = Vec.sub s.Room.pos player.Player.pos in
-  let lateral = Vec.dot rel player.Player.right in
-  (* Same mapping {!ray_direction} inverts: a point at (depth, lateral) in camera
-     space sits at this fraction across the screen. *)
-  let camera_x = lateral /. (depth_s *. viewport.half_width) in
-  let center = (camera_x +. 1.) *. float_of_int width /. 2. in
   let floor_z = Plane.elevation room.Room.floor.Room.plane s.Room.pos in
-  let y_base = project_height viewport ~z:floor_z ~distance:depth_s in
-  let y_top =
-    project_height viewport ~z:(floor_z +. s.Room.size) ~distance:depth_s
+  let left, y_top, rightx, y_base =
+    Viewport.sprite_box viewport player ~floor_z ~distance:depth_s s
   in
-  (* The image is square, so its on-screen width equals its height. *)
-  let half = (y_base -. y_top) /. 2. in
-  let left = center -. half and rightx = center +. half in
   let span = rightx -. left and vspan = y_base -. y_top in
   let img = s.Room.image in
   let n = img.Image.size in
@@ -404,17 +377,6 @@ and fragment_kind =
   | Sprite of Room.sprite
   | See_through of int * Vec.t * Ray.hit
 
-type step = Wall of Ray.hit | Opening of Ray.opening
-
-(** Both lists arrive farthest-first, so one merge puts walls and thresholds
-    into a single painter's-order stream without sorting either of them again. *)
-let rec merge walls openings =
-  match (walls, openings) with
-  | [], rest | rest, [] -> rest
-  | (dw, _) :: _, (((d, _) : float * step) as opening) :: rest when d > dw ->
-      opening :: merge walls rest
-  | wall :: rest, _ -> wall :: merge rest openings
-
 (** Draw one column of one room, and — through any open doorway the column meets
     — of its neighbours behind it, clipped to [clip] rows.
 
@@ -469,8 +431,11 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
   in
   (* A threshold drawn as though it were a wall — the leaf of a door, or the
      lintel above an opening, which is the strip of the surrounding wall left
-     standing over the gap. *)
-  let as_wall (threshold : Room.threshold) ~height ~material ~distance ~along =
+     standing over the gap. [index] is the threshold's own, since that is what
+     this stands for; nothing on this path reads it, but a hit has to carry
+     something and a wall index would be a lie. *)
+  let as_wall (threshold : Room.threshold) ~index ~height ~material ~distance
+      ~along =
     let wall : Room.wall =
       {
         a = threshold.a;
@@ -483,24 +448,15 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
         normal = threshold.normal;
       }
     in
-    { Ray.distance; along; wall }
-  in
-  let walls =
-    List.map
-      (fun (hit : Ray.hit) -> (hit.Ray.distance, Wall hit))
-      (Ray.cast current ~origin:pose.Player.pos ~direction:dir)
-  and openings =
-    List.map
-      (fun (opening : Ray.opening) -> (opening.Ray.distance, Opening opening))
-      (Ray.openings current ~origin:pose.Player.pos ~direction:dir)
+    { Ray.distance; along; wall; index }
   in
   List.iter
-    (fun (_, step) ->
+    (fun step ->
       match step with
-      | Wall hit -> paint ~first:top ~last:bottom hit
+      | Ray.Wall hit -> paint ~first:top ~last:bottom hit
       (* The doorway we are already looking through. *)
-      | Opening opening when entered = Some opening.Ray.index -> ()
-      | Opening opening ->
+      | Ray.Opening opening when entered = Some opening.Ray.index -> ()
+      | Ray.Opening opening ->
           let threshold = current.Room.thresholds.(opening.Ray.index) in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
@@ -519,8 +475,9 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
             (fun (l : Room.lintel) ->
               paint ~first:top
                 ~last:(Int.min bottom (head - 1))
-                (as_wall threshold ~height:l.Room.top ~material:l.Room.material
-                   ~distance ~along:opening.Ray.along))
+                (as_wall threshold ~index:opening.Ray.index ~height:l.Room.top
+                   ~material:l.Room.material ~distance
+                   ~along:opening.Ray.along))
             threshold.lintel;
           if head <= foot then
             (* Out of budget, or a doorway onto a room that has not been built
@@ -536,8 +493,9 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
             match Room.leaf threshold with
             | Some material ->
                 paint ~first:head ~last:foot
-                  (as_wall threshold ~height:threshold.height ~material
-                     ~distance ~along:opening.Ray.along)
+                  (as_wall threshold ~index:opening.Ray.index
+                     ~height:threshold.height ~material ~distance
+                     ~along:opening.Ray.along)
             | None -> (
                 match portals.(opening.Ray.index) with
                 | Some portal when budget > 0 ->
@@ -570,7 +528,9 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                       ~clip:(head, foot) ~budget:(budget - 1)
                       ~entered:(Some portal.World.twin) ~translucent
                 | Some _ | None -> nothing_behind ()))
-    (merge walls openings)
+    (Ray.merge
+       (Ray.cast current ~origin:pose.Player.pos ~direction:dir)
+       (Ray.openings current ~origin:pose.Player.pos ~direction:dir))
 
 (** Composite the sprites and see-through walls together, farthest first, each
     still hidden by a nearer opaque wall in its column. Interleaving them is

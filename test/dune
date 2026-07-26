@@ -30,6 +30,7 @@
   test_material
   test_atmosphere
   test_input
+  test_sight
   test_engine
   test_patterns
   test_pictures

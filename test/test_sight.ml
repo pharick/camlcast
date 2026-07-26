@@ -1,0 +1,322 @@
+(** [Sight] answers what the crosshair is on, through a doorway and in names
+    rather than pixels. It touches no SDL — the vertical it works in comes from
+    {!Viewport.centre_rise}, which is a function of pitch alone — so all of it
+    tests headlessly. *)
+
+open Raycaster
+open Support
+
+(* Two rooms, joined, with something to look at in each. The near room's is off
+   to one side so it is out of the way of a level look east; the far room's
+   stands square in front of the doorway.
+
+   Both rooms are the same 0..4 square in their own coordinates, so nothing here
+   works by accident of a shared frame. *)
+let figure pos = { Room.pos; size = 1.4; image = poster }
+
+let rooms ?door ?(near = []) ?(far = []) () =
+  let first_jambs, east =
+    Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
+      ~material:pale (Vec.make 4. 0.) (Vec.make 4. 4.)
+  and second_jambs, west =
+    Room.doorway ~name:"west" ?door ~width:1. ~opening:2. ~height:3.
+      ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
+  in
+  let first =
+    Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
+      ~sprites:near
+      (first_jambs
+      @ [
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and second =
+    Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:flat_ceiling
+      ~sprites:far
+      (second_jambs
+      @ [
+          Room.wall ~height:3. ~material:dim (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.);
+          Room.wall ~height:3. ~material:dim (Vec.make 4. 4.) (Vec.make 0. 4.);
+        ])
+  in
+  World.make ~rooms:[ ("first", first); ("second", second) ]
+    ~links:[ (("first", "east"), ("second", "west")) ]
+    ~atmosphere:air ~spawn:("first", centre)
+
+(* Standing in the first room looking due east, straight at the doorway. The
+   second room's own copy of the doorway is at x = 0 there, so something at
+   (2, 2) in it is two cells beyond the threshold. *)
+let looking_east ?(pitch = 0.) ?(from = centre) () =
+  let p = Player.create ~room:0 ~pos:from ~angle:0. in
+  Player.pitch_by p ~delta:pitch
+
+let describe = function
+  | None -> "nothing"
+  | Some { Sight.kind = Sight.Wall w; room; _ } ->
+      Printf.sprintf "wall %d of room %d" w.index room
+  | Some { Sight.kind = Sight.Sprite s; room; _ } ->
+      Printf.sprintf "sprite %d of room %d" s.index room
+  | Some { Sight.kind = Sight.Doorway d; room; _ } ->
+      Printf.sprintf "doorway %d of room %d" d.index room
+
+let is what got = Alcotest.(check string) "" what (describe got)
+
+(* Through an open doorway, into the room beyond, at a sprite standing there.
+   This is the whole feature: the thing looked at is in another room, in another
+   coordinate frame, and is named without going in. *)
+let through_an_open_doorway () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let seen = Sight.cast world (looking_east ()) in
+  is "sprite 0 of room 1" seen;
+  match seen with
+  | None -> Alcotest.fail "expected to see the sprite"
+  | Some s ->
+      Alcotest.(check int) "one doorway away" 1 s.Sight.crossed;
+      (* Two cells to the threshold, then two more to the sprite. *)
+      Alcotest.check close "distance adds up across the doorway" 4.
+        s.Sight.distance
+
+(* A shut door stops the ray where an open one passed it, and says which
+   doorway it was — which is what a game needs to open it. *)
+let a_shut_door_stops_it () =
+  let closed = rooms ~door:(Door.make dim) ~far:[ figure (Vec.make 2. 2.) ] () in
+  is "doorway 0 of room 0" (Sight.cast closed (looking_east ()));
+  (* And opening it lets the eye through again. *)
+  let opened = World.set_door closed ~room:0 ~threshold:0 Door.Open in
+  is "sprite 0 of room 1" (Sight.cast opened (looking_east ()))
+
+(* A nearer opaque thing wins, wherever it stands. *)
+let a_nearer_thing_occludes () =
+  let world =
+    rooms
+      ~near:[ figure (Vec.make 3. 2.) ]
+      ~far:[ figure (Vec.make 2. 2.) ]
+      ()
+  in
+  is "sprite 0 of room 0" (Sight.cast world (looking_east ()));
+  (* The near one is in the room the player is standing in, so a game that only
+     collects from the next room reads [crossed] and discards this. *)
+  match Sight.cast world (looking_east ()) with
+  | Some s -> Alcotest.(check int) "no doorway crossed" 0 s.Sight.crossed
+  | None -> Alcotest.fail "expected the near sprite"
+
+(* A wall in the way of the doorway does the same, and reports which wall — the
+   index, not a copy of it, so it still means something after the room has been
+   rebuilt around it. *)
+let a_wall_occludes_and_names_itself () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let blocked =
+    World.replace_room world ~room:0
+      ~replacement:
+        (let before = World.room world 0 in
+         Room.make
+           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~floor:flat_floor ~ceiling:flat_ceiling
+           (Array.to_list before.Room.walls
+           @ [
+               Room.wall ~height:3. ~material:pale (Vec.make 3. 1.)
+                 (Vec.make 3. 3.);
+             ]))
+  in
+  match Sight.cast blocked (looking_east ()) with
+  | Some { Sight.kind = Sight.Wall w; room; distance; crossed } ->
+      Alcotest.(check int) "the room the player is in" 0 room;
+      Alcotest.(check int) "no doorway crossed" 0 crossed;
+      Alcotest.(check int)
+        "the wall just added, last in the array" 5 w.index;
+      Alcotest.check close "one cell ahead" 1. distance;
+      Alcotest.check close "struck in the middle of its length" 1.
+        w.along;
+      (* Eye height above the flat floor, since the view is level. *)
+      Alcotest.check close "at eye height" Config.eye_height w.z
+  | other -> Alcotest.failf "expected a wall, got %s" (describe other)
+
+(* A see-through wall is no more of an obstacle to picking than it is to the
+   eye: the mesh fixture carries an alpha, so the sprite behind it wins. *)
+let a_see_through_wall_does_not_occlude () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let screened =
+    World.replace_room world ~room:0
+      ~replacement:
+        (let before = World.room world 0 in
+         Room.make
+           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~floor:flat_floor ~ceiling:flat_ceiling
+           (Array.to_list before.Room.walls
+           @ [
+               Room.wall ~height:3. ~material:mesh (Vec.make 3. 1.)
+                 (Vec.make 3. 3.);
+             ]))
+  in
+  is "sprite 0 of room 1" (Sight.cast screened (looking_east ()))
+
+(* Looking somewhere else finds something else, or nothing. The sprite is a
+   cut-out and mostly empty, so this also covers the texel test: a crosshair
+   inside its bounding box but outside its picture is looking past it. *)
+let the_wrong_angle_misses () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let turned radians =
+    Player.turn (Player.create ~room:0 ~pos:centre ~angle:0.) ~radians
+  in
+  is "wall 3 of room 0" (Sight.cast world (turned 1.6));
+  (* Level, but aimed at the jamb above the opening rather than through it. *)
+  is "wall 1 of room 0" (Sight.cast world (turned 0.6));
+  (* Pitched down far enough that the ray is under every wall it meets before
+     it would reach one — the floor is not something this picks. *)
+  is "nothing" (Sight.cast world (looking_east ~pitch:(-.Config.max_pitch) ()))
+
+(* Looking up over the opening meets the wall standing above it, and not the
+   room beyond: a doorway is a hole of a certain height, not a gap in the whole
+   wall.
+
+   It takes both the steepest pitch the camera allows and the far side of the
+   room to manage it — the crosshair rises about 0.65 cells per cell at the
+   limit, so clearing an opening two cells tall needs three cells of run. That
+   is worth knowing: from close up, a player simply cannot look over a doorway,
+   whatever they do with the mouse. *)
+let looking_over_the_opening_meets_the_lintel () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let far_side = Vec.make 1. 2. in
+  is "doorway 0 of room 0"
+    (Sight.cast world (looking_east ~pitch:Config.max_pitch ~from:far_side ()));
+  (* Level from the same spot, it goes straight through. *)
+  is "sprite 0 of room 1" (Sight.cast world (looking_east ~from:far_side ()))
+
+(* One doorway by default, because that is what the design asks for. Asking for
+   none is asking about the room you are standing in. *)
+let it_looks_as_far_as_it_is_told_to () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  is "sprite 0 of room 1" (Sight.cast world (looking_east ()));
+  is "doorway 0 of room 0" (Sight.cast ~through:0 world (looking_east ()))
+
+(* Asked twice, it answers the same. Nothing here consumes anything: collecting
+   a sign is a change to the game's own record, and the engine's part is a pure
+   function of the world and the pose. *)
+let asking_twice_gives_the_same_answer () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let once = Sight.cast world (looking_east ())
+  and twice = Sight.cast world (looking_east ()) in
+  is (describe once) twice;
+  Alcotest.(check bool)
+    "and the distance with it" true
+    (match (once, twice) with
+    | Some a, Some b -> a.Sight.distance = b.Sight.distance
+    | _ -> false)
+
+(* A wall hit says which of the wall's decals is under the crosshair, so a
+   picture hung on a wall is as targetable as a thing standing in front of one.
+   [poster] is opaque within its frame and clear around the edge, which is what
+   makes the last of these work. *)
+let a_decal_on_a_wall_is_named () =
+  let hung =
+    Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.)
+      ~decals:
+        [
+          {
+            Room.along = 2.;
+            z = Config.eye_height;
+            half_width = 0.6;
+            half_height = 0.6;
+            image = poster;
+          };
+        ]
+  in
+  let world =
+    World.make
+      ~rooms:
+        [
+          ( "only",
+            Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+              [
+                hung;
+                Room.wall ~height:3. ~material:pale (Vec.make 0. 0.)
+                  (Vec.make 4. 0.);
+                Room.wall ~height:3. ~material:pale (Vec.make 4. 4.)
+                  (Vec.make 0. 4.);
+                Room.wall ~height:3. ~material:pale (Vec.make 0. 4.)
+                  (Vec.make 0. 0.);
+              ] );
+        ]
+      ~links:[] ~atmosphere:air ~spawn:("only", centre)
+  in
+  let decal_under player =
+    match Sight.cast world player with
+    | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
+    | _ -> None
+  in
+  (* Level, straight at the middle of the picture, which is hung at eye height. *)
+  Alcotest.(check (option int))
+    "the picture the crosshair is on" (Some 0)
+    (decal_under (Player.create ~room:0 ~pos:centre ~angle:0.));
+  (* The same wall, a foot to one side of the frame: wall, and no picture. *)
+  Alcotest.(check (option int))
+    "beside it is bare wall" None
+    (decal_under (Player.create ~room:0 ~pos:(Vec.make 2. 0.8) ~angle:0.));
+  (* And the wall is still what was hit, picture or no picture. *)
+  is "wall 0 of room 0"
+    (Sight.cast world (Player.create ~room:0 ~pos:centre ~angle:0.))
+
+(* What is targeted has to be drawable: the sighting carries the pose of the
+   room the thing is in, and {!Viewport.sprite_box} placed with it lands on the
+   same rectangle the renderer drew the sprite in. Checked through a doorway,
+   where the two rooms' coordinates differ and getting it wrong is easy. *)
+let a_target_can_be_found_on_the_screen () =
+  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let player = looking_east () in
+  match Sight.cast world player with
+  | Some { Sight.kind = Sight.Sprite s; room; pose; distance; crossed } ->
+      Alcotest.(check int) "in the room next door" 1 crossed;
+      let viewport =
+        Viewport.create ~pitch:0.
+          ~eye_z:(Plane.elevation flat_floor.Room.plane centre +. Config.eye_height)
+          ~width:640 ~height:400
+      in
+      let sprite = (World.room world room).Room.sprites.(s.index) in
+      let left, top, right, bottom =
+        Viewport.sprite_box viewport pose
+          ~floor_z:(Plane.elevation flat_floor.Room.plane sprite.Room.pos)
+          ~distance sprite
+      in
+      (* Square on the view and level, so it is centred and its width is its
+         height. *)
+      Alcotest.check close "centred across the screen" 320.
+        ((left +. right) /. 2.);
+      Alcotest.check close "as wide as it is tall" (bottom -. top)
+        (right -. left);
+      Alcotest.(check bool)
+        "and on the screen at all" true
+        (top > 0. && bottom < 400. && left > 0. && right < 640.)
+  | other -> Alcotest.failf "expected a sprite, got %s" (describe other)
+
+let () =
+  Alcotest.run "Sight"
+    [
+      ( "through a doorway",
+        [
+          case "through an open doorway" through_an_open_doorway;
+          case "a shut door stops it" a_shut_door_stops_it;
+          case "looking over the opening meets the lintel"
+            looking_over_the_opening_meets_the_lintel;
+          case "it looks as far as it is told to"
+            it_looks_as_far_as_it_is_told_to;
+        ] );
+      ( "occlusion",
+        [
+          case "a nearer thing occludes" a_nearer_thing_occludes;
+          case "a wall occludes and names itself"
+            a_wall_occludes_and_names_itself;
+          case "a see-through wall does not occlude"
+            a_see_through_wall_does_not_occlude;
+          case "the wrong angle misses" the_wrong_angle_misses;
+          case "asking twice gives the same answer"
+            asking_twice_gives_the_same_answer;
+        ] );
+      ( "naming what was found",
+        [
+          case "a decal on a wall is named" a_decal_on_a_wall_is_named;
+          case "a target can be found on the screen"
+            a_target_can_be_found_on_the_screen;
+        ] );
+    ]

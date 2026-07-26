@@ -45,6 +45,11 @@ type hit = {
   along : float;
       (** world distance from the wall's start [a] to the hit, for texturing *)
   wall : Room.wall;
+  index : int;
+      (** which of the room's walls it was. The wall itself is here for the
+          renderer, which wants its material and its geometry; the index is for
+          anything that has to name the wall afterwards — an index survives a
+          {!World.replace_room} where a copy of the wall would go stale. *)
 }
 
 type opening = { distance : float; along : float; index : int }
@@ -63,15 +68,15 @@ let segment ~origin ~direction ~a ~edge =
     if t > min_distance && s >= 0. && s <= 1. then Some (t, s) else None
 
 let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
-  let hits =
-    Array.fold_left
-      (fun acc (w : Room.wall) ->
-        match segment ~origin ~direction ~a:w.a ~edge:w.edge with
-        | Some (t, s) ->
-            { distance = t; along = s *. w.length; wall = w } :: acc
-        | None -> acc)
-      [] world.walls
-  in
+  let hits = ref [] in
+  Array.iteri
+    (fun index (w : Room.wall) ->
+      match segment ~origin ~direction ~a:w.a ~edge:w.edge with
+      | Some (t, s) ->
+          hits := { distance = t; along = s *. w.length; wall = w; index } :: !hits
+      | None -> ())
+    world.walls;
+  let hits = !hits in
   (* Farthest first: the order the painter's-algorithm renderer draws in. *)
   List.sort
     (fun (h1 : hit) (h2 : hit) -> Float.compare h2.distance h1.distance)
@@ -88,6 +93,29 @@ let openings (room : Room.t) ~origin ~direction =
        room.thresholds)
   |> List.filter_map Fun.id
   |> List.sort (fun (a : opening) b -> Float.compare b.distance a.distance)
+
+type step = Wall of hit | Opening of opening
+(** One thing a ray met in a room, of whichever kind. Walls and doorways are
+    found by two separate passes but have to be dealt with in one order, since
+    each can stand in front of the other. *)
+
+let step_distance = function
+  | Wall h -> h.distance
+  | Opening o -> o.distance
+
+(** Both lists arrive farthest-first, so one merge puts walls and thresholds
+    into a single far-to-near stream without sorting either of them again.
+
+    Far-to-near is the renderer's order — it paints back to front — and the
+    reverse of it is what anything asking "what is the first thing out there"
+    wants. Both read this. *)
+let rec merge (walls : hit list) (openings : opening list) =
+  match (walls, openings) with
+  | [], rest -> List.map (fun o -> Opening o) rest
+  | rest, [] -> List.map (fun h -> Wall h) rest
+  | w :: ws, o :: os ->
+      if o.distance > w.distance then Opening o :: merge walls os
+      else Wall w :: merge ws openings
 
 (** The closest wall along the ray, if it met one — the wall a solid-height
     caster would have stopped at. *)

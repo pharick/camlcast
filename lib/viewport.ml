@@ -95,3 +95,64 @@ let project_height t ~z ~distance =
 (** The dimensionless [(row - horizon) / projection] a screen row sits at, the
     quantity {!Plane.view_distance} needs to cast the floor and ceiling. *)
 let row_factor t ~row = (float_of_int row -. t.horizon) /. t.projection
+
+(** Where a point of the world lands on the screen: [(column, row)] in pixels,
+    or [None] if it is level with the eye or behind it and has no place on the
+    screen at all.
+
+    [point] is where it stands on the floor plan and [z] how high it is, both in
+    the frame [pose] is expressed in. The column is the inverse of
+    {!ray_direction}: a point [lateral] to one side at perpendicular distance
+    [d] sits that fraction across the camera plane.
+
+    A vertical line in the world projects to a vertical line on the screen, and
+    a straight line on a wall to a straight line on the screen, so four corners
+    are enough to outline anything flat — which is what a game wanting to ring
+    a decal needs, and why this is public. *)
+let project_point t (pose : Player.t) ~point ~z =
+  let rel = Vec.sub point pose.Player.pos in
+  let distance = Vec.dot rel pose.Player.dir in
+  if distance <= 1e-4 then None
+  else
+    let lateral = Vec.dot rel pose.Player.right in
+    let camera_x = lateral /. (distance *. t.half_width) in
+    Some
+      ( (camera_x +. 1.) *. float_of_int t.width /. 2.,
+        project_height t ~z ~distance )
+
+(** Where a sprite lands on the screen: [(left, top, right, bottom)] in pixels.
+
+    A sprite is a billboard square to the view, so its width on screen is its
+    height, and [pose] places it — the player expressed in the room the sprite
+    is in, since every room has its own coordinates. [floor_z] is the elevation
+    of the floor under it and [distance] how far ahead it stands along the view.
+
+    {!Renderer} draws sprites with this. It is here, and public, because
+    anything that wants to draw attention to one — an outline around what the
+    player is looking at — has to land on the same rectangle, and there should
+    be one answer to where that is. {!Sight.t} carries the [pose] and the
+    [distance] it needs. *)
+let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
+  let lateral = Vec.dot (Vec.sub s.Room.pos pose.Player.pos) pose.Player.right in
+  let camera_x = lateral /. (distance *. t.half_width) in
+  let centre = (camera_x +. 1.) *. float_of_int t.width /. 2. in
+  let base = project_height t ~z:floor_z ~distance in
+  let top = project_height t ~z:(floor_z +. s.Room.size) ~distance in
+  let half = (base -. top) /. 2. in
+  (centre -. half, top, centre +. half, base)
+
+(** How fast the middle of the screen rises with distance, at a given pitch: the
+    vertical half of the ray the crosshair looks along, as world height gained
+    per cell travelled. Level, it is zero and the crosshair looks along the
+    horizon.
+
+    It takes a pitch and not a viewport because it does not depend on one.
+    Substituting [row = height / 2] into {!project_height} and solving for [z]
+    leaves [2 * vertical_half_extent * pitch]: the [height] in the horizon's
+    shear cancels the [height] in [projection], and what is left is the vertical
+    field of view, which is the constant this module holds fixed. A window of
+    any size or shape points its crosshair at the same place in the world.
+
+    {!Sight} is what needs this — the renderer works in rows and never has to
+    ask. *)
+let centre_rise ~pitch = 2. *. vertical_half_extent *. pitch

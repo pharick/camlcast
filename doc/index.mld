@@ -101,6 +101,7 @@ Each depends only on the ones above it.
   plus the pitch it looks up and down by
 - {!Raycaster.Viewport} — window size to camera geometry; the eye height, the
   pitch shear and the resize rules
+- {!Raycaster.Sight} — what the crosshair is on, traced through doorways
 - {!Raycaster.Input} — SDL keyboard and mouse-look, as engine intent
 - {!Raycaster.Framebuffer} — a CPU pixel buffer and the streaming texture it
   uploads through
@@ -124,6 +125,7 @@ Each is a single file with the feature it demonstrates as the only thing in it.
 - {!Camlcast_demo.Changing} — replacing a room: a sign rebuilt every frame
 - {!Camlcast_demo.Doors} — doors that open and shut, and a lock that is the
   game's own
+- {!Camlcast_demo.Targets} — what the crosshair is on, through a doorway
 - {!Camlcast_demo.Trail} — traversal traces, as a return route
 - {!Camlcast_demo.Endless} — the grow hook: a corridor built as you walk it
 - {!Camlcast_demo.Phases} — [run_state]: a phase, a clock and a light going out

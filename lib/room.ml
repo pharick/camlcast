@@ -30,6 +30,35 @@ type decal = {
     high above the floor ([z]), and reaches [half_width] to each side and
     [half_height] up and down. *)
 
+(** Where along a decal's width a point [along] the wall falls, as a column of
+    its image — or [None] where the decal does not reach.
+
+    This and {!decal_row} are the whole of "is this point on that decal". They
+    are split in two because the renderer needs them split: the horizontal
+    answer is constant down a screen column and is worked out once, the vertical
+    one changes every pixel. {!Sight} asks both at once. Between them they are
+    the only statement of the rule, so what can be picked stays exactly what is
+    drawn. *)
+let decal_column d ~along =
+  let width = 2. *. d.half_width in
+  let off = along -. (d.along -. d.half_width) in
+  if off < 0. || off > width then None
+  else
+    let n = d.image.Image.size in
+    Some (Int.max 0 (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n))))
+
+(** Where down a decal's height a point [above] the wall's foot falls, as a row
+    of its image. A decal hangs a height above the {e floor} under the wall and
+    not at an absolute elevation, so on a sloped floor it rides with the wall
+    instead of tilting across it. *)
+let decal_row d ~above =
+  let height = 2. *. d.half_height in
+  let off = d.z +. d.half_height -. above in
+  if off < 0. || off > height then None
+  else
+    let n = d.image.Image.size in
+    Some (Int.max 0 (Int.min (n - 1) (int_of_float (off /. height *. float_of_int n))))
+
 type wall = {
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)

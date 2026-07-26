@@ -81,6 +81,12 @@ let demos =
       run = Doors.run;
     };
     {
+      name = "targets";
+      blurb = "what the crosshair is on, through the doorway in front of you";
+      world = Targets.world;
+      run = Targets.run;
+    };
+    {
       name = "trail";
       blurb = "traversal traces: a return route built from the doorways";
       world = Trail.world;

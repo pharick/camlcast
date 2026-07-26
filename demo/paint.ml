@@ -35,6 +35,36 @@ let bar fb ~x ~y ~w ~h ~fraction ~r ~g ~b =
   rect fb ~x ~y ~w:(int_of_float (fraction *. float_of_int w)) ~h ~r ~g ~b
     ~alpha:255
 
+(** One pixel. Goes through {!rect} so that it is clipped like everything else
+    here. *)
+let dot fb ~x ~y ~r ~g ~b = rect fb ~x ~y ~w:1 ~h:1 ~r ~g ~b ~alpha:255
+
+(** A line between two points, walked in whole pixels. Good enough to draw round
+    something with; it is not what draws the something. *)
+let line fb ~x0 ~y0 ~x1 ~y1 ~r ~g ~b =
+  let steps = Int.max (abs (x1 - x0)) (abs (y1 - y0)) in
+  if steps = 0 then dot fb ~x:x0 ~y:y0 ~r ~g ~b
+  else
+    let step from to_ i =
+      from
+      + int_of_float
+          (Float.round
+             (float_of_int i /. float_of_int steps *. float_of_int (to_ - from)))
+    in
+    for i = 0 to steps do
+      dot fb ~x:(step x0 x1 i) ~y:(step y0 y1 i) ~r ~g ~b
+    done
+
+(** The outline of a shape given as corners, joined up and closed. A rectangle
+    on the screen and a decal's trapezoid are both this. *)
+let ring fb corners ~r ~g ~b =
+  let corners = Array.of_list corners in
+  let n = Array.length corners in
+  for i = 0 to n - 1 do
+    let x0, y0 = corners.(i) and x1, y1 = corners.((i + 1) mod n) in
+    line fb ~x0 ~y0 ~x1 ~y1 ~r ~g ~b
+  done
+
 (** A cross in the middle of the buffer, wherever the window has been resized
     to: the overlay is drawn in the buffer's own coordinates, and it changes
     size with the window. *)

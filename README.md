@@ -40,6 +40,7 @@ the thing it is about.
 | `changing` | replacing a room: an animated sign, rebuilt every frame           |
 | `endless`  | the `grow` hook: a corridor built as you walk down it             |
 | `doors`    | doors that open and shut, and a lock that is the game's own rule  |
+| `targets`  | what the crosshair is on, through the doorway in front of you     |
 | `trail`    | traversal traces: a return route built from the doorways crossed  |
 | `phases`   | `run_state`: a phase, a clock, and a light going out              |
 | `overlay`  | drawing over the finished world                                   |
@@ -325,6 +326,7 @@ Each module is self-contained and depends only on the ones above it.
 | `Image`             | full-colour images with alpha, for wall decals and sprites                                                                 |
 | `Input`             | SDL keyboard and mouse-look → engine intent                                                                                |
 | `Framebuffer`       | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
+| `Sight`             | what the crosshair is on, traced through doorways and named by index                                                       |
 | `Renderer`          | the software renderer: floor/ceiling/sky, opaque walls with decals, then sprites and see-through walls composited by depth |
 | `Engine`            | window lifetime, fullscreen state, and the game loop                                                                       |
 
