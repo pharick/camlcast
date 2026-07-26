@@ -10,7 +10,8 @@
       the transforms between the plaza and its neighbours are genuine rotations,
       not just translations.
     - {b hall}, roofed: a rectangle with a bench, a corner pillar and a barrel,
-      open to the plaza on one side and shut off from the cellar by a door.
+      open to the plaza on one side and joined to the cellar by a doorway with
+      an oak door standing open in it.
     - {b nook}, roofed and low: a triangle closed off but for its one doorway.
     - {b garden}, open to the sky: a winding low wall you look over and a tall
       monolith, walled round.
@@ -28,6 +29,11 @@ open Raycaster
 let ground plane = { Room.plane; material = Surfaces.ground }
 
 let roof plane = Room.Roof { Room.plane; material = Surfaces.soffit }
+
+(** The oak leaf between the hall and the cellar, standing open so that the
+    whole level stays walkable. A closed one would render as a leaf and seal the
+    cellar off, which is the {!Doors} demo's subject rather than this one's. *)
+let cellar_door = Door.make ~state:Door.Open Surfaces.oak
 
 let default =
   (* Doorways are cut with {!Raycaster.Room.doorway}, which splits the wall and
@@ -53,7 +59,7 @@ let default =
     Room.doorway ~name:"west" ~width:2.4 ~opening:2.6 ~height:4.5
       ~material:Surfaces.brick (Vec.make 0. 5.) (Vec.make 0. (-5.))
   and hall_door_jambs, hall_cellar =
-    Room.doorway ~name:"cellar" ~door:Surfaces.oak ~width:1.6 ~opening:2.2
+    Room.doorway ~name:"cellar" ~door:cellar_door ~width:1.6 ~opening:2.2
       ~height:4.5 ~material:Surfaces.brick (Vec.make 6. (-5.)) (Vec.make 6. 5.)
   in
   let nook_jambs, nook_south =
@@ -65,7 +71,7 @@ let default =
       ~material:Surfaces.stone (Vec.make 0. (-5.)) (Vec.make 0. 5.)
   in
   let cellar_jambs, cellar_up =
-    Room.doorway ~name:"up" ~door:Surfaces.oak ~width:1.6 ~opening:2.2
+    Room.doorway ~name:"up" ~door:cellar_door ~width:1.6 ~opening:2.2
       ~height:2.8 ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.))
   in
   (* The transform of a link, exactly as {!Raycaster.World.make} will derive it,

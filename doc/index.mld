@@ -26,9 +26,11 @@ has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
 - {b [camlcast.raycaster]} — the engine. Geometry, ray casting, rendering, SDL.
-- {b [camlcast.demo]} — the showcase level and the art it is made of, runnable as
-  [camlcast-demo]. It is content, and it lives outside the library it is content
-  for; it stays here because it exercises every corner of the engine at once.
+- {b [camlcast.demo]} — the demos and the art they are made of, run by
+  [camlcast-demo]. One small world per engine feature, plus the five-room
+  showcase that has all of them at once. It is content, and it lives outside the
+  library it is content for; it stays here because between them the demos
+  exercise every corner of the engine.
 
 {1 Building a game on it}
 
@@ -84,6 +86,7 @@ Each depends only on the ones above it.
 - {!Raycaster.Texture} — the machinery for procedural greyscale patterns, and the
   wrapping value noise they are built from
 - {!Raycaster.Material} — what a surface is made of: a colour and a pattern
+- {!Raycaster.Door} — a leaf hung in a doorway: open or closed, and what of
 - {!Raycaster.Atmosphere} — the air a world is seen through: its fog, its haze,
   and where its light comes from
 - {!Raycaster.Sky} — the open sky where a room has no roof
@@ -105,9 +108,29 @@ Each depends only on the ones above it.
   walls, per pixel
 - {!Raycaster.Engine} — window lifetime, fullscreen state, and the game loop
 
-{1 The demo}
+{1 The demos}
 
+[camlcast-demo] with no argument lists them; [camlcast-demo <name>] runs one.
+Each is a single file with the feature it demonstrates as the only thing in it.
+
+- {!Camlcast_demo.Catalogue} — every demo there is, and what each one is for
+- {!Camlcast_demo.Masonry} — materials: a colour and a pattern, chosen apart
+- {!Camlcast_demo.Gallery} — decals on walls, sprites in the room
+- {!Camlcast_demo.Glass} — see-through walls and the translucent pass
+- {!Camlcast_demo.Slopes} — inclined floors and roofs, and a seamless threshold
+- {!Camlcast_demo.Daylight} — the open sky, and two rooms under different ones
+- {!Camlcast_demo.Haze} — atmosphere: the fade into the distance and the light
+- {!Camlcast_demo.Portals} — one room, built once, joined in two places
+- {!Camlcast_demo.Changing} — replacing a room: a sign rebuilt every frame
+- {!Camlcast_demo.Doors} — doors that open and shut, and a lock that is the
+  game's own
+- {!Camlcast_demo.Trail} — traversal traces, as a return route
+- {!Camlcast_demo.Endless} — the grow hook: a corridor built as you walk it
+- {!Camlcast_demo.Phases} — [run_state]: a phase, a clock and a light going out
+- {!Camlcast_demo.Overlay} — drawing over the finished world
+- {!Camlcast_demo.Controls} — press versus hold, and letting go of the cursor
+- {!Camlcast_demo.Level} — the five-room showcase world
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
 - {!Camlcast_demo.Pictures} — two decals and two sprites
-- {!Camlcast_demo.Surfaces} — the demo's materials, its daylight sky and its air
-- {!Camlcast_demo.Level} — the five-room showcase world
+- {!Camlcast_demo.Surfaces} — the demos' materials, daylight sky and air
+- {!Camlcast_demo.Paint} — the few shapes the overlay demos draw with

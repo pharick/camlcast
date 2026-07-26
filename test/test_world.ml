@@ -59,21 +59,56 @@ let a_step_into_the_neighbour_is_refused () =
     (World.can_step two_rooms ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.))
 
-(* A leaf in the opening changes none of that. Walking into a door is how you go
-   through it, so the door itself must not collide — but the room behind it is as
-   real as the room behind an open doorway, and used to go unasked. *)
+(* A leaf standing open changes none of that: it is a door swung aside, so the
+   opening behaves as a bare one, and it is still the room behind it — as real
+   as the room behind any opening — that refuses the step. *)
 let a_step_through_a_door_is_refused_by_the_neighbour () =
+  let ajar = two_rooms_with_a_door Door.Open in
   let from = Vec.make 3.7 2.2 and dest = Vec.make 4.3 2.35 in
   Alcotest.(check bool)
     "this room sees nothing in the way" true
-    (Room.can_step (World.room two_rooms_with_a_door 0) ~from ~dest);
+    (Room.can_step (World.room ajar 0) ~from ~dest);
   Alcotest.(check bool)
     "but the world sees the neighbour's wall" false
-    (World.can_step two_rooms_with_a_door ~room:0 ~from ~dest);
+    (World.can_step ajar ~room:0 ~from ~dest);
   Alcotest.(check bool)
-    "and the door is still one you can walk through" true
-    (World.can_step two_rooms_with_a_door ~room:0 ~from:(Vec.make 3.5 2.)
-       ~dest:(Vec.make 4.5 2.))
+    "and an open door is still one you can walk through" true
+    (World.can_step ajar ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.))
+
+(* The straight step through the middle of the opening, in both states. This is
+   the one the engine used to get wrong in either: a leaf was drawn and the
+   player walked through it regardless. *)
+let a_door_blocks_in_the_states_that_have_a_leaf () =
+  let through world =
+    World.can_step world ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.)
+  in
+  Alcotest.(check bool)
+    "an open door lets the step by" true
+    (through (two_rooms_with_a_door Door.Open));
+  Alcotest.(check bool)
+    "a closed one does not" false
+    (through (two_rooms_with_a_door Door.Closed));
+  Alcotest.(check bool)
+    "nor is there anything to cross into through a shut door" true
+    (World.crossing two_rooms_closed ~room:0 ~from:(Vec.make 3.5 2.)
+       ~dest:(Vec.make 4.5 2.)
+     |> Option.is_some);
+  (* [crossing] still reports the doorway — it answers "which opening is this
+     step through", and [can_step] is what has already said no. Movement asks
+     both, in that order. *)
+  Alcotest.(check bool)
+    "a step alongside a shut door is unaffected" true
+    (World.can_step two_rooms_closed ~room:0 ~from:(Vec.make 2. 2.)
+       ~dest:(Vec.make 2.5 2.));
+  (* Walking is where the two meet: the step is refused, so the player stays. *)
+  let start = Player.create ~room:0 ~pos:(Vec.make 3.5 2.) ~angle:0. in
+  let moved = Player.traverse two_rooms_closed start ~forward:1. ~strafe:0. in
+  Alcotest.(check int)
+    "the player is still on this side of it" 0
+    moved.Player.player.Player.room;
+  Alcotest.(check int)
+    "and went through no doorway at all" 0
+    (List.length moved.Player.crossings)
 
 let square ?(thresholds = []) () =
   Room.make ~thresholds ~floor:flat_floor ~ceiling:flat_ceiling
@@ -144,7 +179,7 @@ let invalid_worlds_are_refused () =
         (World.make
            ~rooms:
              [
-               ("a", square ~thresholds:[ gate ~door:pale () ] ());
+               ("a", square ~thresholds:[ gate ~door:(Door.make pale) () ] ());
                ("b", square ~thresholds:[ gate () ] ());
              ]
            ~links:[ (("a", "gate"), ("b", "gate")) ]
@@ -354,7 +389,8 @@ let invalid_growth_is_refused () =
     "World.link: linked thresholds disagree about a door: start.north and next.south"
     (fun () ->
       let jambs, south =
-        Room.doorway ~name:"south" ~door:pale ~width:1. ~opening:2. ~height:3.
+        Room.doorway ~name:"south" ~door:(Door.make pale) ~width:1. ~opening:2.
+          ~height:3.
           ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
       in
       let bigger, next =
@@ -378,7 +414,7 @@ let invalid_growth_is_refused () =
              (Room.make
                 ~thresholds:
                   [
-                    { (first.Room.thresholds.(0)) with Room.door = Some pale };
+                    { (first.Room.thresholds.(0)) with Room.door = Some (Door.make pale) };
                     extra;
                   ]
                 ~floor:flat_floor ~ceiling:flat_ceiling
@@ -465,7 +501,7 @@ let a_door_takes_two_replacements () =
         (Room.make
            ~thresholds:
              (List.map
-                (fun (x : Room.threshold) -> { x with Room.door = Some pale })
+                (fun (x : Room.threshold) -> { x with Room.door = Some (Door.make pale) })
                 (Array.to_list before.Room.thresholds))
            ~floor:before.Room.floor ~ceiling:before.Room.ceiling
            (Array.to_list before.Room.walls))
@@ -526,6 +562,103 @@ let invalid_replacement_is_refused () =
                 ~floor:flat_floor ~ceiling:flat_ceiling
                 (Array.to_list first.Room.walls @ jambs))))
 
+(* A door is one thing seen from two rooms, and the two have to agree about what
+   it is doing — a door open from one side and locked from the other is one the
+   player could walk through in one direction only. set_door is the only way to
+   change one, precisely so that the disagreeing world never exists. *)
+let state_of world ~room ~threshold =
+  match (World.room world room).Room.thresholds.(threshold).Room.door with
+  | Some d -> Some d.Door.state
+  | None -> None
+
+let setting_a_door_changes_both_sides () =
+  let before = two_rooms_closed in
+  let twin = (portal before ~room:0 ~index:0).World.twin in
+  Alcotest.(check bool)
+    "shut on both sides to begin with" true
+    (state_of before ~room:0 ~threshold:0 = Some Door.Closed
+    && state_of before ~room:1 ~threshold:twin = Some Door.Closed);
+  let opened = World.set_door before ~room:0 ~threshold:0 Door.Open in
+  World.check opened;
+  Alcotest.(check bool)
+    "opened from the room it was asked in" true
+    (state_of opened ~room:0 ~threshold:0 = Some Door.Open);
+  Alcotest.(check bool)
+    "and from the room on the other side of it" true
+    (state_of opened ~room:1 ~threshold:twin = Some Door.Open);
+  (* Asking from the far side reaches back the same way. *)
+  let shut = World.set_door opened ~room:1 ~threshold:twin Door.Closed in
+  World.check shut;
+  Alcotest.(check bool)
+    "shut from both sides again" true
+    (state_of shut ~room:0 ~threshold:0 = Some Door.Closed
+    && state_of shut ~room:1 ~threshold:twin = Some Door.Closed);
+  (* And the world it was changed from still stands, untouched. *)
+  Alcotest.(check bool)
+    "the world it came from is unchanged" true
+    (state_of before ~room:0 ~threshold:0 = Some Door.Closed)
+
+(* Doors are opened and shut over and over across a run, so the operation has to
+   be one the world survives repeatedly — no drift in the openings it is
+   carrying, no portal left describing the door it used to be. *)
+let a_door_can_be_worked_repeatedly () =
+  let twin = (portal two_rooms_closed ~room:0 ~index:0).World.twin in
+  let world =
+    List.fold_left
+      (fun world state -> World.set_door world ~room:0 ~threshold:0 state)
+      two_rooms_closed
+      [
+        Door.Open; Door.Closed; Door.Closed; Door.Open; Door.Open; Door.Closed;
+        Door.Open;
+      ]
+  in
+  World.check world;
+  Alcotest.(check bool)
+    "ends where the last change left it" true
+    (state_of world ~room:0 ~threshold:0 = Some Door.Open
+    && state_of world ~room:1 ~threshold:twin = Some Door.Open);
+  Alcotest.(check bool)
+    "the opening never moved" true
+    (let now = (World.room world 0).Room.thresholds.(0)
+     and then_ = (World.room two_rooms_closed 0).Room.thresholds.(0) in
+     now.Room.a = then_.Room.a && now.Room.b = then_.Room.b
+     && now.Room.height = then_.Room.height);
+  Alcotest.(check int)
+    "and the portal still leads where it did" 1
+    (portal world ~room:0 ~index:0).World.to_room;
+  Alcotest.(check bool)
+    "so an opened door is walkable again" true
+    (World.can_step world ~room:0 ~from:(Vec.make 3.5 2.)
+       ~dest:(Vec.make 4.5 2.))
+
+(* An unlinked doorway has only one side, and gets it. *)
+let a_door_on_an_unlinked_doorway_has_one_side () =
+  let jambs, north =
+    Room.doorway ~name:"north" ~door:(Door.make pale) ~width:1. ~opening:2.
+      ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.)
+  in
+  let world =
+    World.open_doorway (seed ()) ~room:0
+      ~opened:(cell ~thresholds:[ north ] ~walls:jambs ())
+  in
+  let opened = World.set_door world ~room:0 ~threshold:0 Door.Open in
+  Alcotest.(check bool)
+    "it opens" true
+    (state_of opened ~room:0 ~threshold:0 = Some Door.Open);
+  (* Opening it does not make a doorway onto nowhere passable: there is still
+     no room to walk into. *)
+  Alcotest.(check bool)
+    "and still leads nowhere" false
+    (World.can_step opened ~room:0 ~from:(Vec.make 2. 3.5)
+       ~dest:(Vec.make 2. 4.5))
+
+let working_a_door_that_is_not_there_is_refused () =
+  raises "no door in the opening" "World.set_door: no door hangs in first.east"
+    (fun () -> ignore (World.set_door two_rooms ~room:0 ~threshold:0 Door.Open));
+  raises "no such threshold" "World.set_door: first has no threshold 3"
+    (fun () ->
+      ignore (World.set_door two_rooms_closed ~room:0 ~threshold:3 Door.Open))
+
 let () =
   Alcotest.run "World"
     [
@@ -538,6 +671,18 @@ let () =
           case "a step through a door is refused by the neighbour"
             a_step_through_a_door_is_refused_by_the_neighbour;
           case "invalid worlds are refused" invalid_worlds_are_refused;
+        ] );
+      ( "doors",
+        [
+          case "a door blocks in the states that have a leaf"
+            a_door_blocks_in_the_states_that_have_a_leaf;
+          case "setting a door changes both sides"
+            setting_a_door_changes_both_sides;
+          case "a door can be worked repeatedly" a_door_can_be_worked_repeatedly;
+          case "a door on an unlinked doorway has one side"
+            a_door_on_an_unlinked_doorway_has_one_side;
+          case "working a door that is not there is refused"
+            working_a_door_that_is_not_there_is_refused;
         ] );
       ( "growing",
         [

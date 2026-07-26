@@ -76,12 +76,22 @@ let the_default_world_is_varied () =
   Alcotest.(check bool)
     "some room is roofed" true
     (Array.exists (fun (r : Room.t) -> not (ceiling_is_open r)) rooms);
+  (* The cellar doorway carries an oak leaf. It stands open, so the level is
+     walkable end to end; a shut one is the Doors demo's business. *)
   Alcotest.(check bool)
-    "some threshold is a solid door" true
+    "some threshold carries a door" true
     (Array.exists
        (Array.exists (fun p ->
             (Option.get p).World.threshold.Room.door <> None))
        Level.default.World.portals);
+  Alcotest.(check bool)
+    "and every door in the level stands open, so nothing is sealed off" true
+    (Array.for_all
+       (fun (r : Room.t) ->
+         Array.for_all
+           (fun (t : Room.threshold) -> not (Room.shut t))
+           r.Room.thresholds)
+       Level.default.World.rooms);
   Alcotest.(check bool)
     "every doorway knows the wall above it" true
     (Array.for_all

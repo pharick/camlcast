@@ -149,12 +149,19 @@ let joined_rooms ?door () =
     ~atmosphere:air
     ~spawn:("first", Vec.make 2. 2.)
 
-(** The pair with the doorway standing open. *)
+(** The pair with a bare opening between them, no door at all. *)
 let two_rooms = joined_rooms ()
 
-(** The pair with a leaf hung in it, which is the only fixture that puts anything
-    down the door path of {!World.can_step} or the renderer. *)
-let two_rooms_with_a_door = joined_rooms ~door:dim ()
+(** The same pair with a leaf hung in the opening, in a given state. A door goes
+    to both sides at once because {!World.make} refuses a link whose two
+    thresholds disagree about one — which is the invariant {!World.set_door}
+    exists to keep once the world is built. *)
+let two_rooms_with_a_door state = joined_rooms ~door:(Door.make ~state dim) ()
+
+(** Shut, which is what "a door" means unless something has opened it. This is
+    the fixture that puts anything down the door path of {!World.can_step} or
+    the renderer. *)
+let two_rooms_closed = two_rooms_with_a_door Door.Closed
 
 (** The portal behind a threshold that is certainly linked. A world may hold
     doorways that lead nowhere yet, so [World.portals] hands back options; the

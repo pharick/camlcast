@@ -75,6 +75,12 @@ let demos =
       run = Endless.run;
     };
     {
+      name = "doors";
+      blurb = "doors that open and shut, on both sides of the link at once";
+      world = Doors.world;
+      run = Doors.run;
+    };
+    {
       name = "trail";
       blurb = "traversal traces: a return route built from the doorways";
       world = Trail.world;

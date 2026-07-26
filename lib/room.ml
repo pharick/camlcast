@@ -57,8 +57,8 @@ type threshold = {
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
   height : float;  (** how tall the opening is above the floor *)
-  door : Material.t option;
-      (** [Some material] hangs a solid leaf across it, [None] leaves it open *)
+  door : Door.t option;
+      (** the leaf hung across it, if any; [None] is a bare opening *)
   lintel : lintel option;  (** the wall above the opening, if any *)
   edge : Vec.t;  (** [b - a], precomputed exactly as on a {!type-wall} *)
   length : float;  (** [|b - a|] *)
@@ -74,8 +74,16 @@ type threshold = {
     {!Transform.between}'s docstring carries the argument in full.
 
     An open threshold is a portal — the neighbour is drawn through it, and the
-    player walks through. One with a [door] draws as a leaf of that material
-    instead; walking into it still crosses. *)
+    player walks through. A closed leaf takes its place: the neighbour is not
+    drawn, and the step is refused. A door standing [Open] is neither drawn nor
+    felt, so it behaves exactly as an opening with no door in it. *)
+
+(** What is drawn across this opening, if anything — {!Door.leaf} of whatever
+    hangs in it, and nothing at all where nothing does. *)
+let leaf (t : threshold) = Option.bind t.door Door.leaf
+
+(** Does this opening stop a step? Exactly when there is a leaf across it. *)
+let shut (t : threshold) = Option.is_some (leaf t)
 
 type ceiling =
   | Roof of surface  (** an inclined plane overhead, of some material *)

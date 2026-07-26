@@ -52,12 +52,13 @@
     stream as the walls, so walls of this room beyond it are painted first and
     get covered, and walls nearer are painted after and cover it.
 
-    A threshold with a leaf draws as a wall of the door's texture. An open one
-    recurses: the neighbouring room is drawn in the same column, with the camera
-    and the ray carried into its frame by the link's {!Transform} and the row
-    clip narrowed to the opening. Above either, the {!Room.type-lintel} fills the
-    strip of wall left standing over the gap — without it you would see over the
-    top of a closed door.
+    A threshold the eye cannot pass draws as a wall of its leaf's texture; which
+    those are is {!Room.leaf}'s to say, and it says a closed door and nothing
+    else. One the eye can pass recurses: the neighbouring room is drawn
+    in the same column, with the camera and the ray carried into its frame by
+    the link's {!Transform} and the row clip narrowed to the opening. Above
+    either, the {!Room.type-lintel} fills the strip of wall left standing over
+    the gap — without it you would see over the top of a closed door.
 
     The rigid transform is horizontal, so eye height, projection and horizon are
     unchanged inside a portal and the {!Viewport} is not rebuilt; and because it
@@ -532,7 +533,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                   ~b:h.Color.b
               done
             in
-            match threshold.door with
+            match Room.leaf threshold with
             | Some material ->
                 paint ~first:head ~last:foot
                   (as_wall threshold ~height:threshold.height ~material

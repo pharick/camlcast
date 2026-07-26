@@ -164,18 +164,42 @@ let a_doorway_splits_the_wall_it_is_cut_into () =
         "and its material, so the strip above matches the wall" true
         (l.Room.material == dim)
 
+let opening ?door () =
+  snd
+    (Room.doorway ~name:"a" ?door ~width:1. ~opening:2. ~height:3.
+       ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.))
+
 let a_doorway_can_hang_a_door () =
-  let _, open_gap =
-    Room.doorway ~name:"a" ~width:1. ~opening:2. ~height:3. ~material:pale
-      (Vec.make 0. 0.) (Vec.make 4. 0.)
-  and _, shut =
-    Room.doorway ~name:"b" ~door:mesh ~width:1. ~opening:2. ~height:3. ~material:pale
-      (Vec.make 0. 0.) (Vec.make 4. 0.)
-  in
-  Alcotest.(check bool) "an open threshold has no leaf" true
-    (open_gap.Room.door = None);
+  let bare = opening () and hung = opening ~door:(Door.make mesh) () in
+  Alcotest.(check bool) "a bare opening has no leaf" true (bare.Room.door = None);
   Alcotest.(check bool) "a door names its material" true
-    (match shut.Room.door with Some m -> m == mesh | None -> false)
+    (match hung.Room.door with
+    | Some d -> d.Door.material == mesh
+    | None -> false);
+  Alcotest.(check bool)
+    "and is shut unless it is told otherwise — a door is a thing you open" true
+    (match hung.Room.door with
+    | Some d -> d.Door.state = Door.Closed
+    | None -> false)
+
+(* A door's state decides two things, and they turn out to be one thing: what is
+   drawn across the opening, and what stops a step. Both are asked of pure
+   helpers rather than of the renderer, which is what makes them testable
+   without a window — and is the reason the two can never drift apart. *)
+let a_doors_state_decides_what_is_seen_and_what_is_felt () =
+  let bare = opening () in
+  Alcotest.(check bool)
+    "an opening with no door draws nothing and stops nothing" true
+    (Room.leaf bare = None && not (Room.shut bare));
+  let ajar = opening ~door:(Door.make ~state:Door.Open mesh) () in
+  Alcotest.(check bool)
+    "and an open door is exactly the same in both respects" true
+    (Room.leaf ajar = None && not (Room.shut ajar));
+  let closed = opening ~door:(Door.make ~state:Door.Closed mesh) () in
+  Alcotest.(check bool)
+    "a closed door draws its own leaf" true
+    (match Room.leaf closed with Some m -> m == mesh | None -> false);
+  Alcotest.(check bool) "and stops a step" true (Room.shut closed)
 
 let () =
   Alcotest.run "Room"
@@ -206,5 +230,7 @@ let () =
           case "a doorway splits the wall it is cut into"
             a_doorway_splits_the_wall_it_is_cut_into;
           case "a doorway can hang a door" a_doorway_can_hang_a_door;
+          case "a door's state decides what is seen and what is felt"
+            a_doors_state_decides_what_is_seen_and_what_is_felt;
         ] );
     ]

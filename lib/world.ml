@@ -78,6 +78,13 @@ let portals t index = t.portals.(index)
     only absorbs the last bit or two of a decimal literal. *)
 let epsilon = 1e-6
 
+(** What the two sides of a link have to agree about: whether a leaf hangs
+    there, and what it is doing. [None] for a bare opening.
+
+    Not what it is made of — see {!pair}. *)
+let door_state (t : Room.threshold) =
+  Option.map (fun (d : Door.t) -> d.Door.state) t.Room.door
+
 (** Refuse two thresholds of one room sharing a name: no link could tell them
     apart, and {!link} resolves by name. *)
 let check_names ~who ~room name (r : Room.t) =
@@ -99,9 +106,12 @@ let check_names ~who ~room name (r : Room.t) =
     on one side and an opening on the other would be a door you could see through
     from behind).
 
-    Only whether a leaf hangs there is compared, not what it is made of: the
-    renderer draws the near side's, so a door that is oak from the hall and stone
-    from the cellar is a choice and not a mistake.
+    What is compared is whether a leaf hangs there and what it is doing, not
+    what it is made of: the renderer draws the near side's, so a door that is oak
+    from the hall and stone from the cellar is a choice and not a mistake. The
+    state is another matter — a door open from one side and closed from the other
+    is one the player could walk through in only one direction, which is not a
+    door. {!set_door} is how it is changed, and it changes both sides at once.
 
     Shared by {!make} and {!link} so a world that grew is held to exactly the
     same standard as one that was written down. *)
@@ -118,7 +128,7 @@ let pair ~who ~describe (ia, ja, (a : Room.threshold))
     invalid_arg (who ^ ": linked thresholds differ in length: " ^ both);
   if Float.abs (a.Room.height -. b.Room.height) > epsilon then
     invalid_arg (who ^ ": linked thresholds differ in height: " ^ both);
-  if Option.is_some a.Room.door <> Option.is_some b.Room.door then
+  if door_state a <> door_state b then
     invalid_arg (who ^ ": linked thresholds disagree about a door: " ^ both);
   let onto =
     Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
@@ -385,6 +395,51 @@ let replace_room t ~room ~replacement =
   rooms.(room) <- replacement;
   { t with rooms }
 
+(** Open or close the door in a doorway — on both sides of it at once.
+
+    Locking is not here. A locked door is a closed one a game will not open, and
+    that rule is the game's; see {!Door}. What this guarantees is the part that
+    is not a rule — that the two sides of one door never disagree about standing
+    open.
+
+    The two sides of a link have to agree about what a door is doing, so
+    changing one and not the other leaves a world {!check} refuses and a door
+    the player could walk through in one direction only. Every change goes
+    through here for that reason: there is no way to hold the world in the
+    state where the two halves differ, because this never returns one.
+
+    A doorway that leads nowhere yet has only the one side, and gets it.
+
+    What it does {e not} do is move anybody. A player standing in a doorway when
+    it closes is left standing there, inside a leaf — the game decides whether
+    that is possible, by deciding when a door may be shut. The engine's part is
+    that nothing here touches the player at all. *)
+let set_door t ~room ~threshold state =
+  let hang world ~room ~threshold =
+    let before = world.rooms.(room) in
+    if threshold < 0 || threshold >= Array.length before.Room.thresholds then
+      invalid_arg
+        (Printf.sprintf "World.set_door: %s has no threshold %d"
+           world.names.(room) threshold);
+    let x = before.Room.thresholds.(threshold) in
+    match x.Room.door with
+    | None ->
+        invalid_arg
+          ("World.set_door: no door hangs in " ^ world.names.(room) ^ "."
+         ^ x.Room.name)
+    | Some door ->
+        let thresholds = Array.copy before.Room.thresholds in
+        thresholds.(threshold) <-
+          { x with Room.door = Some { door with Door.state } };
+        (* Through {!replace_room}, so that a door changed here is held to the
+           same invariants as a room rebuilt for any other reason. *)
+        replace_room world ~room ~replacement:{ before with Room.thresholds }
+  in
+  let after = hang t ~room ~threshold in
+  match t.portals.(room).(threshold) with
+  | None -> after
+  | Some portal -> hang after ~room:portal.to_room ~threshold:portal.twin
+
 (** Everything {!make} guarantees, asserted over a world that was grown instead:
     every room's thresholds uniquely named, every one of them linked, every
     portal's [twin] the same doorway seen from the other side, and the two sides
@@ -418,11 +473,9 @@ let check t =
               | Some back when back.to_room = room && back.twin = index -> ()
               | _ -> invalid_arg ("World.check: twin does not lead back: " ^ describe));
               if
-                Option.is_some
-                  t.rooms.(room).Room.thresholds.(index).Room.door
-                <> Option.is_some
+                door_state t.rooms.(room).Room.thresholds.(index)
+                <> door_state
                      t.rooms.(portal.to_room).Room.thresholds.(portal.twin)
-                       .Room.door
               then
                 invalid_arg
                   ("World.check: linked thresholds disagree about a door: "
@@ -446,18 +499,23 @@ let check t =
     that this room finds clear can be flush against a wall of the next.
 
     So for every portal the swept step comes near, the step is carried into the
-    neighbour's frame and asked again there. Whether a leaf hangs in the opening
-    makes no difference to that, and nothing here reads the [door] field: walking
-    into a door is how you go through it, so it must not collide — and asking the
-    neighbour cannot make it collide, because {!Room.can_step} measures against
-    walls and a leaf is a {!Room.type-threshold}, never a wall. What the question
-    does catch is the wall or fitting standing just beyond a door, which is
+    neighbour's frame and asked again there. Asking the neighbour cannot by
+    itself make a step collide, because {!Room.can_step} measures against walls
+    and a doorway is a {!Room.type-threshold}, never a wall. What the question
+    does catch is the wall or fitting standing just beyond an opening, which is
     otherwise as invisible to collision as it is to the eye.
 
-    A doorway that leads nowhere yet blocks like the wall it was cut into. There
-    is no room to carry the step into, and the alternative — letting the player
-    walk out through a hole in the boundary into a room that has not been built
-    — is the one failure the whole [option] exists to prevent. *)
+    Three things make an opening solid, and they are the same three that stop
+    the renderer looking through it. A {b closed} leaf ({!Room.shut}): walking
+    into a shut door is how you find out it is shut. A doorway that
+    {b leads nowhere yet}: there is no room to carry the step into, and letting
+    the player walk out through a hole in the boundary into a room that has not
+    been built is the one failure the whole [option] exists to prevent. And a
+    neighbour whose {b own walls} are in the way just beyond it.
+
+    An open door is not one of them. It is a leaf swung aside, and it neither
+    draws nor blocks — so opening a door never moves the player, which is a rule
+    the game wants and gets for free from doing nothing here. *)
 let can_step t ~room:index ~from ~dest =
   let here = t.rooms.(index) in
   let near (threshold : Room.threshold) =
@@ -465,13 +523,15 @@ let can_step t ~room:index ~from ~dest =
     < Config.collision_padding
   in
   let clear j (threshold : Room.threshold) =
-    match t.portals.(index).(j) with
-    | None -> not (near threshold)
-    | Some portal ->
-        (not (near threshold))
-        || Room.can_step t.rooms.(portal.to_room)
-             ~from:(Transform.point portal.onto from)
-             ~dest:(Transform.point portal.onto dest)
+    if Room.shut threshold then not (near threshold)
+    else
+      match t.portals.(index).(j) with
+      | None -> not (near threshold)
+      | Some portal ->
+          (not (near threshold))
+          || Room.can_step t.rooms.(portal.to_room)
+               ~from:(Transform.point portal.onto from)
+               ~dest:(Transform.point portal.onto dest)
   in
   let rec every j =
     j >= Array.length here.Room.thresholds

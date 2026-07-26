@@ -39,6 +39,7 @@ the thing it is about.
 | `portals`  | doorways: one room, built once, joined in two places              |
 | `changing` | replacing a room: an animated sign, rebuilt every frame           |
 | `endless`  | the `grow` hook: a corridor built as you walk down it             |
+| `doors`    | doors that open and shut, and a lock that is the game's own rule  |
 | `trail`    | traversal traces: a return route built from the doorways crossed  |
 | `phases`   | `run_state`: a phase, a clock, and a light going out              |
 | `overlay`  | drawing over the finished world                                   |
@@ -318,6 +319,7 @@ Each module is self-contained and depends only on the ones above it.
 | `Color`             | 8-bit RGB, shading and blending                                                                                            |
 | `Texture`           | the machinery for procedural greyscale patterns, and the wrapping value noise they are built from                          |
 | `Material`          | what a surface is made of: a colour and a pattern, and whether you see through it                                          |
+| `Door`              | a leaf hung in a doorway: open or closed, and what it is made of                                                           |
 | `Atmosphere`        | the air a world is seen through: its fog, its haze, and where its light comes from                                         |
 | `Sky`               | the open sky drawn where a room has no roof — a directional gradient with a sun                                            |
 | `Image`             | full-colour images with alpha, for wall decals and sprites                                                                 |
