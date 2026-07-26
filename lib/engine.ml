@@ -5,18 +5,33 @@
 open Tsdl
 open Result_ext
 
-type context = {
+type 'a game = {
+  update : 'a -> dt:float -> motion:Input.motion -> actions:Input.request -> 'a;
+      (** the next state, given how long the frame lasted, the movement asked
+          for over it and the one-off actions that arrived with it *)
+  view : 'a -> World.t * Player.t;  (** what this frame is drawn from *)
+  overlay : Framebuffer.t -> 'a -> unit;
+      (** anything drawn over the finished world, before it reaches the screen *)
+  finished : 'a -> bool;  (** asked after every update; [true] ends the run *)
+}
+(** How the loop reaches a game whose state it knows nothing else about. ['a] is
+    the game's own — phases, doors, journal, whatever it keeps — and the engine
+    only ever hands it back to these four functions. What it needs from a game
+    is small: something to advance, a world and a player to draw it from, an
+    optional layer over the top, and an answer to whether it is over. *)
+
+type 'a context = {
   renderer : Sdl.renderer;
   window : Sdl.window;
   event : Sdl.event;
   framebuffer : Framebuffer.t ref;
-  grow : World.t -> Player.t -> World.t;
+  game : 'a game;
 }
 (** The things a frame needs that never change during one. Two are deliberately
     not among them. The window size can change at any moment, so {!Renderer}
-    asks for it per frame and resizes the framebuffer to match. And the world
-    itself can grow — see [grow] on {!run} — so the loop threads it beside the
-    player rather than holding it fixed here. *)
+    asks for it per frame and resizes the framebuffer to match. And the game
+    state changes every frame by definition, so the loop threads it beside the
+    context rather than holding it fixed here. *)
 
 (** Advance the simulation by one frame. Pure: input in, new player out. The
     motion already carries finished per-frame deltas (see {!Input.val-motion}),
@@ -69,9 +84,34 @@ let frame_time ~previous ~now =
     {!frame_time} has the simulation keep pace with it rather than slow down. *)
 let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
 
-let rec loop ctx ~world ~player ~fullscreen ~previous =
+(** Whether the window is the one the keyboard is talking to. A window that has
+    lost focus is behind another one or on another desktop, and nobody is at the
+    controls of what it shows. *)
+let has_focus window =
+  Sdl.Window.(test (Sdl.get_window_flags window) input_focus)
+
+(** Advance the game by one frame, with nothing drawn: this is everything the
+    loop does between reading the input and rendering the result, and it is a
+    pure function of the state and that input.
+
+    An unfocused window advances by nothing at all. Without this, a game left
+    behind another window for a minute would be handed that minute the moment it
+    came back — a minute of burnt lamp oil, of whatever else runs on the clock,
+    none of which the player was there for. The loop keeps timing frames while
+    paused, so focus returns at an ordinary frame's length rather than a jump.
+
+    Motion is dropped rather than scaled down by the zero [dt], because the
+    mouse is not scaled by [dt] in the first place: its deltas are already
+    everything that has happened since the last read (see {!Input.val-motion}),
+    so a paused frame that passed them on would still turn the camera. *)
+let simulate game state ~focused ~dt ~motion ~actions =
+  let dt = if focused then dt else 0. in
+  let motion = if focused then motion else Input.still in
+  game.update state ~dt ~motion ~actions
+
+let rec loop ctx ~state ~fullscreen ~previous =
   let request = Input.poll ctx.event in
-  if request.Input.quit then Ok ()
+  if request.Input.quit then Ok state
   else
     let* fullscreen =
       if request.Input.toggle_fullscreen then
@@ -79,36 +119,49 @@ let rec loop ctx ~world ~player ~fullscreen ~previous =
       else Ok fullscreen
     in
     let now = seconds () in
-    let moved = step world player (Input.motion ~dt:(frame_time ~previous ~now)) in
-    (* Walking through a doorway is the one moment the horizon can have moved,
-       so it is the only moment worth asking the world to grow. Every other
-       frame this is a comparison of two ints. *)
-    let world =
-      if moved.Player.room <> player.Player.room then ctx.grow world moved
-      else world
+    let dt = frame_time ~previous ~now in
+    (* The mouse is read every frame, focused or not: its delta accumulates
+       until somebody reads it, so a paused frame that skipped the read would
+       hand the whole idle spell to the frame that resumes. *)
+    let motion = Input.motion ~dt in
+    let state =
+      simulate ctx.game state
+        ~focused:(has_focus ctx.window)
+        ~dt ~motion ~actions:request
     in
-    let* () = Renderer.render ctx.renderer ctx.framebuffer world moved in
-    let idle = idle_time ~spent:(seconds () -. now) in
-    Sdl.delay (Int32.of_float (idle *. 1000.));
-    (* Frames are timed start to start, so the sleep above counts towards the
-       next one's length rather than falling outside every frame. *)
-    loop ctx ~world ~player:moved ~fullscreen ~previous:now
+    if ctx.game.finished state then Ok state
+    else
+      let world, player = ctx.game.view state in
+      let* () =
+        Renderer.render ctx.renderer ctx.framebuffer
+          ~overlay:(fun fb -> ctx.game.overlay fb state)
+          world player
+      in
+      let idle = idle_time ~spent:(seconds () -. now) in
+      Sdl.delay (Int32.of_float (idle *. 1000.));
+      (* Frames are timed start to start, so the sleep above counts towards the
+         next one's length rather than falling outside every frame. *)
+      loop ctx ~state ~fullscreen ~previous:now
 
 (** Acquire a resource, use it, and release it even if the body raises. *)
 let with_resource acquire release use =
   let* resource = acquire () in
   Fun.protect ~finally:(fun () -> release resource) (fun () -> use resource)
 
-(** Open a window on [world] and run it until the player quits.
+(** Open a window and run [state] through the loop, returning what it has become
+    when the game says it is finished or the player quits.
 
-    [grow] is called whenever the player walks from one room into another, with
-    the world and the player's new position, and returns the world to draw from
-    now on. A fixed level needs none; a house that is generated as it is
-    explored uses it to build far enough ahead that the player never sees the
-    edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
-    the renderer looks. It runs on a room change and not per frame, so a
-    generator may take its time. *)
-let run ?(grow = fun world _ -> world) world =
+    The engine knows nothing about the state but these callbacks. [update] is
+    given the frame's length, the movement asked for over it and the one-off
+    actions that arrived with it, and returns the next state. [view] says which
+    world and which player to draw the frame from — a game keeps a great deal
+    more than those two, and this is the part of it the renderer understands.
+    [overlay] draws over the finished world before it reaches the screen, and
+    [finished] is asked after every update.
+
+    Time passes only while the window has focus; see {!simulate}. *)
+let run_state ~update ~view ?(overlay = fun _ _ -> ())
+    ?(finished = fun _ -> false) state =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
@@ -140,6 +193,39 @@ let run ?(grow = fun world _ -> world) world =
     ~finally:(fun () -> Framebuffer.destroy !framebuffer)
     (fun () ->
       loop
-        { renderer; window; event = Sdl.Event.create (); framebuffer; grow }
-        ~world ~player:(Player.spawn world) ~fullscreen:false
-        ~previous:(seconds ()))
+        {
+          renderer;
+          window;
+          event = Sdl.Event.create ();
+          framebuffer;
+          game = { update; view; overlay; finished };
+        }
+        ~state ~fullscreen:false ~previous:(seconds ()))
+
+(** Open a window on [world] and run it until the player quits.
+
+    [grow] is called whenever the player walks from one room into another, with
+    the world and the player's new position, and returns the world to draw from
+    now on. A fixed level needs none; a house that is generated as it is
+    explored uses it to build far enough ahead that the player never sees the
+    edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
+    the renderer looks. It runs on a room change and not per frame, so a
+    generator may take its time.
+
+    This is {!run_state} over the only state the engine used to be able to hold:
+    the world and the player, advanced by {!step}, drawn as they are, and never
+    finished by anything but quitting. *)
+let run ?(grow = fun world _ -> world) world =
+  let update (world, player) ~dt:_ ~motion ~actions:_ =
+    let moved = step world player motion in
+    (* Walking through a doorway is the one moment the horizon can have moved,
+       so it is the only moment worth asking the world to grow. Every other
+       frame this is a comparison of two ints. *)
+    let world =
+      if moved.Player.room <> player.Player.room then grow world moved
+      else world
+    in
+    (world, moved)
+  in
+  let+ _ = run_state ~update ~view:Fun.id (world, Player.spawn world) in
+  ()

@@ -32,13 +32,19 @@ and two games can share an engine without sharing a look.
 
 {1 Building a game on it}
 
-{!Raycaster.Engine.run} takes a {!Raycaster.World} and an optional
+{!Raycaster.Engine.run_state} runs a state of whatever type the game likes, and
+asks four things of it: [update], given the frame's length, the movement asked
+for over it and the one-off actions that arrived with it; [view], which world
+and which player to draw this frame from; [overlay], anything drawn over the
+finished picture; and [finished], whether the run is over. Everything else a
+game keeps — phases, doors, a journal, a random seed, what it has already built
+— stays on the game's side of the line and the engine stays a pure function of
+what it is handed. Time passes only while the window has focus.
+
+{!Raycaster.Engine.run} is that loop over the only state the engine used to be
+able to hold: a {!Raycaster.World} and the player walking it, plus an optional
 [grow : World.t -> Player.t -> World.t], which it calls whenever the player
-crosses into another room. That one function is the whole interface: the engine
-hands back whatever it was drawing and takes whatever it is given, so any state
-a game needs beyond the world — a catalogue, a random seed, what it has already
-built — stays on the game's side of the line and the engine stays a pure
-function of the world it is handed.
+crosses into another room.
 
 {{:https://github.com/pharick/house}The House} is the game built this way: a
 roguelike of endless liminal rooms that grows itself as the player walks,

@@ -48,13 +48,21 @@ from another.
 
 ## Building a game on it
 
-`Engine.run` takes a `World` and an optional `grow : World.t -> Player.t ->
-World.t`, which it calls whenever the player crosses into another room. That one
-function is the whole interface. The engine hands back whatever it was drawing
-and takes whatever it is given, so any state a game needs beyond the world — a
-room catalogue, a random seed, a record of what it has already built — stays on
-the game's side of the line, and the engine stays a pure function of the world it
-is handed.
+`Engine.run_state` runs a state of whatever type the game likes, and asks four
+things of it: `update`, given the frame's length, the movement asked for over it
+and the one-off actions that arrived with it; `view`, which world and which
+player to draw this frame from; `overlay`, anything drawn over the finished
+picture before it reaches the screen; and `finished`, whether the run is over.
+Everything else a game keeps — phases, doors, a journal, a random seed, a record
+of what it has already built — stays on the game's side of the line, and the
+engine stays a pure function of what it is handed. Time passes only while the
+window has focus, so a game left behind another window is not handed the minutes
+it spent there when it comes back.
+
+`Engine.run` is that loop over the only state the engine used to be able to
+hold: a `World` and the player walking it, plus an optional `grow : World.t ->
+Player.t -> World.t`, which it calls whenever the player crosses into another
+room. A fixed level needs nothing more.
 
 A game supplies the rest by construction: its own `Material`s and `Texture`s, its
 own `Atmosphere`, its own `Room`s assembled from `Room.wall`, `Room.doorway` and

@@ -87,6 +87,84 @@ let a_short_frame_sleeps_off_the_rest () =
   Alcotest.check close "nor does one that overran it" 0.
     (Engine.idle_time ~spent:(Config.frame_budget *. 3.))
 
+(* The loop runs an arbitrary state through the callbacks of an [Engine.game],
+   and [simulate] is the whole of a frame that does not need a window: what the
+   state becomes, given the frame's input. The game below is the smallest thing
+   with a phase in it — it counts the frames it is given, adds up the time it is
+   told has passed and the turning it is asked for, and ends after a second. *)
+type phase = Playing | Ended
+
+type session = {
+  phase : phase;
+  elapsed : float;
+  frames : int;
+  heading : float;
+}
+
+let start = { phase = Playing; elapsed = 0.; frames = 0; heading = 0. }
+
+let counting =
+  {
+    Engine.update =
+      (fun session ~dt ~motion ~actions:_ ->
+        let elapsed = session.elapsed +. dt in
+        {
+          phase = (if elapsed >= 1. then Ended else Playing);
+          elapsed;
+          frames = session.frames + 1;
+          heading = session.heading +. motion.Input.turn;
+        });
+    view = (fun _ -> (world, player ()));
+    overlay = (fun _ _ -> ());
+    finished = (fun session -> session.phase = Ended);
+  }
+
+(* [count] sixtieths of a second, each asking for a slightly wider turn than the
+   last, so that a dropped frame shows up in the heading and not only in the
+   clock. *)
+let script count =
+  List.init count (fun i ->
+      (1. /. 60., { Input.still with turn = float_of_int i *. 0.01 }))
+
+let play ~focused frames =
+  List.fold_left
+    (fun session (dt, motion) ->
+      Engine.simulate counting session ~focused ~dt ~motion
+        ~actions:Input.nothing)
+    start frames
+
+(* A scripted run lands exactly where the script adds up to: the loop hands the
+   game one update per frame and nothing of its own. *)
+let a_scripted_run_is_the_sum_of_its_frames () =
+  let after = play ~focused:true (script 30) in
+  Alcotest.(check int) "one update per frame" 30 after.frames;
+  Alcotest.check close "the clock is the frames added up" 0.5 after.elapsed;
+  Alcotest.check close "and the heading the turns" (0.01 *. 435.) after.heading
+
+(* Phases live in the game's own state; the engine only asks whether it is over
+   and takes the answer. *)
+let a_phase_turns_over_when_the_game_says_so () =
+  let midway = play ~focused:true (script 30) in
+  Alcotest.(check bool)
+    "half a second in, the run is still going" false
+    (counting.Engine.finished midway);
+  let after = play ~focused:true (script 90) in
+  Alcotest.(check bool)
+    "a second and a half in, it has ended" true
+    (counting.Engine.finished after)
+
+(* Losing focus stops the clock, not the loop: the game still gets its frames,
+   so it can keep drawing, but nothing that runs on time moves in them. *)
+let losing_focus_pauses_the_game () =
+  let paused = play ~focused:false (script 90) in
+  Alcotest.check close "no time passes behind another window" 0. paused.elapsed;
+  Alcotest.check close "and the mouse does not turn the camera" 0.
+    paused.heading;
+  Alcotest.(check int) "but the game is still given its frames" 90 paused.frames;
+  Alcotest.(check bool)
+    "so a run that ends on the clock does not end while paused" false
+    (counting.Engine.finished paused)
+
 let () =
   Alcotest.run "Engine"
     [
@@ -106,5 +184,13 @@ let () =
           case "turning happens before moving" turning_happens_before_moving;
           case "backwards and strafing" backwards_and_strafing;
           case "collisions still apply" collisions_still_apply;
+        ] );
+      ( "state",
+        [
+          case "a scripted run is the sum of its frames"
+            a_scripted_run_is_the_sum_of_its_frames;
+          case "a phase turns over when the game says so"
+            a_phase_turns_over_when_the_game_says_so;
+          case "losing focus pauses the game" losing_focus_pauses_the_game;
         ] );
     ]

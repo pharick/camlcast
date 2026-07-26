@@ -647,12 +647,20 @@ let ensure sdl fb_ref ~width ~height =
 
 (** Render a frame: fit the buffer to the current window, fill it, upload it and
     present. The window size is read fresh every frame, so resizing and
-    fullscreen need no special handling. *)
-let render sdl fb_ref world player =
+    fullscreen need no special handling.
+
+    [overlay] is handed the finished world, still in the buffer and not yet on
+    the screen, and may draw over it with {!Framebuffer.set} and
+    {!Framebuffer.blend} — an indicator, a message, a fade. It runs after
+    everything in the world and is clipped by nothing, so whatever it draws is
+    in front of all of it. The buffer's size is the one in it, and it changes
+    with the window. *)
+let render sdl fb_ref ?(overlay = fun _ -> ()) world player =
   let* out_w, out_h = Sdl.get_renderer_output_size sdl in
   let width, height = internal_size ~width:out_w ~height:out_h in
   let* () = ensure sdl fb_ref ~width ~height in
   draw_frame !fb_ref world player;
+  overlay !fb_ref;
   let+ () =
     Framebuffer.present sdl !fb_ref
       ~dst:(Sdl.Rect.create ~x:0 ~y:0 ~w:out_w ~h:out_h)
