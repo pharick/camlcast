@@ -44,6 +44,7 @@ the thing it is about.
 | `changing` | replacing a room: an animated sign, rebuilt every frame           |
 | `floating` | sprites off the floor, and frames chosen rather than made         |
 | `dust`     | a chamber of falling dust: every mote moved every frame           |
+| `chalk`    | marking a wall where the crosshair is, on the face you see        |
 | `endless`  | the `grow` hook: a corridor built as you walk down it             |
 | `doors`    | doors that open and shut, and a lock that is the game's own rule  |
 | `targets`  | what the crosshair is on, through the doorway in front of you     |
@@ -286,7 +287,12 @@ Three kinds of extra detail sit on top of the walls:
   pass blends each decal over its own texture, in the same light, so paintings
   and posters sit on the wall. An `Image` is a rectangle rather than a square,
   because a poster is: it is indexed across by its width and down by its height,
-  and either extent may be whatever it was drawn at.
+  and either extent may be whatever it was drawn at. A decal is on one **face**
+  of its wall and is not visible from the other, which is what makes a chalk
+  mark a mark rather than a hole. `Room.add_decal` puts one on at run time, in
+  the wall's own coordinates — which are exactly the ones `Sight` reports for
+  whatever the crosshair is on, so aiming and marking need no conversion
+  between them.
 - **Sprites.** Objects and characters placed in the world as billboards — flat
   `Image`s that always face the player. A sprite is projected against the sloped
   floor at its position and blended in wherever it stands nearer than the wall.

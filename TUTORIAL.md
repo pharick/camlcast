@@ -928,10 +928,18 @@ let index t ~u ~v = (v * t.size) + u
 ```
 
 A wall carries a `decals` list — each decal a picture at a position `along` the
-wall and height `z`, with half-extents. Since `hit.along` is constant down a
-column, decide once which decals this column falls in (and their texture column),
-then per pixel test the height range and **blend** the image texel over the wall,
-in the same light as the wall.
+wall and height `z`, with half-extents, on one `facing` **face** of it. Since
+`hit.along` and the face are both constant down a column, decide once which
+decals this column falls in (and their texture column), then per pixel test the
+height range and **blend** the image texel over the wall, in the same light as
+the wall.
+
+Which face the viewer is on is the sign of `(eye − wall.a) · wall.normal`, and
+since `perp` is a quarter turn to the left and rooms are wound counter-clockwise,
+the normal points *into* the room. Put that test in the once-per-column half
+rather than the per-pixel one, and put it somewhere the picker can call too — a
+mark you can see and a mark you can aim at must be the same mark, and the surest
+way to keep them the same is for there to be one function that says so.
 
 ### Step 6.4 — Sprites (billboards)
 

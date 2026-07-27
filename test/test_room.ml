@@ -12,13 +12,7 @@ let a_wall_precomputes_its_geometry () =
 
 let a_wall_can_wear_decals () =
   let dec =
-    {
-      Room.along = 1.;
-      z = 1.;
-      half_width = 0.5;
-      half_height = 0.5;
-      image = poster;
-    }
+    Room.decal ~along:1. ~z:1. ~half_width:0.5 ~half_height:0.5 poster
   in
   let w =
     Room.wall ~height:2. ~material:pale ~decals:[ dec ] (Vec.make 0. 0.)
@@ -39,9 +33,9 @@ let a_wall_can_wear_decals () =
 let a_decal_is_indexed_by_width_across_and_height_down () =
   let image = Image.make ~height:3 12 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   let dec =
-    { Room.along = 2.; z = 1.; half_width = 2.; half_height = 0.5; image }
+    Room.decal ~along:2. ~z:1. ~half_width:2. ~half_height:0.5 image
   in
-  let column at = Room.decal_column dec ~along:at
+  let column at = Room.decal_column dec ~seen_from:Room.Front ~along:at
   and row at = Room.decal_row dec ~above:at in
   Alcotest.(check (option int)) "the left edge is column 0" (Some 0) (column 0.);
   Alcotest.(check (option int))
@@ -61,6 +55,98 @@ let a_decal_is_indexed_by_width_across_and_height_down () =
   Alcotest.(check bool)
     "the two extents are not the same number" true
     (image.Image.width <> image.Image.height)
+
+(* Which side of a wall a point is on, and the claim the whole facing rule rests
+   on: for a room wound the way every room here is wound, Front is the inside.
+   [Vec.perp] is a quarter turn to the left and a counter-clockwise boundary
+   keeps its interior on the left, so the normal points in. Nothing else in the
+   engine states that, and an author writing a decal is trusting it. *)
+let front_is_the_side_the_normal_points_to () =
+  let w = Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) in
+  Alcotest.check vec "this wall's normal points at +y" (Vec.make 0. 1.)
+    w.Room.normal;
+  Alcotest.(check bool)
+    "so a point above it is at the front" true
+    (Room.side_of w (Vec.make 2. 1.) = Room.Front);
+  Alcotest.(check bool)
+    "and one below it at the back" true
+    (Room.side_of w (Vec.make 2. (-1.)) = Room.Back);
+  (* The load-bearing one: [Support.room] is the four walls of a square given
+     counter-clockwise, and its centre is at the front of every one of them. *)
+  Alcotest.(check bool)
+    "the inside of a counter-clockwise room is Front of all four walls" true
+    (Array.for_all (fun w -> Room.side_of w centre = Room.Front) room.Room.walls);
+  (* Which is what makes [Front] the right default: it is where you stand. *)
+  Alcotest.(check bool)
+    "and a decal says so unless told otherwise" true
+    ((Room.decal ~along:1. ~z:1. ~half_width:0.5 ~half_height:0.5 poster)
+       .Room.facing
+    = Room.Front)
+
+(* A mark is on one face. Asked from the other, the rule that says where it is
+   says it is nowhere — and it is [decal_column] that says so, the same call
+   that decides whether the point is within its width, so the renderer and Sight
+   cannot disagree about it. *)
+let a_decal_is_only_on_the_face_it_was_drawn_on () =
+  let front = Room.decal ~along:2. ~z:1. ~half_width:1. ~half_height:1. poster
+  and back =
+    Room.decal ~facing:Room.Back ~along:2. ~z:1. ~half_width:1. ~half_height:1.
+      poster
+  in
+  let at d side = Room.decal_column d ~seen_from:side ~along:2. in
+  Alcotest.(check bool)
+    "the front one, from the front" true
+    (at front Room.Front <> None);
+  Alcotest.(check (option int))
+    "the front one, from the back" None (at front Room.Back);
+  Alcotest.(check bool)
+    "the back one, from the back" true
+    (at back Room.Back <> None);
+  Alcotest.(check (option int))
+    "the back one, from the front" None (at back Room.Front);
+  (* And the vertical half knows nothing about faces, which is the point of
+     putting the test in the horizontal one: it is asked once per column rather
+     than once per pixel. *)
+  Alcotest.(check bool)
+    "the row is answered either way" true
+    (Room.decal_row back ~above:1. <> None)
+
+(* Marking a wall at run time: the decal goes on the end of that wall's list,
+   which is where the topmost one is, and nothing else about the room moves. *)
+let a_decal_can_be_added_to_a_wall () =
+  let before =
+    Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+      (Array.to_list room.Room.walls)
+  in
+  let mark along =
+    Room.decal ~along ~z:1.2 ~half_width:0.3 ~half_height:0.3 poster
+  in
+  let after = Room.add_decal before ~wall:1 (mark 1.) in
+  let twice = Room.add_decal after ~wall:1 (mark 3.) in
+  Alcotest.(check int)
+    "the wall asked for has it" 1
+    (List.length after.Room.walls.(1).Room.decals);
+  Alcotest.(check int)
+    "and no other wall does" 0
+    (List.length after.Room.walls.(0).Room.decals);
+  Alcotest.(check int) "a second goes on too" 2
+    (List.length twice.Room.walls.(1).Room.decals);
+  Alcotest.check close "and on the end, which is the top of the pile" 3.
+    (List.nth twice.Room.walls.(1).Room.decals 1).Room.along;
+  (* Nothing else is rebuilt: the other three walls are the very same values,
+     and the room it came from never gained anything. *)
+  Alcotest.(check bool)
+    "the untouched walls are the same values" true
+    (after.Room.walls.(0) == before.Room.walls.(0)
+    && after.Room.walls.(2) == before.Room.walls.(2)
+    && after.Room.walls.(3) == before.Room.walls.(3));
+  Alcotest.(check bool)
+    "and both planes" true
+    (after.Room.floor == before.Room.floor
+    && after.Room.ceiling == before.Room.ceiling);
+  Alcotest.(check int)
+    "the room it was added to is unchanged" 0
+    (List.length before.Room.walls.(1).Room.decals)
 
 (* The sprite half of the same idea. [sprite_column] and [sprite_row] are what
    Viewport.sprite_box is built from and what Sight.touches asks, so they are
@@ -334,6 +420,14 @@ let () =
           case "a decal is indexed by width across and height down"
             a_decal_is_indexed_by_width_across_and_height_down;
           case "distance to a wall" distance_to_a_wall;
+        ] );
+      ( "faces",
+        [
+          case "front is the side the normal points to"
+            front_is_the_side_the_normal_points_to;
+          case "a decal is only on the face it was drawn on"
+            a_decal_is_only_on_the_face_it_was_drawn_on;
+          case "a decal can be added to a wall" a_decal_can_be_added_to_a_wall;
         ] );
       ( "sprites",
         [

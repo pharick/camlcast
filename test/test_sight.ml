@@ -271,13 +271,8 @@ let a_decal_on_a_wall_is_named () =
     Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.)
       ~decals:
         [
-          {
-            Room.along = 2.;
-            z = Config.eye_height;
-            half_width = 0.6;
-            half_height = 0.6;
-            image = poster;
-          };
+          Room.decal ~along:2. ~z:Config.eye_height ~half_width:0.6
+            ~half_height:0.6 poster;
         ]
   in
   let world =
@@ -314,6 +309,52 @@ let a_decal_on_a_wall_is_named () =
   (* And the wall is still what was hit, picture or no picture. *)
   is "wall 0 of room 0"
     (Sight.cast world (Player.create ~room:0 ~pos:centre ~angle:0.))
+
+(* The whole of dynamic decals in one test: what a wall hit reports is exactly
+   what a decal is placed in.
+
+   Aim at a bare wall, take the four numbers back — which wall, how far along,
+   how high, which face — hand them straight to {!Room.add_decal} without
+   converting anything, put the room back with {!World.replace_room}, and aim
+   again from where you were standing. The mark has to be under the crosshair,
+   because the crosshair is where it was put.
+
+   Nothing here computes a position. If the two ends of this disagreed about
+   what [along] or [z] meant, or about which way round the faces are, the second
+   sighting would find bare wall. *)
+let a_wall_can_be_marked_where_the_crosshair_is () =
+  let world = rooms () in
+  let aim = Player.create ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.) in
+  let mark = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255)) in
+  match Sight.cast world aim with
+  | Some { Sight.kind = Sight.Wall w; room; _ } ->
+      Alcotest.(check (option int)) "bare wall to begin with" None w.decal;
+      let marked =
+        World.replace_room world ~room
+          ~replacement:
+            (Room.add_decal (World.room world room) ~wall:w.index
+               (Room.decal ~facing:w.facing ~along:w.along ~z:w.z
+                  ~half_width:0.25 ~half_height:0.25 mark))
+      in
+      (match Sight.cast marked aim with
+      | Some { Sight.kind = Sight.Wall w'; _ } ->
+          Alcotest.(check int) "the same wall" w.index w'.index;
+          Alcotest.(check (option int))
+            "and the mark is under the crosshair" (Some 0) w'.decal
+      | other -> Alcotest.failf "expected the marked wall, got %s" (describe other));
+      (* From the other face of that wall there is nothing to find. The wall
+         here is a room boundary, so getting behind it means asking Room
+         directly — which is the same question the renderer asks. *)
+      let wall = (World.room marked room).Room.walls.(w.index) in
+      let behind =
+        if w.facing = Room.Front then Room.Back else Room.Front
+      in
+      Alcotest.(check (option int))
+        "and nothing of it from behind" None
+        (Room.decal_column
+           (List.hd wall.Room.decals)
+           ~seen_from:behind ~along:w.along)
+  | other -> Alcotest.failf "expected a wall, got %s" (describe other)
 
 (* What is targeted has to be drawable: the sighting carries the pose of the
    room the thing is in, and {!Viewport.sprite_box} placed with it lands on the
@@ -377,6 +418,8 @@ let () =
       ( "naming what was found",
         [
           case "a decal on a wall is named" a_decal_on_a_wall_is_named;
+          case "a wall can be marked where the crosshair is"
+            a_wall_can_be_marked_where_the_crosshair_is;
           case "a target can be found on the screen"
             a_target_can_be_found_on_the_screen;
         ] );

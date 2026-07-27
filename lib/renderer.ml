@@ -22,7 +22,7 @@
     - {b Paint the opaque walls.} {!Ray.cast} returns every wall the ray
       crosses, farthest first. Each solid wall is drawn from its foot on the
       sloped floor up to its height (capped at the ceiling), its {!Texture}
-      sampled per pixel and tinted by its {!Material}, with any {!Room.decal}s —
+      sampled per pixel and tinted by its {!Material}, with any {!Room.type-decal}s —
       paintings, posters — blended over it. Painting far-to-front lets a near
       wall cover the ones behind it while a tall wall still shows over a short
       one. Each wall records its distance into a per-pixel depth, so the passes
@@ -228,14 +228,18 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
       Texture.column_of_offset pattern
         (hit.Ray.along -. Float.floor hit.Ray.along)
     in
-    (* The decals whose horizontal span this column falls in, with the texture
-       column of each — both constant down the column. *)
+    (* The decals whose horizontal span this column falls in and which are on
+       the face being looked at, with the texture column of each — all constant
+       down the column. Which face that is comes from where the eye stands, not
+       from where the ray landed, so a wall seen edge-on does not flicker
+       between its two sides. *)
+    let seen_from = Room.side_of w player.Player.pos in
     let decals =
       List.filter_map
         (fun (dec : Room.decal) ->
           Option.map
             (fun ui -> (dec, ui))
-            (Room.decal_column dec ~along:hit.Ray.along))
+            (Room.decal_column dec ~seen_from ~along:hit.Ray.along))
         w.Room.decals
     in
     for y = first to last do

@@ -1,8 +1,8 @@
 (** What a surface is made of: a colour, and the greyscale {!Texture} that
     modulates it.
 
-    A wall carries its material {e by value}, the way a {!Room.decal} has always
-    carried its {!Image}. The alternative — an integer id looked up in a table
+    A wall carries its material {e by value}, the way a {!Room.type-decal} has
+    always carried its {!Image}. The alternative — an integer id looked up in a table
     somewhere — was what this replaced, and it had two faults. It put the whole
     look of the game in one module that every level had to share, so a second
     level could not have its own; and an id nobody had defined fell through to a

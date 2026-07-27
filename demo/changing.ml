@@ -51,15 +51,12 @@ let room ~phase =
   (* Two pictures alternating is a two-frame animation; the slide along the
      wall is the same decal placed somewhere else. *)
   let sign =
-    {
-      Room.along = 6. +. (3.5 *. sin turn);
-      z = 1.8 +. (0.25 *. sin (turn *. 2.));
-      half_width = 0.9;
-      half_height = 0.9;
-      image =
-        (if Float.rem (phase *. 6.) 1. < 0.5 then Pictures.painting
-         else Pictures.poster);
-    }
+    Room.decal
+      ~along:(6. +. (3.5 *. sin turn))
+      ~z:(1.8 +. (0.25 *. sin (turn *. 2.)))
+      ~half_width:0.9 ~half_height:0.9
+      (if Float.rem (phase *. 6.) 1. < 0.5 then Pictures.painting
+       else Pictures.poster)
   in
   let floor = Plane.horizontal (0.3 *. sin turn) in
   let wall material a b = Room.wall ~height ~material a b in

@@ -5,7 +5,7 @@
     north, south, east or west. Here a wall is an arbitrary line {e segment}
     instead, so a room may have any number of walls facing any direction — an
     octagon, a triangle, a wedge. Each wall also carries its own height, the
-    {!Material} it is made of (some see-through) and any {!decal}s hung on it;
+    {!Material} it is made of (some see-through) and any {!type-decal}s hung on it;
     the floor is an inclined plane so it need not be horizontal; the ceiling is
     either an inclined plane of its own or the open sky; and {!type-sprite}s stand —
     or float — in the world as billboards facing the player.
@@ -18,34 +18,69 @@
 type surface = { plane : Plane.t; material : Material.t }
 (** A floor or a ceiling: where it is, and what it is made of. *)
 
+(** Which face of a wall something is on.
+
+    A wall is a segment and has two of them. [Front] is the side its
+    {!wall.normal} points to — and since {!Vec.perp} turns a direction a quarter
+    turn to its left, that is the side to the left of [a -> b]. Every room here
+    is wound counter-clockwise, so for a room's own boundary [Front] is the
+    inside: the side you are standing on.
+
+    {!side_of} is how anything works out which side a {e point} is on, and
+    {!Sight} reports the one the crosshair was looking from. Between them a game
+    never has to reason about the winding to put a mark on the face somebody is
+    facing. *)
+type side = Front | Back
+
 type decal = {
   along : float;
   z : float;
   half_width : float;
   half_height : float;
   image : Image.t;
+  facing : side;
 }
-(** A decoration hung flat on a wall — a painting, a poster — drawn over the
-    wall's own texture. It is placed by how far [along] the wall it sits and how
-    high above the floor ([z]), and reaches [half_width] to each side and
-    [half_height] up and down. *)
+(** A decoration flat on a wall — a painting, a poster, a chalk mark — drawn over
+    the wall's own texture. It is placed by how far [along] the wall it sits and
+    how high above the floor ([z]), and reaches [half_width] to each side and
+    [half_height] up and down.
+
+    [facing] is the side of the wall it is on, and it is not optional, because
+    paint is not. A wall you can see through has two faces you can look at and a
+    mark drawn on the near one has nothing on the far one but the back of the
+    wall; a wall you cannot see through has one face you will ever look at, and
+    saying which costs nothing. *)
+
+(** A decal on the [facing] side of a wall — {!Front} unless said otherwise,
+    which for a room's own boundary is the inside. *)
+let decal ?(facing = Front) ~along ~z ~half_width ~half_height image =
+  { along; z; half_width; half_height; image; facing }
 
 (** Where along a decal's width a point [along] the wall falls, as a column of
-    its image — or [None] where the decal does not reach.
+    its image — or [None] where the decal does not reach, {e including} where it
+    is on the face away from [seen_from].
 
     This and {!decal_row} are the whole of "is this point on that decal". They
     are split in two because the renderer needs them split: the horizontal
     answer is constant down a screen column and is worked out once, the vertical
     one changes every pixel. {!Sight} asks both at once. Between them they are
     the only statement of the rule, so what can be picked stays exactly what is
-    drawn. *)
-let decal_column d ~along =
-  let width = 2. *. d.half_width in
-  let off = along -. (d.along -. d.half_width) in
-  if off < 0. || off > width then None
+    drawn.
+
+    The face test is here, in the once-per-column half, rather than anywhere its
+    two callers could have written it differently. It is why a mark chalked on
+    this side of a grille is not also on the other side of it, reversed. *)
+let decal_column d ~seen_from ~along =
+  if d.facing <> seen_from then None
   else
-    let n = d.image.Image.width in
-    Some (Int.max 0 (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n))))
+    let width = 2. *. d.half_width in
+    let off = along -. (d.along -. d.half_width) in
+    if off < 0. || off > width then None
+    else
+      let n = d.image.Image.width in
+      Some
+        (Int.max 0
+           (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n))))
 
 (** Where down a decal's height a point [above] the wall's foot falls, as a row
     of its image. A decal hangs a height above the {e floor} under the wall and
@@ -69,6 +104,16 @@ type wall = {
   length : float;  (** [|b - a|] *)
   normal : Vec.t;  (** unit vector perpendicular to the wall, for shading *)
 }
+
+(** Which side of a wall a point is on. A point exactly on the line counts as
+    {!Front}, which matters to nothing: a wall is solid there, and the only
+    caller that can reach the line is an eye pressed flat against it.
+
+    This is what turns "where the player is standing" into "which face they are
+    looking at", so it is what a game placing a mark asks — usually through
+    {!Sight}, which has already asked it. *)
+let side_of (w : wall) point =
+  if Vec.dot (Vec.sub point w.a) w.normal >= 0. then Front else Back
 
 type sprite = { pos : Vec.t; base : float; size : float; image : Image.t }
 (** An object or character standing in the world, drawn as a billboard — a flat
@@ -258,6 +303,31 @@ let make ?(thresholds = []) ~floor ~ceiling ?(sprites = []) walls =
     it — and because generating a picture inside a frame is the one thing this
     is meant to make unnecessary. *)
 let with_sprites t sprites = { t with sprites = Array.of_list sprites }
+
+(** The same room with one more {!type-decal} on one of its walls.
+
+    This is how a mark gets onto a wall at run time — a chalk symbol, a scorch,
+    a number somebody wrote. Hand it the wall's index, which is what {!Sight}
+    reports and what survives {!World.replace_room}, and a decal placed at the
+    [along] and [z] {!Sight} also reported: those are the wall's own
+    coordinates, so a mark put where the crosshair was is a mark drawn where the
+    crosshair was.
+
+    It goes on the {e end} of that wall's list, which is what puts it on top —
+    {!Sight} picks the last decal covering a point for the same reason. Only the
+    wall array and the one wall in it are new; the rest of the room, including
+    every other wall, is shared.
+
+    There is no way to take one off again, and that is not an oversight: a room
+    is immutable and this returns another one, so a game that wants a mark gone
+    builds the room without it. What the engine has no opinion about is how many
+    marks there may be, or what they mean, or whether the player has any left —
+    §12's line, and all of it the game's. *)
+let add_decal t ~wall decal =
+  let walls = Array.copy t.walls in
+  let w = walls.(wall) in
+  walls.(wall) <- { w with decals = w.decals @ [ decal ] };
+  { t with walls }
 
 (** Shortest distance from a point to the segment [a..b]: project the point onto
     the line, clamp to the segment's ends, and measure to that nearest point. *)

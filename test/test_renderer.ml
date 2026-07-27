@@ -332,6 +332,178 @@ let a_sprite_behind_the_player_is_not_drawn () =
     "no pixel differs" true
     (drawn ~with_it ~without (looking_east ()) = None)
 
+(* {1 Decals}
+
+   A mark is on one face of a wall. Everything below is that claim, on the
+   pixels: a see-through partition standing in the hall, so that both of its
+   faces can be looked at without walking through anything, with a mark on one
+   of them. *)
+
+let mark = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 0 255 255, 255))
+
+(* Standing at (5, -2) to (5, 2): the edge runs +y, so the normal — a quarter
+   turn to its left — points at -x, and the origin is at its Front. *)
+let partition decals =
+  [
+    Room.wall ~height:2.5 ~material:mesh ~decals (Vec.make 5. (-2.))
+      (Vec.make 5. 2.);
+  ]
+
+let marked facing =
+  fst
+    (alone ~extra:(partition [ Room.decal ~facing ~along:2. ~z:0.6
+                                 ~half_width:0.5 ~half_height:0.5 mark ])
+       [])
+
+let bare = fst (alone ~extra:(partition []) [])
+let in_front () = looking_east ()
+let behind () = Player.create ~room:0 ~pos:(Vec.make 10. 0.) ~angle:Float.pi
+
+let a_decal_is_drawn_on_the_face_it_is_on () =
+  Alcotest.(check bool)
+    "a Front mark is there from the front" true
+    (drawn ~with_it:(marked Room.Front) ~without:bare (in_front ()) <> None);
+  Alcotest.(check bool)
+    "and nowhere at all from behind" true
+    (drawn ~with_it:(marked Room.Front) ~without:bare (behind ()) = None)
+
+(* The other way round, so the test cannot pass by never drawing anything. The
+   partition is see-through, so from behind there is a wall to draw the mark on
+   and the only thing stopping it is the face rule. *)
+let a_decal_on_the_far_face_is_drawn_from_behind () =
+  Alcotest.(check bool)
+    "a Back mark is there from behind" true
+    (drawn ~with_it:(marked Room.Back) ~without:bare (behind ()) <> None);
+  Alcotest.(check bool)
+    "and nowhere at all from the front" true
+    (drawn ~with_it:(marked Room.Back) ~without:bare (in_front ()) = None)
+
+(* And the round-trip, on the pixels this time: aim at a wall, put a mark where
+   Sight says the crosshair is, and it lands on the crosshair — the middle of
+   the screen, which is where {!Viewport.ray_direction} sends the centre column
+   and where {!Paint.crosshair} draws.
+
+   The mark is small — a fifth of a cell either way — so a box around it that
+   still holds the centre pixel is a tight claim about the numbers, not a
+   bounding box that would hold anything. *)
+let a_mark_lands_under_the_crosshair () =
+  let world = fst (alone []) in
+  let aim = looking_east () in
+  match Sight.cast world aim with
+  | Some { Sight.kind = Sight.Wall w; room; _ } ->
+      let with_it =
+        World.replace_room world ~room
+          ~replacement:
+            (Room.add_decal (World.room world room) ~wall:w.index
+               (Room.decal ~facing:w.facing ~along:w.along ~z:w.z
+                  ~half_width:0.2 ~half_height:0.2 mark))
+      in
+      let l, t, r, b = box ~with_it ~without:world aim in
+      let cx = width / 2 and cy = height / 2 in
+      Alcotest.(check bool)
+        (Printf.sprintf "the crosshair (%d, %d) is inside %d..%d by %d..%d" cx cy
+           l r t b)
+        true
+        (l <= cx && cx <= r && t <= cy && cy <= b);
+      (* And it is a small mark on a far wall, not half the screen. *)
+      Alcotest.(check bool)
+        (Printf.sprintf "and it is small: %d by %d" (r - l + 1) (b - t + 1))
+        true
+        (r - l < width / 4 && b - t < height / 4)
+  | _ -> Alcotest.fail "expected the wall ahead"
+
+(* A decal is lit by the same one factor the wall under it is: orientation and
+   fog. It is the wall's material {e colour} that does not reach it — a poster
+   on a red wall is not red — and the two are easy to confuse, so this pins the
+   half that does.
+
+   A white picture at two distances, in air that fades over twelve cells. The
+   face shading is the same for both (same wall, same normal), so it cancels and
+   what is left is the ratio of the two fog factors, exactly. *)
+let a_decal_is_fogged_like_the_wall_it_is_on () =
+  let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let world = fst (alone []) in
+  (* The hall's east wall is index 1, running from (12, -4); looking east from
+     the axis hits it four along, at eye height. *)
+  let marked =
+    World.replace_room world ~room:0
+      ~replacement:
+        (Room.add_decal (World.room world 0) ~wall:1
+           (Room.decal ~along:4. ~z:Config.eye_height ~half_width:1.
+              ~half_height:1. white))
+  in
+  let lit away =
+    let fb = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame fb marked
+      (looking_east ~pos:(Vec.make (12. -. away) 0.) ());
+    (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r
+  in
+  let near = lit 4. and far = lit 12. in
+  Alcotest.(check bool)
+    (Printf.sprintf "a decal near is brighter than far: %d against %d" near far)
+    true (near > far);
+  Alcotest.(check bool) "and neither is black" true (far > 0);
+  let expected = Atmosphere.fog air 4. /. Atmosphere.fog air 12. in
+  let got = float_of_int near /. float_of_int far in
+  Alcotest.(check bool)
+    (Printf.sprintf "by the fog factor: %.3f against %.3f" got expected)
+    true
+    (Float.abs (got -. expected) < 0.05)
+
+(* The other half of the same fact, and the one it is easy to mistake for the
+   first: the wall's material {e colour} does not reach the decal. Two rooms
+   differing only in how dark that colour is draw the same picture on the wall
+   and a different wall behind it.
+
+   This is why a poster on a red wall is not red. It is also why a game that
+   dims a room by re-tinting its materials will find its chalk marks standing
+   out more as it does: the wall goes down twice — its colour and the fog —
+   where the mark goes down once. *)
+let a_decal_ignores_the_walls_material_colour () =
+  let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let hung =
+    Room.decal ~along:4. ~z:Config.eye_height ~half_width:1. ~half_height:1.
+      white
+  in
+  let world_of shade =
+    let coat =
+      Material.make
+        ~color:(Color.rgb shade shade shade)
+        ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> 255))
+    in
+    let room =
+      Room.make
+        ~floor:{ Room.plane = Plane.horizontal 0.; material = pale }
+        ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material = dim })
+        [
+          Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-4.))
+            (Vec.make 12. (-4.));
+          Room.wall ~height:3. ~material:coat ~decals:[ hung ]
+            (Vec.make 12. (-4.)) (Vec.make 12. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 12. 4.)
+            (Vec.make (-4.) 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make (-4.) 4.)
+            (Vec.make (-4.) (-4.));
+        ]
+    in
+    World.make ~rooms:[ ("hall", room) ] ~links:[] ~atmosphere:air
+      ~spawn:("hall", Vec.make 0. 0.)
+  in
+  let frame world =
+    let fb = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame fb world (looking_east ());
+    fb
+  in
+  let bright = frame (world_of 240) and dark = frame (world_of 60) in
+  Alcotest.check color "the mark is the same on a dark wall as on a pale one"
+    (Framebuffer.pixel bright ~x:(width / 2) ~y:(height / 2))
+    (Framebuffer.pixel dark ~x:(width / 2) ~y:(height / 2));
+  (* And the wall above it, which the same colour does reach, is not. *)
+  Alcotest.(check bool)
+    "though the wall it is on is darker" true
+    (Framebuffer.pixel bright ~x:(width / 2) ~y:30
+    <> Framebuffer.pixel dark ~x:(width / 2) ~y:30)
+
 let () =
   Alcotest.run "Renderer"
     [
@@ -357,5 +529,18 @@ let () =
             a_sprite_behind_the_player_is_not_drawn;
           case "a sprite through a doorway is trimmed to the opening"
             a_sprite_through_a_doorway_is_trimmed_to_the_opening;
+        ] );
+      ( "marks on walls",
+        [
+          case "a decal is drawn on the face it is on"
+            a_decal_is_drawn_on_the_face_it_is_on;
+          case "a decal on the far face is drawn from behind"
+            a_decal_on_the_far_face_is_drawn_from_behind;
+          case "a mark lands under the crosshair"
+            a_mark_lands_under_the_crosshair;
+          case "a decal is fogged like the wall it is on"
+            a_decal_is_fogged_like_the_wall_it_is_on;
+          case "a decal ignores the wall's material colour"
+            a_decal_ignores_the_walls_material_colour;
         ] );
     ]

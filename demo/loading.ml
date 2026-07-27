@@ -81,7 +81,7 @@ let build () =
   let mid = Vec.make 6. 0. in
   let print image =
     [
-      { Room.along = 2.5; z = 1.7; half_width = 1.2; half_height = 0.8; image };
+      Room.decal ~along:2.5 ~z:1.7 ~half_width:1.2 ~half_height:0.8 image;
     ]
   in
   let screen material a b = Room.wall ~height:2.6 ~material a b in

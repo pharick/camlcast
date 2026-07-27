@@ -99,13 +99,8 @@ let world =
       (Vec.make 9. 6.)
       ~decals:
         [
-          {
-            Room.along = 6.;
-            z = 1.6;
-            half_width = 1.;
-            half_height = 1.;
-            image = Pictures.painting;
-          };
+          Room.decal ~along:6. ~z:1.6 ~half_width:1. ~half_height:1.
+            Pictures.painting;
         ]
   and sidelong =
     (* And one down the far room's side wall, which the doorway only ever shows
@@ -114,13 +109,8 @@ let world =
       (Vec.make 9. (-6.))
       ~decals:
         [
-          {
-            Room.along = 6.5;
-            z = 1.7;
-            half_width = 1.;
-            half_height = 1.;
-            image = Pictures.poster;
-          };
+          Room.decal ~along:6.5 ~z:1.7 ~half_width:1. ~half_height:1.
+            Pictures.poster;
         ]
   in
   let far =

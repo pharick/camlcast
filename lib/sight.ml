@@ -55,12 +55,25 @@
     meet at the doorway; {!World.seam_gap} is what says they do. *)
 
 type kind =
-  | Wall of { index : int; along : float; z : float; decal : int option }
+  | Wall of {
+      index : int;
+      along : float;
+      z : float;
+      facing : Room.side;
+      decal : int option;
+    }
       (** which wall of the room, how far along it from its [a] endpoint, how
-          high above the floor at that point, and which of the wall's decals was
-          under the crosshair if any — counted from the head of
-          {!Room.type-wall}'s list, and the topmost where two overlap, since
-          that is the one drawn last and so the one you can see *)
+          high above the floor at that point, which face of it was being looked
+          at, and which of the wall's decals was under the crosshair if any —
+          counted from the head of {!Room.type-wall}'s list, and the topmost
+          where two overlap, since that is the one drawn last and so the one you
+          can see.
+
+          The first four are what {!Room.add_decal} wants: [index] says which
+          wall, [along] and [z] are that wall's own coordinates and are what a
+          {!Room.type-decal} is placed in, and [facing] is the face the mark
+          should be on so that it is not also on the back. Nothing has to be
+          converted, and nothing has to know the winding. *)
   | Sprite of { index : int }  (** which sprite of the room *)
   | Doorway of { index : int }
       (** which threshold: a shut door, one that leads nowhere, the lintel over
@@ -107,12 +120,17 @@ let ahead (pose : Player.t) (sprite : Room.sprite) =
 (** Which of a wall's decals the crosshair is on, if any: the last one that
     covers the point and is not transparent there, since decals are drawn in
     order and the last is on top. Both halves of "covers" are {!Room}'s, so this
-    agrees with the picture by construction rather than by care. *)
-let decal_at (wall : Room.wall) ~along ~above =
+    agrees with the picture by construction rather than by care — including the
+    face, which {!Room.decal_column} refuses along with everything else it
+    refuses. A mark on the far side of a wall you can see through is not
+    something the crosshair can find. *)
+let decal_at (wall : Room.wall) ~seen_from ~along ~above =
   List.fold_left
     (fun (i, found) (d : Room.decal) ->
       ( i + 1,
-        match (Room.decal_column d ~along, Room.decal_row d ~above) with
+        match
+          (Room.decal_column d ~seen_from ~along, Room.decal_row d ~above)
+        with
         | Some u, Some v when snd (Image.sample d.Room.image ~u ~v) > 0 ->
             Some i
         | _ -> found ))
@@ -172,13 +190,18 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
           && Material.opaque wall.Room.material
         then
           let along = hit.Ray.along and above = z -. foot in
+          (* The face being looked at, taken from where the eye is and not from
+             where the ray landed — the hit point is {e on} the wall, where
+             which side it is on is a rounding error. *)
+          let seen_from = Room.side_of wall origin in
           found d
             (Wall
                {
                  index = hit.Ray.index;
                  along;
                  z = above;
-                 decal = decal_at wall ~along ~above;
+                 facing = seen_from;
+                 decal = decal_at wall ~seen_from ~along ~above;
                })
         else first rest
     | (_, Met (Ray.Opening opening)) :: rest

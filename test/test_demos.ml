@@ -289,6 +289,105 @@ let the_dust_demo_moves_without_making_anything () =
     (moved.Room.floor == authored.Room.floor
     && moved.Room.ceiling == authored.Room.ceiling)
 
+(* The chalk demo, driven the way a player drives it: stand somewhere, aim, and
+   call the same {!Chalk.place} the C key calls. Every claim below is one §13.5
+   asks for, and none of them is visible in a screenshot.
+
+   The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the one
+   wall here with two faces you can stand at, so it is what the side cases use.
+   Facing it from the south is looking north, at +y. *)
+let facing_the_partition ?(from = Vec.make 0.5 (-1.5)) (state : Chalk.t) =
+  { state with Chalk.player = Player.create ~room:0 ~pos:from ~angle:(Float.pi /. 2.) }
+
+let decal_under (state : Chalk.t) =
+  match Sight.cast (Chalk.dressed state) state.Chalk.player with
+  | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
+  | _ -> None
+
+let the_chalk_demo_marks_what_the_crosshair_is_on () =
+  let aimed = facing_the_partition Chalk.start in
+  Alcotest.(check (option int)) "bare wall to start with" None (decal_under aimed);
+  let marked = Chalk.place aimed in
+  Alcotest.(check int) "one mark placed" 1 (List.length marked.Chalk.marks);
+  Alcotest.(check int) "and a stroke spent" 7 marked.Chalk.left;
+  (* Placement coordinates: the mark is where the crosshair was, so aiming again
+     from the same spot finds it. *)
+  Alcotest.(check (option int))
+    "and it is under the crosshair" (Some 0) (decal_under marked);
+  (* Side specificity: from the far side of the same partition there is nothing
+     on it. Standing north of it, looking south. *)
+  let behind =
+    {
+      marked with
+      Chalk.player =
+        Player.create ~room:0 ~pos:(Vec.make 0.5 3.5) ~angle:(-.Float.pi /. 2.);
+    }
+  in
+  Alcotest.(check (option int)) "and nothing on its back" None (decal_under behind);
+  Alcotest.(check bool)
+    "though the partition is still what is being looked at" true
+    (match Sight.cast (Chalk.dressed behind) behind.Chalk.player with
+    | Some { Sight.kind = Sight.Wall _; _ } -> true
+    | _ -> false)
+
+(* Persistence. The lamp rebuilds the hall from its parts — every wall, both
+   planes, all new values — and the marks are still on it, because the demo
+   keeps them and puts them back. *)
+let the_chalk_demo_keeps_its_marks_through_a_rebuild () =
+  let marked = Chalk.place (facing_the_partition Chalk.start) in
+  let later = { marked with Chalk.elapsed = 4.5 } in
+  Alcotest.(check bool)
+    "the lamp really did change" true
+    (Float.abs (Chalk.lamp 0. -. Chalk.lamp 4.5) > 0.2);
+  Alcotest.(check bool)
+    "so not one wall of the room is the value it was" true
+    (Array.for_all2
+       (fun a b -> a != b)
+       (World.room (Chalk.dressed later) 0).Room.walls
+       (World.room (Chalk.dressed marked) 0).Room.walls);
+  (* The lamp is two things. The materials are what force the rebuild above; the
+     air is what reaches the chalk, since a decal is fogged like the wall it is
+     on. A lamp that moved only the first would leave the marks bright in the
+     dark. *)
+  Alcotest.(check bool)
+    "and the air closed in with it" true
+    ((Chalk.dressed later).World.atmosphere.Atmosphere.fog_distance
+    < (Chalk.dressed marked).World.atmosphere.Atmosphere.fog_distance);
+  Alcotest.(check (option int))
+    "and the mark is still there" (Some 0) (decal_under later)
+
+(* Chalk-capacity rejection, and the through-a-doorway rule. Both are this
+   demo's, not the engine's, and both are one line of {!Chalk.markable}. *)
+let the_chalk_demo_runs_out_of_chalk () =
+  (* Eight strokes, each at a slightly different spot along the partition. *)
+  let spend state k =
+    Chalk.place
+      (facing_the_partition
+         ~from:(Vec.make (-1. +. (float_of_int k *. 0.4)) (-1.5))
+         state)
+  in
+  let spent = List.fold_left spend Chalk.start (List.init 8 Fun.id) in
+  Alcotest.(check int) "eight marks placed" 8 (List.length spent.Chalk.marks);
+  Alcotest.(check int) "and no chalk left" 0 spent.Chalk.left;
+  let ninth = spend spent 8 in
+  Alcotest.(check int)
+    "the ninth is refused" 8 (List.length ninth.Chalk.marks);
+  Alcotest.(check int) "and costs nothing" 0 ninth.Chalk.left;
+  (* And a wall in the room through the doorway is named but not markable. *)
+  let through =
+    {
+      Chalk.start with
+      Chalk.player = Player.create ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.;
+    }
+  in
+  let seen = Sight.cast (Chalk.dressed through) through.Chalk.player in
+  Alcotest.(check bool)
+    "the eye does reach the next room" true
+    (match seen with Some s -> s.Sight.crossed > 0 | None -> false);
+  Alcotest.(check bool)
+    "and it cannot be chalked from here" true
+    (Chalk.markable through seen = None)
+
 let () =
   Alcotest.run "Demos"
     [
@@ -308,5 +407,11 @@ let () =
             the_floating_demo_lifts_its_sprites;
           case "the dust demo moves without making anything"
             the_dust_demo_moves_without_making_anything;
+          case "the chalk demo marks what the crosshair is on"
+            the_chalk_demo_marks_what_the_crosshair_is_on;
+          case "the chalk demo keeps its marks through a rebuild"
+            the_chalk_demo_keeps_its_marks_through_a_rebuild;
+          case "the chalk demo runs out of chalk"
+            the_chalk_demo_runs_out_of_chalk;
         ] );
     ]

@@ -34,20 +34,10 @@ let world =
     Room.wall ~height ~material:Surfaces.panel se ne
       ~decals:
         [
-          {
-            Room.along = 3.;
-            z = 1.7;
-            half_width = 1.;
-            half_height = 1.;
-            image = Pictures.painting;
-          };
-          {
-            Room.along = 6.5;
-            z = 1.7;
-            half_width = 0.8;
-            half_height = 1.;
-            image = Pictures.poster;
-          };
+          Room.decal ~along:3. ~z:1.7 ~half_width:1. ~half_height:1.
+            Pictures.painting;
+          Room.decal ~along:6.5 ~z:1.7 ~half_width:0.8 ~half_height:1.
+            Pictures.poster;
         ]
   in
   let room =

@@ -105,20 +105,10 @@ let default =
           (Vec.make 3. (-4.))
           ~decals:
             [
-              {
-                Room.along = 2.;
-                z = 1.6;
-                half_width = 0.9;
-                half_height = 0.9;
-                image = Pictures.painting;
-              };
-              {
-                Room.along = 4.;
-                z = 1.6;
-                half_width = 0.7;
-                half_height = 0.9;
-                image = Pictures.poster;
-              };
+              Room.decal ~along:2. ~z:1.6 ~half_width:0.9 ~half_height:0.9
+                Pictures.painting;
+              Room.decal ~along:4. ~z:1.6 ~half_width:0.7 ~half_height:0.9
+                Pictures.poster;
             ];
       ]
     and see_through =

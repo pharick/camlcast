@@ -86,6 +86,12 @@ let demos =
       run = Dust.run;
     };
     {
+      name = "chalk";
+      blurb = "marking a wall where the crosshair is, on the face you see";
+      world = lazy Chalk.world;
+      run = Chalk.run;
+    };
+    {
       name = "endless";
       blurb = "the grow hook: a corridor built as you walk it";
       world = lazy Endless.world;
