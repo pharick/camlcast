@@ -255,6 +255,70 @@ let the_crossings_unwind_to_where_it_started () =
     (Vec.make (centre.x +. 4.) (centre.y +. 2.5))
     home.Player.pos
 
+(* Two rooms joined at an angle: room b's side of the doorway is room a's,
+   carried through a rotation and reversed, so the link's transform is a real
+   rotation rather than the translation every other fixture here happens to
+   have. Room b is the carried jambs and nothing else, so nothing of its own can
+   refuse a step and what a walk through it finds is the doorway alone. *)
+let angled radians =
+  let carry (v : Vec.t) =
+    Vec.add (Vec.rotate v radians) (Vec.make 1.37 (-2.11))
+  in
+  let a_jambs, east =
+    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 4. 0.) (Vec.make 4. 4.)
+  in
+  let west =
+    Room.threshold ~name:"west" ~height:2. (carry east.Room.b) (carry east.Room.a)
+  in
+  let a =
+    Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (a_jambs
+      @ [
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and b =
+    Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:flat_ceiling
+      [
+        Room.wall ~height:3. ~material:dim (carry (Vec.make 4. 0.))
+          (carry (Vec.make 4. 1.5));
+        Room.wall ~height:3. ~material:dim (carry (Vec.make 4. 2.5))
+          (carry (Vec.make 4. 4.));
+      ]
+  in
+  World.make ~rooms:[ ("a", a); ("b", b) ]
+    ~links:[ (("a", "east"), ("b", "west")) ]
+    ~atmosphere:air ~spawn:("a", centre)
+
+(* Going through a doorway once has to mean going through it once, whatever
+   angle the two rooms meet at.
+
+   A leg is walked opening by opening, so the part of it left over after a
+   crossing sets out standing on the twin of the doorway it just came through —
+   at a point that got there by being carried through the link's rotation, and
+   which therefore sits on that opening's line only to within a bit or two
+   either way. Ask whether that leg goes through the twin by whether its two
+   ends fall on different sides and the answer is decided by which way the last
+   bit rounded: half the angles throw the player straight back where they came
+   from. Ask it by where the leg {e ends} — which is most of an opening's width
+   from the line — and the rounding cannot reach the answer. *)
+let a_crossing_does_not_double_back_however_the_rooms_meet () =
+  List.iter
+    (fun radians ->
+      let world = angled radians in
+      let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
+      let moved = Player.slide world start (Vec.make 0.4 0.) in
+      Alcotest.(check int)
+        (Printf.sprintf "one crossing at %.3g radians" radians)
+        1
+        (List.length moved.Player.crossings);
+      Alcotest.(check int)
+        (Printf.sprintf "and it stays in the room beyond at %.3g" radians)
+        1 moved.Player.player.Player.room)
+    [ 0.05; 0.31; 0.7; 1.234; 1.9; 2.4; 2.9; -0.45; -1.77 ]
+
 (* {1 A leg that clears a whole room}
 
    Three rooms in a line, the middle one narrower than a single step can be, so
@@ -429,6 +493,8 @@ let () =
             the_crossings_unwind_to_where_it_started;
           case "a leg clears a room and keeps going"
             a_leg_clears_a_room_and_keeps_going;
+          case "a crossing does not double back however the rooms meet"
+            a_crossing_does_not_double_back_however_the_rooms_meet;
           case "walk is traverse without the trace"
             walk_is_traverse_without_the_trace;
         ] );

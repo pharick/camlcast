@@ -571,58 +571,68 @@ let can_step t ~room:index ~from ~dest =
   in
   Room.can_step here ~from ~dest && every 0
 
-(** Did a step from [from] to [dest] go {e through} this opening, and not merely
-    across the line it lies on? Which side of that line a point falls on is the
-    sign of the cross product below, so the step went through exactly when its
-    two ends disagree about it.
+(** The doorway a step from [from] to [dest] goes through, if it goes through
+    one: which of this room's thresholds it was, the portal behind it — whose
+    {!Player.through} the caller should then apply — and how far along the step
+    the opening was met, as a fraction of it. [from] plus that fraction of the
+    step is the point on the opening, which is where a caller meaning to walk a
+    step doorway by doorway has to cut it.
 
-    A step that finishes {e on} the line has no side, and so does not count.
-    That is what keeps a step taken along an opening rather than through it —
-    including one that rounds a jamb and comes straight back — from being read
-    as going through. It is also what lets {!Player.slide} resolve a step one
-    doorway at a time: the leg carrying on from a crossing begins exactly on the
-    threshold it has just come through, so the very leg that left cannot be read
-    as crossing straight back. *)
-let through (t : Room.threshold) ~from ~dest =
-  let side p = Vec.cross t.Room.edge (Vec.sub p t.Room.a) in
-  side from *. side dest < 0.
+    {1 What counts as going through}
 
-(** The doorway a step from [from] to [dest] passes through, if it passes
-    through one: which of this room's thresholds it was, the portal behind it —
-    whose {!Player.through} the caller should then apply — and how far along the
-    step it was met, as a fraction of it.
+    Which side of an opening a point is on is the cross product below, which is
+    its distance from the line times the opening's length; a threshold is wound
+    with its room's own boundary, so that is positive inside the room and
+    negative outside it. A step goes through when it {e ends} outside, having
+    started inside or on the opening itself. {!Room.segments_cross} keeps the
+    question to the opening rather than to the whole line it lies on: a step
+    passing the end of a doorway changes side without going through anything.
 
-    A step can cross two, so they are ranked by that fraction and the nearest
-    wins. The others are not lost: it is the {e nearest} because the caller is
-    expected to come back and ask again from there, in the room it has just
-    reached, which is the only room whose walls have anything to say about where
-    the rest of the step goes. {!Player.slide} is that caller.
+    Deliberately not a symmetric change of sign. Asking only that the two ends
+    disagree would answer the same for an ordinary step and differently for the
+    two that matter.
 
-    Both halves of "goes through this opening" are asked here, and both are
-    needed. {!Room.segments_cross} bounds the crossing to the width of the
-    opening, and is inclusive of its ends; {!through} asks whether the step
-    really passed from one side to the other, and is strict. A candidate that
-    satisfies only the first is one the step merely touches, and it is refused
-    outright rather than ranked — were it ranked, being nearest would let it
-    hide a genuine crossing further along the same step.
+    A step that {e begins} on the line is the one a player standing in a doorway
+    takes, and it goes through as much as any other; refusing it walks that
+    player out of the room they are still called to be in.
 
-    A doorway that leads nowhere yet is not a crossing — there is nowhere to
-    cross to — and {!can_step} has already refused any step that would reach
+    More sharply, it is what makes the {e remainder} of a step that has just
+    crossed safe to ask again — which is the whole of how {!Player.slide} walks
+    a leg. That remainder begins on the opening it came through and heads into
+    the room beyond, so under a symmetric test the twin is refused by where the
+    step {e begins}, and the point it begins at got there by being carried
+    through a rotation. It is on the line to within a bit or two either way, and
+    which way decides whether the player is thrown straight back through the
+    doorway they just came out of. Here the twin is refused by where the step
+    {e ends}, which is most of an opening's width from zero, and the coin toss
+    does not arise.
+
+    {1 Why the test is part of the ranking}
+
+    A step can meet two openings, so they are ranked by how far along it each is
+    met and the nearest wins — the others are not lost, because the caller is
+    expected to ask again from there, standing in the room it has just reached.
+
+    The test is applied while they are ranked and not to the winner afterwards,
+    and that is the difference between {e the nearest opening this step goes
+    through} and {e the nearest one its line touches}. Rank first and an opening
+    the step merely begins on takes the top of the ranking, fails the test
+    there, and takes the real crossing down with it.
+
+    The fraction falls out of the same two numbers, so it cannot disagree with
+    them: the step's own reach across the line is their difference, which the
+    test has just made strictly greater than the first with both non-negative —
+    so the division is never by zero and never lands outside [0, 1).
+
+    A doorway that leads nowhere yet is not a crossing, because there is nowhere
+    to cross to, and {!can_step} has already refused any step that would reach
     one. A shut one still is: this answers which opening a step is through, and
-    {!can_step} is what has already said no. Movement asks both, in that
-    order. *)
+    {!can_step} is what says no. *)
 let crossing t ~room ~from ~dest =
-  let step = Vec.sub dest from in
-  let parameter (portal : portal) =
-    let edge = portal.threshold.edge in
-    let denom = Vec.cross step edge in
-    (* Zero for a step parallel to the opening — which cannot have got past
-       {!through}, since a step that never changes side never crosses. Guarded
-       anyway, because the alternative to a guard here is a division by zero. *)
-    if Float.abs denom < 1e-12 then infinity
-    else Vec.cross (Vec.sub portal.threshold.a from) edge /. denom
-  in
   let row = t.portals.(room) in
+  let side (threshold : Room.threshold) p =
+    Vec.cross threshold.Room.edge (Vec.sub p threshold.Room.a)
+  in
   (* Walked by index rather than folded over, because which doorway it was is
      half the answer: an index is what {!replace_room} leaves valid and what a
      [twin] is already expressed in, where a copy of the threshold would go
@@ -634,12 +644,15 @@ let crossing t ~room ~from ~dest =
         match row.(slot) with
         | Some (portal : portal)
           when Room.segments_cross from dest portal.threshold.a
-                 portal.threshold.b
-               && through portal.threshold ~from ~dest -> (
-            let here = parameter portal in
-            match best with
-            | Some (_, _, there) when there <= here -> best
-            | _ -> Some (slot, portal, here))
+                 portal.threshold.b -> (
+            let entering = side portal.threshold from
+            and leaving = side portal.threshold dest in
+            if entering < 0. || leaving >= 0. then best
+            else
+              let here = entering /. (entering -. leaving) in
+              match best with
+              | Some (_, _, there) when there <= here -> best
+              | _ -> Some (slot, portal, here))
         | _ -> best
       in
       nearest (slot + 1) best

@@ -129,12 +129,15 @@ let the_cellar_door_can_be_walked_through () =
   Alcotest.(check string) "the second doorway of the hall" "cellar"
     door.Room.name;
   Alcotest.(check bool) "has a leaf hanging in it" true (door.Room.door <> None);
-  (* This threshold's normal points out of the hall, so a step against it starts
-     inside. Standing there is asserted rather than assumed: were the sign the
+  (* A threshold is wound with the boundary it is cut into, so its normal points
+     into the room that owns it — this one at the hall. A step along the normal
+     therefore starts inside the hall, and one taken against it walks at the
+     door. Standing there is asserted rather than assumed: were the sign the
      other way about, the walk below would begin in the cellar's own space while
-     still calling itself the hall, and cross nothing. *)
+     still calling itself the hall, and going through would mean walking back
+     into the room it was already standing outside. *)
   let middle = Vec.scale (Vec.add door.Room.a door.Room.b) 0.5 in
-  let inward = Vec.scale door.Room.normal (-0.3) in
+  let inward = Vec.scale door.Room.normal 0.3 in
   let start =
     Player.create ~room:hall ~pos:(Vec.add middle inward)
       ~angle:(Float.atan2 (-.inward.Vec.y) (-.inward.Vec.x))
