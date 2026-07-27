@@ -1,0 +1,54 @@
+# Build, test and check the formatting of every push and pull request.
+#
+# Ubuntu only, deliberately. tsdl and tsdl-image need SDL2 and SDL2_image, and
+# on Linux opam resolves those depexts to libsdl2-dev and libsdl2-image-dev
+# through apt without help. Homebrew ships sdl2-compat, which opam cannot
+# detect, so a macOS job would need the same manual bypass the development
+# machines use — not something worth encoding here to test a pure-OCaml
+# renderer that never opens a window.
+#
+# Nothing here needs a virtual display. Sdl.init lives in Engine alone, and no
+# test touches it: Framebuffer.offscreen has no streaming texture behind it and
+# Renderer.draw_frame fills a buffer with no SDL call in it, so whole frames are
+# drawn and read back headlessly. See test/dune.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+          dune-cache: true
+
+      # --with-dev-setup is what brings in the pinned ocamlformat the last step
+      # needs; it is a dev-setup dependency rather than a build one.
+      - run: opam install . --deps-only --with-test --with-dev-setup
+
+      - run: opam exec -- dune build
+
+      - run: opam exec -- dune runtest
+
+      # The generated camlcast.opam runs @install, @runtest and @doc, but never
+      # @fmt, so the formatting check has to be asked for explicitly. It fails
+      # with a diff of what `dune fmt` would have written.
+      - run: opam exec -- dune build @fmt
+
+      # Both libraries have a public name under the camlcast package, which is
+      # what makes odoc pick their modules up.
+      - run: opam exec -- dune build @doc
