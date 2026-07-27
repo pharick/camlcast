@@ -1,13 +1,16 @@
-(** A few shapes to draw over a finished frame, for the demos that use the
-    overlay hook.
+(** Drawing over a finished frame: the shapes an interface is made of, and the
+    clipping that keeps them on the screen.
 
-    {!Raycaster.Framebuffer.set} and {!Raycaster.Framebuffer.blend} write
-    without checking where — the renderer's own loops have clipped long before
-    they call them — so everything here clips first. The engine will grow a
-    proper overlay toolkit with a font in it; until then these are the two
-    rectangles a demo needs to show a number without being able to write one. *)
+    {!Framebuffer.set} and {!Framebuffer.blend} write without checking where —
+    the renderer's own loops have clipped long before they call them, and the
+    check would cost more than everything else in the inner loop — so everything
+    here clips first. That is the whole of what this module is for: a caller
+    gives a rectangle in framebuffer coordinates and does not have to know how
+    big the framebuffer is, which matters because it changes with the window.
 
-open Raycaster
+    Shapes only. Text is {!Font}, which draws through {!sub} here. What any of
+    it {e means} — a lamp running down, a page of a journal — belongs to the
+    game, the same way a {!Material} does. *)
 
 (** The part of the rectangle [x], [y], [w], [h] that is actually on the buffer,
     as first and last-plus-one in each direction. *)
@@ -27,6 +30,48 @@ let rect fb ~x ~y ~w ~h ~r ~g ~b ~alpha =
       else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~a:alpha
     done
   done
+
+(** Blit the [sw] x [sh] rectangle of [img] whose top-left corner is [(sx, sy)]
+    onto the buffer at [(x, y)], per-pixel alpha and all.
+
+    The clipping is done on the {e destination} and then read back into the
+    source, so a picture half off the left edge draws its right half rather than
+    the whole thing squashed or nothing at all. [tint] multiplies the image's own
+    colour if it is given, which is what {!Font} uses to draw one white atlas in
+    any colour a screen asks for.
+
+    A pixel with zero alpha costs a comparison and no write, so a cut-out
+    picture — which is most of them — is cheap over the parts that are not
+    there. *)
+let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
+  let x0, y0, x1, y1 = clipped fb ~x ~y ~w:sw ~h:sh in
+  (* And no further into the picture than the picture goes. *)
+  let x1 = Int.min x1 (x + img.Image.width - sx)
+  and y1 = Int.min y1 (y + img.Image.height - sy) in
+  for py = y0 to y1 - 1 do
+    let v = sy + py - y in
+    for px = x0 to x1 - 1 do
+      let u = sx + px - x in
+      let i = Image.index img ~u ~v in
+      let a = img.Image.alpha.(i) in
+      if a > 0 then begin
+        let c = img.Image.pixels.(i) in
+        let r, g, b =
+          match tint with
+          | None -> (c.Color.r, c.Color.g, c.Color.b)
+          | Some (t : Color.t) ->
+              (c.Color.r * t.Color.r / 255, c.Color.g * t.Color.g / 255,
+               c.Color.b * t.Color.b / 255)
+        in
+        if a >= 255 then Framebuffer.set fb ~x:px ~y:py ~r ~g ~b
+        else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~a
+      end
+    done
+  done
+
+(** The whole of a picture, at [(x, y)]. *)
+let image ?tint fb (img : Image.t) ~x ~y =
+  sub ?tint fb img ~x ~y ~sx:0 ~sy:0 ~sw:img.Image.width ~sh:img.Image.height
 
 (** A meter [fraction] full: a dark trough with a bright fill over it. *)
 let bar fb ~x ~y ~w ~h ~fraction ~r ~g ~b =

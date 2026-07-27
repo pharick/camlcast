@@ -95,6 +95,10 @@ Each depends only on the ones above it.
   and where its light comes from
 - {!Raycaster.Sky} — the open sky where a room has no roof
 - {!Raycaster.Image} — full-colour images with alpha, for decals and sprites
+- {!Raycaster.Paint} — clipped rectangles, lines and pictures over a finished
+  frame
+- {!Raycaster.Font} — a bitmap font on a fixed grid: layout, wrapping and
+  drawing
 - {!Raycaster.Room} — one room's walls, thresholds, surfaces, sprites and
   collision
 - {!Raycaster.World} — named rooms, linked portals, the world's air and spawn,
@@ -136,8 +140,8 @@ Each is a single file with the feature it demonstrates as the only thing in it.
 - {!Camlcast_demo.Overlay} — drawing over the finished world
 - {!Camlcast_demo.Controls} — press versus hold, and letting go of the cursor
 - {!Camlcast_demo.Loading} — art read from files, beside the generated kind
+- {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping, colour
 - {!Camlcast_demo.Level} — the five-room showcase world
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
 - {!Camlcast_demo.Pictures} — two decals and two sprites
 - {!Camlcast_demo.Surfaces} — the demos' materials, daylight sky and air
-- {!Camlcast_demo.Paint} — the few shapes the overlay demos draw with

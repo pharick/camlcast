@@ -1,7 +1,9 @@
 ; One executable per module under test; they all share the Support fixtures
-; and testables. Framebuffer (a wrapper over an SDL texture) and Renderer
-; (per-pixel SDL output) need a live SDL surface, so their pure pieces are
-; tested through Plane, Viewport, Material and Atmosphere instead. Input reads
+; and testables. Renderer needs a live SDL surface for its per-pixel output, so
+; its pure pieces are tested through Plane, Viewport, Material and Atmosphere
+; instead. Framebuffer used to be in that sentence too, and is not any more:
+; Framebuffer.offscreen builds one with no streaming texture behind it, which is
+; what lets test_paint and test_font read back what they drew. Input reads
 ; SDL for the keyboard and the mouse, but its edges and hold timer are a pure
 ; function of two frames and a duration, and test_input drives that directly.
 ;
@@ -28,6 +30,8 @@
   test_result_ext
   test_asset
   test_surface
+  test_paint
+  test_font
   test_plane
   test_sky
   test_image

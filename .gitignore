@@ -2,3 +2,4 @@
 .claude/
 _build/
 _opam/
+__pycache__/

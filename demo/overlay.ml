@@ -2,7 +2,8 @@
     rendered into the framebuffer and before the buffer reaches the screen, so
     what it draws is in front of everything and clipped by nothing.
 
-    Three things are drawn here, all in {!Paint}: a crosshair in the middle, a
+    Three things are drawn here, all in {!Raycaster.Paint}: a crosshair in the
+    middle, a
     meter along the bottom that fills over ten seconds and starts again, and a
     translucent panel behind the meter. The panel is drawn with
     {!Raycaster.Framebuffer.blend} rather than {!Raycaster.Framebuffer.set} —

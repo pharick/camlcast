@@ -116,6 +116,12 @@ let demos =
       run = Controls.run;
     };
     {
+      name = "text";
+      blurb = "a bitmap font: wrapping, measuring, clipping and colour";
+      world = lazy Text.world;
+      run = Text.run;
+    };
+    {
       name = "loading";
       blurb = "art read from files, beside the generated kind";
       world = Loading.world;

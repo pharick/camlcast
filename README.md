@@ -50,6 +50,7 @@ the thing it is about.
 | `overlay`  | drawing over the finished world                                   |
 | `controls` | press versus hold, mouse buttons, and letting go of the cursor    |
 | `loading`  | art read from files, beside the generated kind                    |
+| `text`     | a bitmap font: wrapping, measuring, clipping and colour           |
 | `showcase` | the five-room level, with all of the above at once                |
 
 Every one of these worlds is checked by `test_demos`: that you can stand where
@@ -315,6 +316,34 @@ middle of the window, and the planes and every wall are measured from it, so
 they all follow. The mouse drives both yaw and pitch; `Viewport` and `Player`
 carry the derivation and the clamp that stops the shear from tipping too far.
 
+## Drawing over the world
+
+`Engine.run_state` takes an `overlay` callback, run on the finished framebuffer
+after the world and before it reaches the screen — so what it draws is in front
+of everything and clipped by nothing except the buffer's own edges.
+
+`Paint` is what draws: clipped rectangles, lines, outlines and pictures.
+`Framebuffer.set` and `blend` write without checking where, because the
+renderer's own loops have clipped long before they call them, so every guard
+against writing off the buffer lives in `Paint` instead.
+
+`Font` is a bitmap font on a fixed grid. A glyph's place in the atlas is
+arithmetic on its code point and its advance is the cell width, so a font is a
+picture and four numbers — there is no metrics table to author beside the PNG or
+to let drift out of step with it. Text is therefore monospaced. `measure` and
+`wrap` are pure functions of a string and the two cell dimensions; `draw` puts
+every glyph through `Paint`, so a line running off the edge is cut rather than
+truncated by anything that measured it first. The atlas's colour is multiplied
+by the colour `draw` is given, the same split `Texture` and `Material` make, so
+one white typeface dresses every screen in the colour that screen wants.
+
+The coordinates throughout are the framebuffer's, not the window's: the buffer is
+a whole-number fraction of the window (`Renderer.internal_size`, capped at
+`Config.max_render_height`) and the GPU stretches the result. Text is drawn once
+at the atlas's own size and scaled with everything else, which is why a font for
+this engine is designed small and legible rather than large and smooth. The
+`text` demo shows all of it at once.
+
 ## Modules
 
 Each module is self-contained and depends only on the ones above it.
@@ -338,6 +367,8 @@ Each module is self-contained and depends only on the ones above it.
 | `Atmosphere`        | the air a world is seen through: its fog, its haze, and where its light comes from                                         |
 | `Sky`               | the open sky drawn where a room has no roof — a directional gradient with a sun                                            |
 | `Image`             | full-colour images with alpha, for wall decals and sprites                                                                 |
+| `Paint`             | clipped rectangles, lines and pictures drawn over a finished frame                                                         |
+| `Font`              | a bitmap font on a fixed grid: cell lookup, measuring, wrapping and drawing                                                |
 | `Surface`           | decoding a PNG or JPEG into plain bytes: the one place pixel formats appear                                                |
 | `Asset`             | where a file is, searched relative to the executable rather than to a source tree                                          |
 | `Input`             | SDL keyboard and mouse-look → engine intent                                                                                |
@@ -378,10 +409,16 @@ dune exec test/test_player.exe -- --verbose   # one suite
 dune exec test/test_ray.exe -- test hits      # one group
 ```
 
-`Input`, `Framebuffer` and `Renderer` are not covered directly: they all need a
-live SDL surface. Their pure logic lives in `Plane` (the casting equation),
-`Viewport` (the projection and resize rules), `Material` and `Atmosphere` (the
-shading), which are tested on their own.
+`Input` and `Renderer` are not covered directly: they need a live SDL surface.
+Their pure logic lives in `Plane` (the casting equation), `Viewport` (the
+projection and resize rules), `Material` and `Atmosphere` (the shading), which
+are tested on their own.
+
+`Framebuffer` used to be in that list and is not any more. `Framebuffer.offscreen`
+builds a buffer with no streaming texture behind it — the texture was the only
+part that needed a window — so `test_paint` and `test_font` draw and then read
+the pixels back, which is how the clipping is checked at every edge rather than
+only in the arithmetic that feeds it.
 
 `test_level.ml` is the closest thing to an integration test: it checks the demo
 world the way a player meets it, which means an engine change that breaks

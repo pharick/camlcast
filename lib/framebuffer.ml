@@ -28,7 +28,9 @@ let pixel_format =
   else Sdl.Pixel.format_argb8888
 
 type t = {
-  texture : Sdl.texture;
+  texture : Sdl.texture option;
+      (** where the buffer is uploaded to, and [None] for one that is never
+          shown — see {!offscreen} *)
   pixels :
     (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t;
   depth : float array;
@@ -38,21 +40,36 @@ type t = {
   height : int;
 }
 
+(** The buffer itself, zeroed. Rendering a frame covers every pixel before
+    anything reads one, so the clearing is not for the renderer's benefit — it is
+    so that a buffer nobody has drawn into yet is black rather than whatever the
+    allocator had lying there, which is what lets a test say what it expected. *)
+let buffer ~width ~height =
+  let pixels =
+    Bigarray.(Array1.create int8_unsigned c_layout (width * height * 4))
+  in
+  Bigarray.Array1.fill pixels 0;
+  { texture = None; pixels; depth = Array.make (width * height) infinity; width; height }
+
 let create sdl ~width ~height =
   let+ texture =
     Sdl.create_texture sdl pixel_format Sdl.Texture.access_streaming ~w:width
       ~h:height
   in
-  {
-    texture;
-    pixels =
-      Bigarray.(Array1.create int8_unsigned c_layout (width * height * 4));
-    depth = Array.make (width * height) infinity;
-    width;
-    height;
-  }
+  { (buffer ~width ~height) with texture = Some texture }
 
-let destroy t = Sdl.destroy_texture t.texture
+(** A buffer with no window behind it: the same pixels and the same depth, drawn
+    into by the same {!set} and {!blend}, and never uploaded anywhere.
+
+    It exists so that what is drawn can be {e read back and asserted}. Everything
+    downstream of this module — {!Paint}, {!Font}, and the renderer itself — used
+    to be testable only through the arithmetic that fed it, because a real buffer
+    needs a live SDL renderer to make its streaming texture and a test has no
+    window. The texture is the only part of that which is true, so it is the only
+    part that is optional. *)
+let offscreen ~width ~height = buffer ~width ~height
+
+let destroy t = Option.iter Sdl.destroy_texture t.texture
 
 (** Reset every pixel's depth to "nothing yet", ready for a new frame. The
     colour buffer needs no clearing — the background pass covers every pixel. *)
@@ -83,9 +100,28 @@ let blend t ~x ~y ~r ~g ~b ~a =
   Bigarray.Array1.unsafe_set p (base + 2)
     (mix (Bigarray.Array1.unsafe_get p (base + 2)) r)
 
+(** What is at pixel [(x, y)] now. The counterpart of {!set}, and the only
+    reader: the drawing loops all write and never look. It is here for the tests
+    an {!offscreen} buffer makes possible — asserting what was drawn means being
+    able to ask. *)
+let pixel t ~x ~y =
+  let base = ((y * t.width) + x) * 4 in
+  let p = t.pixels in
+  Color.rgb
+    (Bigarray.Array1.get p (base + 2))
+    (Bigarray.Array1.get p (base + 1))
+    (Bigarray.Array1.get p base)
+
 (** Upload the buffer and stretch it over [dst] (the whole window). The pitch is
     in bytes here — four per pixel — unlike the element pitch a static texture
-    upload takes. *)
+    upload takes.
+
+    An {!offscreen} buffer has nowhere to go, and asking it to go there is a
+    mistake in the calling code rather than a condition to recover from — so it
+    says so instead of quietly doing nothing. *)
 let present sdl t ~dst =
-  let* () = Sdl.update_texture t.texture None t.pixels (t.width * 4) in
-  Sdl.render_copy sdl t.texture ~dst
+  match t.texture with
+  | None -> Error (`Msg "Framebuffer.present: this buffer has no window behind it")
+  | Some texture ->
+      let* () = Sdl.update_texture texture None t.pixels (t.width * 4) in
+      Sdl.render_copy sdl texture ~dst
