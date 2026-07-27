@@ -66,11 +66,14 @@ let build () =
   let* grille = pattern "assets/grille.png" in
   let* poster = picture "assets/poster.png" in
   let* figure = picture "assets/figure.png" in
-  (* One colour for each pair, so the only difference between the two halves is
-     the pattern and where it came from. *)
+  (* A pattern carries its own colours, so the two halves differ in where their
+     colour came from as much as in where their pattern did. The left half is
+     terracotta because that is what was painted into the file; the right half
+     is pale plaster because that is the argument written three lines below.
+     Neither is a decision the engine took part in — a Material has no colour to
+     overrule either of them with. *)
   let plaster = Color.rgb 198 190 176 and iron = Color.rgb 105 108 120 in
-  let dress color pattern = Material.make ~color ~pattern in
-  let stone = dress (Color.rgb 150 146 140) Patterns.stone in
+  let stone = Surfaces.solid (Patterns.stone ~color:(Color.rgb 150 146 140)) in
   let sw = Vec.make (-6.) (-4.)
   and se = Vec.make 6. (-4.)
   and ne = Vec.make 6. 4.
@@ -99,18 +102,27 @@ let build () =
         ]
       [
         Room.wall ~height ~material:stone sw se;
-        (* Left: everything on this side came out of a file. *)
-        Room.wall ~height ~material:(dress plaster tiles) se mid
+        (* Left: everything on this side came out of a file, colour and all. *)
+        Room.wall ~height ~material:(Material.make ~pattern:tiles) se mid
           ~decals:(print poster);
-        (* Right: everything on this side is a function of u and v. *)
-        Room.wall ~height ~material:(dress plaster Patterns.brick) mid ne
-          ~decals:(print Pictures.painting);
+        (* Right: everything on this side is a function of u and v, and its
+           colours are the arguments that function was given. *)
+        Room.wall ~height
+          ~material:
+            (Surfaces.solid
+               (Patterns.brick ~color:plaster ~mortar:(Color.rgb 176 170 160)))
+          mid ne ~decals:(print Pictures.painting);
         Room.wall ~height ~material:stone ne nw;
         Room.wall ~height ~material:stone nw sw;
         (* A pair of see-through screens, one from each source, each with a wall
            behind it to reveal. *)
-        screen (dress iron grille) (Vec.make 4. (-3.4)) (Vec.make 4. (-0.6));
-        screen (dress iron Patterns.bars) (Vec.make 4. 0.6) (Vec.make 4. 3.4);
+        screen
+          (Material.make ~pattern:grille)
+          (Vec.make 4. (-3.4))
+          (Vec.make 4. (-0.6));
+        screen
+          (Surfaces.seen_through (Patterns.bars ~color:iron))
+          (Vec.make 4. 0.6) (Vec.make 4. 3.4);
       ]
   in
   Ok

@@ -1,14 +1,16 @@
 (** {b Materials.} One room, four walls, four materials.
 
-    A {!Raycaster.Material} is a colour and a pattern chosen independently: the
-    colour says what the wall is made of, the pattern says how it was put
-    together. The same masonry is red brick on one side of this room and blue
-    stone on another, and the checker under your feet is the same pattern as the
-    yellow tile behind you. Stand in the middle and turn round — nothing here
-    varies but the material.
+    A pattern carries its own colours, so a wall can have more than one in it:
+    the brick here is red and the mortar between it is grey, which is not a
+    paler red. Look closely at a course line.
+
+    One pattern still dresses many colours, because a {!Patterns} pattern takes
+    them as arguments before its texel coordinates. The checker under your feet
+    and the yellow tile behind you are the same function twice, a colour apart.
+    Stand in the middle and turn round — nothing here varies but the material.
 
     The patterns themselves are pure functions of a texel coordinate, in
-    {!Patterns}; the materials that wear them are in {!Surfaces}. *)
+    {!Patterns}; the materials that fill their colours in are in {!Surfaces}. *)
 
 open Raycaster
 

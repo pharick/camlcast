@@ -17,7 +17,10 @@ small software renderer.
 > **This tutorial is behind the code.** It teaches the engine as it stood before
 > content was split out of it, so a wall here takes a `~texture` id looked up in
 > a global `Palette` table, and the shipped engine takes a `~material` carrying
-> its colour and pattern by value. The same is true of `Atmosphere` (which now
+> its pattern by value. A texture here is greyscale and gets its colour from the
+> palette at draw time; in the shipped engine a texel is a colour, and one
+> pattern serves many colours by taking them as arguments before `u` and `v`.
+> The same is true of `Atmosphere` (which now
 > holds the fog and light constants), of `Room.ceiling` (a variant rather than an
 > option), and of the world-growing primitives, none of which appear below. Every
 > derivation here is still correct — the geometry has not moved — but the names
@@ -574,7 +577,12 @@ Tint the wall strip with `Color.shade (wall_color id) (face_shading normal *. fo
 
 A texture is a small **greyscale** pattern — a texel is a *brightness*, not a
 colour. The colour arrives at draw time by multiplying the greyscale by the
-palette colour, so one pattern dresses a wall of any colour. Generate it in
+palette colour, so one pattern dresses a wall of any colour. (This is the
+earlier design, and it is the one the rest of this section derives. The shipped
+engine puts the colour in the texel instead, so that a wall can have two colours
+in it, and keeps the reuse by giving a pattern its colours as arguments before
+`u` and `v`. `lib/texture.ml`'s own docstring is where that trade is written
+down.) Generate it in
 code, which is what this tutorial does throughout and what keeps a pattern a
 pure testable function of `u` and `v`; `Texture.load` reads one from a PNG or
 JPEG instead, once you have art to read. `lib/texture.ml`:

@@ -1,9 +1,10 @@
 (** The showcase level's pictures: two decals to hang on walls, two sprites to
     stand in the world, and a strip of frames for one that drifts.
 
-    Unlike a {!Raycaster.Texture}, which is greyscale and takes its colour from
-    the {!Raycaster.Material} it belongs to, an {!Raycaster.Image} carries its
-    own colours and its own alpha. The decals are opaque within their frame; the
+    Unlike a {!Raycaster.Texture}, which is square and tiles a world cell
+    because it is part of a surface, an {!Raycaster.Image} is drawn once at
+    whatever shape it was authored in. The decals are opaque within their frame;
+    the
     sprites are cut out against {!Raycaster.Image.clear} so only the object
     itself is drawn. *)
 

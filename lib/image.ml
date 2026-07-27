@@ -2,11 +2,12 @@
     {e not} part of a surface's own material — the decals hung on walls and the
     sprites that stand in the world.
 
-    A {!Texture} is greyscale and tinted at draw time, which suits a wall that
-    should take its colour from its {!Material}. A picture instead wants its own
-    colours and a transparent background — a painting framed against the wall, a
-    character cut out from the empty space around it — so an image carries full
-    RGB and an alpha (0 clear, 255 solid) for every pixel.
+    Both this and a {!Texture} are colour with an alpha, and the difference is
+    what they are for rather than what they hold. A texture is {e part of a
+    surface}: square, and tiling once per world cell, so its size is a density
+    and its shape is not its own. A picture stands on its own — a painting framed
+    against the wall, a character cut out from the empty space around it — so it
+    keeps whatever shape it was drawn at and is drawn once rather than repeated.
 
     An image is a rectangle and not a square, because the things it is used for
     are: a poster is wider than it is tall, a standing figure is taller than it

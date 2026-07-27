@@ -1,10 +1,44 @@
 (** The machinery for surface patterns, generated in code or read from a file.
 
-    The patterns are {e greyscale}: a texel says how bright that point of the
-    surface is, not what colour it is. The colour arrives later, from the
-    {!Material} the pattern is half of. Splitting it that way means one pattern
-    can dress surfaces of any colour, and the distance fog and face shading in
-    {!Atmosphere} keep working untouched.
+    A texel is a {!Color.t}, so a pattern says what a surface looks like and not
+    merely how bright it is at each point. A wall can therefore have more than
+    one colour in it — rust on iron, a painted band, tile grout a different
+    colour from the tile — which is the thing a pattern that carried only a
+    brightness could never express, however it was dressed afterwards.
+
+    A word on the word. A [t] is a {e built} pattern: two arrays, fixed at the
+    size it was made at. The function handed to {!generate} is a {e recipe} for
+    one — a colour at every point, at any size asked for, in as many colours as
+    it has arguments. Both get called patterns, here and in a game's own
+    modules, and which is meant is always the type: a recipe cannot be sampled
+    and a built one cannot be applied to anything.
+
+    {1 One pattern at many colours}
+
+    Brightness-only patterns bought one real thing: the same masonry could be
+    red brick in one room and grey stone in the next, because the colour came
+    from elsewhere. That survives here, by writing the pattern as a function of
+    its colour and applying it partially:
+
+    {[
+      let brick ~color ~u ~v =
+        Color.level color (if in_mortar ~u ~v then 130 else 225)
+
+      let red = generate (brick ~color:(Color.rgb 200 70 70))
+      and grey = generate (brick ~color:(Color.rgb 150 146 140))
+    ]}
+
+    {!Color.level} is what makes that read as one line: it takes the 0 .. 255 a
+    pattern naturally computes — {!noise} and {!hash} both speak in it — and
+    scales a colour by it, moving value without touching hue. A pattern that
+    wants two colours in it simply does not go through [level].
+
+    The reuse is now explicit rather than free, and it costs an array per
+    colour where before two materials shared one. That is the trade: a pattern
+    is three times the memory and cannot be re-dressed after the fact, in
+    exchange for being able to say what it actually looks like.
+
+    {1 Size}
 
     A pattern is square, and tiles once per world unit — {!Renderer} and
     {!Material.plane_texel} both index it by the fractional part of a world
@@ -31,7 +65,7 @@ let size = 64
 
 type t = {
   size : int;  (** texels per side, and so per world unit of surface *)
-  texels : int array;  (** row major, brightness 0 .. 255 *)
+  texels : Color.t array;  (** row major *)
   alpha : int array;  (** row major, opacity 0 (clear) .. 255 (solid) *)
   opaque : bool;  (** whether every texel is fully solid *)
 }
@@ -47,34 +81,41 @@ let column_of_offset t offset =
 
 let clamp v = Int.min 255 (Int.max 0 v)
 
-(** A solid (fully opaque) pattern from a brightness function. *)
+(** A solid (fully opaque) pattern from a colour function. [f] is clamped rather
+    than trusted, because a pattern is usually arithmetic about a base value and
+    the ends of its range are exactly where that arithmetic leaves 0 .. 255. *)
 let generate ?(size = size) f =
   {
     size;
     texels =
       Array.init (size * size) (fun i ->
-          clamp (f ~u:(i mod size) ~v:(i / size)));
+          Color.clamp (f ~u:(i mod size) ~v:(i / size)));
     alpha = Array.make (size * size) 255;
     opaque = true;
   }
 
-(** A pattern that can see through itself: [f] returns a brightness {e and} an
-    alpha for each texel, so a wall wearing it unveils whatever is behind. *)
+(** A pattern that can see through itself: [f] returns a colour {e and} an alpha
+    for each texel, so a wall wearing it unveils whatever is behind. *)
 let generate_masked ?(size = size) f =
   let n = size * size in
-  let texels = Array.make n 0 and alpha = Array.make n 0 in
+  let texels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
   let opaque = ref true in
   for i = 0 to n - 1 do
-    let brightness, a = f ~u:(i mod size) ~v:(i / size) in
-    texels.(i) <- clamp brightness;
+    let color, a = f ~u:(i mod size) ~v:(i / size) in
+    texels.(i) <- Color.clamp color;
     alpha.(i) <- clamp a;
     if a < 255 then opaque := false
   done;
   { size; texels; alpha; opaque = !opaque }
 
-(** Read a pattern from a PNG or JPEG file, its colours reduced to the one
-    brightness channel a pattern keeps and its alpha taken as it stands. A file
-    with no alpha of its own arrives solid.
+(** Read a pattern from a PNG or JPEG file, colour and alpha both, exactly as
+    they were drawn. A file with no alpha of its own arrives solid.
+
+    Nothing is reduced or reinterpreted on the way in, so what a painting
+    program showed is what a wall wearing this will show, under whatever the
+    {!Atmosphere} does to it. That is the whole reason to read a file rather
+    than write a function: a generated pattern is testable, and a drawn one is
+    drawn.
 
     The file must be {e square}, because a pattern tiles a square world cell and
     a rectangle would be silently stretched across it — but it may be square at
@@ -89,13 +130,13 @@ let load path =
             path w h))
   else begin
     let n = w * w in
-    let texels = Array.make n 0 and alpha = Array.make n 0 in
+    let texels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
     let opaque = ref true in
     for v = 0 to w - 1 do
       for u = 0 to w - 1 do
         let i = (v * w) + u in
-        texels.(i) <- Surface.luminance s ~x:u ~y:v;
-        let a = Surface.alpha s ~x:u ~y:v in
+        let color, a = Surface.sample s ~x:u ~y:v in
+        texels.(i) <- color;
         alpha.(i) <- a;
         if a < 255 then opaque := false
       done

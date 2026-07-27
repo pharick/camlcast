@@ -15,8 +15,8 @@
     to fit the box.
 
     The {b colours} are the same atlas three times over. The file is white and
-    {!Raycaster.Paint.sub} multiplies it by the colour asked for, the way a
-    {!Raycaster.Material} tints a greyscale {!Raycaster.Texture} — one typeface,
+    {!Raycaster.Paint.sub} multiplies it by the colour asked for, the way
+    {!Raycaster.Color.level} scales a surface pattern's colour — one typeface,
     dressed at the point of use.
 
     The {b line that runs off the edge} is not truncated by anything here. Every

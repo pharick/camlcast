@@ -86,19 +86,6 @@ let a_format_without_alpha_arrives_solid () =
     "and blue is the largest channel at the origin" true
     ((at 0 0).Color.b > (at 0 0).Color.g && (at 0 0).Color.g > (at 0 0).Color.r)
 
-(* Luminance is what a Texture keeps of a colour file. The Rec. 601 weights are
-   asserted against the three primaries rather than against a formula, so
-   changing them is a test failure and not a silently different-looking game. *)
-let luminance_uses_the_luma_weights () =
-  let s = read "fixtures/tile.png" in
-  Alcotest.(check int) "green weighs most" 149 (Surface.luminance s ~x:0 ~y:0);
-  Alcotest.(check int) "red next" 76 (Surface.luminance s ~x:1 ~y:0);
-  Alcotest.(check int) "blue least" 29 (Surface.luminance s ~x:2 ~y:0);
-  Alcotest.(check int) "white is white" 255 (Surface.luminance s ~x:3 ~y:0);
-  (* A grey's luminance is itself, whatever the weights are, since they sum to
-     one — so this pins the row-major order without the weights in the way. *)
-  Alcotest.(check int) "and a grey is itself" 32 (Surface.luminance s ~x:0 ~y:1)
-
 let a_missing_file_is_an_error () =
   let m = fails "fixtures/nothing-here.png" in
   Alcotest.(check bool) (Printf.sprintf "and says something: %s" m) true
@@ -117,7 +104,6 @@ let () =
           case "rows are laid out by width" rows_are_laid_out_by_width;
           case "a format without alpha arrives solid"
             a_format_without_alpha_arrives_solid;
-          case "luminance uses the luma weights" luminance_uses_the_luma_weights;
         ] );
       ( "failing",
         [

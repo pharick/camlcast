@@ -5,45 +5,56 @@ open Support
    exercises the masked generator. The named patterns of any particular game are
    its own content and are tested where they live. *)
 
+let grey = Color.rgb 200 200 200
+
 let checker =
-  Texture.generate (fun ~u ~v -> if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
+  Texture.generate (fun ~u ~v ->
+      Color.level grey (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170))
 
 let holes =
   Texture.generate_masked (fun ~u ~v ->
-      if u mod 16 < 5 || v mod 16 < 5 then (200, 255) else (0, 0))
+      if u mod 16 < 5 || v mod 16 < 5 then (grey, 255) else (Color.rgb 0 0 0, 0))
 
-(* Every texel is uploaded straight into a byte of an ARGB pixel, so anything
+(* Every channel is uploaded straight into a byte of an ARGB pixel, so anything
    outside 0..255 would wrap round into a different colour. The generators clamp
-   rather than trusting the caller. *)
+   rather than trusting the caller, and they clamp each channel: a pattern is
+   arithmetic about a base colour, and the three channels do not run out of
+   range together. *)
 let texels_are_bytes () =
-  let wild = Texture.generate (fun ~u ~v -> (u * 40) - (v * 30) - 400) in
+  let wild =
+    Texture.generate (fun ~u ~v ->
+        Color.rgb ((u * 40) - 400) (v * 30) (600 - (u * 12)))
+  in
   let worst = ref 128 in
   for v = 0 to Texture.size - 1 do
     for u = 0 to Texture.size - 1 do
-      let texel = Texture.sample wild ~u ~v in
-      if texel < 0 || texel > 255 then worst := texel
+      let c = Texture.sample wild ~u ~v in
+      List.iter
+        (fun k -> if k < 0 || k > 255 then worst := k)
+        [ c.Color.r; c.Color.g; c.Color.b ]
     done
   done;
   Alcotest.(check bool)
     (Printf.sprintf "a generator that overshoots is clamped (saw %d)" !worst)
     true
     (!worst >= 0 && !worst <= 255);
-  Alcotest.(check int) "the low end lands on black" 0 (Texture.sample wild ~u:0 ~v:63);
-  Alcotest.(check int) "the high end on white" 255 (Texture.sample wild ~u:63 ~v:0)
+  (* Opposite corners, where different channels are the ones out of range. *)
+  Alcotest.check color "red and green clamp up from below" (Color.rgb 0 0 255)
+    (Texture.sample wild ~u:0 ~v:0);
+  Alcotest.check color "and blue clamps down from above" (Color.rgb 255 255 0)
+    (Texture.sample wild ~u:63 ~v:63)
 
 (* checker is the one pattern whose layout can be read off by eye, so it is
    also the one that pins down which way round sample's u and v go. *)
 let sampling_is_row_major () =
   let light = Texture.sample checker ~u:0 ~v:0 in
-  Alcotest.(check int)
-    "one square across is the other shade"
+  Alcotest.check color "one square across is the other shade"
     (Texture.sample checker ~u:0 ~v:16)
     (Texture.sample checker ~u:16 ~v:0);
   Alcotest.(check bool)
     "and differs from the first" true
     (Texture.sample checker ~u:16 ~v:0 <> light);
-  Alcotest.(check int)
-    "two squares diagonally is back to the first shade" light
+  Alcotest.check color "two squares diagonally is back to the first shade" light
     (Texture.sample checker ~u:16 ~v:16)
 
 (* Ray.offset reaches 1.0 exactly when a ray strikes a corner; without the
@@ -66,7 +77,7 @@ let offsets_map_into_the_texture () =
      texels it says it is, so a denser pattern lands further along for the same
      hit. This is why column_of_offset takes the pattern rather than reading a
      module constant. *)
-  let dense = Texture.generate ~size:256 (fun ~u:_ ~v:_ -> 128) in
+  let dense = Texture.generate ~size:256 (fun ~u:_ ~v:_ -> grey) in
   Alcotest.(check int)
     "a denser pattern spreads the same face over more columns" 128
     (Texture.column_of_offset dense 0.5)
@@ -81,7 +92,9 @@ let generate_masked_flags_transparency () =
     (Texture.alpha holes ~u:10 ~v:10);
   (* Masked and solid have to agree on the flag, or the renderer would route a
      fully solid masked pattern into the translucent pass for nothing. *)
-  let solid_but_masked = Texture.generate_masked (fun ~u:_ ~v:_ -> (100, 255)) in
+  let solid_but_masked =
+    Texture.generate_masked (fun ~u:_ ~v:_ -> (grey, 255))
+  in
   Alcotest.(check bool)
     "a masked pattern with no holes is still opaque" true
     solid_but_masked.Texture.opaque
@@ -184,36 +197,42 @@ let patterns_carry_their_own_size () =
   (* One texel marked, far enough into the pattern that reading it at the wrong
      stride lands somewhere else entirely: at a stride of 64 rather than 128,
      (5, 3) would be flat index 197, which is (69, 1) and not marked. *)
+  let marked = Color.rgb 200 0 0 and ground = Color.rgb 10 10 10 in
   let dense =
-    Texture.generate ~size:128 (fun ~u ~v -> if u = 5 && v = 3 then 200 else 10)
+    Texture.generate ~size:128 (fun ~u ~v ->
+        if u = 5 && v = 3 then marked else ground)
   in
   Alcotest.(check int) "and one that says otherwise" 128 dense.Texture.size;
   Alcotest.(check int)
     "which has that many texels" (128 * 128)
     (Array.length dense.Texture.texels);
-  Alcotest.(check int)
-    "and is sampled at its own stride" 200
+  Alcotest.check color "and is sampled at its own stride" marked
     (Texture.sample dense ~u:5 ~v:3)
 
-(* The three primaries pin the Rec. 601 luma weights a colour file is reduced by;
-   the grey ramp pins the row-major order without the weights in the way, since
-   the luminance of a grey is itself. Values are literals in tools/make_art.py
-   and here, and the encoder there shares no code with the decoder here. *)
-let load_reduces_colour_to_brightness () =
+(* What a file was drawn in is what the wall is made of: nothing is reduced or
+   reinterpreted on the way in. Three saturated primaries pin that, and pin the
+   channel order with it — a loader that reduced to luma, or read red where blue
+   was, cannot agree with all three by accident. The grey ramp then pins the
+   row-major order with nothing else in the way. Values are literals in
+   tools/make_art.py and here, and the encoder there shares no code with the
+   decoder. *)
+let load_keeps_the_colour_of_the_file () =
   match Texture.load "fixtures/tile.png" with
   | Error (`Msg m) -> Alcotest.fail m
   | Ok t ->
       Alcotest.(check int) "the size comes from the file" 8 t.Texture.size;
       Alcotest.(check bool) "and it is solid throughout" true t.Texture.opaque;
-      Alcotest.(check int) "green weighs most" 149 (Texture.sample t ~u:0 ~v:0);
-      Alcotest.(check int) "red next" 76 (Texture.sample t ~u:1 ~v:0);
-      Alcotest.(check int) "blue least" 29 (Texture.sample t ~u:2 ~v:0);
-      Alcotest.(check int) "and white is white" 255 (Texture.sample t ~u:3 ~v:0);
-      Alcotest.(check int)
-        "a grey texel is its own brightness" 32
+      Alcotest.check color "green arrives green" (Color.rgb 0 255 0)
+        (Texture.sample t ~u:0 ~v:0);
+      Alcotest.check color "red arrives red" (Color.rgb 255 0 0)
+        (Texture.sample t ~u:1 ~v:0);
+      Alcotest.check color "blue arrives blue" (Color.rgb 0 0 255)
+        (Texture.sample t ~u:2 ~v:0);
+      Alcotest.check color "and white is white" (Color.rgb 255 255 255)
+        (Texture.sample t ~u:3 ~v:0);
+      Alcotest.check color "the ramp starts one row down" (Color.rgb 32 32 32)
         (Texture.sample t ~u:0 ~v:1);
-      Alcotest.(check int)
-        "one along the row" 60
+      Alcotest.check color "and runs along it" (Color.rgb 60 60 60)
         (Texture.sample t ~u:7 ~v:1);
       Alcotest.(check int) "every texel is solid" 255 (Texture.alpha t ~u:5 ~v:5)
 
@@ -271,7 +290,7 @@ let () =
         ] );
       ( "loading",
         [
-          case "reduces colour to brightness" load_reduces_colour_to_brightness;
+          case "keeps the colour of the file" load_keeps_the_colour_of_the_file;
           case "keeps transparency" load_keeps_transparency;
           case "refuses a rectangle" load_refuses_a_rectangle;
           case "reports a missing file" load_reports_a_missing_file;

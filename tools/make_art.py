@@ -86,8 +86,11 @@ def write_png(path, width, height, pixel):
 # --------------------------------------------------------------------------
 # assets/ — what the `loading` demo reads.
 #
-# A Texture keeps only luminance, so the two patterns are drawn grey; their
-# colour arrives at draw time from the Material wearing them.
+# A Texture keeps colour, so these are drawn in the colours they will be seen
+# in. Nothing recolours them at draw time: the Material wearing one of these
+# does not carry a colour, and the only thing between here and the screen is
+# the Atmosphere. That is the point of the left half of the loading demo — what
+# the file says is what the wall is.
 # --------------------------------------------------------------------------
 
 
@@ -97,29 +100,38 @@ def wobble(x, y, scale, seed):
     return math.sin((x + seed) * scale) * math.cos((y - seed) * scale * 1.3)
 
 
+def level(color, v):
+    """A colour at v out of 255, the way Color.level does it in the engine, so
+    a pattern here is written the same way as one written in OCaml: a colour,
+    and how much of it reaches the eye at this texel."""
+    v = max(0, min(255, int(v)))
+    return tuple(c * v // 255 for c in color) + (255,)
+
+
 def tiles(x, y):
     # Four rows of staggered tiles with a recessed grout line between them.
+    # Two colours in one pattern — terracotta tile, pale grey grout — which is
+    # exactly what a wall could not have had while a Texture kept only a
+    # brightness: the grout would have come out as paler tile.
     row = y // 32
     sx = (x + (16 if row % 2 else 0)) % 64
     sy = y % 32
     grout = sx < 3 or sy < 3
     edge = sx < 6 or sy < 6 or sx > 57 or sy > 25
-    base = 96 if grout else (176 if edge else 200)
+    color, base = ((152, 148, 140), 165) if grout else ((190, 108, 76), 176 if edge else 208)
     grain = 10 * wobble(x, y, 0.19, 3) + 5 * wobble(x, y, 0.61, 11)
-    v = max(0, min(255, int(base + grain)))
-    return (v, v, v, 255)
+    return level(color, base + grain)
 
 
 def grille(x, y):
     # A lattice of bars with square holes: the alpha is the point, since a
     # material wearing this pattern is see-through and takes the renderer's
-    # translucent path.
+    # translucent path. One colour, because a steel bar is one material; the
+    # variation across it is light and not paint.
     bar = x % 16 < 5 or y % 16 < 5
     if not bar:
         return (0, 0, 0, 0)
-    lit = 150 + 60 * wobble(x, y, 0.5, 7)
-    v = max(0, min(255, int(lit)))
-    return (v, v, v, 255)
+    return level((105, 108, 120), 150 + 60 * wobble(x, y, 0.5, 7))
 
 
 def poster(x, y):
@@ -141,10 +153,10 @@ def poster(x, y):
 
 def figure(x, y):
     # 96x96: a standing figure, cut out against nothing so only the shape is
-    # drawn. Square, and not because an Image has to be — the poster beside it
-    # is not — but because Viewport.sprite_box gives every sprite a billboard as
-    # wide as it is tall, so a sprite drawn in a tall picture would be stretched
-    # across a square one. The transparent margin is where the width goes.
+    # drawn. Square because a person standing at arm's length from a wall wants
+    # the room around them, not because an Image has to be — the poster beside
+    # it is not, and Room.sprite_half_width takes a billboard's width from its
+    # own picture. The transparent margin is where that room goes.
     cx = 48
     if y < 22:  # head
         dx, dy = x - cx, y - 13
@@ -323,15 +335,16 @@ def swatch(x, y):
 
 def tile(x, y):
     """8x8, fully opaque. The first four texels are the three primaries and
-    white, which pin the Rec. 601 luma weights Texture.load reduces colour by;
-    the rest is a grey ramp, whose luminance is itself, so the ramp pins the
-    row-major order without the weights getting in the way."""
+    white, which pin that Texture.load keeps a file's colour and keeps the
+    channels in the right order — a loader that dropped colour, or swapped red
+    for blue, cannot agree with three saturated primaries by accident. The rest
+    is a grey ramp, which pins the row-major order with nothing else in it."""
     if y == 0 and x < 4:
         return [
-            (0, 255, 0, 255),  # luminance 149
-            (255, 0, 0, 255),  # luminance 76
-            (0, 0, 255, 255),  # luminance 29
-            (255, 255, 255, 255),  # luminance 255
+            (0, 255, 0, 255),
+            (255, 0, 0, 255),
+            (0, 0, 255, 255),
+            (255, 255, 255, 255),
         ][x]
     v = 4 * (x + 8 * y)
     return (v, v, v, 255)

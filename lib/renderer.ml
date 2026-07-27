@@ -130,13 +130,12 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
      casts to, tinted by its colour and faded by fog. *)
   let surface y d (m : Material.t) =
     let wx = px +. (d *. dx) and wy = py +. (d *. dy) in
-    let texel = Material.plane_texel m ~x:wx ~y:wy in
+    let c = Material.plane_texel m ~x:wx ~y:wy in
     let f = Atmosphere.fog air d in
-    let c = m.Material.color in
     Framebuffer.set fb ~x:column ~y
-      ~r:(clamp8 (int_of_float (float_of_int (c.Color.r * texel / 255) *. f)))
-      ~g:(clamp8 (int_of_float (float_of_int (c.Color.g * texel / 255) *. f)))
-      ~b:(clamp8 (int_of_float (float_of_int (c.Color.b * texel / 255) *. f)))
+      ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. f)))
+      ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. f)))
+      ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. f)))
   in
   match room.Room.ceiling with
   | Room.Roof ceiling ->
@@ -223,7 +222,10 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     let light =
       Atmosphere.face_shading air w.Room.normal *. Atmosphere.fog air d
     in
-    let tint = Color.shade w.Room.material.Material.color light in
+    (* The same factor as a level out of 255. One light holds all the way down a
+       column, so the conversion out of floating point belongs out here with it
+       and the per-pixel arithmetic below stays in integers. *)
+    let level = clamp8 (int_of_float (light *. 255.)) in
     let pattern = w.Room.material.Material.pattern in
     let rows = pattern.Texture.size in
     let u =
@@ -265,9 +267,9 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
         in
         let texel = Texture.sample pattern ~u ~v in
         let a = Texture.alpha pattern ~u ~v in
-        let cr = tint.Color.r * texel / 255
-        and cg = tint.Color.g * texel / 255
-        and cb = tint.Color.b * texel / 255 in
+        let cr = texel.Color.r * level / 255
+        and cg = texel.Color.g * level / 255
+        and cb = texel.Color.b * level / 255 in
         if a = 255 then begin
           Framebuffer.set fb ~x:column ~y ~r:cr ~g:cg ~b:cb;
           if occlude then depth.(index) <- d

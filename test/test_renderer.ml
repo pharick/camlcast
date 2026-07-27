@@ -412,8 +412,56 @@ let a_mark_lands_under_the_crosshair () =
         (r - l < width / 4 && b - t < height / 4)
   | _ -> Alcotest.fail "expected the wall ahead"
 
+(* The wall's own share of the light, which nothing else here pins. A pattern's
+   texel is what the surface {e is}, and the air is the only thing between that
+   and the screen — so if the light stopped arriving, every wall in the game
+   would come out at full pattern colour with no depth in it whatever, and the
+   two tests below would go on passing, because they are about decals.
+
+   The same wall at two distances, head on both times, so the face shading is
+   identical and cancels; what is left is the ratio of the two fog factors. *)
+let a_wall_is_lit_by_the_air_it_is_seen_through () =
+  let world = fst (alone []) in
+  let lit away =
+    let fb = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame fb world
+      (looking_east ~pos:(Vec.make (12. -. away) 0.) ());
+    (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r
+  in
+  (* Near enough that both readings are well clear of the bottom of the byte:
+     the whole assertion is a ratio, and a ratio of two small integers is mostly
+     rounding. *)
+  let near = lit 2. and far = lit 6. in
+  Alcotest.(check bool)
+    (Printf.sprintf "a wall near is brighter than far: %d against %d" near far)
+    true (near > far);
+  Alcotest.(check bool) "and neither is black" true (far > 0);
+  let expected = Atmosphere.fog air 2. /. Atmosphere.fog air 6. in
+  let got = float_of_int near /. float_of_int far in
+  Alcotest.(check bool)
+    (Printf.sprintf "by the fog factor: %.3f against %.3f" got expected)
+    true
+    (Float.abs (got -. expected) < 0.05);
+  (* And the scale of it, which no ratio can reach: a light that was uniformly
+     wrong would keep every ratio in the game intact and darken all of it. The
+     wall is a flat pattern, so the one texel it has, under the light Atmosphere
+     reports for this face at this distance, is the whole prediction. *)
+  let wall = (World.room world 0).Room.walls.(1) in
+  let texel =
+    (Texture.sample wall.Room.material.Material.pattern ~u:0 ~v:0).Color.r
+  in
+  let light =
+    Atmosphere.face_shading air wall.Room.normal *. Atmosphere.fog air 2.
+  in
+  let predicted = int_of_float (float_of_int texel *. light) in
+  Alcotest.(check bool)
+    (Printf.sprintf "and the near reading is that texel under that light: %d against %d"
+       near predicted)
+    true
+    (abs (near - predicted) <= 2)
+
 (* A decal is lit by the same one factor the wall under it is: orientation and
-   fog. It is the wall's material {e colour} that does not reach it — a poster
+   fog. It is what the wall is {e made of} that does not reach it — a poster
    on a red wall is not red — and the two are easy to confuse, so this pins the
    half that does.
 
@@ -451,15 +499,15 @@ let a_decal_is_fogged_like_the_wall_it_is_on () =
     (Float.abs (got -. expected) < 0.05)
 
 (* The other half of the same fact, and the one it is easy to mistake for the
-   first: the wall's material {e colour} does not reach the decal. Two rooms
-   differing only in how dark that colour is draw the same picture on the wall
+   first: what the wall itself is made of does not reach the decal. Two rooms
+   differing only in how dark that surface is draw the same picture on the wall
    and a different wall behind it.
 
    This is why a poster on a red wall is not red. It is also why a game that
-   dims a room by re-tinting its materials will find its chalk marks standing
-   out more as it does: the wall goes down twice — its colour and the fog —
+   dims a room by repainting its surfaces will find its chalk marks standing
+   out more as it does: the wall goes down twice — its own colour and the fog —
    where the mark goes down once. *)
-let a_decal_ignores_the_walls_material_colour () =
+let a_decal_ignores_what_the_wall_is_made_of () =
   let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
   let hung =
     Room.decal ~along:4. ~z:Config.eye_height ~half_width:1. ~half_height:1.
@@ -468,8 +516,8 @@ let a_decal_ignores_the_walls_material_colour () =
   let world_of shade =
     let coat =
       Material.make
-        ~color:(Color.rgb shade shade shade)
-        ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> 255))
+        ~pattern:
+          (Texture.generate (fun ~u:_ ~v:_ -> Color.rgb shade shade shade))
     in
     let room =
       Room.make
@@ -588,6 +636,11 @@ let () =
           case "a sprite through a doorway is trimmed to the opening"
             a_sprite_through_a_doorway_is_trimmed_to_the_opening;
         ] );
+      ( "light on a wall",
+        [
+          case "a wall is lit by the air it is seen through"
+            a_wall_is_lit_by_the_air_it_is_seen_through;
+        ] );
       ( "marks on walls",
         [
           case "a decal is drawn on the face it is on"
@@ -598,8 +651,8 @@ let () =
             a_mark_lands_under_the_crosshair;
           case "a decal is fogged like the wall it is on"
             a_decal_is_fogged_like_the_wall_it_is_on;
-          case "a decal ignores the wall's material colour"
-            a_decal_ignores_the_walls_material_colour;
+          case "a decal ignores what the wall is made of"
+            a_decal_ignores_what_the_wall_is_made_of;
           case "a glowing decal keeps its own light"
             a_glowing_decal_keeps_its_own_light;
         ] );

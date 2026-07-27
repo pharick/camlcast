@@ -139,8 +139,9 @@ let drawing_puts_the_right_cell_in_the_right_place () =
     (Framebuffer.pixel fb ~x:1 ~y:3)
 
 (* The colour comes from the caller and the atlas supplies the shape, the same
-   way a Material tints a greyscale Texture. A white atlas cell therefore comes
-   out as exactly the colour asked for. *)
+   way Color.level scales a surface pattern's colour by what its function
+   computed. A white atlas cell therefore comes out as exactly the colour asked
+   for. *)
 let drawing_tints_the_atlas () =
   let white = Image.make ~height:60 96 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
   let font = Font.make ~atlas:white ~width:cell_w ~height:cell_h ~first:32 () in

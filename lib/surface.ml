@@ -11,8 +11,8 @@
     into a single byte order.
 
     Nothing here is content, and nothing here decides anything: it is a decoder.
-    What the picture means — a wall's brightness, a poster's colour — belongs to
-    the module that asked for it. *)
+    What the picture means — a wall's surface, a poster's paint — belongs to the
+    module that asked for it. *)
 
 open Tsdl
 open Result_ext
@@ -108,12 +108,3 @@ let sample t ~x ~y =
   let i = offset t ~x ~y in
   ( Color.rgb (channel t i) (channel t (i + 1)) (channel t (i + 2)),
     channel t (i + 3) )
-
-(** How bright pixel [(x, y)] is, 0 .. 255, by the Rec. 601 luma weights — the
-    green channel counts for most because the eye says it does. This is what a
-    {!Texture} keeps of a colour file, since a pattern is greyscale by design
-    and the colour arrives at draw time from the {!Material}. *)
-let luminance t ~x ~y =
-  let i = offset t ~x ~y in
-  ((channel t i * 299) + (channel t (i + 1) * 587) + (channel t (i + 2) * 114))
-  / 1000

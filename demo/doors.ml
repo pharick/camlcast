@@ -39,7 +39,7 @@ open Tsdl
 
 let height = 4.
 let oak = Surfaces.oak
-let iron = Material.make ~color:(Color.rgb 96 104 118) ~pattern:Patterns.door
+let iron = Surfaces.solid (Patterns.door ~color:(Color.rgb 96 104 118))
 
 (** The doorways this demo will not open, as [(room, threshold)] pairs — both
     sides of the one iron door. Keeping the two in step is the bookkeeping a

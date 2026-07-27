@@ -87,9 +87,9 @@ Each depends only on the ones above it.
   pixel formats appear
 - {!Raycaster.Asset} — where a file is, searched relative to the executable
   rather than to a source tree
-- {!Raycaster.Texture} — greyscale surface patterns, generated or loaded, and
+- {!Raycaster.Texture} — colour surface patterns, generated or loaded, and
   the wrapping value noise the generated ones are built from
-- {!Raycaster.Material} — what a surface is made of: a colour and a pattern
+- {!Raycaster.Material} — what a surface is made of: its pattern
 - {!Raycaster.Door} — a leaf hung in a doorway: open or closed, and what of
 - {!Raycaster.Atmosphere} — the air a world is seen through: its fog, its haze,
   and where its light comes from
@@ -123,7 +123,7 @@ Each depends only on the ones above it.
 Each is a single file with the feature it demonstrates as the only thing in it.
 
 - {!Camlcast_demo.Catalogue} — every demo there is, and what each one is for
-- {!Camlcast_demo.Masonry} — materials: a colour and a pattern, chosen apart
+- {!Camlcast_demo.Masonry} — materials: one pattern function, applied at several colours
 - {!Camlcast_demo.Gallery} — decals on walls, sprites in the room
 - {!Camlcast_demo.Glass} — see-through walls and the translucent pass
 - {!Camlcast_demo.Slopes} — inclined floors and roofs, and a seamless threshold

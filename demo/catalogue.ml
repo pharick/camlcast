@@ -27,7 +27,7 @@ let demos =
   [
     {
       name = "masonry";
-      blurb = "materials: a colour and a pattern, chosen apart";
+      blurb = "materials: one pattern function, applied at several colours";
       world = lazy Masonry.world;
       run = Masonry.run;
     };

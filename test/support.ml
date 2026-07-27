@@ -36,8 +36,10 @@ let mentions haystack needle =
    that is distinguishable: one flat bright, one flat dim. *)
 
 let material brightness =
-  Material.make ~color:(Color.rgb 200 200 200)
-    ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> brightness))
+  Material.make
+    ~pattern:
+      (Texture.generate (fun ~u:_ ~v:_ ->
+           Color.level (Color.rgb 200 200 200) brightness))
 
 let pale = material 230
 let dim = material 90
@@ -45,10 +47,12 @@ let dim = material 90
 (* A material you see through, for the one test that needs the renderer's
    translucent routing to have something to route. *)
 let mesh =
-  Material.make ~color:(Color.rgb 120 120 130)
+  Material.make
     ~pattern:
       (Texture.generate_masked (fun ~u ~v ->
-           if u mod 8 < 3 || v mod 8 < 3 then (180, 255) else (0, 0)))
+           if u mod 8 < 3 || v mod 8 < 3 then
+             (Color.level (Color.rgb 120 120 130) 180, 255)
+           else (Color.rgb 0 0 0, 0)))
 
 let air =
   Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:12.

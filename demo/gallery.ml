@@ -10,9 +10,10 @@
     after the walls are done, so it goes behind what is in front of it and in
     front of what is not.
 
-    Both carry an {!Raycaster.Image}, which has its own colours and its own
-    alpha — unlike a {!Raycaster.Texture}, which is greyscale and takes its
-    colour from the material wearing it. The sprites here are cut out against
+    Both carry an {!Raycaster.Image}, which is colour and alpha at whatever
+    shape it was drawn — unlike a {!Raycaster.Texture}, which is square and
+    tiles a world cell because it is part of a surface rather than a thing in
+    its own right. The sprites here are cut out against
     {!Raycaster.Image.clear}, so only the figure is drawn and not the box it
     came in. *)
 

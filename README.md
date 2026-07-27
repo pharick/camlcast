@@ -34,7 +34,7 @@ the thing it is about.
 
 | demo       | what it shows                                                     |
 | ---------- | ----------------------------------------------------------------- |
-| `masonry`  | materials: a colour and a pattern, chosen apart                   |
+| `masonry`  | materials: one pattern function, applied at several colours       |
 | `gallery`  | decals fixed to walls, sprites standing in the room               |
 | `glass`    | see-through walls and the translucent pass                        |
 | `slopes`   | inclined floors and roofs, and a threshold with no seam           |
@@ -78,8 +78,10 @@ between them the demos exercise every corner of the engine — decals,
 see-through walls, sloped floors, the open sky, growth, overlays and input — so
 a change that breaks any of them breaks something you can walk through here.
 
-A wall carries its `Material` — a colour and a greyscale `Texture` — by value,
-the way a decal has always carried its `Image`. That replaced an integer id
+A wall carries its `Material` — the `Texture` it wears, which carries its own
+colours — by value, the way a decal has always carried its `Image`. A material
+is where a surface's other properties will go as they arrive; today the pattern
+is the only one. That replaced an integer id
 looked up in a global table, which had two faults: it put the whole look of the
 game in one module every level had to share, and an id nobody had defined fell
 through to a default grey instead of failing. A world likewise carries its
@@ -231,8 +233,8 @@ room's plane in a neighbour's frame, so the demo world's five rooms all share
 one continuous floor and every seam is zero by construction.
 
 The floor and ceiling are textured the same way the walls are: at each pixel's
-world point a greyscale `Texture` is sampled — tiled every world unit — tinted
-by the surface's base colour, then faded by fog. Because the pattern is anchored
+world point a `Texture` is sampled — tiled every world unit — and faded by fog.
+Because the pattern is anchored
 in world space, its features foreshorten and their rows tilt with the surface,
 which is what makes the incline read at a glance.
 
@@ -256,16 +258,33 @@ open sky it simply rises to its full height with sky above.
 Walls are textured. A pattern is either generated in code — a pure, testable
 function of its texel coordinates, which is what the demos and every test here
 use — or read from a PNG or JPEG with `Texture.load`. Both produce the same
-`Texture.t`, and the renderer has no way to ask which it was given. They are
-**greyscale**: a texel is a brightness, not a colour. The
-colour arrives at draw time, when the renderer tints the sampled texel by the
-wall's material colour, dimmed by fog and by how squarely the wall faces the
-light — so one pattern can dress a wall of any colour. The demos' are masonry:
-brick, bevelled panel, stone, checker. A game's could be the opposite — say
-three octaves of wrapping value noise in a band about forty levels wide, with no
-courses, no joints and no grout lines. The engine has no opinion either way:
-`Texture.generate` takes a function from texel coordinates to a brightness, and
-that is the whole of the interface.
+`Texture.t`, and the renderer has no way to ask which it was given. A texel is a
+**colour**, so a wall can have more than one in it: brick with grey mortar
+between it, lead around a pale pane. Between the pattern and the screen there is
+nothing but the air — fog, and how squarely the wall faces the light.
+
+One pattern still dresses many colours, by taking them as arguments before its
+texel coordinates and being applied partially:
+
+```ocaml
+let brick ~color ~mortar ~u ~v =
+  if in_mortar ~u ~v then Color.level mortar 210
+  else Color.level color (225 + grain ~u ~v)
+
+let red  = Texture.generate (brick ~color:clay  ~mortar:lime)
+and grey = Texture.generate (brick ~color:slate ~mortar:lime)
+```
+
+`Color.level` is the join: patterns compute in the 0..255 that `Texture.noise`
+and the hashes beside it speak, and it turns that back into a colour by scaling
+all three channels together — moving value without touching hue. What it costs
+is an array per colour where two materials used to share one.
+
+The demos' patterns are masonry: brick, bevelled panel, stone, checker. A
+game's could be the opposite — say three octaves of wrapping value noise in a
+band about forty levels wide, with no courses, no joints and no grout lines. The
+engine has no opinion either way: `Texture.generate` takes a function from texel
+coordinates to a colour, and that is the whole of the interface.
 
 The noise lattice wraps at the texture's size, which is what makes that second
 kind possible at all: a wall's pattern tiles once per world unit, so a field that
@@ -282,8 +301,9 @@ Three kinds of extra detail sit on top of the walls:
   be a grille (solid bars, clear gaps) or a leaded window (translucent panes).
   Where a texel is not solid the wall is _blended_ rather than written, unveiling
   the room behind.
-- **Decals.** Pictures — an `Image` (full colour with its own alpha, unlike a
-  greyscale `Texture`) — hung on a wall at a given position and size. The wall
+- **Decals.** Pictures — an `Image`, which is a `Texture`'s colour with a
+  rectangle's freedom of shape — hung on a wall at a given position and size.
+  The wall
   pass blends each decal over its own texture, in the same light, so paintings
   and posters sit on the wall. An `Image` is a rectangle rather than a square,
   because a poster is: it is indexed across by its width and down by its height,
@@ -377,8 +397,8 @@ Each module is self-contained and depends only on the ones above it.
 | `Player`            | camera pose: `pos` + unit `dir` + unit `right` + `pitch`; movement with wall sliding                                       |
 | `Viewport`          | window size → camera geometry, projection, eye height and the pitch shear; the resize rules                                |
 | `Color`             | 8-bit RGB, shading and blending                                                                                            |
-| `Texture`           | greyscale surface patterns, generated or loaded, and the wrapping value noise they are built from                          |
-| `Material`          | what a surface is made of: a colour and a pattern, and whether you see through it                                          |
+| `Texture`           | colour surface patterns, generated or loaded, and the wrapping value noise they are built from                             |
+| `Material`          | what a surface is made of: its pattern, and whether you see through it                                                     |
 | `Door`              | a leaf hung in a doorway: open or closed, and what it is made of                                                           |
 | `Atmosphere`        | the air a world is seen through: its fog, its haze, and where its light comes from                                         |
 | `Sky`               | the open sky drawn where a room has no roof — a directional gradient with a sun                                            |
