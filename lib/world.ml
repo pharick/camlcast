@@ -461,7 +461,7 @@ let set_door t ~room ~threshold state =
     | Some door ->
         let thresholds = Array.copy before.Room.thresholds in
         thresholds.(threshold) <-
-          { x with Room.door = Some { door with Door.state } };
+          { x with Room.door = Some (Door.set_state door state) };
         (* Through {!replace_room}, so that a door changed here is held to the
            same invariants as a room rebuilt for any other reason. *)
         replace_room world ~room ~replacement:{ before with Room.thresholds }
