@@ -167,7 +167,9 @@ let at world ~room ~pos = Player.create ~room ~pos ~angle:0.
 (* Most frames go through no doorway at all, and the list has to be empty rather
    than approximately empty. *)
 let a_step_that_crosses_nothing_reports_nothing () =
-  let moved = Player.traverse world (at world ~room:0 ~pos:centre) ~forward:0.5 ~strafe:0. in
+  let moved =
+    Player.traverse world (at world ~room:0 ~pos:centre) ~forward:0.5 ~strafe:0.
+  in
   Alcotest.(check int) "no crossings" 0 (List.length moved.Player.crossings);
   Alcotest.(check int) "and the same room" 0 moved.Player.player.Player.room
 
@@ -177,7 +179,8 @@ let one_crossing_names_both_sides_of_the_doorway () =
   match moved.Player.crossings with
   | [ crossing ] ->
       Alcotest.(check int) "out of the first room" 0 crossing.Player.from_room;
-      Alcotest.(check int) "by its only doorway" 0 crossing.Player.from_threshold;
+      Alcotest.(check int)
+        "by its only doorway" 0 crossing.Player.from_threshold;
       Alcotest.(check int) "into the second" 1 crossing.Player.to_room;
       Alcotest.(check int)
         "arriving at the doorway's other side" 0 crossing.Player.to_threshold;
@@ -185,10 +188,9 @@ let one_crossing_names_both_sides_of_the_doorway () =
       Alcotest.check vec "and it is the transform that was used"
         moved.Player.player.Player.pos
         (Transform.point crossing.Player.onto (Vec.make 4.2 2.));
-      Alcotest.(check int) "the pose agrees about the room" 1
-        moved.Player.player.Player.room
-  | other ->
-      Alcotest.failf "expected one crossing, got %d" (List.length other)
+      Alcotest.(check int)
+        "the pose agrees about the room" 1 moved.Player.player.Player.room
+  | other -> Alcotest.failf "expected one crossing, got %d" (List.length other)
 
 (* One axis-resolved frame is an L, and each of its two legs can go through a
    doorway of its own. The first leg carries far enough into the second room
@@ -211,8 +213,7 @@ let one_frame_can_cross_two_doorways () =
       Alcotest.(check int) "by b's north doorway" 1 second.Player.from_threshold;
       Alcotest.(check int) "and back into a" 0 second.Player.to_room;
       Alcotest.(check int) "at a's south doorway" 1 second.Player.to_threshold
-  | other ->
-      Alcotest.failf "expected two crossings, got %d" (List.length other)
+  | other -> Alcotest.failf "expected two crossings, got %d" (List.length other)
 
 (* Going round the loop comes back to the room it started in — by a route whose
    two ends do not agree about where that room is. The crossings are what says
@@ -247,8 +248,8 @@ let the_crossings_unwind_to_where_it_started () =
       moved.Player.player
       (List.rev moved.Player.crossings)
   in
-  Alcotest.(check int) "the room it set out from" start.Player.room
-    home.Player.room;
+  Alcotest.(check int)
+    "the room it set out from" start.Player.room home.Player.room;
   (* Unwinding the frames, not the walking: it lands where the step finished,
      expressed in the frame it began in. *)
   Alcotest.check vec "and the step measured from there"
@@ -269,7 +270,8 @@ let angled radians =
       (Vec.make 4. 0.) (Vec.make 4. 4.)
   in
   let west =
-    Room.threshold ~name:"west" ~height:2. (carry east.Room.b) (carry east.Room.a)
+    Room.threshold ~name:"west" ~height:2. (carry east.Room.b)
+      (carry east.Room.a)
   in
   let a =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
@@ -282,13 +284,16 @@ let angled radians =
   and b =
     Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:flat_ceiling
       [
-        Room.wall ~height:3. ~material:dim (carry (Vec.make 4. 0.))
+        Room.wall ~height:3. ~material:dim
+          (carry (Vec.make 4. 0.))
           (carry (Vec.make 4. 1.5));
-        Room.wall ~height:3. ~material:dim (carry (Vec.make 4. 2.5))
+        Room.wall ~height:3. ~material:dim
+          (carry (Vec.make 4. 2.5))
           (carry (Vec.make 4. 4.));
       ]
   in
-  World.make ~rooms:[ ("a", a); ("b", b) ]
+  World.make
+    ~rooms:[ ("a", a); ("b", b) ]
     ~links:[ (("a", "east"), ("b", "west")) ]
     ~atmosphere:air ~spawn:("a", centre)
 
@@ -448,8 +453,8 @@ let walk_is_traverse_without_the_trace () =
   let start = at two_rooms ~room:0 ~pos:(Vec.make 3.8 2.) in
   let plain = Player.walk two_rooms start ~forward:0.4 ~strafe:0.2 in
   let traced = Player.traverse two_rooms start ~forward:0.4 ~strafe:0.2 in
-  Alcotest.(check int) "same room" plain.Player.room
-    traced.Player.player.Player.room;
+  Alcotest.(check int)
+    "same room" plain.Player.room traced.Player.player.Player.room;
   Alcotest.check vec "same position" plain.Player.pos
     traced.Player.player.Player.pos;
   Alcotest.check vec "same facing" plain.Player.dir

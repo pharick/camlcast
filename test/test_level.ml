@@ -3,6 +3,7 @@ open Camlcast_demo
 open Support
 
 let link = portal
+
 let ceiling_is_open (r : Room.t) =
   match r.Room.ceiling with Room.Open _ -> true | Room.Roof _ -> false
 
@@ -17,8 +18,11 @@ let a_portal_knows_its_twin () =
       Array.iter
         (fun portal ->
           let portal : World.portal = Option.get portal in
-          let back = link Level.default ~room:portal.to_room ~index:portal.twin in
-          Alcotest.(check int) "the twin leads back here" room back.World.to_room;
+          let back =
+            link Level.default ~room:portal.to_room ~index:portal.twin
+          in
+          Alcotest.(check int)
+            "the twin leads back here" room back.World.to_room;
           Alcotest.(check int)
             "and its own twin is where we started" portal.World.twin
             (link Level.default ~room ~index:back.World.twin).World.twin;
@@ -81,8 +85,7 @@ let the_default_world_is_varied () =
   Alcotest.(check bool)
     "some threshold carries a door" true
     (Array.exists
-       (Array.exists (fun p ->
-            (Option.get p).World.threshold.Room.door <> None))
+       (Array.exists (fun p -> (Option.get p).World.threshold.Room.door <> None))
        Level.default.World.portals);
   Alcotest.(check bool)
     "and every door in the level stands open, so nothing is sealed off" true
@@ -126,8 +129,8 @@ let the_cellar_door_can_be_walked_through () =
   let hall = 1 in
   let room = World.room Level.default hall in
   let door = room.Room.thresholds.(1) in
-  Alcotest.(check string) "the second doorway of the hall" "cellar"
-    door.Room.name;
+  Alcotest.(check string)
+    "the second doorway of the hall" "cellar" door.Room.name;
   Alcotest.(check bool) "has a leaf hanging in it" true (door.Room.door <> None);
   (* A threshold is wound with the boundary it is cut into, so its normal points
      into the room that owns it — this one at the hall. A step along the normal
@@ -155,8 +158,8 @@ let the_cellar_door_can_be_walked_through () =
        (World.room Level.default through.Player.room)
        through.Player.pos);
   let back = Player.walk Level.default through ~forward:(-0.6) ~strafe:0. in
-  Alcotest.(check int) "and it opens from the other side too" hall
-    back.Player.room;
+  Alcotest.(check int)
+    "and it opens from the other side too" hall back.Player.room;
   Alcotest.check vec "landing where it set out from" start.Player.pos
     back.Player.pos
 
@@ -174,8 +177,8 @@ let the_cellar_door_can_be_walked_through () =
 let a_diagonal_through_a_turning_doorway_keeps_its_shape () =
   let hall = 1 in
   let west = link Level.default ~room:hall ~index:0 in
-  Alcotest.(check string) "the hall's own way out" "west"
-    west.World.threshold.Room.name;
+  Alcotest.(check string)
+    "the hall's own way out" "west" west.World.threshold.Room.name;
   Alcotest.(check bool)
     "through a link that turns and does not merely move" true
     (Float.abs west.World.onto.Transform.sin > 1e-6);
@@ -183,8 +186,8 @@ let a_diagonal_through_a_turning_doorway_keeps_its_shape () =
      first leg crosses, the second is taken in the plaza. *)
   let start = Player.create ~room:hall ~pos:(Vec.make 0.3 0.) ~angle:Float.pi in
   let moved = Player.walk Level.default start ~forward:0.5 ~strafe:0.3 in
-  Alcotest.(check int) "the step went through" west.World.to_room
-    moved.Player.room;
+  Alcotest.(check int)
+    "the step went through" west.World.to_room moved.Player.room;
   let delta =
     Vec.scale (Vec.make (-0.5) (-0.3)) (0.5 /. Vec.length (Vec.make 0.5 0.3))
   in
@@ -212,8 +215,7 @@ let the_default_world_has_no_seams () =
 let () =
   Alcotest.run "Level"
     [
-      ( "links",
-        [ case "a portal knows its twin" a_portal_knows_its_twin ] );
+      ("links", [ case "a portal knows its twin" a_portal_knows_its_twin ]);
       ( "the showcase level",
         [
           case "is playable" the_default_world_is_playable;

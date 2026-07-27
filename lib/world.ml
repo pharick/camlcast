@@ -2,11 +2,11 @@
 
     A {!Room} is a level in its own right, written in its own coordinates and
     knowing nothing of its neighbours. A world names a set of them and says
-    which {!Room.type-threshold} of one is which threshold of another; everything
-    else follows. From each such link {!make} derives the {!Transform} laying
-    one room's frame onto the other's, and it is that transform — applied to the
-    camera when the player walks through, and to the ray when the renderer looks
-    through — that does all the work.
+    which {!Room.type-threshold} of one is which threshold of another;
+    everything else follows. From each such link {!make} derives the
+    {!Transform} laying one room's frame onto the other's, and it is that
+    transform — applied to the camera when the player walks through, and to the
+    ray when the renderer looks through — that does all the work.
 
     Because every room has its own frame, two of them may occupy the same
     coordinates and still be separate places: a world can fold back on itself,
@@ -17,8 +17,8 @@
     There is deliberately no world-wide compass, no global position and no
     single floor. A location is a room and a point {e in that room}, and a
     height only means anything within one room — which is why {!seam_gap}
-    exists, to report where two rooms disagree about the floor at a doorway
-    they share.
+    exists, to report where two rooms disagree about the floor at a doorway they
+    share.
 
     {1 Worlds that grow}
 
@@ -50,10 +50,10 @@ type portal = {
     doorways. A link makes two of these, each the other's inverse.
 
     [twin] matters to anything that steps through. {!Transform.point} lands the
-    camera {e behind} the neighbour's copy of the opening — that is what it means
-    to be standing in the doorway looking in — so a ray cast from there crosses
-    that opening again straight away. Whoever crosses has to know which threshold
-    not to cross back through. *)
+    camera {e behind} the neighbour's copy of the opening — that is what it
+    means to be standing in the doorway looking in — so a ray cast from there
+    crosses that opening again straight away. Whoever crosses has to know which
+    threshold not to cross back through. *)
 
 type location = { room : int; pos : Vec.t }
 (** A point in a named room. Only meaningful together — the same [pos] in
@@ -92,8 +92,7 @@ let check_names ~who ~room name (r : Room.t) =
   Array.iter
     (fun (t : Room.threshold) ->
       if Hashtbl.mem seen t.Room.name then
-        invalid_arg
-          (who ^ ": two thresholds named " ^ name ^ "." ^ t.Room.name);
+        invalid_arg (who ^ ": two thresholds named " ^ name ^ "." ^ t.Room.name);
       Hashtbl.add seen t.Room.name ())
     r.Room.thresholds;
   ignore room
@@ -108,7 +107,8 @@ let check_room_names ~who names =
   let seen = Hashtbl.create (Array.length names) in
   Array.iter
     (fun name ->
-      if Hashtbl.mem seen name then invalid_arg (who ^ ": two rooms named " ^ name);
+      if Hashtbl.mem seen name then
+        invalid_arg (who ^ ": two rooms named " ^ name);
       Hashtbl.add seen name ())
     names
 
@@ -116,16 +116,17 @@ let check_room_names ~who names =
     everything that would make the link meaningless: a threshold with no length
     (its transform would collapse the world to a point), two thresholds
     differing in length or height (the opening would not line up, so the seam
-    would be visible from both sides), and two that disagree about a door (a leaf
-    on one side and an opening on the other would be a door you could see through
-    from behind).
+    would be visible from both sides), and two that disagree about a door (a
+    leaf on one side and an opening on the other would be a door you could see
+    through from behind).
 
     What is compared is whether a leaf hangs there and what it is doing, not
-    what it is made of: the renderer draws the near side's, so a door that is oak
-    from the hall and stone from the cellar is a choice and not a mistake. The
-    state is another matter — a door open from one side and closed from the other
-    is one the player could walk through in only one direction, which is not a
-    door. {!set_door} is how it is changed, and it changes both sides at once.
+    what it is made of: the renderer draws the near side's, so a door that is
+    oak from the hall and stone from the cellar is a choice and not a mistake.
+    The state is another matter — a door open from one side and closed from the
+    other is one the player could walk through in only one direction, which is
+    not a door. {!set_door} is how it is changed, and it changes both sides at
+    once.
 
     Shared by {!make} and {!link} so a world that grew is held to exactly the
     same standard as one that was written down.
@@ -169,8 +170,8 @@ let pair ~who ~describe (ia, ja, (a : Room.threshold))
     authoring mistake with no sensible run-time behaviour: a room or threshold
     name that does not exist, two rooms sharing a name (the second would be
     shadowed by the first, silently), two thresholds of one room sharing a name
-    (no link could tell them apart), a threshold with no length (its transform would
-    collapse the world to a point), a threshold linked more than once, a
+    (no link could tell them apart), a threshold with no length (its transform
+    would collapse the world to a point), a threshold linked more than once, a
     threshold nothing links to (a hole in the wall opening onto nowhere), two
     linked thresholds differing in length or height — the opening would not line
     up, so the seam would be visible from both sides — and two that disagree
@@ -257,12 +258,11 @@ let make ~rooms ~links ~atmosphere ~spawn =
     a generator that rebuilds a room from its parts hands back thresholds that
     are equal without being the same value; and not full structural equality
     either, because a door may be hung in an opening that is already there. What
-    has to hold is that the {e opening} is unmoved, since that is what a
-    [twin] index and a link's {!Transform} were derived from. *)
+    has to hold is that the {e opening} is unmoved, since that is what a [twin]
+    index and a link's {!Transform} were derived from. *)
 let same_opening (x : Room.threshold) (y : Room.threshold) =
   String.equal x.Room.name y.Room.name
-  && x.Room.a = y.Room.a
-  && x.Room.b = y.Room.b
+  && x.Room.a = y.Room.a && x.Room.b = y.Room.b
   && x.Room.height = y.Room.height
 
 (** Replace a room already in the world with the same room, one doorway further
@@ -340,8 +340,7 @@ let link t (room_a, name_a) (room_b, name_b) =
     with
     | Some index -> (index, thresholds.(index))
     | None ->
-        invalid_arg
-          ("World.link: no threshold " ^ t.names.(room) ^ "." ^ name)
+        invalid_arg ("World.link: no threshold " ^ t.names.(room) ^ "." ^ name)
   in
   let describe room (x : Room.threshold) = t.names.(room) ^ "." ^ x.Room.name in
   let ja, a = find room_a name_a and jb, b = find room_b name_b in
@@ -354,7 +353,9 @@ let link t (room_a, name_a) (room_b, name_b) =
   if room_a = room_b && ja = jb then
     invalid_arg
       ("World.link: a threshold cannot lead to itself: " ^ describe room_a a);
-  let here, there = pair ~who:"World.link" ~describe (room_a, ja, a) (room_b, jb, b) in
+  let here, there =
+    pair ~who:"World.link" ~describe (room_a, ja, a) (room_b, jb, b)
+  in
   let portals = Array.copy t.portals in
   let fill room j portal =
     let row = Array.copy portals.(room) in
@@ -396,10 +397,10 @@ let link t (room_a, name_a) (room_b, name_b) =
     those were checked when it was built.
 
     {b A door is only half here.} The [door] in an opening may change, since
-    hanging a leaf where there is already a gap is one of the things this is
-    for — but the two sides of a link have to agree about a door and this
-    changes one room, so {!check} will object until the other side has been
-    replaced too.
+    hanging a leaf where there is already a gap is one of the things this is for
+    — but the two sides of a link have to agree about a door and this changes
+    one room, so {!check} will object until the other side has been replaced
+    too.
 
     {b A floor may open a seam.} Nothing measures whether a new floor plane
     still meets its neighbour's across a doorway, here or anywhere else;
@@ -436,8 +437,8 @@ let replace_room t ~room ~replacement =
     The two sides of a link have to agree about what a door is doing, so
     changing one and not the other leaves a world {!check} refuses and a door
     the player could walk through in one direction only. Every change goes
-    through here for that reason: there is no way to hold the world in the
-    state where the two halves differ, because this never returns one.
+    through here for that reason: there is no way to hold the world in the state
+    where the two halves differ, because this never returns one.
 
     A doorway that leads nowhere yet has only the one side, and gets it.
 
@@ -477,9 +478,9 @@ let set_door t ~room ~threshold state =
     side, and the two sides of every link agreed about a door.
 
     That last one is asked of the rooms as they stand now and not of the
-    [threshold] each {!portal} is carrying, which is the copy taken when the link
-    was made. {!same_opening} lets a leaf be hung into an opening that is already
-    linked, so the two can differ, and it is the room the renderer and
+    [threshold] each {!portal} is carrying, which is the copy taken when the
+    link was made. {!same_opening} lets a leaf be hung into an opening that is
+    already linked, so the two can differ, and it is the room the renderer and
     {!can_step} read that has to be right.
 
     A generator's tests run this; nothing at run time needs to. *)
@@ -498,12 +499,16 @@ let check t =
                 ("World.check: nothing links threshold " ^ t.names.(room) ^ "."
                ^ x.Room.name)
           | Some portal ->
-              let describe = t.names.(room) ^ "." ^ portal.threshold.Room.name in
+              let describe =
+                t.names.(room) ^ "." ^ portal.threshold.Room.name
+              in
               if Array.length t.portals.(portal.to_room) <= portal.twin then
                 invalid_arg ("World.check: twin out of range: " ^ describe);
               (match t.portals.(portal.to_room).(portal.twin) with
               | Some back when back.to_room = room && back.twin = index -> ()
-              | _ -> invalid_arg ("World.check: twin does not lead back: " ^ describe));
+              | _ ->
+                  invalid_arg
+                    ("World.check: twin does not lead back: " ^ describe));
               if
                 door_state t.rooms.(room).Room.thresholds.(index)
                 <> door_state
@@ -614,15 +619,17 @@ let can_step t ~room:index ~from ~dest =
     expected to ask again from there, standing in the room it has just reached.
 
     The test is applied while they are ranked and not to the winner afterwards,
-    and that is the difference between {e the nearest opening this step goes
-    through} and {e the nearest one its line touches}. Rank first and an opening
-    the step merely begins on takes the top of the ranking, fails the test
-    there, and takes the real crossing down with it.
+    and that is the difference between
+    {e the nearest opening this step goes through} and
+    {e the nearest one its line touches}. Rank first and an opening the step
+    merely begins on takes the top of the ranking, fails the test there, and
+    takes the real crossing down with it.
 
     The fraction falls out of the same two numbers, so it cannot disagree with
     them: the step's own reach across the line is their difference, which the
     test has just made strictly greater than the first with both non-negative —
-    so the division is never by zero and never lands outside [0, 1).
+    so the division is never by zero, and the fraction it gives is at least zero
+    and always less than one.
 
     A doorway that leads nowhere yet is not a crossing, because there is nowhere
     to cross to, and {!can_step} has already refused any step that would reach
