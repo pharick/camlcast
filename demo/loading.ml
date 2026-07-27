@@ -24,11 +24,12 @@
     The loaded poster is 96 x 64 and hangs in a 2.4 x 1.6 space, undistorted,
     because a decal keeps its two extents apart all the way through —
     {!Raycaster.Room.decal_column} indexes the image by its width and
-    {!Raycaster.Room.decal_row} by its height. The figure beside it is square,
-    and not because an image has to be: it is because
-    {!Raycaster.Viewport.sprite_box} gives every sprite a billboard as wide as
-    it is tall, so a sprite drawn in a tall picture would be stretched across a
-    square one.
+    {!Raycaster.Room.decal_row} by its height. The figure beside it keeps its
+    shape for the same reason and a sprite's own one:
+    {!Raycaster.Room.sprite_half_width} takes a billboard's width from its
+    picture, so what a sprite is drawn in is the shape the file was authored in.
+    {!Floating} is where that is worth looking at, with a cloud of dust three
+    times as wide as it is tall.
 
     Where the files are found is {!Raycaster.Asset}'s answer, and it is relative
     to the executable rather than to this source tree. Set [CAMLCAST_ASSETS] to
@@ -93,8 +94,8 @@ let build () =
            { Room.plane = Plane.above floor height; material = Surfaces.soffit })
       ~sprites:
         [
-          { Room.pos = Vec.make 0.5 (-2.); size = 1.9; image = figure };
-          { Room.pos = Vec.make 0.5 2.; size = 1.9; image = Pictures.figure };
+          Room.sprite ~size:1.9 ~image:figure (Vec.make 0.5 (-2.));
+          Room.sprite ~size:1.9 ~image:Pictures.figure (Vec.make 0.5 2.);
         ]
       [
         Room.wall ~height ~material:stone sw se;

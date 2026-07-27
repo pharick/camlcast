@@ -42,6 +42,7 @@ the thing it is about.
 | `haze`     | atmosphere: the fade into the distance, and where the light falls |
 | `portals`  | doorways: one room, built once, joined in two places              |
 | `changing` | replacing a room: an animated sign, rebuilt every frame           |
+| `floating` | sprites off the floor, and frames chosen rather than made         |
 | `endless`  | the `grow` hook: a corridor built as you walk down it             |
 | `doors`    | doors that open and shut, and a lock that is the game's own rule  |
 | `targets`  | what the crosshair is on, through the doorway in front of you     |
@@ -286,8 +287,12 @@ Three kinds of extra detail sit on top of the walls:
   because a poster is: it is indexed across by its width and down by its height,
   and either extent may be whatever it was drawn at.
 - **Sprites.** Objects and characters placed in the world as billboards — flat
-  `Image`s that always face the player. A sprite is projected onto the sloped
+  `Image`s that always face the player. A sprite is projected against the sloped
   floor at its position and blended in wherever it stands nearer than the wall.
+  It need not stand on that floor: a `base` floats its foot above it — measured
+  from the floor, so on a slope it rides with the ground — which is what a mote
+  of dust or a hanging lamp is. And it is as wide as its picture, not as wide as
+  it is tall, so a wide, short image is drawn wide and short.
 
 The opaque walls come first and record their distance into a **per-pixel** depth
 buffer (per pixel, so a short wall only hides its own strip — the top of a
@@ -409,16 +414,20 @@ dune exec test/test_player.exe -- --verbose   # one suite
 dune exec test/test_ray.exe -- test hits      # one group
 ```
 
-`Input` and `Renderer` are not covered directly: they need a live SDL surface.
-Their pure logic lives in `Plane` (the casting equation), `Viewport` (the
-projection and resize rules), `Material` and `Atmosphere` (the shading), which
-are tested on their own.
+**Nothing here opens a window.** `Framebuffer.offscreen` builds a buffer with no
+streaming texture behind it — the texture was the only part that needed one —
+and `Renderer.draw_frame` fills a buffer with no SDL call in it. So `test_paint`
+and `test_font` draw and read the pixels back, and `test_renderer` renders whole
+frames: where a billboard lands, what a low wall hides of it, and what a doorway
+trims it to are checked on the pixels rather than only in the arithmetic that
+feeds them. Each of those tests draws the frame twice, with the sprite and
+without, and takes the sprite to be the pixels that differ — which says where it
+was drawn without claiming anything about the colour fog and shading left in it.
 
-`Framebuffer` used to be in that list and is not any more. `Framebuffer.offscreen`
-builds a buffer with no streaming texture behind it — the texture was the only
-part that needed a window — so `test_paint` and `test_font` draw and then read
-the pixels back, which is how the clipping is checked at every edge rather than
-only in the arithmetic that feeds it.
+What that leaves uncovered is `Renderer.render`, which is the upload and the
+present and nothing else, and `Input`, which reads SDL for the keyboard and the
+mouse — though `Input.advance`, the edges and the hold timer, is a pure function
+of two frames and a duration and `test_input` drives it directly.
 
 `test_level.ml` is the closest thing to an integration test: it checks the demo
 world the way a player meets it, which means an engine change that breaks

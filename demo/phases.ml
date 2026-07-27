@@ -43,8 +43,8 @@ let world =
            { Room.plane = Plane.above floor height; material = Surfaces.soffit })
       ~sprites:
         [
-          { Room.pos = Vec.make 1.5 0.; size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make (-1.) (-2.5); size = 0.9; image = Pictures.barrel };
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 1.5 0.);
+          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make (-1.) (-2.5));
         ]
       (List.concat
          [

@@ -139,10 +139,10 @@ let default =
            than blocked by something standing in front of it. *)
       ~sprites:
         [
-          { Room.pos = Vec.make 2.2 (-1.8); size = 0.9; image = Pictures.barrel };
-          { Room.pos = Vec.make 2.6 (-0.8); size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make (-3.5) 4.; size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make 4.5 4.3; size = 0.9; image = Pictures.barrel };
+          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 2.2 (-1.8));
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.6 (-0.8));
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make (-3.5) 4.);
+          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 4.5 4.3);
         ]
       (List.concat
          [
@@ -160,7 +160,7 @@ let default =
       ~floor:(ground hall_floor)
       ~ceiling:(roof (Plane.above hall_floor 4.))
       ~sprites:
-        [ { Room.pos = Vec.make 3. (-2.); size = 0.9; image = Pictures.barrel } ]
+        [ Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 3. (-2.)) ]
       (List.concat
          [
            hall_jambs;
@@ -217,7 +217,7 @@ let default =
       ~floor:(ground cellar_floor)
       ~ceiling:(roof (Plane.above cellar_floor 2.5))
       ~sprites:
-        [ { Room.pos = Vec.make 2.5 0.; size = 1.8; image = Pictures.figure } ]
+        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 0.) ]
       (cellar_jambs
       @ [
           Room.wall ~height:2.8 ~material:Surfaces.stone (Vec.make 0. (-3.))

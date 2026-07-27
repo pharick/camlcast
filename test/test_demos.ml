@@ -203,11 +203,47 @@ let the_loading_demo_reads_its_art () =
          d.Room.image.Image.width = 96 && d.Room.image.Image.height = 64)
        decals);
   Alcotest.(check bool)
-    "and the loaded sprite is square, as a billboard needs" true
+    "and the loaded sprite kept its shape too" true
     (List.exists
        (fun (s : Room.sprite) ->
          s.Room.image.Image.width = 96 && s.Room.image.Image.height = 96)
        (Array.to_list room.Room.sprites))
+
+(* The floating demo is where a sprite leaves the floor and a billboard stops
+   being square. Both are properties of the world it is built from, so both are
+   asserted here rather than by looking at it. *)
+let the_floating_demo_lifts_its_sprites () =
+  let world = Floating.world in
+  let sprites =
+    Array.to_list (World.room world 0).Room.sprites
+    @ Array.to_list (World.room world 1).Room.sprites
+  in
+  Alcotest.(check bool)
+    "some of them float" true
+    (List.exists (fun (s : Room.sprite) -> s.Room.base > 0.) sprites);
+  Alcotest.(check bool)
+    "and some are still on the ground, as every other demo's are" true
+    (List.exists (fun (s : Room.sprite) -> s.Room.base = 0.) sprites);
+  (* Three times as wide as it is tall, and drawn that way: half a width is not
+     half a size. *)
+  Alcotest.(check bool)
+    "one picture is not square" true
+    (List.exists
+       (fun (s : Room.sprite) ->
+         s.Room.image.Image.width = 3 * s.Room.image.Image.height
+         && Float.abs (Room.sprite_half_width s -. (1.5 *. s.Room.size)) < 1e-9)
+       sprites);
+  (* And the frames it animates through exist before anything is drawn. *)
+  Alcotest.(check bool)
+    "the frame strip has more than one frame in it" true
+    (Array.length Pictures.motes > 1);
+  Alcotest.(check bool)
+    "and every frame is the same shape" true
+    (Array.for_all
+       (fun (i : Image.t) ->
+         i.Image.width = Pictures.motes.(0).Image.width
+         && i.Image.height = Pictures.motes.(0).Image.height)
+       Pictures.motes)
 
 let () =
   Alcotest.run "Demos"
@@ -224,5 +260,7 @@ let () =
           case "the trail demo unwinds its own route"
             the_trail_demo_unwinds_its_own_route;
           case "the loading demo reads its art" the_loading_demo_reads_its_art;
+          case "the floating demo lifts its sprites"
+            the_floating_demo_lifts_its_sprites;
         ] );
     ]

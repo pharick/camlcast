@@ -70,8 +70,9 @@ let room ~phase =
          { Room.plane = Plane.horizontal (height +. 0.5); material = Surfaces.soffit })
     ~sprites:
       [
-        { Room.pos = Vec.make 2. (2. *. sin turn); size = 0.9; image = Pictures.barrel };
-        { Room.pos = Vec.make 4. (-3.); size = 1.8; image = Pictures.figure };
+        Room.sprite ~size:0.9 ~image:Pictures.barrel
+          (Vec.make 2. (2. *. sin turn));
+        Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. (-3.));
       ]
     [
       wall Surfaces.stone sw se;

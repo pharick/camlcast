@@ -33,7 +33,7 @@
 
     A column alone cannot place things that span columns or see past each other,
     so a frame is two phases: first the backgrounds and opaque walls above, per
-    column; then everything translucent — the {b sprites} ({!Room.sprite}s
+    column; then everything translucent — the {b sprites} ({!Room.type-sprite}s
     drawn as billboards that always face the player) and the
     {b see-through walls} (grilles and windows, {!Texture.val-alpha}) —
     composited over them.
@@ -302,10 +302,17 @@ type mask = Full | Within of { column : int; first : int; last : int }
     player's own room, clipped by nothing. *)
 
 (** Draw one sprite as a billboard: a flat image that always faces the player,
-    at perpendicular distance [depth_s]. It is placed by projecting its foot
-    onto the sloped floor and its top a [size] above, and drawn per pixel only
-    where it stands nearer than the opaque wall noted there, so a wall in front
-    — even a short one — hides just the part of it behind. *)
+    at perpendicular distance [depth_s]. {!Viewport.sprite_box} says where it
+    lands — foot and head projected against the sloped floor under it, width
+    from the picture's own shape — and it is drawn per pixel only where it
+    stands nearer than the opaque wall noted there, so a wall in front — even a
+    short one — hides just the part of it behind.
+
+    The two loops below interpolate across that rectangle rather than asking
+    {!Room.sprite_column} and {!Room.sprite_row} per pixel. That is the same
+    rule read from the screen end: the rectangle came from those two, the
+    mapping across it is linear in both directions, and doing it this way costs
+    one divide per column instead of a dot product per pixel. *)
 let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
     ~depth_s ~mask =
   let open Viewport in

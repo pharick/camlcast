@@ -12,7 +12,7 @@ open Support
 
    Both rooms are the same 0..4 square in their own coordinates, so nothing here
    works by accident of a shared frame. *)
-let figure pos = { Room.pos; size = 1.4; image = poster }
+let figure pos = Room.sprite ~size:1.4 ~image:poster pos
 
 let rooms ?door ?(near = []) ?(far = []) () =
   let first_jambs, east =
@@ -79,7 +79,7 @@ let a_sprite_is_read_across_by_its_width () =
         if u < 8 then Image.clear else (Color.rgb 200 60 60, 255))
   in
   let world =
-    rooms ~near:[ { Room.pos = Vec.make 3.5 2.; size = 1.4; image = split } ] ()
+    rooms ~near:[ Room.sprite ~size:1.4 ~image:split (Vec.make 3.5 2.) ] ()
   in
   (* Dead ahead: the middle of the sprite's width, which is the first solid
      column. *)
@@ -94,6 +94,31 @@ let a_sprite_is_read_across_by_its_width () =
     (Printf.sprintf "the cut-away side is seen through (found %s)" past)
     true
     (past <> "sprite 0 of room 0")
+
+(* A sprite that floats is picked where it floats. The crosshair here is level,
+   so it runs along eye height — under a sprite lifted clear of it, and through
+   the middle of the same sprite standing on the floor. What the ray finds
+   instead is the far room's business; all this says is that it is not the
+   sprite, and that the sprite is still there to be found once the view tips up
+   towards it. *)
+let a_lifted_sprite_is_looked_at_where_it_floats () =
+  let raised base =
+    rooms ~near:[ Room.sprite ~base ~size:1. ~image:poster (Vec.make 3.5 2.) ] ()
+  in
+  is "sprite 0 of room 0"
+    (Sight.cast (raised 0.) (looking_east ~from:(Vec.make 2. 2.) ()));
+  let under =
+    describe (Sight.cast (raised 0.9) (looking_east ~from:(Vec.make 2. 2.) ()))
+  in
+  Alcotest.(check bool)
+    (Printf.sprintf "level, the crosshair passes under it (found %s)" under)
+    true
+    (under <> "sprite 0 of room 0");
+  (* Tipped up, the same crosshair reaches it: the centre ray gains
+     {!Viewport.centre_rise} of height per cell, and the sprite is a cell and a
+     half away. *)
+  is "sprite 0 of room 0"
+    (Sight.cast (raised 0.9) (looking_east ~pitch:0.6 ~from:(Vec.make 2. 2.) ()))
 
 (* Through an open doorway, into the room beyond, at a sprite standing there.
    This is the whole feature: the thing looked at is in another room, in another
@@ -311,8 +336,8 @@ let a_target_can_be_found_on_the_screen () =
           ~floor_z:(Plane.elevation flat_floor.Room.plane sprite.Room.pos)
           ~distance sprite
       in
-      (* Square on the view and level, so it is centred and its width is its
-         height. *)
+      (* Dead ahead, so it is centred; and drawn from a square picture, so its
+         width is its height. *)
       Alcotest.check close "centred across the screen" 320.
         ((left +. right) /. 2.);
       Alcotest.check close "as wide as it is tall" (bottom -. top)
@@ -343,6 +368,8 @@ let () =
             a_see_through_wall_does_not_occlude;
           case "a sprite is read across by its width"
             a_sprite_is_read_across_by_its_width;
+          case "a lifted sprite is looked at where it floats"
+            a_lifted_sprite_is_looked_at_where_it_floats;
           case "the wrong angle misses" the_wrong_angle_misses;
           case "asking twice gives the same answer"
             asking_twice_gives_the_same_answer;

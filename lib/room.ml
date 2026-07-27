@@ -7,8 +7,8 @@
     octagon, a triangle, a wedge. Each wall also carries its own height, the
     {!Material} it is made of (some see-through) and any {!decal}s hung on it;
     the floor is an inclined plane so it need not be horizontal; the ceiling is
-    either an inclined plane of its own or the open sky; and {!sprite}s stand in
-    the world as billboards facing the player.
+    either an inclined plane of its own or the open sky; and {!type-sprite}s stand —
+    or float — in the world as billboards facing the player.
 
     A room knows nothing of any other room, or of the {!World} it is in. Every
     coordinate here is its own, and the only thing that ever relates two rooms
@@ -70,10 +70,85 @@ type wall = {
   normal : Vec.t;  (** unit vector perpendicular to the wall, for shading *)
 }
 
-type sprite = { pos : Vec.t; size : float; image : Image.t }
+type sprite = { pos : Vec.t; base : float; size : float; image : Image.t }
 (** An object or character standing in the world, drawn as a billboard — a flat
-    {!Image} that always faces the player. It stands at [pos] on the floor and
-    is [size] cells tall. *)
+    {!Image} that always faces the player. It stands at [pos] and is [size]
+    cells tall.
+
+    [base] is how far its foot floats above the floor under it: [0.] for
+    something resting on the ground, and anything else for a mote of dust, a
+    lamp, a bird. Like a {!type-decal}'s [z] it is measured from the floor and
+    not from an absolute height, so on a sloped floor a sprite rides with the
+    floor rather than staying put while the ground falls away beneath it.
+
+    Its width is not [size]. A sprite is as wide as its picture says it is —
+    see {!sprite_half_width} — so a wide, short mote is drawn wide and short. *)
+
+(** A sprite at [pos], [size] cells tall, made of [image]; [base] cells above
+    the floor if you say so, and standing on it if you do not.
+
+    A constructor rather than a bare record so that a floating sprite is the
+    only kind anyone has to write down, exactly as {!val-wall} lets a wall
+    without decals stay silent about them. *)
+let sprite ?(base = 0.) ~size ~image pos = { pos; base; size; image }
+
+(** Half a sprite's width, in cells.
+
+    A billboard is as tall as its [size] and as wide as its picture's shape
+    makes it: a 2:1 image is drawn twice as wide as it is tall. Taking the
+    aspect from the picture rather than from a field of its own means the art
+    cannot be stretched by an authoring mistake — there is nothing to disagree
+    with — and a square picture comes out square, which is what every sprite was
+    before this existed.
+
+    This is the only place the aspect ratio appears. {!Viewport.sprite_box}
+    scales the screen box by it and {!sprite_column} reads across it, so the
+    rectangle a sprite is drawn in and the rectangle it is picked in are the
+    same rectangle. *)
+let sprite_half_width s =
+  s.size
+  *. float_of_int s.image.Image.width
+  /. float_of_int s.image.Image.height
+  /. 2.
+
+(** The elevation of a sprite's foot, given the height of the floor under it. *)
+let sprite_foot s ~floor_z = floor_z +. s.base
+
+(** The elevation of a sprite's top. *)
+let sprite_head s ~floor_z = sprite_foot s ~floor_z +. s.size
+
+(** Where across a sprite's width a point [lateral] cells to one side of its
+    centre falls, as a column of its image — or [None] where the sprite does not
+    reach. [lateral] is measured along the viewer's [right], since a billboard
+    faces the viewer and has no side of its own.
+
+    This and {!sprite_row} are to a sprite what {!decal_column} and
+    {!decal_row} are to a decal: between them the only statement of "is this
+    point on that picture", so what can be picked stays exactly what is drawn.
+    {!Sight} asks both at once; {!Renderer} inverts them once per sprite into a
+    screen rectangle and interpolates across it, which is the same rule read
+    from the other end. *)
+let sprite_column s ~lateral =
+  let half = sprite_half_width s in
+  if Float.abs lateral > half then None
+  else
+    let n = s.image.Image.width in
+    Some
+      (Int.max 0
+         (Int.min (n - 1)
+            (int_of_float ((lateral +. half) /. (2. *. half) *. float_of_int n))))
+
+(** Where down a sprite's height an elevation [z] falls, as a row of its image,
+    over a floor at [floor_z] — or [None] above its head or below its foot. *)
+let sprite_row s ~floor_z ~z =
+  let head = sprite_head s ~floor_z in
+  let off = head -. z in
+  if off < 0. || off > s.size then None
+  else
+    let n = s.image.Image.height in
+    Some
+      (Int.max 0
+         (Int.min (n - 1) (int_of_float (off /. s.size *. float_of_int n))))
 
 type lintel = { top : float; material : Material.t }
 (** The wall a doorway is cut into, so the renderer can fill the strip left
@@ -165,6 +240,24 @@ let make ?(thresholds = []) ~floor ~ceiling ?(sprites = []) walls =
     ceiling;
     sprites = Array.of_list sprites;
   }
+
+(** The same room with other sprites in it.
+
+    This is how something animates. A room is immutable, so a room that changes
+    is a room that is built again — but a mote of dust drifting across it has
+    not moved a wall, and rebuilding the walls to move the mote costs a
+    {!val-wall} per wall per frame, each one normalizing a vector to arrive back
+    at the number it already had. Here the walls, the thresholds and both planes
+    are the ones that were already there; only the sprite array is new.
+
+    {b The pictures must already exist.} Selecting among images made once at
+    load is the whole of animating a sprite: hand back the same room with a
+    different {!type-sprite} in it and give that to {!World.replace_room}. There
+    is no frame counter and no timing here, because which frame it is at this
+    moment is the game's to decide and there is nothing the engine could add to
+    it — and because generating a picture inside a frame is the one thing this
+    is meant to make unnecessary. *)
+let with_sprites t sprites = { t with sprites = Array.of_list sprites }
 
 (** Shortest distance from a point to the segment [a..b]: project the point onto
     the line, clamp to the segment's ends, and measure to that nearest point. *)

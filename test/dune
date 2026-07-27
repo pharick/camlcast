@@ -1,11 +1,12 @@
 ; One executable per module under test; they all share the Support fixtures
-; and testables. Renderer needs a live SDL surface for its per-pixel output, so
-; its pure pieces are tested through Plane, Viewport, Material and Atmosphere
-; instead. Framebuffer used to be in that sentence too, and is not any more:
-; Framebuffer.offscreen builds one with no streaming texture behind it, which is
-; what lets test_paint and test_font read back what they drew. Input reads
-; SDL for the keyboard and the mouse, but its edges and hold timer are a pure
-; function of two frames and a duration, and test_input drives that directly.
+; and testables. Nothing here opens a window. Framebuffer.offscreen builds a
+; buffer with no streaming texture behind it, and Renderer.draw_frame fills one
+; with no SDL call in it, so test_renderer draws whole frames and reads the
+; pixels back — as do test_paint and test_font. Only Renderer.render itself,
+; which is the upload and the present, is left untested, and there is nothing in
+; it but those two calls. Input reads SDL for the keyboard and the mouse, but
+; its edges and hold timer are a pure function of two frames and a duration, and
+; test_input drives that directly.
 ;
 ; tsdl is a direct dependency here because naming a key is naming an
 ; Sdl.Scancode — the same way a game binding one has to.
@@ -31,6 +32,7 @@
   test_asset
   test_surface
   test_paint
+  test_renderer
   test_font
   test_plane
   test_sky

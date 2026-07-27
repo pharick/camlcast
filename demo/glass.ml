@@ -44,9 +44,9 @@ let world =
         [
           (* One behind each half of the screen, and one in front of it: the
              three are seen through bars, through glass, and plainly. *)
-          { Room.pos = Vec.make 4. (-3.5); size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make 4. 3.5; size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make (-3.) (-2.5); size = 0.9; image = Pictures.barrel };
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. (-3.5));
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. 3.5);
+          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make (-3.) (-2.5));
         ]
       ([ solid sw se; solid se ne; solid ne nw; solid nw sw ] @ screen)
   in

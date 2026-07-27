@@ -74,6 +74,12 @@ let demos =
       run = Changing.run;
     };
     {
+      name = "floating";
+      blurb = "sprites off the floor, and frames chosen rather than made";
+      world = lazy Floating.world;
+      run = Floating.run;
+    };
+    {
       name = "endless";
       blurb = "the grow hook: a corridor built as you walk it";
       world = lazy Endless.world;

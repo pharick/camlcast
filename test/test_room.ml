@@ -62,6 +62,97 @@ let a_decal_is_indexed_by_width_across_and_height_down () =
     "the two extents are not the same number" true
     (image.Image.width <> image.Image.height)
 
+(* The sprite half of the same idea. [sprite_column] and [sprite_row] are what
+   Viewport.sprite_box is built from and what Sight.touches asks, so they are
+   where a billboard's width and its two vertical bounds are decided once. The
+   picture is again deliberately not square. *)
+let a_sprite_is_indexed_by_width_across_and_height_down () =
+  let image = Image.make ~height:4 16 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let s = Room.sprite ~size:1. ~image (Vec.make 0. 0.) in
+  (* Four times as wide as it is tall, so a sprite one cell tall is four cells
+     across and reaches two either side. *)
+  Alcotest.check close "half a width" 2. (Room.sprite_half_width s);
+  let column at = Room.sprite_column s ~lateral:at in
+  Alcotest.(check (option int)) "the left edge is column 0" (Some 0) (column (-2.));
+  Alcotest.(check (option int)) "the centre is the middle" (Some 8) (column 0.);
+  Alcotest.(check (option int))
+    "and the right edge the last column" (Some 15) (column 2.);
+  Alcotest.(check (option int)) "past its width is off it" None (column 2.1);
+  Alcotest.(check (option int)) "and before it too" None (column (-2.1));
+  (* Rows run down from the head, so the top of the sprite is row 0. *)
+  let row at = Room.sprite_row s ~floor_z:0. ~z:at in
+  Alcotest.(check (option int)) "the head is row 0" (Some 0) (row 1.);
+  Alcotest.(check (option int)) "the foot is the last row" (Some 3) (row 0.);
+  Alcotest.(check (option int)) "above its head is off it" None (row 1.1);
+  Alcotest.(check (option int)) "and below its foot too" None (row (-0.1));
+  Alcotest.(check bool)
+    "the two extents are not the same number" true
+    (image.Image.width <> image.Image.height)
+
+(* A base lifts both bounds and nothing else, and it is measured from the floor
+   given rather than from zero — the same rule a decal's [z] follows. *)
+let a_base_lifts_a_sprite_off_the_floor_it_is_given () =
+  let image = Image.make 8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let ground = Room.sprite ~size:2. ~image (Vec.make 0. 0.)
+  and lifted = Room.sprite ~base:1.5 ~size:2. ~image (Vec.make 0. 0.) in
+  Alcotest.check close "on the floor, the foot is the floor" 0.
+    (Room.sprite_foot ground ~floor_z:0.);
+  Alcotest.check close "and the head a size above" 2.
+    (Room.sprite_head ground ~floor_z:0.);
+  Alcotest.check close "lifted, the foot is the base" 1.5
+    (Room.sprite_foot lifted ~floor_z:0.);
+  Alcotest.check close "and the head still a size above that" 3.5
+    (Room.sprite_head lifted ~floor_z:0.);
+  (* Over a floor that has climbed, both move with it. On a slope a sprite
+     rides the ground rather than the ground riding through it. *)
+  Alcotest.check close "the floor carries the foot" 2.5
+    (Room.sprite_foot lifted ~floor_z:1.);
+  Alcotest.check close "and the head" 4.5
+    (Room.sprite_head lifted ~floor_z:1.);
+  (* Which is the same thing said twice: raising the floor and raising the base
+     put the picture in the same place. *)
+  Alcotest.(check (option int))
+    "so a point on one is the same row of the other"
+    (Room.sprite_row lifted ~floor_z:0. ~z:2.)
+    (Room.sprite_row ground ~floor_z:1.5 ~z:2.);
+  Alcotest.check close "a sprite with no base starts on the ground" 0.
+    ground.Room.base
+
+(* Sprites are the only part of a room that a game changes every frame, so the
+   cheap way of doing it has to keep everything else exactly as it was — not
+   equal to it, the same. *)
+let replacing_the_sprites_keeps_the_rest () =
+  let image = Image.make 8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let before =
+    Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+      ~sprites:[ Room.sprite ~size:1. ~image (Vec.make 1. 1.) ]
+      (Array.to_list room.Room.walls)
+  in
+  let after =
+    Room.with_sprites before
+      [
+        Room.sprite ~base:2. ~size:1. ~image (Vec.make 1. 1.);
+        Room.sprite ~size:1. ~image (Vec.make 2. 2.);
+      ]
+  in
+  Alcotest.(check int) "the new sprites are there" 2
+    (Array.length after.Room.sprites);
+  Alcotest.check close "and are the ones asked for" 2.
+    after.Room.sprites.(0).Room.base;
+  Alcotest.(check bool)
+    "the walls are the very same array" true
+    (after.Room.walls == before.Room.walls);
+  Alcotest.(check bool)
+    "so are the thresholds" true
+    (after.Room.thresholds == before.Room.thresholds);
+  Alcotest.(check bool)
+    "and both planes" true
+    (after.Room.floor == before.Room.floor
+    && after.Room.ceiling == before.Room.ceiling);
+  Alcotest.(check int)
+    "the room it came from is untouched" 1
+    (Array.length before.Room.sprites)
+
 let distance_to_a_wall () =
   let w = Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) in
   Alcotest.check close "straight out from the middle" 3.
@@ -243,6 +334,15 @@ let () =
           case "a decal is indexed by width across and height down"
             a_decal_is_indexed_by_width_across_and_height_down;
           case "distance to a wall" distance_to_a_wall;
+        ] );
+      ( "sprites",
+        [
+          case "a sprite is indexed by width across and height down"
+            a_sprite_is_indexed_by_width_across_and_height_down;
+          case "a base lifts a sprite off the floor it is given"
+            a_base_lifts_a_sprite_off_the_floor_it_is_given;
+          case "replacing the sprites keeps the rest"
+            replacing_the_sprites_keeps_the_rest;
         ] );
       ( "collision",
         [

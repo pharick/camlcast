@@ -62,7 +62,7 @@ let chamber ~index =
          { Room.plane = Plane.above floor height; material = Surfaces.soffit })
     ~sprites:
       (if last then
-         [ { Room.pos = Vec.make 6. 0.; size = 1.8; image = Pictures.figure } ]
+         [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]
        else [])
     (List.concat
        [

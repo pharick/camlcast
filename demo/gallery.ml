@@ -60,9 +60,9 @@ let world =
         [
           (* Two of them one behind the other, to be walked around: the near one
              hides the far one and neither is ever seen edge-on. *)
-          { Room.pos = Vec.make 0. 1.8; size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make 2.5 (-1.2); size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make (-2.) (-2.5); size = 0.9; image = Pictures.barrel };
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 0. 1.8);
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 (-1.2));
+          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make (-2.) (-2.5));
         ]
       [ plain sw se; hung; plain ne nw; plain nw sw ]
   in

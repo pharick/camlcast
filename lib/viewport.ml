@@ -122,10 +122,20 @@ let project_point t (pose : Player.t) ~point ~z =
 
 (** Where a sprite lands on the screen: [(left, top, right, bottom)] in pixels.
 
-    A sprite is a billboard square to the view, so its width on screen is its
-    height, and [pose] places it — the player expressed in the room the sprite
-    is in, since every room has its own coordinates. [floor_z] is the elevation
-    of the floor under it and [distance] how far ahead it stands along the view.
+    A sprite is a billboard facing the view, so [pose] places it — the player
+    expressed in the room the sprite is in, since every room has its own
+    coordinates. [floor_z] is the elevation of the floor under it and [distance]
+    how far ahead it stands along the view.
+
+    Where its foot and its head are is {!Room.sprite_foot} and
+    {!Room.sprite_head}, so a sprite floating above the floor is projected by
+    the same two calls as one resting on it. How wide it is is
+    {!Room.sprite_half_width}, in cells; the screen width here is the screen
+    {e height} scaled by the same ratio, which is the one line that keeps pixels
+    square. [bottom - top] is what [size] cells cover at this distance, so
+    scaling it by width-over-height is what [size * width / height] cells cover
+    — measured vertically, applied horizontally, and correct because this module
+    holds those two the same.
 
     {!Renderer} draws sprites with this. It is here, and public, because
     anything that wants to draw attention to one — an outline around what the
@@ -136,9 +146,9 @@ let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
   let lateral = Vec.dot (Vec.sub s.Room.pos pose.Player.pos) pose.Player.right in
   let camera_x = lateral /. (distance *. t.half_width) in
   let centre = (camera_x +. 1.) *. float_of_int t.width /. 2. in
-  let base = project_height t ~z:floor_z ~distance in
-  let top = project_height t ~z:(floor_z +. s.Room.size) ~distance in
-  let half = (base -. top) /. 2. in
+  let base = project_height t ~z:(Room.sprite_foot s ~floor_z) ~distance in
+  let top = project_height t ~z:(Room.sprite_head s ~floor_z) ~distance in
+  let half = (base -. top) *. Room.sprite_half_width s /. s.Room.size in
   (centre -. half, top, centre +. half, base)
 
 (** How fast the middle of the screen rises with distance, at a given pitch: the

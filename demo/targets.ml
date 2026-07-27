@@ -65,7 +65,7 @@ type t = {
   collected : (int * int) list;  (** room and sprite, of each one recorded *)
 }
 
-let barrel pos = { Room.pos; size = 1.2; image = Pictures.barrel }
+let barrel pos = Room.sprite ~size:1.2 ~image:Pictures.barrel pos
 
 let world =
   let near_jambs, east =
@@ -85,7 +85,8 @@ let world =
   let ground, roof = surfaces floor in
   let near =
     Room.make ~thresholds:[ east ] ~floor:ground ~ceiling:roof
-      ~sprites:[ { Room.pos = Vec.make 2. 3.5; size = 1.8; image = Pictures.figure } ]
+      ~sprites:
+        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2. 3.5) ]
       (near_jambs
       @ [
           wall Surfaces.brick (Vec.make (-6.) (-6.)) (Vec.make 6. (-6.));

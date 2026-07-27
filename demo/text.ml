@@ -51,7 +51,7 @@ let world =
         (Room.Roof
            { Room.plane = Plane.above floor height; material = Surfaces.soffit })
       ~sprites:
-        [ { Room.pos = Vec.make 3. 0.; size = 1.8; image = Pictures.figure } ]
+        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.) ]
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
   World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air

@@ -433,7 +433,7 @@ let a_room_can_be_replaced () =
       ~thresholds:(Array.to_list before.Room.thresholds)
       ~floor:{ Room.plane = Plane.horizontal 0.5; material = dim }
       ~ceiling:open_sky
-      ~sprites:[ { Room.pos = centre; size = 1.; image = poster } ]
+      ~sprites:[ Room.sprite ~size:1. ~image:poster (centre) ]
       (Array.to_list before.Room.walls
       @ [ Room.wall ~height:1. ~material:mesh (Vec.make 1. 1.) (Vec.make 2. 1.) ])
   in

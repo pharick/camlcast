@@ -79,29 +79,25 @@ type t = {
   kind : kind;
 }
 
-(** Does the crosshair fall on this sprite, at height [z] and distance [away]?
+(** Does the crosshair fall on this sprite, at height [z] over a floor at
+    [floor]?
 
-    A sprite is a billboard square to the view, [size] cells wide and tall,
-    standing on the floor. The centre ray runs along [dir], so it is within the
-    sprite's width exactly when the sprite's centre is within half a width to
-    one side, measured along [right] — the same mapping the renderer inverts to
-    place it on the screen, read the other way round. *)
+    The centre ray runs along [dir], so the crosshair is within the sprite's
+    width exactly when the sprite's centre is within half a width to one side,
+    measured along [right]. Both halves of "covers" are {!Room}'s — the same
+    {!Room.sprite_column} and {!Room.sprite_row} the drawn rectangle is built
+    from — so this agrees with the picture by construction rather than by care,
+    the way {!decal_at} does below. That includes a sprite floating above the
+    floor: the crosshair passing under its foot finds whatever is behind it. *)
 let touches (pose : Player.t) (sprite : Room.sprite) ~floor ~z =
-  let size = sprite.Room.size in
-  let half = size /. 2. in
   let lateral = Vec.dot (Vec.sub sprite.Room.pos pose.Player.pos) pose.Player.right in
-  Float.abs lateral <= half
-  && z >= floor
-  && z <= floor +. size
-  &&
+  match
+    ( Room.sprite_column sprite ~lateral,
+      Room.sprite_row sprite ~floor_z:floor ~z )
+  with
   (* And the image is not cut away there. *)
-  let image = sprite.Room.image in
-  let texel n fraction =
-    Int.max 0 (Int.min (n - 1) (int_of_float (fraction *. float_of_int n)))
-  in
-  let u = texel image.Image.width ((lateral +. half) /. size)
-  and v = texel image.Image.height ((floor +. size -. z) /. size) in
-  snd (Image.sample image ~u ~v) > 0
+  | Some u, Some v -> snd (Image.sample sprite.Room.image ~u ~v) > 0
+  | _ -> false
 
 (** How far ahead a sprite stands, along the view. Behind the player is a
     negative distance, and just about on top of them is a useless one. *)

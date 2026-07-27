@@ -126,6 +126,94 @@ let a_flat_wall_stays_flat () =
         [ 0; width / 4; width / 2; width - 1 ])
     [ (800, 600); (1920, 1080); (400, 900) ]
 
+(* {1 Billboards}
+
+   [sprite_box] is what the renderer draws a sprite in and what anything wanting
+   to ring one has to land on, so the two features a sprite gained — a base
+   above the floor and a width from its own picture — are asserted here, on the
+   rectangle, rather than only on the pixels in test_renderer. *)
+
+let facing_east = Player.create ~room:0 ~pos:(Vec.make 0. 0.) ~angle:0.
+
+(* A square picture is what every sprite used to be, and it comes out square. *)
+let a_square_picture_is_as_wide_as_it_is_tall () =
+  let s =
+    Room.sprite ~size:1.5
+      ~image:(Image.make 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+      (Vec.make 4. 0.)
+  in
+  List.iter
+    (fun distance ->
+      let l, t, r, b =
+        Viewport.sprite_box reference facing_east ~floor_z:0. ~distance s
+      in
+      Alcotest.check close
+        (Printf.sprintf "at %.0f cells" distance)
+        (b -. t) (r -. l);
+      Alcotest.check close "and centred, dead ahead" 400. ((l +. r) /. 2.))
+    [ 2.; 4.; 10. ]
+
+(* And a picture twice as wide as it is tall is drawn twice as wide as it is
+   tall, at every distance, because the aspect is a ratio and the projection
+   scales both edges together. *)
+let a_wide_picture_is_as_wide_as_its_picture () =
+  let s =
+    Room.sprite ~size:1.5
+      ~image:(Image.make ~height:8 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+      (Vec.make 4. 0.)
+  in
+  List.iter
+    (fun distance ->
+      let l, t, r, b =
+        Viewport.sprite_box reference facing_east ~floor_z:0. ~distance s
+      in
+      Alcotest.check close
+        (Printf.sprintf "twice as wide at %.0f cells" distance)
+        (2. *. (b -. t))
+        (r -. l);
+      Alcotest.check close "and still centred" 400. ((l +. r) /. 2.))
+    [ 2.; 4.; 10. ]
+
+(* A base lifts the whole billboard and changes nothing else: both edges rise by
+   the rows the projection gives that height, and the columns do not move. *)
+let a_base_raises_both_edges_together () =
+  let at base =
+    Room.sprite ~base ~size:1.5
+      ~image:(Image.make 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+      (Vec.make 4. 0.)
+  in
+  let ground =
+    Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4. (at 0.)
+  and lifted =
+    Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4. (at 1.25)
+  in
+  let gl, gt, gr, gb = ground and ll, lt, lr, lb = lifted in
+  Alcotest.check close "the same left edge" gl ll;
+  Alcotest.check close "the same right edge" gr lr;
+  let rise =
+    Viewport.project_height reference ~z:0. ~distance:4.
+    -. Viewport.project_height reference ~z:1.25 ~distance:4.
+  in
+  Alcotest.check close "the top rose" (gt -. rise) lt;
+  Alcotest.check close "and the foot by the same" (gb -. rise) lb
+
+(* The lift is measured from the floor under it and not from an absolute height,
+   which is what makes a sprite ride a slope instead of the ground climbing
+   through it. Raising the floor by a cell and raising the base by a cell are
+   the same picture. *)
+let a_base_is_measured_from_the_floor () =
+  let image = Image.make 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)) in
+  let on_a_high_floor =
+    Viewport.sprite_box reference facing_east ~floor_z:1. ~distance:4.
+      (Room.sprite ~size:1.5 ~image (Vec.make 4. 0.))
+  and lifted_off_a_low_one =
+    Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4.
+      (Room.sprite ~base:1. ~size:1.5 ~image (Vec.make 4. 0.))
+  in
+  let _, at, _, ab = on_a_high_floor and _, bt, _, bb = lifted_off_a_low_one in
+  Alcotest.check close "the same top" at bt;
+  Alcotest.check close "the same foot" ab bb
+
 let () =
   Alcotest.run "Viewport"
     [
@@ -158,5 +246,16 @@ let () =
             the_centre_column_looks_straight_ahead;
           case "a flat wall stays flat at any window shape"
             a_flat_wall_stays_flat;
+        ] );
+      ( "billboards",
+        [
+          case "a square picture is as wide as it is tall"
+            a_square_picture_is_as_wide_as_it_is_tall;
+          case "a wide picture is as wide as its picture"
+            a_wide_picture_is_as_wide_as_its_picture;
+          case "a base raises both edges together"
+            a_base_raises_both_edges_together;
+          case "a base is measured from the floor"
+            a_base_is_measured_from_the_floor;
         ] );
     ]

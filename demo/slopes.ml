@@ -57,8 +57,8 @@ let world =
         [
           (* Standing on the slope: a sprite's feet are on the floor wherever
              the floor has got to. *)
-          { Room.pos = Vec.make 6. (-2.); size = 1.8; image = Pictures.figure };
-          { Room.pos = Vec.make 11. 2.5; size = 0.9; image = Pictures.barrel };
+          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. (-2.));
+          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 11. 2.5);
         ]
       (hall_jambs
       @ [ stone hall_sw hall_se; stone hall_ne hall_nw; stone hall_nw hall_sw ])
@@ -67,7 +67,7 @@ let world =
       ~floor:{ Room.plane = up_floor; material = Surfaces.ground }
       ~ceiling:(Room.Roof { Room.plane = up_roof; material = Surfaces.soffit })
       ~sprites:
-        [ { Room.pos = Vec.make 6. 0.; size = 1.8; image = Pictures.figure } ]
+        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]
       (up_jambs
       @ [ stone up_sw up_se; stone up_se up_ne; stone up_ne up_nw ])
   in

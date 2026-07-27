@@ -106,7 +106,7 @@ let chamber ~door =
     ~ceiling:
       (Room.Roof
          { Room.plane = Plane.above floor height; material = Surfaces.soffit })
-    ~sprites:[ { Room.pos = Vec.make 4. 0.; size = 1.8; image = Pictures.figure } ]
+    ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.) ]
     (jambs @ [ wall sw se; wall se ne; wall ne nw ])
 
 let world =

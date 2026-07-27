@@ -936,7 +936,9 @@ in the same light as the wall.
 ### Step 6.4 — Sprites (billboards)
 
 A sprite is an `Image` standing in the world that always faces the player. Add
-`sprites : sprite array` to the world (`{ pos; size; image }`). To draw one:
+`sprites : sprite array` to the world (`{ pos; base; size; image }`, where `base`
+is how far its foot floats above the floor — `0.` for something on the ground).
+To draw one:
 
 1. Camera-space coordinates: `depth_s = (pos − player.pos) · dir` (perpendicular
    distance) and `lateral = (pos − player.pos) · right`. Skip if `depth_s ≤ 0`
@@ -944,9 +946,13 @@ A sprite is an `Image` standing in the world that always faces the player. Add
 2. Screen column of the centre — invert the camera-plane mapping:
    `camera_x = lateral / (depth_s · half_width)`, then
    `center = (camera_x + 1) · width / 2`.
-3. Vertical placement: project the foot at the sprite's `floor_z` and the top at
-   `floor_z + size` with `project_height`. The image is square, so its on-screen
-   width equals its height; the horizontal extent is `center ± (y_base − y_top)/2`.
+3. Vertical placement: project the foot at `floor_z + base` and the top a `size`
+   above that, with `project_height`. Measure `base` from the floor rather than
+   absolutely and a sprite rides a slope instead of the ground climbing through
+   it — the same rule a decal's `z` follows. The horizontal extent is
+   `center ± (y_base − y_top)/2 · aspect`, where `aspect` is the image's own
+   `width / height`: taking it from the picture is what stops a wide one being
+   squashed into a square, and leaves a square one exactly as it was.
 4. For each pixel, sample the image; draw it (blended) **only where `depth_s <
    depth.(pixel)`** — nearer than the opaque wall there. Per-pixel is what lets a
    short wall hide only the sprite's legs, not its head.
@@ -954,8 +960,9 @@ A sprite is an `Image` standing in the world that always faces the player. Add
 ```ocaml
 let camera_x = lateral /. (depth_s *. viewport.half_width) in
 let center = (camera_x +. 1.) *. float_of_int width /. 2. in
-let y_base = project_height viewport ~z:floor_z ~distance:depth_s in
-let y_top  = project_height viewport ~z:(floor_z +. s.size) ~distance:depth_s in
+let foot = floor_z +. s.base in
+let y_base = project_height viewport ~z:foot ~distance:depth_s in
+let y_top  = project_height viewport ~z:(foot +. s.size) ~distance:depth_s in
 (* loop cols in [center-half, center+half], rows in [y_top, y_base]; blend where
    depth_s < depth.((y*width)+col) and the image alpha > 0, faded by fog depth_s *)
 ```
@@ -1116,8 +1123,10 @@ Engine       (window lifetime, fullscreen, the loop)
 - **Wall tops.** Floor-cast the horizontal top faces of short walls so you see
   them when looking down.
 - **Textured sky** by sampling a panoramic image by azimuth/elevation.
-- **Animated sprites** by swapping the `Image` per frame; **directional sprites**
-  by choosing the image from the angle between the sprite's facing and the view.
+- **Directional sprites** by choosing the image from the angle between the
+  sprite's facing and the view. (Animating one is already there: build the
+  pictures once, then hand `Room.with_sprites` the same room with a different
+  frame in it — `demo/floating.ml`.)
 - **Coloured lighting** by tinting fog per region, or point lights that dim with
   distance from a source.
 - **A minimap** drawing the wall segments and the player from above.
