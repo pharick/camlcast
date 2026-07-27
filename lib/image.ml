@@ -8,36 +8,64 @@
     character cut out from the empty space around it — so an image carries full
     RGB and an alpha (0 clear, 255 solid) for every pixel.
 
+    An image is a rectangle and not a square, because the things it is used for
+    are: a poster is wider than it is tall, a standing figure is taller than it
+    is wide, and a file on disk is whatever shape it was drawn at. Whoever
+    samples one has to keep [width] and [height] apart — {!Room.decal_column}
+    against the first, {!Room.decal_row} against the second — since getting them
+    the wrong way round is a mirror image and not an error.
+
     Like the textures, this module is the machinery only: the type, the
-    generator and the samplers. The pictures themselves are content and live
-    with whatever draws them. *)
+    generator, the loader and the samplers. The pictures themselves are content
+    and live with whatever draws them. *)
 
-type t = { size : int; pixels : Color.t array; alpha : int array }
+type t = {
+  width : int;
+  height : int;
+  pixels : Color.t array;  (** row major *)
+  alpha : int array;  (** row major, 0 (clear) .. 255 (solid) *)
+}
 
-(** Build a [size] x [size] image from a function of the pixel coordinates,
-    returning the colour and alpha at each. *)
-let make size f =
-  let n = size * size in
+(** Build a [width] x [height] image from a function of the pixel coordinates,
+    returning the colour and alpha at each. [height] defaults to [width], since
+    a generated picture is usually square and saying so twice reads worse than
+    not saying it. *)
+let make ?height width f =
+  let height = Option.value height ~default:width in
+  let n = width * height in
   let pixels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
-  for v = 0 to size - 1 do
-    for u = 0 to size - 1 do
+  for v = 0 to height - 1 do
+    for u = 0 to width - 1 do
       let color, a = f ~u ~v in
-      let i = (v * size) + u in
+      let i = (v * width) + u in
       pixels.(i) <- color;
       alpha.(i) <- a
     done
   done;
-  { size; pixels; alpha }
+  { width; height; pixels; alpha }
 
 (** The flat array index of pixel [(u, v)]; the caller has already clamped them
     into range. Kept separate so the hot drawing loop can read [pixels] and
     [alpha] directly without allocating. *)
-let index t ~u ~v = (v * t.size) + u
+let index t ~u ~v = (v * t.width) + u
 
 (** The colour and alpha of pixel [(u, v)]. *)
 let sample t ~u ~v =
   let i = index t ~u ~v in
   (t.pixels.(i), t.alpha.(i))
+
+(** Read a picture from a PNG or JPEG file, colour and alpha both. A file with
+    no alpha channel of its own arrives fully solid, which is what a photograph
+    or a JPEG means by having none.
+
+    Generating a picture in code is still the other way in and still what every
+    demo does. This is for the ones that were drawn rather than derived. *)
+let load path =
+  Result.map
+    (fun (s : Surface.t) ->
+      make ~height:s.Surface.height s.Surface.width (fun ~u ~v ->
+          Surface.sample s ~x:u ~y:v))
+    (Surface.read path)
 
 (** Is [(u, v)] inside the circle of radius [r] about [(cx, cy)]? A generator
     helper, here rather than repeated in every module that draws a round thing.

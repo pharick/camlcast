@@ -44,7 +44,7 @@ let decal_column d ~along =
   let off = along -. (d.along -. d.half_width) in
   if off < 0. || off > width then None
   else
-    let n = d.image.Image.size in
+    let n = d.image.Image.width in
     Some (Int.max 0 (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n))))
 
 (** Where down a decal's height a point [above] the wall's foot falls, as a row
@@ -56,7 +56,7 @@ let decal_row d ~above =
   let off = d.z +. d.half_height -. above in
   if off < 0. || off > height then None
   else
-    let n = d.image.Image.size in
+    let n = d.image.Image.height in
     Some (Int.max 0 (Int.min (n - 1) (int_of_float (off /. height *. float_of_int n))))
 
 type wall = {

@@ -3,4 +3,4 @@
  ; A public name puts the library in the camlcast package, which is what
  ; makes `dune build @doc` generate pages for its modules.
  (public_name camlcast.raycaster)
- (libraries tsdl))
+ (libraries tsdl tsdl-image))

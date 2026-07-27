@@ -22,7 +22,7 @@ let each name check =
    every one of them. What is checked here is what make does not: that the
    result is somewhere you can stand and look. *)
 let is_walkable (demo : Catalogue.t) =
-  let world = demo.Catalogue.world in
+  let world = Lazy.force demo.Catalogue.world in
   let spawn = world.World.spawn in
   Alcotest.(check bool)
     "the spawn point is not inside a wall" false
@@ -37,14 +37,15 @@ let is_walkable (demo : Catalogue.t) =
         (Array.length room.Room.walls >= 3))
     world.World.rooms
 
-let is_consistent (demo : Catalogue.t) = World.check demo.Catalogue.world
+let is_consistent (demo : Catalogue.t) =
+  World.check (Lazy.force demo.Catalogue.world)
 
 (* A floor mismatch across a doorway is a visible step you walk into. Every one
    of these worlds either has flat floors on both sides or derives the second
    from the first with Plane.through, so the gap should be zero to the last bit
    in all of them. *)
 let has_no_seams (demo : Catalogue.t) =
-  let world = demo.Catalogue.world in
+  let world = Lazy.force demo.Catalogue.world in
   Array.iteri
     (fun room portals ->
       Array.iter
@@ -60,7 +61,7 @@ let has_no_seams (demo : Catalogue.t) =
 (* Every room is reachable from the spawn, so nothing in a demo is content
    nobody can get to. *)
 let is_connected (demo : Catalogue.t) =
-  let world = demo.Catalogue.world in
+  let world = Lazy.force demo.Catalogue.world in
   let seen = Array.make (Array.length world.World.rooms) false in
   let rec visit i =
     if not seen.(i) then begin
@@ -161,6 +162,53 @@ let the_trail_demo_unwinds_its_own_route () =
     "with the route unwound to nothing" 0
     (List.length home.Trail.stack)
 
+(* The loading demo is the one whose world is not a value in a source file: it
+   is read off the disk when something forces it, through Asset and the two
+   loaders. Forcing it at all is most of the test — a missing file, a path
+   resolved against the wrong root or a picture that would not decode all raise
+   here rather than returning a world.
+
+   The rest is what a screenshot would show and a walkability check would not:
+   that the pictures reached the room rather than merely parsing. Every number
+   below is a property of a file in assets/, so a world quietly built from the
+   generated art instead would fail on all of them. *)
+let the_loading_demo_reads_its_art () =
+  let world = Lazy.force Loading.world in
+  let room = World.room world 0 in
+  let pattern (w : Room.wall) = w.Room.material.Material.pattern in
+  let sized n =
+    Array.exists (fun w -> (pattern w).Texture.size = n) room.Room.walls
+  in
+  Alcotest.(check bool)
+    "a 128-texel pattern came off the disk" true (sized 128);
+  Alcotest.(check bool)
+    "beside a 64-texel generated one" true (sized Texture.size);
+  (* grille.png has square holes cut out of it, and nothing told Material so:
+     the alpha came out of the file and Material.opaque read it. *)
+  Alcotest.(check bool)
+    "and a loaded pattern carries the alpha it was drawn with" true
+    (Array.exists
+       (fun (w : Room.wall) ->
+         (pattern w).Texture.size = 64
+         && (not (Material.opaque w.Room.material))
+         && w.Room.height = 2.6)
+       room.Room.walls);
+  let decals =
+    Array.to_list room.Room.walls |> List.concat_map (fun w -> w.Room.decals)
+  in
+  Alcotest.(check bool)
+    "the poster is 96 x 64, and stayed that shape" true
+    (List.exists
+       (fun (d : Room.decal) ->
+         d.Room.image.Image.width = 96 && d.Room.image.Image.height = 64)
+       decals);
+  Alcotest.(check bool)
+    "and the loaded sprite is square, as a billboard needs" true
+    (List.exists
+       (fun (s : Room.sprite) ->
+         s.Room.image.Image.width = 96 && s.Room.image.Image.height = 96)
+       (Array.to_list room.Room.sprites))
+
 let () =
   Alcotest.run "Demos"
     [
@@ -175,5 +223,6 @@ let () =
             growing_leaves_a_world_that_still_works;
           case "the trail demo unwinds its own route"
             the_trail_demo_unwinds_its_own_route;
+          case "the loading demo reads its art" the_loading_demo_reads_its_art;
         ] );
     ]

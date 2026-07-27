@@ -21,6 +21,10 @@ dune exec camlcast-demo portals            # one of them
 dune test                                  # all suites
 ```
 
+The demos that read art from files find it relative to the executable, which
+under dune is `_build/default/assets/` — `dune build` puts it there. Set
+`CAMLCAST_ASSETS` to a directory to look there instead, and only there.
+
 ## The demos
 
 One small world per engine feature, and one that has all of them at once. Each
@@ -45,6 +49,7 @@ the thing it is about.
 | `phases`   | `run_state`: a phase, a clock, and a light going out              |
 | `overlay`  | drawing over the finished world                                   |
 | `controls` | press versus hold, mouse buttons, and letting go of the cursor    |
+| `loading`  | art read from files, beside the generated kind                    |
 | `showcase` | the five-room level, with all of the above at once                |
 
 Every one of these worlds is checked by `test_demos`: that you can stand where
@@ -244,9 +249,11 @@ over a short one, and both cover the background behind them. Under a roof, a wal
 too tall for the sloped ceiling is capped to it so it never pokes through; under
 open sky it simply rises to its full height with sky above.
 
-Walls are textured. Every pattern is generated in code, so the project stays free
-of binary assets and every one of them is a pure, testable function of its texel
-coordinates. They are **greyscale**: a texel is a brightness, not a colour. The
+Walls are textured. A pattern is either generated in code — a pure, testable
+function of its texel coordinates, which is what the demos and every test here
+use — or read from a PNG or JPEG with `Texture.load`. Both produce the same
+`Texture.t`, and the renderer has no way to ask which it was given. They are
+**greyscale**: a texel is a brightness, not a colour. The
 colour arrives at draw time, when the renderer tints the sampled texel by the
 wall's material colour, dimmed by fog and by how squarely the wall faces the
 light — so one pattern can dress a wall of any colour. The demos' are masonry:
@@ -274,7 +281,9 @@ Three kinds of extra detail sit on top of the walls:
 - **Decals.** Pictures — an `Image` (full colour with its own alpha, unlike a
   greyscale `Texture`) — hung on a wall at a given position and size. The wall
   pass blends each decal over its own texture, in the same light, so paintings
-  and posters sit on the wall.
+  and posters sit on the wall. An `Image` is a rectangle rather than a square,
+  because a poster is: it is indexed across by its width and down by its height,
+  and either extent may be whatever it was drawn at.
 - **Sprites.** Objects and characters placed in the world as billboards — flat
   `Image`s that always face the player. A sprite is projected onto the sloped
   floor at its position and blended in wherever it stands nearer than the wall.
@@ -291,6 +300,11 @@ a grille and a window each with something behind them, and a barrel and a couple
 of figures standing about. Seen through a doorway they are all clipped to the
 opening itself rather than to a rectangle around it, because the portal mask is
 kept per screen column. `Renderer` and `Image` carry the details.
+
+Like a texture, an image can be generated or loaded: `Image.load` reads a PNG or
+JPEG, colour and alpha both, and a file with no alpha of its own arrives solid.
+The `loading` demo puts a loaded pattern, decal and sprite beside their
+generated counterparts, which is the whole of the difference between them.
 
 ## Looking up and down
 
@@ -318,12 +332,14 @@ Each module is self-contained and depends only on the ones above it.
 | `Player`            | camera pose: `pos` + unit `dir` + unit `right` + `pitch`; movement with wall sliding                                       |
 | `Viewport`          | window size → camera geometry, projection, eye height and the pitch shear; the resize rules                                |
 | `Color`             | 8-bit RGB, shading and blending                                                                                            |
-| `Texture`           | the machinery for procedural greyscale patterns, and the wrapping value noise they are built from                          |
+| `Texture`           | greyscale surface patterns, generated or loaded, and the wrapping value noise they are built from                          |
 | `Material`          | what a surface is made of: a colour and a pattern, and whether you see through it                                          |
 | `Door`              | a leaf hung in a doorway: open or closed, and what it is made of                                                           |
 | `Atmosphere`        | the air a world is seen through: its fog, its haze, and where its light comes from                                         |
 | `Sky`               | the open sky drawn where a room has no roof — a directional gradient with a sun                                            |
 | `Image`             | full-colour images with alpha, for wall decals and sprites                                                                 |
+| `Surface`           | decoding a PNG or JPEG into plain bytes: the one place pixel formats appear                                                |
+| `Asset`             | where a file is, searched relative to the executable rather than to a source tree                                          |
 | `Input`             | SDL keyboard and mouse-look → engine intent                                                                                |
 | `Framebuffer`       | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
 | `Sight`             | what the crosshair is on, traced through doorways and named by index                                                       |

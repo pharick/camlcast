@@ -572,15 +572,17 @@ Tint the wall strip with `Color.shade (wall_color id) (face_shading normal *. fo
 
 ### Step 3.2 — Wall textures
 
-A texture is a small **greyscale** pattern generated in code (no image assets)
-— a texel is a *brightness*, not a colour. The colour arrives at draw time by
-multiplying the greyscale by the palette colour, so one pattern dresses a wall
-of any colour. `lib/texture.ml`:
+A texture is a small **greyscale** pattern — a texel is a *brightness*, not a
+colour. The colour arrives at draw time by multiplying the greyscale by the
+palette colour, so one pattern dresses a wall of any colour. Generate it in
+code, which is what this tutorial does throughout and what keeps a pattern a
+pure testable function of `u` and `v`; `Texture.load` reads one from a PNG or
+JPEG instead, once you have art to read. `lib/texture.ml`:
 
 ```ocaml
-let size = 64
-type t = { texels : int array; alpha : int array; opaque : bool }  (* alpha: Phase 6 *)
-let sample t ~u ~v = t.texels.((v * size) + u)
+let size = 64                        (* what a generator makes unless told otherwise *)
+type t = { size : int; texels : int array; alpha : int array; opaque : bool }
+let sample t ~u ~v = t.texels.((v * t.size) + u)
 
 let generate f =                     (* a solid pattern from a brightness fn *)
   { texels = Array.init (size*size) (fun i ->
@@ -908,16 +910,19 @@ whatever is behind them is already on screen to show through.
 ### Step 6.3 — Decals (pictures on walls)
 
 Decals are colourful, so they use a new **RGBA `Image`** type (full colour +
-alpha, unlike greyscale `Texture`), generated in code — a framed painting, a
-poster. `lib/image.ml`:
+alpha, unlike greyscale `Texture`) — a framed painting, a poster. Generate one
+in code as below, or read one with `Image.load`. It is a rectangle rather than
+a square, because a poster is: `height` defaults to `width` when you do not say.
+`lib/image.ml`:
 
 ```ocaml
-type t = { size : int; pixels : Color.t array; alpha : int array }
-let make size f =
-  let n = size*size in
+type t = { width : int; height : int; pixels : Color.t array; alpha : int array }
+let make ?height width f =
+  let height = Option.value height ~default:width in
+  let n = width*height in
   let pixels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
-  for v = 0 to size-1 do for u = 0 to size-1 do
-    let c, a = f ~u ~v in let i = v*size+u in pixels.(i) <- c; alpha.(i) <- a
+  for v = 0 to height-1 do for u = 0 to width-1 do
+    let c, a = f ~u ~v in let i = v*width+u in pixels.(i) <- c; alpha.(i) <- a
   done done; { size; pixels; alpha }
 let index t ~u ~v = (v * t.size) + u
 ```

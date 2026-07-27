@@ -223,8 +223,10 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     in
     let tint = Color.shade w.Room.material.Material.color light in
     let pattern = w.Room.material.Material.pattern in
+    let rows = pattern.Texture.size in
     let u =
-      Texture.column_of_offset (hit.Ray.along -. Float.floor hit.Ray.along)
+      Texture.column_of_offset pattern
+        (hit.Ray.along -. Float.floor hit.Ray.along)
     in
     (* The decals whose horizontal span this column falls in, with the texture
        column of each — both constant down the column. *)
@@ -253,8 +255,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
         let above_foot = z -. floor_z in
         let tile = above_foot -. Float.floor above_foot in
         let v =
-          clampi Texture.size
-            (int_of_float ((1. -. tile) *. float_of_int (Texture.size - 1)))
+          clampi rows (int_of_float ((1. -. tile) *. float_of_int (rows - 1)))
         in
         let texel = Texture.sample pattern ~u ~v in
         let a = Texture.alpha pattern ~u ~v in
@@ -316,7 +317,7 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   in
   let span = rightx -. left and vspan = y_base -. y_top in
   let img = s.Room.image in
-  let n = img.Image.size in
+  let nu = img.Image.width and nv = img.Image.height in
   let f = Atmosphere.fog air depth_s in
   let col0 = Int.max 0 (int_of_float (Float.round left)) in
   let col1 = Int.min (width - 1) (int_of_float (Float.round rightx)) in
@@ -337,15 +338,15 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   in
   for col = col0 to col1 do
     let ui =
-      clampi n
-        (int_of_float ((float_of_int col -. left) /. span *. float_of_int n))
+      clampi nu
+        (int_of_float ((float_of_int col -. left) /. span *. float_of_int nu))
     in
     for y = row0 to row1 do
       if depth_s < depth.((y * width) + col) then begin
         let vi =
-          clampi n
+          clampi nv
             (int_of_float
-               ((float_of_int y -. y_top) /. vspan *. float_of_int n))
+               ((float_of_int y -. y_top) /. vspan *. float_of_int nv))
         in
         let idx = Image.index img ~u:ui ~v:vi in
         let a = img.Image.alpha.(idx) in

@@ -96,12 +96,11 @@ let touches (pose : Player.t) (sprite : Room.sprite) ~floor ~z =
   &&
   (* And the image is not cut away there. *)
   let image = sprite.Room.image in
-  let n = image.Image.size in
-  let texel fraction =
+  let texel n fraction =
     Int.max 0 (Int.min (n - 1) (int_of_float (fraction *. float_of_int n)))
   in
-  let u = texel ((lateral +. half) /. size)
-  and v = texel ((floor +. size -. z) /. size) in
+  let u = texel image.Image.width ((lateral +. half) /. size)
+  and v = texel image.Image.height ((floor +. size -. z) /. size) in
   snd (Image.sample image ~u ~v) > 0
 
 (** How far ahead a sprite stands, along the view. Behind the player is a

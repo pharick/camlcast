@@ -63,6 +63,38 @@ let describe = function
 
 let is what got = Alcotest.(check string) "" what (describe got)
 
+(* A sprite is cut out against nothing, so what the crosshair is on depends on
+   the image and not only on the box around it — and the horizontal half of that
+   comes from the image's {e width}. The picture here is 16 across and 12 down,
+   so the two extents are different numbers and reading across by the wrong one
+   lands somewhere else: its left half is clear and its right half solid, and a
+   version indexing columns by the height would put the middle of the box at
+   column 6 rather than 8, which is on the clear side.
+
+   The renderer maps a sprite's screen box onto the image exactly this way, so
+   this is also what keeps what can be picked the same as what is drawn. *)
+let a_sprite_is_read_across_by_its_width () =
+  let split =
+    Image.make ~height:12 16 (fun ~u ~v:_ ->
+        if u < 8 then Image.clear else (Color.rgb 200 60 60, 255))
+  in
+  let world =
+    rooms ~near:[ { Room.pos = Vec.make 3.5 2.; size = 1.4; image = split } ] ()
+  in
+  (* Dead ahead: the middle of the sprite's width, which is the first solid
+     column. *)
+  is "sprite 0 of room 0"
+    (Sight.cast world (looking_east ~from:(Vec.make 2. 2.) ()));
+  (* A quarter of the way across it, which is on the side that was cut away. The
+     crosshair passes through and carries on into the room beyond, so what it
+     finds there is the far room's business — all this case is asserting is that
+     the sprite is not it. *)
+  let past = describe (Sight.cast world (looking_east ~from:(Vec.make 2. 2.35) ())) in
+  Alcotest.(check bool)
+    (Printf.sprintf "the cut-away side is seen through (found %s)" past)
+    true
+    (past <> "sprite 0 of room 0")
+
 (* Through an open doorway, into the room beyond, at a sprite standing there.
    This is the whole feature: the thing looked at is in another room, in another
    coordinate frame, and is named without going in. *)
@@ -309,6 +341,8 @@ let () =
             a_wall_occludes_and_names_itself;
           case "a see-through wall does not occlude"
             a_see_through_wall_does_not_occlude;
+          case "a sprite is read across by its width"
+            a_sprite_is_read_across_by_its_width;
           case "the wrong angle misses" the_wrong_angle_misses;
           case "asking twice gives the same answer"
             asking_twice_gives_the_same_answer;

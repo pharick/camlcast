@@ -49,19 +49,27 @@ let sampling_is_row_major () =
 (* Ray.offset reaches 1.0 exactly when a ray strikes a corner; without the
    clamp that would index one past the last column. *)
 let offsets_map_into_the_texture () =
-  Alcotest.(check int) "the left edge" 0 (Texture.column_of_offset 0.);
+  Alcotest.(check int) "the left edge" 0 (Texture.column_of_offset checker 0.);
   Alcotest.(check int)
     "just inside the right edge" (Texture.size - 1)
-    (Texture.column_of_offset 0.999);
+    (Texture.column_of_offset checker 0.999);
   Alcotest.(check int)
     "a corner hit clamps" (Texture.size - 1)
-    (Texture.column_of_offset 1.0);
+    (Texture.column_of_offset checker 1.0);
   Alcotest.(check int)
     "and so does anything below zero" 0
-    (Texture.column_of_offset (-0.5));
+    (Texture.column_of_offset checker (-0.5));
   Alcotest.(check int)
     "the middle of the face is the middle of the texture" (Texture.size / 2)
-    (Texture.column_of_offset 0.5)
+    (Texture.column_of_offset checker 0.5);
+  (* The offset is a fraction of one world cell and the texture is however many
+     texels it says it is, so a denser pattern lands further along for the same
+     hit. This is why column_of_offset takes the pattern rather than reading a
+     module constant. *)
+  let dense = Texture.generate ~size:256 (fun ~u:_ ~v:_ -> 128) in
+  Alcotest.(check int)
+    "a denser pattern spreads the same face over more columns" 128
+    (Texture.column_of_offset dense 0.5)
 
 let generate_masked_flags_transparency () =
   Alcotest.(check bool) "a solid pattern is opaque" true checker.Texture.opaque;
@@ -82,7 +90,7 @@ let noise_stays_in_band () =
   let low = ref 255 and high = ref 0 in
   for v = 0 to Texture.size - 1 do
     for u = 0 to Texture.size - 1 do
-      let n = Texture.noise ~seed:3 ~cell:8 ~u ~v in
+      let n = Texture.noise ~size:Texture.size ~seed:3 ~cell:8 ~u ~v in
       if n < !low then low := n;
       if n > !high then high := n
     done
@@ -99,9 +107,9 @@ let noise_stays_in_band () =
    repeats once per world unit, so a field whose lattice did not close on itself
    would put a hard seam down every wall in the game — one per unit. The value
    one texel before the wrap has to continue smoothly into the value at zero. *)
-let noise_wraps_without_a_seam () =
-  let n ~u ~v = Texture.noise ~seed:1 ~cell:16 ~u ~v in
-  let last = Texture.size - 1 in
+let noise_wraps_without_a_seam ~size () =
+  let n ~u ~v = Texture.noise ~size ~seed:1 ~cell:16 ~u ~v in
+  let last = size - 1 in
   let jump a b = abs (a - b) in
   let worst_u = ref 0 and worst_v = ref 0 in
   for k = 0 to last do
@@ -133,7 +141,7 @@ let noise_wraps_without_a_seam () =
 let noise_seeds_are_independent () =
   let fingerprint seed =
     List.map
-      (fun (u, v) -> Texture.noise ~seed ~cell:8 ~u ~v)
+      (fun (u, v) -> Texture.noise ~size:Texture.size ~seed ~cell:8 ~u ~v)
       [ (0, 0); (5, 11); (32, 32); (63, 1) ]
   in
   let fingerprints = List.map fingerprint [ 0; 1; 2; 3 ] in
@@ -153,9 +161,89 @@ let noise_refuses_a_lattice_that_cannot_wrap () =
     (fun cell ->
       Alcotest.check_raises
         (Printf.sprintf "cell = %d" cell)
-        (Invalid_argument "Texture.noise: cell must divide Texture.size")
-        (fun () -> ignore (Texture.noise ~seed:0 ~cell ~u:0 ~v:0)))
-    [ 0; -4; 7; 48 ]
+        (Invalid_argument "Texture.noise: cell must divide the pattern size")
+        (fun () ->
+          ignore (Texture.noise ~size:Texture.size ~seed:0 ~cell ~u:0 ~v:0)))
+    [ 0; -4; 7; 48 ];
+  (* And the divisor is the size actually being built, not the default one: 48
+     does not divide 64 — it is in the list above — but it does divide 96. *)
+  let accepted =
+    try
+      ignore (Texture.noise ~size:96 ~seed:0 ~cell:48 ~u:0 ~v:0);
+      true
+    with Invalid_argument _ -> false
+  in
+  Alcotest.(check bool)
+    "48 is refused at 64 and accepted at 96" true accepted
+
+(* A pattern is a texel density — so many texels per world cell — rather than a
+   resolution, so it may be denser than the default without anything else in the
+   engine changing. *)
+let patterns_carry_their_own_size () =
+  Alcotest.(check int) "the default" 64 checker.Texture.size;
+  (* One texel marked, far enough into the pattern that reading it at the wrong
+     stride lands somewhere else entirely: at a stride of 64 rather than 128,
+     (5, 3) would be flat index 197, which is (69, 1) and not marked. *)
+  let dense =
+    Texture.generate ~size:128 (fun ~u ~v -> if u = 5 && v = 3 then 200 else 10)
+  in
+  Alcotest.(check int) "and one that says otherwise" 128 dense.Texture.size;
+  Alcotest.(check int)
+    "which has that many texels" (128 * 128)
+    (Array.length dense.Texture.texels);
+  Alcotest.(check int)
+    "and is sampled at its own stride" 200
+    (Texture.sample dense ~u:5 ~v:3)
+
+(* The three primaries pin the Rec. 601 luma weights a colour file is reduced by;
+   the grey ramp pins the row-major order without the weights in the way, since
+   the luminance of a grey is itself. Values are literals in tools/make_art.py
+   and here, and the encoder there shares no code with the decoder here. *)
+let load_reduces_colour_to_brightness () =
+  match Texture.load "fixtures/tile.png" with
+  | Error (`Msg m) -> Alcotest.fail m
+  | Ok t ->
+      Alcotest.(check int) "the size comes from the file" 8 t.Texture.size;
+      Alcotest.(check bool) "and it is solid throughout" true t.Texture.opaque;
+      Alcotest.(check int) "green weighs most" 149 (Texture.sample t ~u:0 ~v:0);
+      Alcotest.(check int) "red next" 76 (Texture.sample t ~u:1 ~v:0);
+      Alcotest.(check int) "blue least" 29 (Texture.sample t ~u:2 ~v:0);
+      Alcotest.(check int) "and white is white" 255 (Texture.sample t ~u:3 ~v:0);
+      Alcotest.(check int)
+        "a grey texel is its own brightness" 32
+        (Texture.sample t ~u:0 ~v:1);
+      Alcotest.(check int)
+        "one along the row" 60
+        (Texture.sample t ~u:7 ~v:1);
+      Alcotest.(check int) "every texel is solid" 255 (Texture.alpha t ~u:5 ~v:5)
+
+(* Alpha survives loading, which is what makes a loaded pattern usable as a
+   grille or a window: Material.opaque reads exactly this flag to decide whether
+   a wall goes through the renderer's translucent pass. *)
+let load_keeps_transparency () =
+  match Texture.load "fixtures/holes.png" with
+  | Error (`Msg m) -> Alcotest.fail m
+  | Ok t ->
+      Alcotest.(check bool) "a file with holes is not opaque" false
+        t.Texture.opaque;
+      Alcotest.(check int) "a solid texel" 255 (Texture.alpha t ~u:0 ~v:0);
+      Alcotest.(check int) "a clear one" 0 (Texture.alpha t ~u:6 ~v:6)
+
+(* A pattern tiles a square world cell, so a rectangle would be stretched across
+   it rather than repeated in it. That is a picture nobody asked for, so it is
+   refused and the message says what was wrong with it. *)
+let load_refuses_a_rectangle () =
+  match Texture.load "fixtures/swatch.png" with
+  | Ok _ -> Alcotest.fail "a 4x3 file was accepted as a pattern"
+  | Error (`Msg m) ->
+      Alcotest.(check bool)
+        (Printf.sprintf "the message says what shape it was: %s" m)
+        true (mentions m "4x3")
+
+let load_reports_a_missing_file () =
+  match Texture.load "fixtures/nothing-here.png" with
+  | Ok _ -> Alcotest.fail "a file that is not there loaded"
+  | Error (`Msg _) -> ()
 
 let () =
   Alcotest.run "Texture"
@@ -165,15 +253,27 @@ let () =
           case "texels are bytes" texels_are_bytes;
           case "sampling is row major" sampling_is_row_major;
           case "offsets map into the texture" offsets_map_into_the_texture;
+          case "patterns carry their own size" patterns_carry_their_own_size;
           case "generate_masked flags transparency"
             generate_masked_flags_transparency;
         ] );
       ( "noise",
         [
           case "stays in band" noise_stays_in_band;
-          case "wraps without a seam" noise_wraps_without_a_seam;
+          case "wraps without a seam"
+            (noise_wraps_without_a_seam ~size:Texture.size);
+          (* And at a size that is not the default, which is the case a wrapping
+             lattice left behind at 64 would fail. *)
+          case "wraps without a seam at 128" (noise_wraps_without_a_seam ~size:128);
           case "seeds are independent" noise_seeds_are_independent;
           case "refuses a lattice that cannot wrap"
             noise_refuses_a_lattice_that_cannot_wrap;
+        ] );
+      ( "loading",
+        [
+          case "reduces colour to brightness" load_reduces_colour_to_brightness;
+          case "keeps transparency" load_keeps_transparency;
+          case "refuses a rectangle" load_refuses_a_rectangle;
+          case "reports a missing file" load_reports_a_missing_file;
         ] );
     ]

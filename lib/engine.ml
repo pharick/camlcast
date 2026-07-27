@@ -199,10 +199,11 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
          next one's length rather than falling outside every frame. *)
       loop ctx ~state ~actions ~fullscreen ~relative ~previous:now
 
-(** Acquire a resource, use it, and release it even if the body raises. *)
-let with_resource acquire release use =
-  let* resource = acquire () in
-  Fun.protect ~finally:(fun () -> release resource) (fun () -> use resource)
+(** Acquire a resource, use it, and release it even if the body raises. It lives
+    in {!Result_ext} now, because {!Surface} needs it too and sits far below this
+    module; the name stays here for the windows and renderers that were its only
+    callers when it was written. *)
+let with_resource = Result_ext.with_resource
 
 (** Open a window and run [state] through the loop, returning what it has become
     when the game says it is finished or the player quits.

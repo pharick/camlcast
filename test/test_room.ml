@@ -30,6 +30,38 @@ let a_wall_can_wear_decals () =
   in
   Alcotest.(check bool) "a plain wall has none" true (plain.Room.decals = [])
 
+(* [decal_column] indexes the image by its width and [decal_row] by its height,
+   and between them they are the only statement of "is this point on that
+   decal" — the renderer and Sight both read them, so what can be picked stays
+   exactly what is drawn. A square image would agree with itself under the two
+   swapped over, so the picture here is deliberately not square: 12 wide and 3
+   high, hung in a space four times as wide as it is tall. *)
+let a_decal_is_indexed_by_width_across_and_height_down () =
+  let image = Image.make ~height:3 12 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let dec =
+    { Room.along = 2.; z = 1.; half_width = 2.; half_height = 0.5; image }
+  in
+  let column at = Room.decal_column dec ~along:at
+  and row at = Room.decal_row dec ~above:at in
+  Alcotest.(check (option int)) "the left edge is column 0" (Some 0) (column 0.);
+  Alcotest.(check (option int))
+    "the middle is the middle of the width" (Some 6) (column 2.);
+  Alcotest.(check (option int))
+    "and the right edge is the last column" (Some 11) (column 4.);
+  Alcotest.(check (option int)) "past the end is off the decal" None (column 4.5);
+  Alcotest.(check (option int)) "and before the start too" None (column (-0.5));
+  (* Rows run down from the top of the decal, so the highest point is row 0. *)
+  Alcotest.(check (option int)) "the top is row 0" (Some 0) (row 1.5);
+  Alcotest.(check (option int))
+    "the bottom is the last row" (Some 2)
+    (row 0.5);
+  Alcotest.(check (option int)) "and above it is off the decal" None (row 1.6);
+  (* The point of the whole test: 12 is not 3. A version indexing rows by the
+     width would answer 8 rather than 2 for the bottom, and clamp. *)
+  Alcotest.(check bool)
+    "the two extents are not the same number" true
+    (image.Image.width <> image.Image.height)
+
 let distance_to_a_wall () =
   let w = Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) in
   Alcotest.check close "straight out from the middle" 3.
@@ -208,6 +240,8 @@ let () =
         [
           case "a wall precomputes its geometry" a_wall_precomputes_its_geometry;
           case "a wall can wear decals" a_wall_can_wear_decals;
+          case "a decal is indexed by width across and height down"
+            a_decal_is_indexed_by_width_across_and_height_down;
           case "distance to a wall" distance_to_a_wall;
         ] );
       ( "collision",

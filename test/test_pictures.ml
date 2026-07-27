@@ -8,8 +8,8 @@ let decals_are_opaque () =
   List.iter
     (fun (name, img) ->
       let solid = ref true in
-      for v = 0 to img.Image.size - 1 do
-        for u = 0 to img.Image.size - 1 do
+      for v = 0 to img.Image.height - 1 do
+        for u = 0 to img.Image.width - 1 do
           if snd (Image.sample img ~u ~v) <> 255 then solid := false
         done
       done;
@@ -21,7 +21,7 @@ let decals_are_opaque () =
 let sprites_are_cut_out () =
   List.iter
     (fun (name, img) ->
-      let mid = img.Image.size / 2 in
+      let mu = img.Image.width / 2 and mv = img.Image.height / 2 in
       Alcotest.(check int)
         (name ^ " has a clear corner")
         0
@@ -29,7 +29,7 @@ let sprites_are_cut_out () =
       Alcotest.(check bool)
         (name ^ " has a solid middle")
         true
-        (snd (Image.sample img ~u:mid ~v:mid) > 0))
+        (snd (Image.sample img ~u:mu ~v:mv) > 0))
     [ ("barrel", Pictures.barrel); ("figure", Pictures.figure) ]
 
 let () =

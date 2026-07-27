@@ -19,6 +19,15 @@ let color =
     (fun ppf (c : Color.t) -> Format.fprintf ppf "#%02x%02x%02x" c.r c.g c.b)
     ( = )
 
+(** Does [haystack] contain [needle]? For the suites that assert an error
+    message is {e useful} — that it names the file, the shape or the directories
+    it looked in — rather than asserting its exact wording, which would make
+    rephrasing one a test failure. *)
+let mentions haystack needle =
+  let n = String.length needle and h = String.length haystack in
+  let rec at i = i + n <= h && (String.sub haystack i n = needle || at (i + 1)) in
+  n = 0 || at 0
+
 (** {1 Fixtures} *)
 
 (* Two materials for the fixtures to wear. They exist only to be told apart —

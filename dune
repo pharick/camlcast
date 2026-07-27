@@ -1,0 +1,18 @@
+; What a bare `dune build` builds.
+;
+; Left implicit, the root's default alias is every installable target, which
+; reaches the libraries, the executable and the test suites but not assets/ —
+; there is nothing to install there, deliberately: an opam prefix is not a
+; layout Asset knows how to search, and packaging the pictures into a .app or
+; an AppImage is E13's job.
+;
+; The pictures still have to reach _build, because that is where Asset finds
+; them: one directory above the executable, which under dune is _build/default.
+; So the alias is spelled out, and `dune build` is the whole repository rather
+; than only the parts of it opam would carry.
+
+(alias
+ (name default)
+ (deps
+  (alias_rec all)
+  (source_tree assets)))

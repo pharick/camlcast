@@ -14,7 +14,12 @@ open Raycaster
 type t = {
   name : string;  (** what you type after [camlcast-demo] *)
   blurb : string;  (** one line, for the listing *)
-  world : World.t;  (** what it starts from; [endless] then grows it *)
+  world : World.t Lazy.t;
+      (** what it starts from; [endless] then grows it.
+
+          Behind a [lazy] because [loading] builds its world out of files, which
+          can fail. Eager, one missing picture would stop [--list] from listing
+          anything; deferred, it stops only the demo that needed it. *)
   run : unit -> (unit, [ `Msg of string ]) result;
 }
 
@@ -23,97 +28,103 @@ let demos =
     {
       name = "masonry";
       blurb = "materials: a colour and a pattern, chosen apart";
-      world = Masonry.world;
+      world = lazy Masonry.world;
       run = Masonry.run;
     };
     {
       name = "gallery";
       blurb = "decals on the walls, sprites standing in the room";
-      world = Gallery.world;
+      world = lazy Gallery.world;
       run = Gallery.run;
     };
     {
       name = "glass";
       blurb = "see-through walls and the translucent pass";
-      world = Glass.world;
+      world = lazy Glass.world;
       run = Glass.run;
     };
     {
       name = "slopes";
       blurb = "inclined floors and roofs, and a seamless threshold";
-      world = Slopes.world;
+      world = lazy Slopes.world;
       run = Slopes.run;
     };
     {
       name = "daylight";
       blurb = "the open sky, and two rooms under different ones";
-      world = Daylight.world;
+      world = lazy Daylight.world;
       run = Daylight.run;
     };
     {
       name = "haze";
       blurb = "atmosphere: the fade into fog and where the light falls";
-      world = Haze.world;
+      world = lazy Haze.world;
       run = Haze.run;
     };
     {
       name = "portals";
       blurb = "doorways: the same room, joined in two places";
-      world = Portals.world;
+      world = lazy Portals.world;
       run = Portals.run;
     };
     {
       name = "changing";
       blurb = "replacing a room: a sign that moves, rebuilt every frame";
-      world = Changing.world;
+      world = lazy Changing.world;
       run = Changing.run;
     };
     {
       name = "endless";
       blurb = "the grow hook: a corridor built as you walk it";
-      world = Endless.world;
+      world = lazy Endless.world;
       run = Endless.run;
     };
     {
       name = "doors";
       blurb = "doors that open and shut, on both sides of the link at once";
-      world = Doors.world;
+      world = lazy Doors.world;
       run = Doors.run;
     };
     {
       name = "targets";
       blurb = "what the crosshair is on, through the doorway in front of you";
-      world = Targets.world;
+      world = lazy Targets.world;
       run = Targets.run;
     };
     {
       name = "trail";
       blurb = "traversal traces: a return route built from the doorways";
-      world = Trail.world;
+      world = lazy Trail.world;
       run = Trail.run;
     };
     {
       name = "phases";
       blurb = "run_state: a phase, a clock, and a light going out";
-      world = Phases.world;
+      world = lazy Phases.world;
       run = Phases.run;
     };
     {
       name = "overlay";
       blurb = "drawing over the finished world";
-      world = Overlay.world;
+      world = lazy Overlay.world;
       run = Overlay.run;
     };
     {
       name = "controls";
       blurb = "press versus hold, buttons, and letting go of the mouse";
-      world = Controls.world;
+      world = lazy Controls.world;
       run = Controls.run;
+    };
+    {
+      name = "loading";
+      blurb = "art read from files, beside the generated kind";
+      world = Loading.world;
+      run = Loading.run;
     };
     {
       name = "showcase";
       blurb = "the five-room level, with all of the above at once";
-      world = Level.default;
+      world = lazy Level.default;
       run = (fun () -> Engine.run Level.default);
     };
   ]

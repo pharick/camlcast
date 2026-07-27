@@ -12,10 +12,22 @@
 ; these fixtures and there is no reason to run them separately. A game built on
 ; this engine tests itself in its own repo.
 
+; The suites that load pictures read them from fixtures/ by plain relative
+; path, because dune runs a test with its working directory here — so the
+; loaders are tested without going through Asset, and Asset is tested without
+; going near SDL. The demos' own art comes in through Asset, which is why the
+; whole of assets/ is a dependency too: test_demos builds every demo's world,
+; and one of them reads files.
+
 (tests
+ (deps
+  (glob_files fixtures/*)
+  (source_tree ../assets))
  (names
   test_vec
   test_result_ext
+  test_asset
+  test_surface
   test_plane
   test_sky
   test_image

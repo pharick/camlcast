@@ -83,8 +83,12 @@ Each depends only on the ones above it.
 - {!Raycaster.Transform} — rigid motions between room-local coordinate frames
 - {!Raycaster.Plane} — an inclined floor/ceiling plane and its casting equation
 - {!Raycaster.Color} — 8-bit RGB, shading and blending
-- {!Raycaster.Texture} — the machinery for procedural greyscale patterns, and the
-  wrapping value noise they are built from
+- {!Raycaster.Surface} — decoding a PNG or JPEG into plain bytes: the one place
+  pixel formats appear
+- {!Raycaster.Asset} — where a file is, searched relative to the executable
+  rather than to a source tree
+- {!Raycaster.Texture} — greyscale surface patterns, generated or loaded, and
+  the wrapping value noise the generated ones are built from
 - {!Raycaster.Material} — what a surface is made of: a colour and a pattern
 - {!Raycaster.Door} — a leaf hung in a doorway: open or closed, and what of
 - {!Raycaster.Atmosphere} — the air a world is seen through: its fog, its haze,
@@ -131,6 +135,7 @@ Each is a single file with the feature it demonstrates as the only thing in it.
 - {!Camlcast_demo.Phases} — [run_state]: a phase, a clock and a light going out
 - {!Camlcast_demo.Overlay} — drawing over the finished world
 - {!Camlcast_demo.Controls} — press versus hold, and letting go of the cursor
+- {!Camlcast_demo.Loading} — art read from files, beside the generated kind
 - {!Camlcast_demo.Level} — the five-room showcase world
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
 - {!Camlcast_demo.Pictures} — two decals and two sprites

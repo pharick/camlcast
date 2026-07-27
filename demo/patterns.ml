@@ -1,7 +1,9 @@
 (** The showcase level's wall patterns: masonry, joinery, tile and glazing.
 
-    Each is a pure function of [u] and [v] passed to {!Raycaster.Texture.generate}, so
-    the project keeps no binary assets and every pattern is testable. Two of
+    Each is a pure function of [u] and [v] passed to
+    {!Raycaster.Texture.generate}, which is what makes every one of them
+    testable — and is one of the two ways in: the {!Loading} demo reads its
+    patterns from files with {!Raycaster.Texture.load} instead. Two of
     them — {!bars} and {!glass} — are built with
     {!Raycaster.Texture.generate_masked} and so carry an alpha; a
     {!Raycaster.Material} wearing either is see-through, which is the whole
