@@ -98,6 +98,20 @@ let check_names ~who ~room name (r : Room.t) =
     r.Room.thresholds;
   ignore room
 
+(** Refuse two rooms of one world sharing a name, for the same reason as the
+    thresholds above and with a sharper edge: a duplicate name does not collide,
+    it {e shadows}. Rooms are resolved with [Array.find_index], which answers
+    with the first, so a link — or a spawn — written for the second of two rooms
+    named [hall] is silently made against the first. The world is built, it
+    renders, it walks, and it is not the one that was written down. *)
+let check_room_names ~who names =
+  let seen = Hashtbl.create (Array.length names) in
+  Array.iter
+    (fun name ->
+      if Hashtbl.mem seen name then invalid_arg (who ^ ": two rooms named " ^ name);
+      Hashtbl.add seen name ())
+    names
+
 (** The two {!portal}s a link makes, each the other's inverse, after refusing
     everything that would make the link meaningless: a threshold with no length
     (its transform would collapse the world to a point), two thresholds
@@ -114,19 +128,28 @@ let check_names ~who ~room name (r : Room.t) =
     door. {!set_door} is how it is changed, and it changes both sides at once.
 
     Shared by {!make} and {!link} so a world that grew is held to exactly the
-    same standard as one that was written down. *)
+    same standard as one that was written down.
+
+    {b Each measurement is refused by negating what would pass}, rather than by
+    asserting what would fail. The two read the same for an ordinary number and
+    differently for [nan], which answers false to every ordered comparison it is
+    given: written the other way round a threshold of length [nan] would be
+    neither long enough to reject nor different enough from its twin to reject,
+    and the world would be built out of a transform that was [nan] throughout.
+    {!Room.doorway} refuses the degenerate wall such a threshold comes from, and
+    this is the backstop for one built any other way. *)
 let pair ~who ~describe (ia, ja, (a : Room.threshold))
     (ib, jb, (b : Room.threshold)) =
   let length (t : Room.threshold) room =
-    if t.Room.length <= epsilon then
+    if not (t.Room.length > epsilon) then
       invalid_arg (who ^ ": threshold has no length: " ^ describe room t)
   in
   length a ia;
   length b ib;
   let both = describe ia a ^ " and " ^ describe ib b in
-  if Float.abs (a.Room.length -. b.Room.length) > epsilon then
+  if not (Float.abs (a.Room.length -. b.Room.length) <= epsilon) then
     invalid_arg (who ^ ": linked thresholds differ in length: " ^ both);
-  if Float.abs (a.Room.height -. b.Room.height) > epsilon then
+  if not (Float.abs (a.Room.height -. b.Room.height) <= epsilon) then
     invalid_arg (who ^ ": linked thresholds differ in height: " ^ both);
   if door_state a <> door_state b then
     invalid_arg (who ^ ": linked thresholds disagree about a door: " ^ both);
@@ -144,8 +167,9 @@ let pair ~who ~describe (ia, ja, (a : Room.threshold))
     {!Transform.between} and its inverse. Everything that would make a link
     meaningless is refused here as [Invalid_argument], because each is an
     authoring mistake with no sensible run-time behaviour: a room or threshold
-    name that does not exist, two thresholds of one room sharing a name (no link
-    could tell them apart), a threshold with no length (its transform would
+    name that does not exist, two rooms sharing a name (the second would be
+    shadowed by the first, silently), two thresholds of one room sharing a name
+    (no link could tell them apart), a threshold with no length (its transform would
     collapse the world to a point), a threshold linked more than once, a
     threshold nothing links to (a hole in the wall opening onto nowhere), two
     linked thresholds differing in length or height — the opening would not line
@@ -163,6 +187,7 @@ let make ~rooms ~links ~atmosphere ~spawn =
     | Some index -> index
     | None -> invalid_arg ("World.make: no room named " ^ name)
   in
+  check_room_names ~who:"World.make" names;
   Array.iteri
     (fun room r -> check_names ~who:"World.make" ~room names.(room) r)
     values;
@@ -277,8 +302,14 @@ let open_doorway t ~room ~opened =
 (** Append a room, and return the index it landed at. Every doorway it brings
     with it starts unlinked, which is what makes it possible to add a room at
     all: it is not yet joined to anything, including whatever is about to join
-    it. *)
+    it.
+
+    The name has to be one no room already has, for the reason
+    {!check_room_names} gives: a generator that reused one would leave a world
+    whose second [corridor] could never be named again. *)
 let add_room t ~name room =
+  if Array.exists (String.equal name) t.names then
+    invalid_arg ("World.add_room: a room is already named " ^ name);
   check_names ~who:"World.add_room" ~room:(Array.length t.rooms) name room;
   ( {
       t with
@@ -441,9 +472,9 @@ let set_door t ~room ~threshold state =
   | Some portal -> hang after ~room:portal.to_room ~threshold:portal.twin
 
 (** Everything {!make} guarantees, asserted over a world that was grown instead:
-    every room's thresholds uniquely named, every one of them linked, every
-    portal's [twin] the same doorway seen from the other side, and the two sides
-    of every link agreed about a door.
+    every room uniquely named, every room's thresholds uniquely named, every one
+    of them linked, every portal's [twin] the same doorway seen from the other
+    side, and the two sides of every link agreed about a door.
 
     That last one is asked of the rooms as they stand now and not of the
     [threshold] each {!portal} is carrying, which is the copy taken when the link
@@ -453,6 +484,7 @@ let set_door t ~room ~threshold state =
 
     A generator's tests run this; nothing at run time needs to. *)
 let check t =
+  check_room_names ~who:"World.check" t.names;
   Array.iteri
     (fun room r -> check_names ~who:"World.check" ~room t.names.(room) r)
     t.rooms;
@@ -539,23 +571,54 @@ let can_step t ~room:index ~from ~dest =
   in
   Room.can_step here ~from ~dest && every 0
 
-(** The doorway a step from [from] to [dest] passes through, if it passes
-    through one: which of this room's thresholds it was, and the portal behind
-    it — whose {!Player.through} the caller should then apply.
+(** Did a step from [from] to [dest] go {e through} this opening, and not merely
+    across the line it lies on? Which side of that line a point falls on is the
+    sign of the cross product below, so the step went through exactly when its
+    two ends disagree about it.
 
-    A step could in principle cross two, so they are ranked by how far along the
-    step each is met and the nearest wins. A step running {e along} an opening
-    rather than through it has no such point at all; that case is ranked
-    [infinity] so it can never displace a genuine crossing.
+    A step that finishes {e on} the line has no side, and so does not count.
+    That is what keeps a step taken along an opening rather than through it —
+    including one that rounds a jamb and comes straight back — from being read
+    as going through. It is also what lets {!Player.slide} resolve a step one
+    doorway at a time: the leg carrying on from a crossing begins exactly on the
+    threshold it has just come through, so the very leg that left cannot be read
+    as crossing straight back. *)
+let through (t : Room.threshold) ~from ~dest =
+  let side p = Vec.cross t.Room.edge (Vec.sub p t.Room.a) in
+  side from *. side dest < 0.
+
+(** The doorway a step from [from] to [dest] passes through, if it passes
+    through one: which of this room's thresholds it was, the portal behind it —
+    whose {!Player.through} the caller should then apply — and how far along the
+    step it was met, as a fraction of it.
+
+    A step can cross two, so they are ranked by that fraction and the nearest
+    wins. The others are not lost: it is the {e nearest} because the caller is
+    expected to come back and ask again from there, in the room it has just
+    reached, which is the only room whose walls have anything to say about where
+    the rest of the step goes. {!Player.slide} is that caller.
+
+    Both halves of "goes through this opening" are asked here, and both are
+    needed. {!Room.segments_cross} bounds the crossing to the width of the
+    opening, and is inclusive of its ends; {!through} asks whether the step
+    really passed from one side to the other, and is strict. A candidate that
+    satisfies only the first is one the step merely touches, and it is refused
+    outright rather than ranked — were it ranked, being nearest would let it
+    hide a genuine crossing further along the same step.
 
     A doorway that leads nowhere yet is not a crossing — there is nowhere to
     cross to — and {!can_step} has already refused any step that would reach
-    one. *)
+    one. A shut one still is: this answers which opening a step is through, and
+    {!can_step} is what has already said no. Movement asks both, in that
+    order. *)
 let crossing t ~room ~from ~dest =
   let step = Vec.sub dest from in
   let parameter (portal : portal) =
     let edge = portal.threshold.edge in
     let denom = Vec.cross step edge in
+    (* Zero for a step parallel to the opening — which cannot have got past
+       {!through}, since a step that never changes side never crosses. Guarded
+       anyway, because the alternative to a guard here is a division by zero. *)
     if Float.abs denom < 1e-12 then infinity
     else Vec.cross (Vec.sub portal.threshold.a from) edge /. denom
   in
@@ -571,7 +634,8 @@ let crossing t ~room ~from ~dest =
         match row.(slot) with
         | Some (portal : portal)
           when Room.segments_cross from dest portal.threshold.a
-                 portal.threshold.b -> (
+                 portal.threshold.b
+               && through portal.threshold ~from ~dest -> (
             let here = parameter portal in
             match best with
             | Some (_, _, there) when there <= here -> best
@@ -580,7 +644,7 @@ let crossing t ~room ~from ~dest =
       in
       nearest (slot + 1) best
   in
-  Option.map (fun (slot, portal, _) -> (slot, portal)) (nearest 0 None)
+  nearest 0 None
 
 (** By how much the two rooms either side of [portal] disagree about the height
     of the floor at the doorway they share, measured at both of its endpoints.

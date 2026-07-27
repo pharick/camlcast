@@ -452,10 +452,28 @@ let path ?(closed = false) ~height ~material points =
     the winding rule {!Transform.between} depends on, and it takes the wall's
     own height and material as its {!type-lintel}, so the strip left above the
     opening is still drawn. Cutting both sides of a doorway this way is what
-    keeps a room's boundary and its thresholds honest about each other. *)
+    keeps a room's boundary and its thresholds honest about each other.
+
+    Three authoring mistakes are refused here rather than left to spread. A wall
+    with no length has no middle to cut, and the division below would hand back
+    a threshold whose every coordinate is [nan] — which {!World.make} would then
+    accept, because [nan] answers false to every ordered comparison it is asked.
+    A doorway of no width is not a doorway. And one wider than the wall it is cut
+    into leaves jambs wound backwards, which is the one thing every transform
+    derived from the opening depends on. Each test is written as the negation of
+    the passing condition, so a [nan] argument fails it rather than slipping
+    through. *)
 let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
-  let half = Vec.scale edge (width /. (2. *. Vec.length edge)) in
+  let span = Vec.length edge in
+  if not (span > 0.) then
+    invalid_arg ("Room.doorway: no wall to cut a doorway into: " ^ name);
+  if not (width > 0.) then
+    invalid_arg ("Room.doorway: a doorway has to have a width: " ^ name);
+  if not (width <= span) then
+    invalid_arg
+      ("Room.doorway: wider than the wall it is cut into: " ^ name);
+  let half = Vec.scale edge (width /. (2. *. span)) in
   let middle = Vec.scale (Vec.add a b) 0.5 in
   let p = Vec.sub middle half and q = Vec.add middle half in
   ( [ wall ~height ~material a p; wall ~height ~material q b ],

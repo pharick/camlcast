@@ -181,6 +181,50 @@ let two_rooms_closed = two_rooms_with_a_door Door.Closed
     fixtures here are all finished worlds. *)
 let portal world ~room ~index = Option.get (World.portals world room).(index)
 
+(** Two rooms joined twice over, into a loop a single step can go all the way
+    round. Room a's east doorway leads into b; b's north doorway leads back into
+    a's south one. Both rooms are the same 0..4 square in their own coordinates,
+    so the loop closes on a geometry that could not exist — which is the point:
+    nothing checks it, and a route home is the crossings and not the arithmetic.
+
+    Shared, because a frame that goes out of a room and back into it in one step
+    is the case two suites need: the player's, for the crossings it reports, and
+    the engine's, for the growth hook that would otherwise never hear about it. *)
+let loop =
+  let a_east_jambs, a_east =
+    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 4. 0.) (Vec.make 4. 4.)
+  and a_south_jambs, a_south =
+    Room.doorway ~name:"south" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 0. 0.) (Vec.make 4. 0.)
+  and b_west_jambs, b_west =
+    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
+      (Vec.make 0. 4.) (Vec.make 0. 0.)
+  and b_north_jambs, b_north =
+    Room.doorway ~name:"north" ~width:1. ~opening:2. ~height:3. ~material:dim
+      (Vec.make 4. 4.) (Vec.make 0. 4.)
+  in
+  let a =
+    Room.make ~thresholds:[ a_east; a_south ] ~floor:flat_floor
+      ~ceiling:flat_ceiling
+      (a_east_jambs @ a_south_jambs
+      @ [
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and b =
+    Room.make ~thresholds:[ b_west; b_north ] ~floor:flat_floor
+      ~ceiling:flat_ceiling
+      (b_west_jambs @ b_north_jambs
+      @ [
+          Room.wall ~height:3. ~material:dim (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.);
+        ])
+  in
+  World.make ~rooms:[ ("a", a); ("b", b) ]
+    ~links:[ (("a", "east"), ("b", "west")); (("b", "north"), ("a", "south")) ]
+    ~atmosphere:air ~spawn:("a", Vec.make 2. 2.)
+
 (** Centre of the room, 2 cells from every wall. *)
 let centre = Vec.make 2. 2.
 

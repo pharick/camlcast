@@ -373,6 +373,34 @@ let a_doorway_splits_the_wall_it_is_cut_into () =
         "and its material, so the strip above matches the wall" true
         (l.Room.material == dim)
 
+(* A doorway is cut by dividing by the length of the wall it is cut into, so a
+   wall of no length hands back a threshold whose every coordinate is [nan] —
+   and [nan] is refused by nothing downstream, because every ordered comparison
+   it is given answers false. A world would be built out of it, and its
+   transform would be [nan] throughout. The other two are the same kind of
+   mistake caught at the same moment: an opening of no width is not one, and one
+   wider than its wall leaves the jambs wound backwards, which is the winding
+   every transform derived from the opening depends on. *)
+let a_doorway_that_could_not_be_cut_is_refused () =
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let cut ~width a b =
+    fun () ->
+      ignore
+        (Room.doorway ~name:"gate" ~width ~opening:2. ~height:3. ~material:pale
+           a b)
+  in
+  raises "a wall with no length"
+    "Room.doorway: no wall to cut a doorway into: gate"
+    (cut ~width:1. (Vec.make 2. 2.) (Vec.make 2. 2.));
+  raises "an opening with no width"
+    "Room.doorway: a doorway has to have a width: gate"
+    (cut ~width:0. (Vec.make 0. 0.) (Vec.make 4. 0.));
+  raises "wider than the wall"
+    "Room.doorway: wider than the wall it is cut into: gate"
+    (cut ~width:5. (Vec.make 0. 0.) (Vec.make 4. 0.))
+
 let opening ?door () =
   snd
     (Room.doorway ~name:"a" ?door ~width:1. ~opening:2. ~height:3.
@@ -457,6 +485,8 @@ let () =
         [
           case "a doorway splits the wall it is cut into"
             a_doorway_splits_the_wall_it_is_cut_into;
+          case "a doorway that could not be cut is refused"
+            a_doorway_that_could_not_be_cut_is_refused;
           case "a doorway can hang a door" a_doorway_can_hang_a_door;
           case "a door's state decides what is seen and what is felt"
             a_doors_state_decides_what_is_seen_and_what_is_felt;

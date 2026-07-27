@@ -74,6 +74,26 @@ let max_render_height = 480
     would watch a blank wall turn into a doorway as they approached it. *)
 let max_portal_depth = 3
 
+(** How many doorways one leg of a step may be resolved through.
+
+    {!Player.slide} walks a leg opening by opening — clipping it at each one,
+    having the world vouch for that much of it, and carrying what is left into
+    the room on the other side — so a step is only ever measured against the
+    walls of a room it is actually in. Rooms may form a cycle and a leg may
+    round a jamb back through the doorway it came out of, so nothing about the
+    world's shape makes that walk terminate; this budget is what does, exactly
+    as {!max_portal_depth} is for the recursion that looks through the same
+    doorways.
+
+    Deliberately far above what a frame can reach. A leg is at most
+    {!move_speed} times {!max_frame_time} long — a third of a cell — so crossing
+    even two openings takes rooms thinner than the player is wide, and running
+    out means a caller has driven {!Player.slide} directly with a step no frame
+    would ask for. What happens then is that the rest of the leg is refused,
+    which leaves the player standing in a doorway the world has already vouched
+    for. *)
+let max_crossings_per_step = 8
+
 (** Seconds a frame is allowed to take (~60 FPS). {!Engine} sleeps off whatever
     is left of this after rendering, so a cheap frame does not spin the CPU; a
     frame that overruns it is simply late and sleeps not at all. *)

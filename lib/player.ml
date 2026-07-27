@@ -72,21 +72,6 @@ let pitch_by player ~delta =
     pitch = Float.max (-.limit) (Float.min limit (player.pitch +. delta));
   }
 
-(** Did a step from [from] to [dest] go {e through} [portal], and not merely
-    across the line its opening lies on? Which side of that line a point falls on
-    is the sign of the cross product below, so the step went through exactly when
-    its two ends disagree about it.
-
-    A step that finishes {e on} the line has no side, and so does not count.
-    That is what keeps a step taken along an opening rather than through it —
-    including one that rounds a jamb and comes straight back — from being read as
-    going through. *)
-let crosses (portal : World.portal) ~from ~dest =
-  let side p =
-    Vec.cross portal.World.threshold.edge (Vec.sub p portal.World.threshold.a)
-  in
-  side from *. side dest < 0.
-
 type crossing = {
   from_room : int;
   from_threshold : int;  (** which of that room's thresholds was gone through *)
@@ -114,55 +99,93 @@ type movement = { player : t; crossings : crossing list }
     is enough here to take the ones it allows and leave the axis where it was
     otherwise.
 
-    A leg that goes through a doorway carries the whole pose into the room on the
-    other side with {!through} before the next one is taken, and that is what
-    makes the second leg safe. The two are resolved one after the other, so the
-    path is an {e L} whose corner can lie well past an opening — far enough past
-    that {!World.can_step} no longer finds the step near it, and this room's
-    boundary has nothing left to say about where it went. Only the neighbour's
-    does, and asking the neighbour means standing in the neighbour's frame. The
-    leg still to come is rotated into that frame too, since it was measured
-    along the axes of a room the player has left.
+    {1 Why a leg is walked and not jumped}
 
-    A step can therefore cross two doorways, or the same one twice: an {e L} that
-    rounds a jamb, out through an opening and back in, meets the twin threshold
-    on the way back and returns through it. The two transforms of a link are
-    inverses, so it lands where it should, in the room it set out from.
+    A doorway is a gap in a room's boundary, so nothing of the room a leg starts
+    in stops it once it is through: past the opening this room's walls have
+    nothing left to say about where the leg went, and only the neighbour's do.
+    Asking the neighbour means standing in the neighbour's frame — so a leg is
+    not applied whole and then carried across. It is {e clipped} at the opening
+    it goes through, the world vouches for that much of it, the pose is carried
+    over with {!through}, and what is left of the leg is turned into the frame
+    it has arrived in and walked again from there.
 
-    Both are reported, in the order they were met. That order is the whole
-    reason this returns a list rather than a count: a game building a route home
-    has to unwind the crossings the way they were made, and a frame that went
-    out and came back has to leave the stack as it found it. *)
+    Walked, and not merely done twice. A leg long enough to cross a room can
+    reach a second doorway — or a wall, or a shut door, standing just beyond the
+    first — and every one of those lives in a room that the leg's starting room
+    has never heard of. Clipping repeats until the leg runs out, so every part
+    of it is measured against the walls of the room that part of it is actually
+    in. {!Config.max_crossings_per_step} bounds the repetition, because a world
+    may fold back on itself and nothing about its shape would otherwise stop the
+    walk.
+
+    The leg still to come is carried across too, at every crossing and not only
+    the first: it was measured along the axes of a room the player has since
+    left, and one that has been left twice needs turning twice.
+
+    A blocked leg leaves the pose where the last opening put it and abandons the
+    rest — the same rule the two axes already follow, applied along a leg rather
+    than across the pair of them.
+
+    {1 What comes back}
+
+    Every doorway gone through, in the order they were met. That order is the
+    whole reason this returns a list rather than a count: a game building a route
+    home has to unwind the crossings the way they were made, and a frame that
+    went out and came back — an {e L} that rounds a jamb, or a step all the way
+    round a loop of rooms — has to leave the stack as it found it. The two
+    transforms of a link are inverses, so such a frame lands where it should, in
+    the room it set out from, and the list is what says it went anywhere at
+    all. *)
 let slide world player (delta : Vec.t) =
-  (* Each leg reports the pose it ended in, the transform it went through to get
-     there — the identity unless it crossed — and the crossing itself if there
-     was one. *)
-  let step player (leg : Vec.t) =
+  (* [leg] is what is left to walk, [pending] the axis not yet started; both are
+     in the frame of the room the player is standing in, so both are carried at
+     every crossing. Each call reports the pose it ended in, [pending] as the
+     crossings left it, and the trace so far, newest first. *)
+  let rec step player ~leg ~pending ~trace ~budget =
     let from = player.pos in
     let dest = Vec.add from leg in
-    if not (World.can_step world ~room:player.room ~from ~dest) then
-      (player, Transform.identity, None)
-    else
-      let moved = { player with pos = dest } in
-      match World.crossing world ~room:player.room ~from ~dest with
-      | Some (slot, portal) when crosses portal ~from ~dest ->
-          ( through portal.World.onto ~room:portal.World.to_room moved,
-            portal.World.onto,
-            Some
-              {
-                from_room = player.room;
-                from_threshold = slot;
-                to_room = portal.World.to_room;
-                to_threshold = portal.World.twin;
-                onto = portal.World.onto;
-              } )
-      | _ -> (moved, Transform.identity, None)
+    let refuse ~dest = not (World.can_step world ~room:player.room ~from ~dest) in
+    match World.crossing world ~room:player.room ~from ~dest with
+    | Some (slot, (portal : World.portal), at) when budget > 0 ->
+        (* Only as far as the opening: past it this room cannot answer. *)
+        let stop = Vec.add from (Vec.scale leg at) in
+        if refuse ~dest:stop then (player, pending, trace)
+        else
+          let onto = portal.World.onto in
+          let carry = Transform.direction onto in
+          step
+            (through onto ~room:portal.World.to_room { player with pos = stop })
+            ~leg:(carry (Vec.scale leg (1. -. at)))
+            ~pending:(carry pending)
+            ~trace:
+              ({
+                 from_room = player.room;
+                 from_threshold = slot;
+                 to_room = portal.World.to_room;
+                 to_threshold = portal.World.twin;
+                 onto;
+               }
+              :: trace)
+            ~budget:(budget - 1)
+    | Some _ ->
+        (* Another doorway, and no allowance left to follow it through. Refuse
+           what is left rather than apply it in a room it no longer belongs
+           to. *)
+        (player, pending, trace)
+    | None ->
+        if refuse ~dest then (player, pending, trace)
+        else ({ player with pos = dest }, pending, trace)
   in
-  let after_x, onto, first = step player (Vec.make delta.x 0.) in
-  let after_y, _, second =
-    step after_x (Transform.direction onto (Vec.make 0. delta.y))
+  let budget = Config.max_crossings_per_step in
+  let after_x, pending, trace =
+    step player ~leg:(Vec.make delta.x 0.) ~pending:(Vec.make 0. delta.y)
+      ~trace:[] ~budget
   in
-  { player = after_y; crossings = List.filter_map Fun.id [ first; second ] }
+  let after_y, _, trace =
+    step after_x ~leg:pending ~pending:(Vec.make 0. 0.) ~trace ~budget
+  in
+  { player = after_y; crossings = List.rev trace }
 
 (** The two movement axes of a first person camera: [forward] along [dir],
     [strafe] along [right]. Both vectors are unit length, so a step of the same

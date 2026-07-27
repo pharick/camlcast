@@ -160,6 +160,26 @@ let advance previous ~down ~pointer ~dt =
   in
   { down = now; was_down = previous.down; held; pointer }
 
+(** [previous] again, with nothing having changed and no time having passed:
+    what a frame the window spent out of focus is worth.
+
+    It is {!advance} handed back what was already held, over a frame of zero
+    seconds, so the edges and the hold timer stay stated in exactly one place.
+    [down] and [was_down] come out equal, so neither {!pressed} nor {!released}
+    fires; a control held across the pause keeps the total it had rather than
+    growing; and a control let go of while nobody was looking arrives as an
+    ordinary {!released} on the first frame the window is back, which is the
+    frame a game could have done anything about it.
+
+    {!Engine.simulate} already stops the clock and drops the motion of an
+    unfocused frame. This is the third of the three, and it has to happen where
+    the sampling does: by the time [simulate] has the actions the seconds have
+    been counted, and no amount of suppression downstream can un-count them. *)
+let freeze previous =
+  advance previous
+    ~down:(fun control -> previous.down.(index control))
+    ~pointer:previous.pointer ~dt:0.
+
 (** Read the keyboard and the mouse buttons as they are now, and roll [previous]
     forward onto them.
 

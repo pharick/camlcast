@@ -177,6 +177,45 @@ let pointing_takes_the_mouse_but_not_the_clock () =
   Alcotest.(check int) "and the frames arrive as they always did" 30
     pointed.frames
 
+(* {1 Growing on a crossing}
+
+   [Engine.run] asks a generator to grow the world when the horizon can have
+   moved, and the horizon moves when the player goes {e through a doorway}. That
+   is not the same question as whether they finished the frame somewhere else: a
+   frame can round a jamb, or go all the way round a loop of rooms, and come
+   back to the index it started with. Comparing the two indices calls both of
+   those nothing happening, and the crossings are the only place they are
+   written down.
+
+   [grown] is polymorphic in the world, so these hand it a tag rather than a
+   world and read back which branch it took. *)
+let grown moved = Engine.grown ~grow:(fun _ _ -> `Grown) `Untouched moved
+
+let a_frame_that_crosses_nothing_does_not_grow () =
+  let stayed = Player.traverse world (player ()) ~forward:0.5 ~strafe:0. in
+  Alcotest.(check int) "the frame went through no doorway" 0
+    (List.length stayed.Player.crossings);
+  Alcotest.(check bool)
+    "so the world is left alone" true
+    (grown stayed = `Untouched)
+
+(* A step round the loop fixture goes out of a room and back into it within one
+   frame. The room index at the end is the one it set out with — which is
+   exactly the case the old test missed — and a generator still has to hear
+   about it. *)
+let a_round_trip_still_grows () =
+  let start = Player.create ~room:0 ~pos:centre ~angle:0. in
+  let moved = Player.slide loop start (Vec.make 4. 2.5) in
+  Alcotest.(check int)
+    "it ends in the room it set out from" start.Player.room
+    moved.Player.player.Player.room;
+  Alcotest.(check int)
+    "having gone through two doorways to get there" 2
+    (List.length moved.Player.crossings);
+  Alcotest.(check bool)
+    "so the world is grown all the same" true
+    (grown moved = `Grown)
+
 let () =
   Alcotest.run "Engine"
     [
@@ -206,5 +245,11 @@ let () =
           case "losing focus pauses the game" losing_focus_pauses_the_game;
           case "pointing takes the mouse but not the clock"
             pointing_takes_the_mouse_but_not_the_clock;
+        ] );
+      ( "growing",
+        [
+          case "a frame that crosses nothing does not grow"
+            a_frame_that_crosses_nothing_does_not_grow;
+          case "a round trip still grows" a_round_trip_still_grows;
         ] );
     ]

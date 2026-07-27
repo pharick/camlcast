@@ -133,7 +133,14 @@ let has_focus window =
     the motion too, for the same reason — the cursor is loose, and every inch of
     it would otherwise also swing the camera. The clock keeps running through
     one, though: a screen the game opens over its world is its own business, and
-    whether time stops for it is a question only the game can answer. *)
+    whether time stops for it is a question only the game can answer.
+
+    The actions are not suppressed here, and want no suppression: an unfocused
+    frame's have already been frozen by {!loop}, through {!Input.freeze}, which
+    is the only place they still could be. Their hold timer is fed the real
+    length of the frame at the moment they are sampled, so by the time they
+    arrive here the seconds are counted and nothing done to them would give
+    those back. *)
 let simulate game state ~focused ~pointing ~dt ~motion ~actions =
   let dt = if focused then dt else 0. in
   let motion = if focused && not pointing then motion else Input.still in
@@ -165,17 +172,24 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
        until somebody reads it, so a paused frame that skipped the read would
        hand the whole idle spell to the frame that resumes. *)
     let motion = Input.motion ~dt in
-    let actions = Input.sample actions ~dt in
+    let focused = has_focus ctx.window in
+    (* Read as state while the window has focus, and frozen while it has not:
+       the hold timer runs on this [dt] and not on the one {!simulate} zeroes,
+       so a frame nobody was there for has to be kept out of it here. The cursor
+       is rescaled inside the same branch because {!Input.freeze} carries the
+       previous frame's forward, and that one has been scaled already. *)
     let actions =
-      {
-        actions with
-        Input.pointer =
-          in_framebuffer ctx.window !(ctx.framebuffer) actions.Input.pointer;
-      }
+      if focused then
+        let sampled = Input.sample actions ~dt in
+        {
+          sampled with
+          Input.pointer =
+            in_framebuffer ctx.window !(ctx.framebuffer) sampled.Input.pointer;
+        }
+      else Input.freeze actions
     in
     let state =
-      simulate ctx.game state
-        ~focused:(has_focus ctx.window)
+      simulate ctx.game state ~focused
         ~pointing:(ctx.game.pointing state)
         ~dt ~motion ~actions
     in
@@ -262,15 +276,36 @@ let run_state ~update ~view ?(overlay = fun _ _ -> ())
         ~state ~actions:Input.untouched ~fullscreen:false ~relative:true
         ~previous:(seconds ()))
 
+(** The world to draw from now on, given the world a frame began with and what
+    that frame did.
+
+    [grow] runs when the player has gone {e through a doorway}, which is not the
+    same question as whether they have finished the frame in a different room. A
+    single frame can round a jamb — out through an opening and back in through
+    its twin — and end where it started; so can a step all the way round a loop
+    of rooms. The room index calls both of those nothing happening. The horizon
+    moved in each of them, and the crossings are the only place that is written
+    down, which is why this reads them and not [moved.player.room].
+
+    Once per frame however many doorways it went through, and with the pose it
+    ended in: that is the only one that means anything by then, and what [grow]
+    is being asked for is the world to draw from {e now}.
+
+    Split out of {!run} because {!run} needs a window and this does not. *)
+let grown ~grow world (moved : Player.movement) =
+  match moved.Player.crossings with
+  | [] -> world
+  | _ :: _ -> grow world moved.Player.player
+
 (** Open a window on [world] and run it until the player quits.
 
-    [grow] is called whenever the player walks from one room into another, with
-    the world and the player's new position, and returns the world to draw from
-    now on. A fixed level needs none; a house that is generated as it is
+    [grow] is called whenever the player goes through a doorway, with the world
+    and the player's new position, and returns the world to draw from now on —
+    see {!grown}. A fixed level needs none; a house that is generated as it is
     explored uses it to build far enough ahead that the player never sees the
     edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
-    the renderer looks. It runs on a room change and not per frame, so a
-    generator may take its time.
+    the renderer looks. It runs on a crossing and not per frame, so a generator
+    may take its time.
 
     This is {!run_state} over the only state the engine used to be able to hold:
     the world, the player, and whether Escape has been pressed. Escape quitting
@@ -279,15 +314,13 @@ let run_state ~update ~view ?(overlay = fun _ _ -> ())
     no other way out, so the third of the three is here to carry it. *)
 let run ?(grow = fun world _ -> world) world =
   let update (world, player, _) ~dt:_ ~motion ~actions =
-    let moved = step world player motion in
+    let moved = advance world player motion in
     (* Walking through a doorway is the one moment the horizon can have moved,
        so it is the only moment worth asking the world to grow. Every other
-       frame this is a comparison of two ints. *)
-    let world =
-      if moved.Player.room <> player.Player.room then grow world moved
-      else world
-    in
-    (world, moved, Input.pressed actions (Input.Key Sdl.Scancode.escape))
+       frame this is a look at an empty list. *)
+    ( grown ~grow world moved,
+      moved.Player.player,
+      Input.pressed actions (Input.Key Sdl.Scancode.escape) )
   in
   let+ _ =
     run_state ~update

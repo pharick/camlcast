@@ -21,6 +21,14 @@ let frames ?dt held count actions =
   List.fold_left (fun actions () -> frame ?dt held actions) actions
     (List.init count (fun _ -> ()))
 
+(* [count] frames the window spent out of focus, which is what [Engine.loop]
+   does with one instead of sampling it. *)
+let frames_frozen count actions =
+  List.fold_left
+    (fun actions () -> Input.freeze actions)
+    actions
+    (List.init count (fun _ -> ()))
+
 let nothing_is_held_to_begin_with () =
   Alcotest.(check bool) "not down" false (Input.down Input.untouched e);
   Alcotest.(check bool) "not pressed" false (Input.pressed Input.untouched e);
@@ -106,6 +114,42 @@ let a_hold_is_measured_in_seconds_not_frames () =
   Alcotest.check close "half a second, slowly" 0.5 (Input.held_for slow e);
   Alcotest.check close "and the same half, quickly" 0.5 (Input.held_for fast e)
 
+(* {1 Frames nobody was there for}
+
+   [Engine.simulate] stops the clock and drops the motion of a frame the window
+   spent out of focus, but the hold timer is fed the real length of the frame at
+   the moment the controls are sampled — before any of that — so it is the one
+   thing that would keep running while the game was behind another window. A
+   minute away would come back as a minute of holding.
+
+   [freeze] is what a frame is worth instead: the state as it stood, no edges,
+   and no seconds added. *)
+let an_unfocused_frame_costs_nothing () =
+  let held = frames [ e ] 30 Input.untouched in
+  let before = Input.held_for held e in
+  let away = frames_frozen 600 held in
+  Alcotest.(check bool) "what was down is still down" true (Input.down away e);
+  Alcotest.check close "and has been held for exactly as long as it had" before
+    (Input.held_for away e);
+  Alcotest.(check bool) "nothing was pressed while away" false
+    (Input.pressed away e);
+  Alcotest.(check bool)
+    "and nothing released" false (Input.released away e)
+
+(* What did change while nobody was looking arrives as an ordinary edge on the
+   first frame that is looked at, which is the first frame a game could have
+   done anything about it. *)
+let coming_back_reads_the_change_as_an_edge () =
+  let away = frames_frozen 10 (frames [ e ] 30 Input.untouched) in
+  let back = frame [] away in
+  Alcotest.(check bool) "the key let go of while away comes up now" true
+    (Input.released back e);
+  Alcotest.check close "with the hold it actually had" (29. *. tick)
+    (Input.held_for back e);
+  let pressed = frame [ e; c ] away in
+  Alcotest.(check bool) "and one pressed while away goes down now" true
+    (Input.pressed pressed c)
+
 let () =
   Alcotest.run "Input"
     [
@@ -129,5 +173,12 @@ let () =
             letting_go_starts_the_next_hold_from_nothing;
           case "a hold is measured in seconds not frames"
             a_hold_is_measured_in_seconds_not_frames;
+        ] );
+      ( "focus",
+        [
+          case "an unfocused frame costs nothing"
+            an_unfocused_frame_costs_nothing;
+          case "coming back reads the change as an edge"
+            coming_back_reads_the_change_as_an_edge;
         ] );
     ]

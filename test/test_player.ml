@@ -162,46 +162,6 @@ let rounding_a_jamb_is_not_a_crossing () =
    it has seen, and keeping a route home it can walk backwards — so the order
    and the identities have to be exact, not merely the count. *)
 
-(* Two rooms joined twice over, into a loop a single step can go all the way
-   round. Room a's east doorway leads into b; b's north doorway leads back into
-   a's south one. Both rooms are the same 0..4 square in their own coordinates,
-   so the loop closes on a geometry that could not exist — which is the point:
-   nothing checks it, and a route home is the crossings and not the arithmetic. *)
-let loop =
-  let a_east_jambs, a_east =
-    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
-      (Vec.make 4. 0.) (Vec.make 4. 4.)
-  and a_south_jambs, a_south =
-    Room.doorway ~name:"south" ~width:1. ~opening:2. ~height:3. ~material:pale
-      (Vec.make 0. 0.) (Vec.make 4. 0.)
-  and b_west_jambs, b_west =
-    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
-      (Vec.make 0. 4.) (Vec.make 0. 0.)
-  and b_north_jambs, b_north =
-    Room.doorway ~name:"north" ~width:1. ~opening:2. ~height:3. ~material:dim
-      (Vec.make 4. 4.) (Vec.make 0. 4.)
-  in
-  let a =
-    Room.make ~thresholds:[ a_east; a_south ] ~floor:flat_floor
-      ~ceiling:flat_ceiling
-      (a_east_jambs @ a_south_jambs
-      @ [
-          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
-          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
-        ])
-  and b =
-    Room.make ~thresholds:[ b_west; b_north ] ~floor:flat_floor
-      ~ceiling:flat_ceiling
-      (b_west_jambs @ b_north_jambs
-      @ [
-          Room.wall ~height:3. ~material:dim (Vec.make 0. 0.) (Vec.make 4. 0.);
-          Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.);
-        ])
-  in
-  World.make ~rooms:[ ("a", a); ("b", b) ]
-    ~links:[ (("a", "east"), ("b", "west")); (("b", "north"), ("a", "south")) ]
-    ~atmosphere:air ~spawn:("a", centre)
-
 let at world ~room ~pos = Player.create ~room ~pos ~angle:0.
 
 (* Most frames go through no doorway at all, and the list has to be empty rather
@@ -295,6 +255,130 @@ let the_crossings_unwind_to_where_it_started () =
     (Vec.make (centre.x +. 4.) (centre.y +. 2.5))
     home.Player.pos
 
+(* {1 A leg that clears a whole room}
+
+   Three rooms in a line, the middle one narrower than a single step can be, so
+   that one leg of a frame passes clean through it and out the far side. That is
+   the shape a leg applied in one jump cannot get right: past the first opening
+   the room it set out from has nothing left to say about where it went, and
+   whatever stands beyond the second — a wall, a shut leaf — is in a room that
+   room has never heard of.
+
+   [beyond] stands walls inside the third room; [door] hangs a leaf in the
+   second doorway, on both sides at once, since a world refuses a link whose two
+   sides disagree about one. *)
+let corridor ?door ?(beyond = []) () =
+  let gap = 0.3 in
+  let cut ?door ~name ~material a b =
+    Room.doorway ~name ?door ~width:1. ~opening:2. ~height:3. ~material a b
+  in
+  let wall material a b = Room.wall ~height:3. ~material a b in
+  let first_jambs, first_east =
+    cut ~name:"east" ~material:pale (Vec.make 4. 0.) (Vec.make 4. 4.)
+  and middle_west_jambs, middle_west =
+    cut ~name:"west" ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
+  and middle_east_jambs, middle_east =
+    cut ?door ~name:"east" ~material:dim (Vec.make gap 0.) (Vec.make gap 4.)
+  and last_jambs, last_west =
+    cut ?door ~name:"west" ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.)
+  in
+  let first =
+    Room.make ~thresholds:[ first_east ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (first_jambs
+      @ [
+          wall pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          wall pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          wall pale (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and middle =
+    Room.make
+      ~thresholds:[ middle_west; middle_east ]
+      ~floor:flat_floor ~ceiling:flat_ceiling
+      (middle_west_jambs @ middle_east_jambs
+      @ [
+          wall dim (Vec.make 0. 0.) (Vec.make gap 0.);
+          wall dim (Vec.make gap 4.) (Vec.make 0. 4.);
+        ])
+  and last =
+    Room.make ~thresholds:[ last_west ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (last_jambs @ beyond
+      @ [
+          wall pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          wall pale (Vec.make 4. 0.) (Vec.make 4. 4.);
+          wall pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+        ])
+  in
+  World.make
+    ~rooms:[ ("first", first); ("middle", middle); ("last", last) ]
+    ~links:
+      [
+        (("first", "east"), ("middle", "west"));
+        (("middle", "east"), ("last", "west"));
+      ]
+    ~atmosphere:air ~spawn:("first", centre)
+
+(* Both doorways have to be applied, not just the nearest. Applying only the
+   nearest leaves the player holding the middle room's index at a position past
+   the far room's doorway — standing in a room they were never carried into, and
+   which nothing has measured their step against.
+
+   It is also where an opening the step merely touches must not hide one it
+   genuinely goes through. The walk's second part sets out standing on the
+   middle room's west threshold, which is nearer than its east one and is not a
+   crossing at all; ranked, it would swallow the crossing that is. *)
+let a_leg_clears_a_room_and_keeps_going () =
+  let world = corridor () in
+  let start = at world ~room:0 ~pos:(Vec.make 3.8 2.) in
+  let moved = Player.slide world start (Vec.make 0.8 0.) in
+  Alcotest.(check int)
+    "two doorways in one leg" 2
+    (List.length moved.Player.crossings);
+  Alcotest.(check int)
+    "and it ends in the third room" 2 moved.Player.player.Player.room;
+  Alcotest.check vec "just inside its doorway" (Vec.make 0.3 2.)
+    moved.Player.player.Player.pos
+
+(* A wall standing inside the third room is in a room the first two thirds of
+   the leg were never in. It still has to stop the step: the part of the leg
+   that is in that room is measured against that room's walls, and refusing it
+   leaves the player in the doorway rather than through the wall. *)
+let a_wall_beyond_the_second_doorway_stops_the_step () =
+  let world =
+    corridor
+      ~beyond:
+        [
+          Room.wall ~height:1. ~material:pale (Vec.make 0.25 1.)
+            (Vec.make 0.25 3.);
+        ]
+      ()
+  in
+  let start = at world ~room:0 ~pos:(Vec.make 3.8 2.) in
+  let moved = Player.slide world start (Vec.make 0.8 0.) in
+  let ended = moved.Player.player in
+  Alcotest.(check int) "still carried into the third room" 2 ended.Player.room;
+  Alcotest.(check bool)
+    "stopping short of the wall" true
+    (ended.Player.pos.x <= 0.25 -. Config.collision_padding);
+  Alcotest.(check bool)
+    "and never inside it" false
+    (Room.blocked (World.room world ended.Player.room) ended.Player.pos)
+
+(* The same again for a shut leaf, which nothing in the first room can see:
+   collision looks one room ahead, and one room ahead of the first is the
+   middle. Only resolving the rest of the leg while standing in the middle room
+   finds it. *)
+let a_shut_door_beyond_the_first_doorway_stops_the_step () =
+  let world = corridor ~door:(Door.make ~state:Door.Closed dim) () in
+  let start = at world ~room:0 ~pos:(Vec.make 3.8 2.) in
+  let moved = Player.slide world start (Vec.make 0.8 0.) in
+  Alcotest.(check int)
+    "through the first doorway only" 1
+    (List.length moved.Player.crossings);
+  Alcotest.(check int)
+    "left in the middle room" 1 moved.Player.player.Player.room;
+  Alcotest.check vec "standing where it came in" (Vec.make 0. 2.)
+    moved.Player.player.Player.pos
+
 (* walk is traverse with the crossings dropped, and has to stay exactly that. *)
 let walk_is_traverse_without_the_trace () =
   let start = at two_rooms ~room:0 ~pos:(Vec.make 3.8 2.) in
@@ -343,6 +427,8 @@ let () =
             a_loop_returns_to_the_room_it_left;
           case "the crossings unwind to where it started"
             the_crossings_unwind_to_where_it_started;
+          case "a leg clears a room and keeps going"
+            a_leg_clears_a_room_and_keeps_going;
           case "walk is traverse without the trace"
             walk_is_traverse_without_the_trace;
         ] );
@@ -353,5 +439,9 @@ let () =
             a_blocked_axis_does_not_block_the_other;
           case "a diagonal through a doorway lands clear"
             a_diagonal_through_a_doorway_lands_clear;
+          case "a wall beyond the second doorway stops the step"
+            a_wall_beyond_the_second_doorway_stops_the_step;
+          case "a shut door beyond the first doorway stops the step"
+            a_shut_door_beyond_the_first_doorway_stops_the_step;
         ] );
     ]

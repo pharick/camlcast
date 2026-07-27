@@ -23,13 +23,18 @@ let links_resolve () =
    0..4 square, so a crossing is only meaningful once the transform has carried
    the point into the neighbour's frame. *)
 let crossing_changes_frame () =
-  let slot, portal =
+  let slot, portal, at =
     Option.get
       (World.crossing two_rooms ~room:0 ~from:(Vec.make 3.8 2.)
          ~dest:(Vec.make 4.2 2.))
   in
   Alcotest.(check int) "through the room's only doorway" 0 slot;
   Alcotest.(check int) "crosses into second" 1 portal.to_room;
+  (* How far along the step the opening was met. Movement clips the leg here and
+     resolves the rest of it in the room on the other side, so this is not a
+     detail of the answer but half of it. The doorway is at [x = 4] and the step
+     runs from 3.8 to 4.2, so it is met exactly halfway. *)
+  Alcotest.check close "met halfway along the step" 0.5 at;
   Alcotest.check vec "point lands inside neighbour" (Vec.make 0.2 2.)
     (Transform.point portal.onto (Vec.make 4.2 2.));
   Alcotest.(check bool)
@@ -133,6 +138,11 @@ let invalid_worlds_are_refused () =
            ~rooms:[ ("a", square ~thresholds:[ gate () ] ()) ]
            ~links:[ (("a", "nowhere"), ("a", "gate")) ]
            ~atmosphere:air ~spawn:("a", centre)));
+  raises "duplicate room names" "World.make: two rooms named a" (fun () ->
+      ignore
+        (World.make
+           ~rooms:[ ("a", square ()); ("a", square ()) ]
+           ~links:[] ~atmosphere:air ~spawn:("a", centre)));
   raises "duplicate names" "World.make: two thresholds named a.gate" (fun () ->
       ignore
         (World.make
@@ -201,6 +211,26 @@ let invalid_worlds_are_refused () =
         (World.make
            ~rooms:[ ("a", square ~thresholds:[ gate () ] ()) ]
            ~links:[] ~atmosphere:air ~spawn:("a", centre)))
+
+(* {!Room.doorway} refuses the degenerate wall a [nan] threshold comes from, but
+   a threshold can be built by hand, and a length of [nan] would slip past every
+   check written the natural way round: it is not at or below the minimum, and
+   not far enough from its twin's to differ, because an ordered comparison
+   against [nan] is false however it is asked. The checks are written as the
+   negation of what would pass, which is what makes this the length it does not
+   have rather than a world whose every transform is [nan]. *)
+let a_threshold_of_no_real_length_is_refused () =
+  let nowhere = Vec.make Float.nan Float.nan in
+  let broken () =
+    square ~thresholds:[ Room.threshold ~name:"gate" ~height:2. nowhere nowhere ] ()
+  in
+  raises "a threshold measuring nan"
+    "World.make: threshold has no length: a.gate" (fun () ->
+      ignore
+        (World.make
+           ~rooms:[ ("a", broken ()); ("b", broken ()) ]
+           ~links:[ (("a", "gate"), ("b", "gate")) ]
+           ~atmosphere:air ~spawn:("a", centre)))
 
 (** {1 Growing a world} *)
 
@@ -420,7 +450,15 @@ let invalid_growth_is_refused () =
                 ~floor:flat_floor ~ceiling:flat_ceiling
                 (Array.to_list first.Room.walls @ jambs))));
   raises "an unlinked doorway" "World.check: nothing links threshold start.north"
-    (fun () -> World.check grown)
+    (fun () -> World.check grown);
+  (* A generator appends rooms, and a name it has used before does not collide
+     with the one that has it — it shadows it, because a room is resolved by
+     [Array.find_index], which answers with the first. A world where the second
+     [next] could never be named again is one a later link would silently make
+     against the wrong room. *)
+  raises "a name another room already has"
+    "World.add_room: a room is already named start" (fun () ->
+      ignore (World.add_room grown ~name:"start" (cell ())))
 
 (* Replacing a room is how a wall comes to have a chalk mark on it, a sign starts
    moving, and a room is lit differently on the way back than it was on the way
@@ -671,6 +709,8 @@ let () =
           case "a step through a door is refused by the neighbour"
             a_step_through_a_door_is_refused_by_the_neighbour;
           case "invalid worlds are refused" invalid_worlds_are_refused;
+          case "a threshold of no real length is refused"
+            a_threshold_of_no_real_length_is_refused;
         ] );
       ( "doors",
         [
