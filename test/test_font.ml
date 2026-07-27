@@ -106,6 +106,28 @@ let wrapping_breaks_on_spaces () =
     "newlines already there are kept" [ "aa"; "bb" ]
     (wrap "aa\nbb" (10 * cell_w))
 
+(* The breaks that break onto nothing are breaks too. Dropping them made this
+   disagree with [measure], which counts them, so a wrapped paragraph was drawn
+   shorter than the panel sized for it — and a paragraph break in the source
+   closed up on its way to the screen. *)
+let wrapping_keeps_the_lines_that_are_empty () =
+  let wrap text = Font.wrap font text ~width:(10 * cell_w) in
+  Alcotest.(check (list string))
+    "nothing at all is still one line" [ "" ] (wrap "");
+  Alcotest.(check (list string))
+    "a blank line between two is kept"
+    [ "aa"; ""; "bb" ]
+    (wrap "aa\n\nbb");
+  Alcotest.(check (list string))
+    "and a trailing newline opens one" [ "aa"; "" ] (wrap "aa\n");
+  (* Which is the whole point of keeping them: wrap then measure agrees with
+     draw, for the same text [measuring] checks a trailing newline on. *)
+  let wrapped = wrap "aa\n\nbb\n" in
+  Alcotest.(check (pair int int))
+    "so wrapping then measuring is the height it draws at"
+    (2 * cell_w, List.length wrapped * cell_h)
+    (Font.measure font (String.concat "\n" wrapped))
+
 (* A word with no space in it cannot be broken on one, and running off the page
    is worse than breaking mid-word, so it is broken. *)
 let wrapping_breaks_a_word_that_cannot_fit () =
@@ -115,7 +137,14 @@ let wrapping_breaks_a_word_that_cannot_fit () =
   Alcotest.(check (list string))
     "and what is left of it flows on" [ "abcd"; "ef x" ]
     (Font.wrap font "abcdef x" ~width:(4 * cell_w));
-  (* Never an empty line, and never wider than asked, however narrow the ask. *)
+  (* Cutting one flushes the line it interrupted, so that line is written once
+     and not twice. *)
+  Alcotest.(check (list string))
+    "the line it interrupted is not written twice"
+    [ "ab"; "abcd"; "efgh"; "ij" ]
+    (Font.wrap font "ab abcdefghij" ~width:(4 * cell_w));
+  (* Never an empty line the text did not ask for, and never wider than asked,
+     however narrow the ask. *)
   let lines = Font.wrap font "an unreasonably narrow column" ~width:1 in
   Alcotest.(check bool)
     "a column too narrow for a glyph still gives one character a line" true
@@ -184,6 +213,8 @@ let () =
         [
           case "measuring" measuring;
           case "wrapping breaks on spaces" wrapping_breaks_on_spaces;
+          case "wrapping keeps the lines that are empty"
+            wrapping_keeps_the_lines_that_are_empty;
           case "wrapping breaks a word that cannot fit"
             wrapping_breaks_a_word_that_cannot_fit;
         ] );

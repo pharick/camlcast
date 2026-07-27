@@ -30,6 +30,12 @@
       passes over or under it. A see-through wall ({!Material.opaque} is false)
       does not stop it, exactly as it does not stop the renderer, and by the same
       whole-wall rule rather than texel by texel.
+    - A {b decal} on either sort of wall, where its image is not transparent
+      there. This is what makes the see-through case an exception rather than a
+      hole: the renderer draws a wall's decals whether or not the wall itself
+      was drawn, so a mark painted on glass is visible, and what is visible is
+      what can be picked. The wall it is on is what gets named — a decal is
+      something on a wall, never a thing of its own.
     - A {b sprite}, where its image is not transparent there. Sprites are cut
       out against {!Image.clear} and mostly empty, so this is asked of the texel
       and not of the bounding box: the crosshair between a figure's arm and its
@@ -122,8 +128,9 @@ let ahead (pose : Player.t) (sprite : Room.sprite) =
     order and the last is on top. Both halves of "covers" are {!Room}'s, so this
     agrees with the picture by construction rather than by care — including the
     face, which {!Room.decal_column} refuses along with everything else it
-    refuses. A mark on the far side of a wall you can see through is not
-    something the crosshair can find. *)
+    refuses. A mark hung on the {e far} face of a wall is not something the
+    crosshair finds from this side, however much of the wall you can see
+    through. *)
 let decal_at (wall : Room.wall) ~seen_from ~along ~above =
   List.fold_left
     (fun (i, found) (d : Room.decal) ->
@@ -184,25 +191,28 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
         let wall = hit.Ray.wall in
         let foot = floor_at (point_at d) in
         let z = z_at d in
-        if
-          z >= foot
-          && z <= foot +. wall.Room.height
-          && Material.opaque wall.Room.material
-        then
+        if z >= foot && z <= foot +. wall.Room.height then
           let along = hit.Ray.along and above = z -. foot in
           (* The face being looked at, taken from where the eye is and not from
              where the ray landed — the hit point is {e on} the wall, where
              which side it is on is a rounding error. *)
           let seen_from = Room.side_of wall origin in
-          found d
-            (Wall
-               {
-                 index = hit.Ray.index;
-                 along;
-                 z = above;
-                 facing = seen_from;
-                 decal = decal_at wall ~seen_from ~along ~above;
-               })
+          (* Asked of every wall in the band, and not only of the opaque ones,
+             because a mark on a see-through wall is drawn and so has to be
+             pickable. This is one ray a frame rather than one a column, so the
+             extra work is not worth avoiding. *)
+          let decal = decal_at wall ~seen_from ~along ~above in
+          if Material.opaque wall.Room.material || decal <> None then
+            found d
+              (Wall
+                 {
+                   index = hit.Ray.index;
+                   along;
+                   z = above;
+                   facing = seen_from;
+                   decal;
+                 })
+          else first rest
         else first rest
     | (_, Met (Ray.Opening opening)) :: rest
       when entered = Some opening.Ray.index ->

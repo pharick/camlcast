@@ -310,6 +310,53 @@ let a_decal_on_a_wall_is_named () =
   is "wall 0 of room 0"
     (Sight.cast world (Player.create ~room:0 ~pos:centre ~angle:0.))
 
+(* A mark on a wall you can see through is drawn, so it can be picked.
+   [Renderer.draw_wall] runs its decal loop outside the test on the wall's own
+   texel, so a decal is painted whether or not the wall under it was — and a
+   see-through wall reaches that same function through the translucent pass.
+   This is the half of that agreement which says the crosshair follows the
+   paint.
+
+   The exception is the mark's and not the wall's: the same screen left bare is
+   still looked straight through, which is what the two halves of this test say
+   next to each other. Geometry as in [a_wall_occludes_and_names_itself] — the
+   screen runs north from (3, 1), so a level look east crosses it one cell
+   along, at eye height. *)
+let a_decal_on_a_see_through_wall_is_picked () =
+  let world ~decals =
+    let plain = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+    World.replace_room plain ~room:0
+      ~replacement:
+        (let before = World.room plain 0 in
+         Room.make
+           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~floor:flat_floor ~ceiling:flat_ceiling
+           (Array.to_list before.Room.walls
+           @ [
+               Room.wall ~height:3. ~material:mesh ~decals (Vec.make 3. 1.)
+                 (Vec.make 3. 3.);
+             ]))
+  in
+  let marked =
+    world
+      ~decals:
+        [
+          Room.decal ~along:1. ~z:Config.eye_height ~half_width:0.6
+            ~half_height:0.6 poster;
+        ]
+  in
+  let bare = world ~decals:[] in
+  (* Bare, it is no obstacle at all, exactly as before. *)
+  is "sprite 0 of room 1" (Sight.cast bare (looking_east ()));
+  (* Marked, the mark stops the ray — and what is named is the wall it is on,
+     since a decal is something on a wall and never a thing of its own. *)
+  is "wall 5 of room 0" (Sight.cast marked (looking_east ()));
+  Alcotest.(check (option int))
+    "and the mark under the crosshair" (Some 0)
+    (match Sight.cast marked (looking_east ()) with
+    | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
+    | _ -> None)
+
 (* The whole of dynamic decals in one test: what a wall hit reports is exactly
    what a decal is placed in.
 
@@ -418,6 +465,8 @@ let () =
       ( "naming what was found",
         [
           case "a decal on a wall is named" a_decal_on_a_wall_is_named;
+          case "a decal on a see-through wall is picked"
+            a_decal_on_a_see_through_wall_is_picked;
           case "a wall can be marked where the crosshair is"
             a_wall_can_be_marked_where_the_crosshair_is;
           case "a target can be found on the screen"

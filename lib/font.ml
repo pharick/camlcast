@@ -98,7 +98,11 @@ let measure t text =
     an evenness that monospaced text does not have to begin with. A word longer
     than the whole line is broken rather than allowed to overflow, since a
     journal that runs off its own page is worse than one that hyphenates
-    nothing. Newlines already in [text] are kept as breaks. *)
+    nothing. Newlines already in [text] are kept as breaks, including the ones
+    that break onto nothing: the blank line two in a row make, and the empty
+    last line a trailing one opens. That is the rule {!measure} already counts
+    by, so text wrapped and then measured is the height it is drawn at — a
+    paragraph break survives wrapping instead of closing up. *)
 let wrap t text ~width =
   let per_line = Int.max 1 (width / t.width) in
   let rec split_word word acc =
@@ -117,12 +121,15 @@ let wrap t text ~width =
       List.fold_left
         (fun (current, out) word ->
           (* A word too long for any line is cut into full lines first; what is
-             left of it then joins the flow like any other word. *)
-          let word, out =
-            if String.length word <= per_line then (word, out)
+             left of it then joins the flow like any other word. Cutting it
+             flushes what was accumulated, so [current] is emptied with it —
+             left as it was, the line just flushed would be written out a
+             second time below. *)
+          let word, current, out =
+            if String.length word <= per_line then (word, current, out)
             else
               let rest, out = split_word word (flush current out) in
-              (rest, out)
+              (rest, "", out)
           in
           if current = "" then (word, out)
           else if String.length current + 1 + String.length word <= per_line then
@@ -130,7 +137,10 @@ let wrap t text ~width =
           else (word, current :: out))
         ("", []) words
     in
-    List.rev (flush current out)
+    (* A line with nothing on it wraps to one empty line and not to none: the
+       break was in the text, and dropping it here would leave {!measure} and
+       {!draw} counting a line this does not return. *)
+    match List.rev (flush current out) with [] -> [ "" ] | wrapped -> wrapped
   in
   List.concat_map wrap_line (lines text)
 

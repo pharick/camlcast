@@ -203,10 +203,11 @@ let hall () =
         wall Surfaces.stone hall_ne hall_nw;
         wall Surfaces.stone hall_nw hall_sw;
         (* The one wall with two faces you can get to. Chalk it and walk round
-           an end: the far side is bare. It is opaque, and has to be — a wall
-           you can see through is one {!Raycaster.Sight} looks {e through},
-           so it is never what the crosshair is on and never something to
-           mark. *)
+           an end: the far side is bare. It is opaque, and has to be — a bare
+           wall you can see through is one {!Raycaster.Sight} looks {e through},
+           so the crosshair never lands on it and the first mark could never be
+           placed. (A mark already on such a wall is a different matter: that
+           one is drawn, so that one can be picked.) *)
         Room.wall ~height:2.4 ~material:Surfaces.panel (Vec.make (-1.5) 1.)
           (Vec.make 2.5 1.);
       ])
