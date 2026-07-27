@@ -31,18 +31,25 @@ let boxed =
    point, so there is no table that can disagree with the picture. *)
 let a_glyph_is_arithmetic_on_its_code_point () =
   let at c = Font.cell font c in
-  Alcotest.(check (option (pair int int))) "the first cell is the first code point"
-    (Some (0, 0)) (at ' ');
+  Alcotest.(check (option (pair int int)))
+    "the first cell is the first code point"
+    (Some (0, 0))
+    (at ' ');
   (* 'A' is 65, which is 33 past the first: two full rows of sixteen and one
      across. *)
+  Alcotest.(check (option (pair int int))) "'A'" (Some (6, 20)) (at 'A');
   Alcotest.(check (option (pair int int)))
-    "'A'" (Some (6, 20)) (at 'A');
+    "the last cell of the first row"
+    (Some (90, 0))
+    (at '/');
   Alcotest.(check (option (pair int int)))
-    "the last cell of the first row" (Some (90, 0)) (at '/');
+    "the first of the second"
+    (Some (0, 10))
+    (at '0');
   Alcotest.(check (option (pair int int)))
-    "the first of the second" (Some (0, 10)) (at '0');
-  Alcotest.(check (option (pair int int)))
-    "and the very last cell the atlas has" (Some (90, 50)) (at '\127')
+    "and the very last cell the atlas has"
+    (Some (90, 50))
+    (at '\127')
 
 let a_character_off_the_grid_has_no_cell () =
   Alcotest.(check (option (pair int int)))
@@ -56,20 +63,20 @@ let a_character_off_the_grid_has_no_cell () =
    becoming a wrong line. *)
 let a_fallback_stands_in_for_what_is_missing () =
   Alcotest.(check (option (pair int int)))
-    "nothing, by default" None
-    (Font.glyph font '\200');
+    "nothing, by default" None (Font.glyph font '\200');
   Alcotest.(check (option (pair int int)))
-    "the box, when there is one" (Some (90, 50))
+    "the box, when there is one"
+    (Some (90, 50))
     (Font.glyph boxed '\200');
   Alcotest.(check (option (pair int int)))
-    "and a character that is present is unaffected" (Some (6, 20))
+    "and a character that is present is unaffected"
+    (Some (6, 20))
     (Font.glyph boxed 'A')
 
 let a_cell_must_have_a_size () =
   List.iter
     (fun (w, h) ->
-      Alcotest.check_raises
-        (Printf.sprintf "%dx%d" w h)
+      Alcotest.check_raises (Printf.sprintf "%dx%d" w h)
         (Invalid_argument "Font.make: a cell must have a positive size")
         (fun () -> ignore (Font.make ~atlas ~width:w ~height:h ~first:32 ())))
     [ (0, 10); (6, 0); (-6, 10) ]
@@ -79,15 +86,18 @@ let measuring () =
   Alcotest.(check int) "empty text is nothing wide" 0 w;
   Alcotest.(check int) "but still a line tall" cell_h h;
   Alcotest.(check (pair int int))
-    "one line is its length by a line" (3 * cell_w, cell_h)
+    "one line is its length by a line"
+    (3 * cell_w, cell_h)
     (Font.measure font "abc");
   Alcotest.(check (pair int int))
-    "several is the longest by the count" (6 * cell_w, 3 * cell_h)
+    "several is the longest by the count"
+    (6 * cell_w, 3 * cell_h)
     (Font.measure font "abc\nlonger\nxy");
   (* A trailing newline is a line, because it is somewhere the next character
      would go. *)
   Alcotest.(check (pair int int))
-    "and a trailing newline opens one" (3 * cell_w, 2 * cell_h)
+    "and a trailing newline opens one"
+    (3 * cell_w, 2 * cell_h)
     (Font.measure font "abc\n")
 
 let wrapping_breaks_on_spaces () =
@@ -99,8 +109,7 @@ let wrapping_breaks_on_spaces () =
     "one pixel short of fitting breaks" [ "one"; "two" ]
     (wrap "one two" ((7 * cell_w) - 1));
   Alcotest.(check (list string))
-    "and it breaks as late as it can"
-    [ "aa bb"; "cc dd" ]
+    "and it breaks as late as it can" [ "aa bb"; "cc dd" ]
     (wrap "aa bb cc dd" (5 * cell_w));
   Alcotest.(check (list string))
     "newlines already there are kept" [ "aa"; "bb" ]
@@ -115,9 +124,7 @@ let wrapping_keeps_the_lines_that_are_empty () =
   Alcotest.(check (list string))
     "nothing at all is still one line" [ "" ] (wrap "");
   Alcotest.(check (list string))
-    "a blank line between two is kept"
-    [ "aa"; ""; "bb" ]
-    (wrap "aa\n\nbb");
+    "a blank line between two is kept" [ "aa"; ""; "bb" ] (wrap "aa\n\nbb");
   Alcotest.(check (list string))
     "and a trailing newline opens one" [ "aa"; "" ] (wrap "aa\n");
   (* Which is the whole point of keeping them: wrap then measure agrees with
@@ -157,14 +164,16 @@ let drawing_puts_the_right_cell_in_the_right_place () =
   let fb = Framebuffer.offscreen ~width:40 ~height:20 in
   Font.draw fb font "A0" ~x:2 ~y:3 ~color:(Color.rgb 255 255 255);
   let grey n = Color.rgb n n n in
-  Alcotest.check color "'A' is cell 33" (grey 33) (Framebuffer.pixel fb ~x:2 ~y:3);
+  Alcotest.check color "'A' is cell 33" (grey 33)
+    (Framebuffer.pixel fb ~x:2 ~y:3);
   Alcotest.check color "across its whole cell" (grey 33)
     (Framebuffer.pixel fb ~x:(2 + cell_w - 1) ~y:(3 + cell_h - 1));
   (* '0' is 48, which is cell 16 — and it sits one advance along, not one atlas
      cell along, which is the same number here only because they agree. *)
   Alcotest.check color "'0' is cell 16, one advance along" (grey 16)
     (Framebuffer.pixel fb ~x:(2 + cell_w) ~y:3);
-  Alcotest.check color "and nothing was drawn before the start" (Color.rgb 0 0 0)
+  Alcotest.check color "and nothing was drawn before the start"
+    (Color.rgb 0 0 0)
     (Framebuffer.pixel fb ~x:1 ~y:3)
 
 (* The colour comes from the caller and the atlas supplies the shape, the same
@@ -172,7 +181,9 @@ let drawing_puts_the_right_cell_in_the_right_place () =
    computed. A white atlas cell therefore comes out as exactly the colour asked
    for. *)
 let drawing_tints_the_atlas () =
-  let white = Image.make ~height:60 96 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let white =
+    Image.make ~height:60 96 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let font = Font.make ~atlas:white ~width:cell_w ~height:cell_h ~first:32 () in
   let fb = Framebuffer.offscreen ~width:20 ~height:20 in
   Font.draw fb font "A" ~x:0 ~y:0 ~color:(Color.rgb 200 100 50);

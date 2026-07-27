@@ -22,12 +22,12 @@
     - {b Paint the opaque walls.} {!Ray.cast} returns every wall the ray
       crosses, farthest first. Each solid wall is drawn from its foot on the
       sloped floor up to its height (capped at the ceiling), its {!Texture}
-      sampled per pixel and tinted by its {!Material}, with any {!Room.type-decal}s —
-      paintings, posters — blended over it. Painting far-to-front lets a near
-      wall cover the ones behind it while a tall wall still shows over a short
-      one. Each wall records its distance into a per-pixel depth, so the passes
-      that follow know exactly which pixels it covers — a short wall only the
-      pixels of its own strip.
+      sampled per pixel and tinted by its {!Material}, with any
+      {!Room.type-decal}s — paintings, posters — blended over it. Painting
+      far-to-front lets a near wall cover the ones behind it while a tall wall
+      still shows over a short one. Each wall records its distance into a
+      per-pixel depth, so the passes that follow know exactly which pixels it
+      covers — a short wall only the pixels of its own strip.
 
     {1 A frame}
 
@@ -47,18 +47,19 @@
 
     {1 Portals}
 
-    What makes a doorway fit the painter's algorithm above is that {b it is just
-    one more thing the ray meets}. A {!Room.type-threshold} joins the same far-to-near
-    stream as the walls, so walls of this room beyond it are painted first and
-    get covered, and walls nearer are painted after and cover it.
+    What makes a doorway fit the painter's algorithm above is that
+    {b it is just one more thing the ray meets}. A {!Room.type-threshold} joins
+    the same far-to-near stream as the walls, so walls of this room beyond it
+    are painted first and get covered, and walls nearer are painted after and
+    cover it.
 
     A threshold the eye cannot pass draws as a wall of its leaf's texture; which
     those are is {!Room.leaf}'s to say, and it says a closed door and nothing
-    else. One the eye can pass recurses: the neighbouring room is drawn
-    in the same column, with the camera and the ray carried into its frame by
-    the link's {!Transform} and the row clip narrowed to the opening. Above
-    either, the {!Room.type-lintel} fills the strip of wall left standing over
-    the gap — without it you would see over the top of a closed door.
+    else. One the eye can pass recurses: the neighbouring room is drawn in the
+    same column, with the camera and the ray carried into its frame by the
+    link's {!Transform} and the row clip narrowed to the opening. Above either,
+    the {!Room.type-lintel} fills the strip of wall left standing over the gap —
+    without it you would see over the top of a closed door.
 
     The rigid transform is horizontal, so eye height, projection and horizon are
     unchanged inside a portal and the {!Viewport} is not rebuilt; and because it
@@ -75,15 +76,16 @@
     Sprites and see-through walls still have to be composited together at the
     end, so a fragment records which room it was seen in, the pose it was seen
     from, and a {!type-mask} — the single column and row range of the doorway it
-    was seen through. Because that is per column and not a bounding box, the clip
-    is exact: a sprite behind a doorway is trimmed to the doorway's outline.
+    was seen through. Because that is per column and not a bounding box, the
+    clip is exact: a sprite behind a doorway is trimmed to the doorway's
+    outline.
 
     One consequence of the mask being per column is that a room seen through a
     doorway contributes one fragment per column of that doorway. They are three
     words each and each draws a single column, so the cost is in the columns
-    either way; but it does mean that if a chain of doorways ever loops back to a
-    room already on it, that room's sprites are composited once for the near view
-    and again for the far one. Both are honest views of the same objects at
+    either way; but it does mean that if a chain of doorways ever loops back to
+    a room already on it, that room's sprites are composited once for the near
+    view and again for the far one. Both are honest views of the same objects at
     different distances, so they are left alone rather than suppressed.
 
     {1 Size}
@@ -199,8 +201,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
   let top_z =
     match room.Room.ceiling with
     | Room.Roof ceiling ->
-        Float.min
-          (floor_z +. w.Room.height)
+        Float.min (floor_z +. w.Room.height)
           (Plane.elevation ceiling.Room.plane hit_point)
     | Room.Open _ -> floor_z +. w.Room.height
   in
@@ -212,7 +213,8 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     in
     let last =
       Int.min clip_last
-        (Int.min (fb.Framebuffer.height - 1)
+        (Int.min
+           (fb.Framebuffer.height - 1)
            (int_of_float (Float.round y_foot)))
     in
     (* One light factor — orientation and fog — dims both the wall and its
@@ -285,29 +287,32 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
             match Room.decal_row dec ~above:above_foot with
             | None -> ()
             | Some vi ->
-              let img = dec.Room.image in
-              let idx = Image.index img ~u:ui ~v:vi in
-              let da = img.Image.alpha.(idx) in
-              if da > 0 then
-                let c = img.Image.pixels.(idx) in
-                Framebuffer.blend fb ~x:column ~y
-                  ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. lit)))
-                  ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. lit)))
-                  ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. lit)))
-                  ~a:da)
+                let img = dec.Room.image in
+                let idx = Image.index img ~u:ui ~v:vi in
+                let da = img.Image.alpha.(idx) in
+                if da > 0 then
+                  let c = img.Image.pixels.(idx) in
+                  Framebuffer.blend fb ~x:column ~y
+                    ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. lit)))
+                    ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. lit)))
+                    ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. lit)))
+                    ~a:da)
           decals
       end
     done
   end
 
-type mask = Full | Within of { column : int; first : int; last : int }
-(** Which pixels a translucent thing seen through a chain of doorways is allowed
-    to touch. Everything drawn inside a portal is drawn one column at a time, so
-    a mask is never more than a single column and a row range within it — the
-    rows the opening covered {e in that column}. That makes the clip exact
-    rather than a bounding box: a sprite seen through a doorway is trimmed to
-    the doorway's own outline, not to a rectangle around it. [Full] is the
-    player's own room, clipped by nothing. *)
+type mask =
+  | Full
+  | Within of { column : int; first : int; last : int }
+      (** Which pixels a translucent thing seen through a chain of doorways is
+          allowed to touch. Everything drawn inside a portal is drawn one column
+          at a time, so a mask is never more than a single column and a row
+          range within it — the rows the opening covered {e in that column}.
+          That makes the clip exact rather than a bounding box: a sprite seen
+          through a doorway is trimmed to the doorway's own outline, not to a
+          rectangle around it. [Full] is the player's own room, clipped by
+          nothing. *)
 
 (** Draw one sprite as a billboard: a flat image that always faces the player,
     at perpendicular distance [depth_s]. {!Viewport.sprite_box} says where it
@@ -376,11 +381,6 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
     done
   done
 
-(** A translucent thing to composite after the opaque geometry: a sprite, or a
-    strip of a see-through wall in one column. Both let what is behind show
-    through, so they cannot each be given their own pass — a sprite in front of
-    a window must cover it, one behind it must show through — they have to be
-    sorted together and drawn farthest first. *)
 type fragment = {
   distance : float;
   pose : Player.t;
@@ -388,6 +388,11 @@ type fragment = {
   mask : mask;
   what : fragment_kind;
 }
+(** A translucent thing to composite after the opaque geometry: a sprite, or a
+    strip of a see-through wall in one column. Both let what is behind show
+    through, so they cannot each be given their own pass — a sprite in front of
+    a window must cover it, one behind it must show through — they have to be
+    sorted together and drawn farthest first. *)
 
 and fragment_kind =
   | Sprite of Room.sprite
@@ -472,7 +477,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
       | Ray.Wall hit -> paint ~first:top ~last:bottom hit
       (* The doorway we are already looking through. *)
       | Ray.Opening opening when entered = Some opening.Ray.index -> ()
-      | Ray.Opening opening ->
+      | Ray.Opening opening -> (
           let threshold = current.Room.thresholds.(opening.Ray.index) in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
@@ -492,8 +497,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
               paint ~first:top
                 ~last:(Int.min bottom (head - 1))
                 (as_wall threshold ~index:opening.Ray.index ~height:l.Room.top
-                   ~material:l.Room.material ~distance
-                   ~along:opening.Ray.along))
+                   ~material:l.Room.material ~distance ~along:opening.Ray.along))
             threshold.lintel;
           if head <= foot then
             (* Out of budget, or a doorway onto a room that has not been built
@@ -543,7 +547,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                       ~dir:(Transform.direction portal.World.onto dir)
                       ~clip:(head, foot) ~budget:(budget - 1)
                       ~entered:(Some portal.World.twin) ~translucent
-                | Some _ | None -> nothing_behind ()))
+                | Some _ | None -> nothing_behind ())))
     (Ray.merge
        (Ray.cast current ~origin:pose.Player.pos ~direction:dir)
        (Ray.openings current ~origin:pose.Player.pos ~direction:dir))
@@ -606,8 +610,9 @@ let draw_frame fb world (player : Player.t) =
   for column = 0 to width - 1 do
     let dir = Viewport.ray_direction viewport player ~column in
     draw_room_column fb viewport world ~room:player.room ~pose:player ~column
-      ~dir ~clip:(0, height - 1) ~budget:Config.max_portal_depth ~entered:None
-      ~translucent
+      ~dir
+      ~clip:(0, height - 1)
+      ~budget:Config.max_portal_depth ~entered:None ~translucent
   done;
   draw_translucent fb viewport world !translucent
 

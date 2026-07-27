@@ -40,7 +40,8 @@ let a_rectangle_fills_what_it_covers () =
   Alcotest.check color "one before it is untouched" black
     (Framebuffer.pixel fb ~x:1 ~y:3);
   Alcotest.check color "and one past it" black (Framebuffer.pixel fb ~x:5 ~y:4);
-  Alcotest.check color "and the row below" black (Framebuffer.pixel fb ~x:2 ~y:5)
+  Alcotest.check color "and the row below" black
+    (Framebuffer.pixel fb ~x:2 ~y:5)
 
 (* Off each edge in turn, and off a corner. The part that is on the buffer is
    drawn and the part that is not is not — the alternative is writing into the
@@ -78,7 +79,8 @@ let a_rectangle_is_clipped_to_the_buffer () =
     (Framebuffer.pixel over_bottom ~x:2 ~y:7);
 
   let over_corner = buffer () in
-  Paint.rect over_corner ~x:(-2) ~y:(-2) ~w:4 ~h:4 ~r:255 ~g:255 ~b:255 ~alpha:255;
+  Paint.rect over_corner ~x:(-2) ~y:(-2) ~w:4 ~h:4 ~r:255 ~g:255 ~b:255
+    ~alpha:255;
   Alcotest.check color "off a corner: the quarter that shows" white
     (Framebuffer.pixel over_corner ~x:0 ~y:0);
   Alcotest.check color "off a corner: and no more" black
@@ -97,7 +99,12 @@ let a_rectangle_entirely_off_the_buffer_draws_nothing () =
             (Framebuffer.pixel fb ~x:px ~y:py)
         done
       done)
-    [ ("far left", -9, 2); ("far right", 12, 2); ("above", 2, -9); ("below", 2, 11) ]
+    [
+      ("far left", -9, 2);
+      ("far right", 12, 2);
+      ("above", 2, -9);
+      ("below", 2, 11);
+    ]
 
 (* Alpha composites against what is already there rather than replacing it,
    which is what lets a panel tint the world behind it instead of hiding it. *)
@@ -107,7 +114,8 @@ let alpha_blends_with_what_is_underneath () =
   Paint.rect fb ~x:0 ~y:0 ~w:2 ~h:2 ~r:0 ~g:0 ~b:200 ~alpha:128;
   (* (src * a + dst * (255 - a)) / 255, with a = 128. *)
   let mix dst src = ((src * 128) + (dst * 127)) / 255 in
-  Alcotest.check color "half of each" (Color.rgb (mix 200 0) (mix 100 0) (mix 0 200))
+  Alcotest.check color "half of each"
+    (Color.rgb (mix 200 0) (mix 100 0) (mix 0 200))
     (Framebuffer.pixel fb ~x:0 ~y:0);
   Alcotest.check color "and the part not covered is as it was"
     (Color.rgb 200 100 0)
@@ -140,14 +148,17 @@ let an_image_keeps_its_own_transparency () =
 let a_sub_rectangle_takes_what_it_was_asked_for () =
   (* Each pixel's red channel is its own column, so what lands says where it
      came from. *)
-  let img = Image.make ~height:4 8 (fun ~u ~v:_ -> (Color.rgb (u * 10) 0 0, 255)) in
+  let img =
+    Image.make ~height:4 8 (fun ~u ~v:_ -> (Color.rgb (u * 10) 0 0, 255))
+  in
   let fb = buffer () in
   Paint.sub fb img ~x:0 ~y:0 ~sx:3 ~sy:1 ~sw:2 ~sh:2;
   Alcotest.check color "the first column of the rectangle" (Color.rgb 30 0 0)
     (Framebuffer.pixel fb ~x:0 ~y:0);
   Alcotest.check color "the second" (Color.rgb 40 0 0)
     (Framebuffer.pixel fb ~x:1 ~y:0);
-  Alcotest.check color "and not the third" black (Framebuffer.pixel fb ~x:2 ~y:0);
+  Alcotest.check color "and not the third" black
+    (Framebuffer.pixel fb ~x:2 ~y:0);
   (* Clipped at the left edge, the source has to advance with the destination:
      the column that survives is the second of the rectangle, not the first. *)
   let fb = buffer () in

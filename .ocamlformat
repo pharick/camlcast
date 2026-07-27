@@ -1,0 +1,7 @@
+# The default profile, and the version it means. Pinning the version is the
+# point of this file: ocamlformat's output changes between releases, so an
+# unpinned formatter turns "the repository is formatted" into "the repository
+# is formatted the way whoever last ran it had installed", and the CI check
+# disagrees with the machine it passed on. A mismatched binary now refuses to
+# run rather than quietly reflowing the tree.
+version = 0.29.0

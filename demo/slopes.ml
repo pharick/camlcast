@@ -52,7 +52,8 @@ let world =
   let hall =
     Room.make ~thresholds:[ hall_onward ]
       ~floor:{ Room.plane = hall_floor; material = Surfaces.ground }
-      ~ceiling:(Room.Roof { Room.plane = hall_roof; material = Surfaces.soffit })
+      ~ceiling:
+        (Room.Roof { Room.plane = hall_roof; material = Surfaces.soffit })
       ~sprites:
         [
           (* Standing on the slope: a sprite's feet are on the floor wherever
@@ -61,15 +62,14 @@ let world =
           Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 11. 2.5);
         ]
       (hall_jambs
-      @ [ stone hall_sw hall_se; stone hall_ne hall_nw; stone hall_nw hall_sw ])
+      @ [ stone hall_sw hall_se; stone hall_ne hall_nw; stone hall_nw hall_sw ]
+      )
   and upper =
     Room.make ~thresholds:[ up_back ]
       ~floor:{ Room.plane = up_floor; material = Surfaces.ground }
       ~ceiling:(Room.Roof { Room.plane = up_roof; material = Surfaces.soffit })
-      ~sprites:
-        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]
-      (up_jambs
-      @ [ stone up_sw up_se; stone up_se up_ne; stone up_ne up_nw ])
+      ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]
+      (up_jambs @ [ stone up_sw up_se; stone up_se up_ne; stone up_ne up_nw ])
   in
   World.make
     ~rooms:[ ("hall", hall); ("upper", upper) ]

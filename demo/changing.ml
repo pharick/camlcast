@@ -37,7 +37,6 @@ type t = { elapsed : float; player : Player.t }
    Its endpoints never move: only what is painted on it does. *)
 let sign_wall_a = Vec.make 7. (-6.)
 let sign_wall_b = Vec.make 7. 6.
-
 let sw = Vec.make (-7.) (-6.)
 let se = Vec.make 7. (-6.)
 let ne = Vec.make 7. 6.
@@ -46,7 +45,9 @@ let nw = Vec.make (-7.) 6.
 (** The room as it stands at [phase], a fraction of the way round the cycle. *)
 let room ~phase =
   let turn = phase *. 2. *. Float.pi in
-  let coats = [| Surfaces.brick; Surfaces.panel; Surfaces.stone; Surfaces.tile |] in
+  let coats =
+    [| Surfaces.brick; Surfaces.panel; Surfaces.stone; Surfaces.tile |]
+  in
   let coat = coats.(int_of_float (phase *. 4.) mod 4) in
   (* Two pictures alternating is a two-frame animation; the slide along the
      wall is the same decal placed somewhere else. *)
@@ -64,7 +65,10 @@ let room ~phase =
     ~floor:{ Room.plane = floor; material = Surfaces.ground }
     ~ceiling:
       (Room.Roof
-         { Room.plane = Plane.horizontal (height +. 0.5); material = Surfaces.soffit })
+         {
+           Room.plane = Plane.horizontal (height +. 0.5);
+           material = Surfaces.soffit;
+         })
     ~sprites:
       [
         Room.sprite ~size:0.9 ~image:Pictures.barrel
@@ -98,8 +102,7 @@ let update state ~dt ~motion ~actions:_ =
    so collision is against the room as authored. Only what is drawn changes. *)
 let view state =
   let phase = state.elapsed /. period in
-  ( World.replace_room world ~room:0 ~replacement:(room ~phase),
-    state.player )
+  (World.replace_room world ~room:0 ~replacement:(room ~phase), state.player)
 
 let run () =
   let+ _ = Engine.run_state ~update ~view start in

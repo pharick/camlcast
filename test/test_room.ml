@@ -2,7 +2,9 @@ open Raycaster
 open Support
 
 let a_wall_precomputes_its_geometry () =
-  let w = Room.wall ~height:2. ~material:pale (Vec.make 1. 1.) (Vec.make 4. 5.) in
+  let w =
+    Room.wall ~height:2. ~material:pale (Vec.make 1. 1.) (Vec.make 4. 5.)
+  in
   Alcotest.check vec "edge is b - a" (Vec.make 3. 4.) w.Room.edge;
   Alcotest.check close "length is |edge|" 5. w.Room.length;
   Alcotest.check close "the normal is a unit vector" 1.
@@ -32,9 +34,7 @@ let a_wall_can_wear_decals () =
    high, hung in a space four times as wide as it is tall. *)
 let a_decal_is_indexed_by_width_across_and_height_down () =
   let image = Image.make ~height:3 12 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
-  let dec =
-    Room.decal ~along:2. ~z:1. ~half_width:2. ~half_height:0.5 image
-  in
+  let dec = Room.decal ~along:2. ~z:1. ~half_width:2. ~half_height:0.5 image in
   let column at = Room.decal_column dec ~seen_from:Room.Front ~along:at
   and row at = Room.decal_row dec ~above:at in
   Alcotest.(check (option int)) "the left edge is column 0" (Some 0) (column 0.);
@@ -42,13 +42,12 @@ let a_decal_is_indexed_by_width_across_and_height_down () =
     "the middle is the middle of the width" (Some 6) (column 2.);
   Alcotest.(check (option int))
     "and the right edge is the last column" (Some 11) (column 4.);
-  Alcotest.(check (option int)) "past the end is off the decal" None (column 4.5);
+  Alcotest.(check (option int))
+    "past the end is off the decal" None (column 4.5);
   Alcotest.(check (option int)) "and before the start too" None (column (-0.5));
   (* Rows run down from the top of the decal, so the highest point is row 0. *)
   Alcotest.(check (option int)) "the top is row 0" (Some 0) (row 1.5);
-  Alcotest.(check (option int))
-    "the bottom is the last row" (Some 2)
-    (row 0.5);
+  Alcotest.(check (option int)) "the bottom is the last row" (Some 2) (row 0.5);
   Alcotest.(check (option int)) "and above it is off the decal" None (row 1.6);
   (* The point of the whole test: 12 is not 3. A version indexing rows by the
      width would answer 8 rather than 2 for the bottom, and clamp. *)
@@ -62,7 +61,9 @@ let a_decal_is_indexed_by_width_across_and_height_down () =
    keeps its interior on the left, so the normal points in. Nothing else in the
    engine states that, and an author writing a decal is trusting it. *)
 let front_is_the_side_the_normal_points_to () =
-  let w = Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) in
+  let w =
+    Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
+  in
   Alcotest.check vec "this wall's normal points at +y" (Vec.make 0. 1.)
     w.Room.normal;
   Alcotest.(check bool)
@@ -75,13 +76,14 @@ let front_is_the_side_the_normal_points_to () =
      counter-clockwise, and its centre is at the front of every one of them. *)
   Alcotest.(check bool)
     "the inside of a counter-clockwise room is Front of all four walls" true
-    (Array.for_all (fun w -> Room.side_of w centre = Room.Front) room.Room.walls);
+    (Array.for_all
+       (fun w -> Room.side_of w centre = Room.Front)
+       room.Room.walls);
   (* Which is what makes [Front] the right default: it is where you stand. *)
   Alcotest.(check bool)
     "and a decal says so unless told otherwise" true
     ((Room.decal ~along:1. ~z:1. ~half_width:0.5 ~half_height:0.5 poster)
-       .Room.facing
-    = Room.Front)
+       .Room.facing = Room.Front)
 
 (* A mark is on one face. Asked from the other, the rule that says where it is
    says it is nowhere — and it is [decal_column] that says so, the same call
@@ -129,7 +131,8 @@ let a_decal_can_be_added_to_a_wall () =
   Alcotest.(check int)
     "and no other wall does" 0
     (List.length after.Room.walls.(0).Room.decals);
-  Alcotest.(check int) "a second goes on too" 2
+  Alcotest.(check int)
+    "a second goes on too" 2
     (List.length twice.Room.walls.(1).Room.decals);
   Alcotest.check close "and on the end, which is the top of the pile" 3.
     (List.nth twice.Room.walls.(1).Room.decals 1).Room.along;
@@ -159,7 +162,8 @@ let a_sprite_is_indexed_by_width_across_and_height_down () =
      across and reaches two either side. *)
   Alcotest.check close "half a width" 2. (Room.sprite_half_width s);
   let column at = Room.sprite_column s ~lateral:at in
-  Alcotest.(check (option int)) "the left edge is column 0" (Some 0) (column (-2.));
+  Alcotest.(check (option int))
+    "the left edge is column 0" (Some 0) (column (-2.));
   Alcotest.(check (option int)) "the centre is the middle" (Some 8) (column 0.);
   Alcotest.(check (option int))
     "and the right edge the last column" (Some 15) (column 2.);
@@ -193,8 +197,7 @@ let a_base_lifts_a_sprite_off_the_floor_it_is_given () =
      rides the ground rather than the ground riding through it. *)
   Alcotest.check close "the floor carries the foot" 2.5
     (Room.sprite_foot lifted ~floor_z:1.);
-  Alcotest.check close "and the head" 4.5
-    (Room.sprite_head lifted ~floor_z:1.);
+  Alcotest.check close "and the head" 4.5 (Room.sprite_head lifted ~floor_z:1.);
   (* Which is the same thing said twice: raising the floor and raising the base
      put the picture in the same place. *)
   Alcotest.(check (option int))
@@ -221,7 +224,8 @@ let replacing_the_sprites_keeps_the_rest () =
         Room.sprite ~size:1. ~image (Vec.make 2. 2.);
       ]
   in
-  Alcotest.(check int) "the new sprites are there" 2
+  Alcotest.(check int)
+    "the new sprites are there" 2
     (Array.length after.Room.sprites);
   Alcotest.check close "and are the ones asked for" 2.
     after.Room.sprites.(0).Room.base;
@@ -240,7 +244,9 @@ let replacing_the_sprites_keeps_the_rest () =
     (Array.length before.Room.sprites)
 
 let distance_to_a_wall () =
-  let w = Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) in
+  let w =
+    Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
+  in
   Alcotest.check close "straight out from the middle" 3.
     (Room.distance_to_wall w (Vec.make 2. 3.));
   Alcotest.check close "off the end clamps to the endpoint" 5.
@@ -252,8 +258,7 @@ let distance_to_a_wall () =
    padding disc overlapping any wall. *)
 let blocked_within_the_padding () =
   Alcotest.(check bool)
-    "the centre of the room is clear" false
-    (Room.blocked room centre);
+    "the centre of the room is clear" false (Room.blocked room centre);
   Alcotest.(check bool)
     "hard against a wall is blocked" true
     (Room.blocked room (Vec.make (4. -. (Config.collision_padding /. 2.)) 2.));
@@ -386,10 +391,10 @@ let a_doorway_that_could_not_be_cut_is_refused () =
     Alcotest.check_raises what (Invalid_argument message) body
   in
   let cut ~width a b =
-    fun () ->
-      ignore
-        (Room.doorway ~name:"gate" ~width ~opening:2. ~height:3. ~material:pale
-           a b)
+   fun () ->
+    ignore
+      (Room.doorway ~name:"gate" ~width ~opening:2. ~height:3. ~material:pale a
+         b)
   in
   raises "a wall with no length"
     "Room.doorway: no wall to cut a doorway into: gate"
@@ -409,7 +414,8 @@ let opening ?door () =
 let a_doorway_can_hang_a_door () =
   let bare = opening () and hung = opening ~door:(Door.make mesh) () in
   Alcotest.(check bool) "a bare opening has no leaf" true (bare.Room.door = None);
-  Alcotest.(check bool) "a door names its material" true
+  Alcotest.(check bool)
+    "a door names its material" true
     (match hung.Room.door with
     | Some d -> d.Door.material == mesh
     | None -> false);

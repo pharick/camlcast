@@ -2,10 +2,10 @@
 
     The grid is the whole design. A glyph's place in the atlas is arithmetic on
     its code point, and its advance is the cell width, so a font is four numbers
-    and a picture — there is no metrics table to author beside the PNG, to parse,
-    or to let drift out of step with it. The cost is that the text is monospaced,
-    which for a journal, a death screen and a lamp warning at this resolution is
-    not much of a cost.
+    and a picture — there is no metrics table to author beside the PNG, to
+    parse, or to let drift out of step with it. The cost is that the text is
+    monospaced, which for a journal, a death screen and a lamp warning at this
+    resolution is not much of a cost.
 
     {b The atlas's colour is multiplied by the one {!draw} is given}, so a
     typeface drawn white comes out in whatever colour a screen asks for. That is
@@ -14,13 +14,13 @@
     rather than one file per colour.
 
     Sizes are in framebuffer pixels, and the framebuffer is the internal one —
-    {!Renderer} caps it at {!Config.max_render_height} rows and the GPU stretches
-    the result to the window. So a glyph is drawn once at whatever size the atlas
-    says and scaled with everything else, which is why a font for this engine is
-    designed small and legible rather than large and smooth.
+    {!Renderer} caps it at {!Config.max_render_height} rows and the GPU
+    stretches the result to the window. So a glyph is drawn once at whatever
+    size the atlas says and scaled with everything else, which is why a font for
+    this engine is designed small and legible rather than large and smooth.
 
-    The typeface itself is content and lives outside the engine, like every other
-    picture. This module is the grid, the layout and the drawing. *)
+    The typeface itself is content and lives outside the engine, like every
+    other picture. This module is the grid, the layout and the drawing. *)
 
 type t = {
   atlas : Image.t;
@@ -34,14 +34,14 @@ type t = {
 
 (** [make ~atlas ~width ~height ~first] describes the grid [atlas] is laid out
     on. [columns] is not asked for: it is the atlas's own width over the cell's,
-    so the only description of a font that can be written is one that agrees with
-    its picture.
+    so the only description of a font that can be written is one that agrees
+    with its picture.
 
-    [fallback] is drawn in place of any character outside the grid. Giving one is
-    worth it wherever the text is not entirely the game's own — a player-authored
-    journal entry with something unexpected in it should show a box saying so
-    rather than a gap that reads as a bug in the layout. Without one, such a
-    character takes its space and draws nothing. *)
+    [fallback] is drawn in place of any character outside the grid. Giving one
+    is worth it wherever the text is not entirely the game's own — a
+    player-authored journal entry with something unexpected in it should show a
+    box saying so rather than a gap that reads as a bug in the layout. Without
+    one, such a character takes its space and draws nothing. *)
 let make ?fallback ~atlas ~width ~height ~first () =
   if width <= 0 || height <= 0 then
     invalid_arg "Font.make: a cell must have a positive size";
@@ -63,7 +63,7 @@ let capacity t = t.columns * (t.atlas.Image.height / t.height)
 let cell t c =
   let n = Char.code c - t.first in
   if n < 0 || n >= capacity t then None
-  else Some ((n mod t.columns) * t.width, n / t.columns * t.height)
+  else Some (n mod t.columns * t.width, n / t.columns * t.height)
 
 (** What {!draw} will actually put in [c]'s place: its own cell, the fallback's,
     or nothing. *)
@@ -82,8 +82,8 @@ let glyph t c =
 let lines text = String.split_on_char '\n' text
 
 (** The pixel width and height [text] would take: the longest line by the widest
-    it could be, and a line's height for each. Empty text is nothing wide and one
-    line tall, because a caret still has somewhere to sit. *)
+    it could be, and a line's height for each. Empty text is nothing wide and
+    one line tall, because a caret still has somewhere to sit. *)
 let measure t text =
   let ls = lines text in
   let longest =
@@ -114,9 +114,7 @@ let wrap t text ~width =
   in
   let wrap_line line =
     let words = String.split_on_char ' ' line in
-    let flush current out =
-      match current with "" -> out | c -> c :: out
-    in
+    let flush current out = match current with "" -> out | c -> c :: out in
     let current, out =
       List.fold_left
         (fun (current, out) word ->
@@ -132,15 +130,17 @@ let wrap t text ~width =
               (rest, "", out)
           in
           if current = "" then (word, out)
-          else if String.length current + 1 + String.length word <= per_line then
-            (current ^ " " ^ word, out)
+          else if String.length current + 1 + String.length word <= per_line
+          then (current ^ " " ^ word, out)
           else (word, current :: out))
         ("", []) words
     in
     (* A line with nothing on it wraps to one empty line and not to none: the
        break was in the text, and dropping it here would leave {!measure} and
        {!draw} counting a line this does not return. *)
-    match List.rev (flush current out) with [] -> [ "" ] | wrapped -> wrapped
+    match List.rev (flush current out) with
+    | [] -> [ "" ]
+    | wrapped -> wrapped
   in
   List.concat_map wrap_line (lines text)
 

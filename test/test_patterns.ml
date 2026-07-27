@@ -22,7 +22,10 @@ let glass = Patterns.glass ~lead:steel ~pane:(Color.rgb 150 205 230)
 
 let patterns =
   [
-    ("brick", brick); ("panel", panel); ("stone", stone); ("checker", checker);
+    ("brick", brick);
+    ("panel", panel);
+    ("stone", stone);
+    ("checker", checker);
     ("plain", plain);
   ]
 
@@ -89,7 +92,9 @@ let glass_has_lead_and_pane () =
 let one_pattern_serves_many_colours () =
   let yellow = Patterns.checker ~color:(Color.rgb 220 200 90)
   and brown = Patterns.checker ~color:(Color.rgb 116 110 98) in
-  let squares f = List.map (fun (u, v) -> f ~u ~v) [ (8, 8); (24, 8); (8, 24) ] in
+  let squares f =
+    List.map (fun (u, v) -> f ~u ~v) [ (8, 8); (24, 8); (8, 24) ]
+  in
   let bright c = c.Color.r + c.Color.g + c.Color.b in
   let shape f =
     match squares f with

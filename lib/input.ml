@@ -62,19 +62,25 @@ let motion ~dt =
       -. (mouse_dy *. Config.pitch_sensitivity);
   }
 
-type button = Left | Middle | Right
-(** The mouse buttons a game may bind. SDL knows about more; these are the three
-    every mouse has. *)
+type button =
+  | Left
+  | Middle
+  | Right
+      (** The mouse buttons a game may bind. SDL knows about more; these are the
+          three every mouse has. *)
 
-type control = Key of Sdl.scancode | Button of button
-(** Something the player can hold down. Keys are named by [Sdl.Scancode] —
-    scancodes and not keycodes, so a binding is a place on the keyboard rather
-    than a letter, and it stays where it is under a different layout.
+type control =
+  | Key of Sdl.scancode
+  | Button of button
+      (** Something the player can hold down. Keys are named by [Sdl.Scancode] —
+          scancodes and not keycodes, so a binding is a place on the keyboard
+          rather than a letter, and it stays where it is under a different
+          layout.
 
-    The engine has no opinion about what any of them mean. "Interact", "chalk",
-    "journal" are a game's words for its own table from controls to actions;
-    what the engine owns is the mechanism underneath — when a control went down,
-    when it came up, and how long it was held. *)
+          The engine has no opinion about what any of them mean. "Interact",
+          "chalk", "journal" are a game's words for its own table from controls
+          to actions; what the engine owns is the mechanism underneath — when a
+          control went down, when it came up, and how long it was held. *)
 
 (* Controls are counted off into one flat range so that a frame's worth of them
    is three arrays and an index, rather than a lookup structure. The keyboard
@@ -203,8 +209,8 @@ let sample previous ~dt =
 
 type request = { quit : bool; toggle_fullscreen : bool }
 (** What the window system has asked of the program this frame, as opposed to
-    what the player has asked of the game. Both of these are the engine's to
-    act on; everything a game binds is read as state instead, by {!sample}. *)
+    what the player has asked of the game. Both of these are the engine's to act
+    on; everything a game binds is read as state instead, by {!sample}. *)
 
 let nothing = { quit = false; toggle_fullscreen = false }
 

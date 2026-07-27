@@ -37,12 +37,10 @@ type t = {
 let identity = { cos = 1.; sin = 0.; offset = Vec.make 0. 0. }
 
 (** Rotate a {e direction} — [dir], [right], a wall normal, a ray. Directions
-    carry no position, so the translation does not apply to them; only
-    {!point} adds it. *)
+    carry no position, so the translation does not apply to them; only {!point}
+    adds it. *)
 let direction t (v : Vec.t) =
-  Vec.make
-    ((t.cos *. v.x) -. (t.sin *. v.y))
-    ((t.sin *. v.x) +. (t.cos *. v.y))
+  Vec.make ((t.cos *. v.x) -. (t.sin *. v.y)) ((t.sin *. v.x) +. (t.cos *. v.y))
 
 (** Carry a {e position} across: rotate it, then translate. *)
 let point t p = Vec.add (direction t p) t.offset
@@ -89,8 +87,8 @@ let compose outer inner =
     Mapping the endpoints straight across instead would leave the rotation the
     identity and drop the player back outside B, on the wrong side of its wall.
 
-    So the {b authoring rule} for a {!Room.type-threshold} is: give its endpoints in
-    the same winding direction as the room's own boundary walls.
+    So the {b authoring rule} for a {!Room.type-threshold} is: give its
+    endpoints in the same winding direction as the room's own boundary walls.
 
     {1 The derivation}
 

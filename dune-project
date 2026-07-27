@@ -28,6 +28,12 @@
   tsdl-image
   (alcotest :with-test)
   (ocaml-lsp-server :with-dev-setup)
-  (ocamlformat :with-dev-setup)))
+  ; Pinned, and pinned to the same version .ocamlformat names: the formatting
+  ; is a build check, and a check whose tool floats is one that fails on a
+  ; machine that did nothing wrong.
+  (ocamlformat
+   (and
+    :with-dev-setup
+    (= 0.29.0)))))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html

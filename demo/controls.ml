@@ -66,7 +66,9 @@ let world =
         ]
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 let start =

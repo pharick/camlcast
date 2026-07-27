@@ -36,9 +36,9 @@ let rect fb ~x ~y ~w ~h ~r ~g ~b ~alpha =
 
     The clipping is done on the {e destination} and then read back into the
     source, so a picture half off the left edge draws its right half rather than
-    the whole thing squashed or nothing at all. [tint] multiplies the image's own
-    colour if it is given, which is what {!Font} uses to draw one white atlas in
-    any colour a screen asks for.
+    the whole thing squashed or nothing at all. [tint] multiplies the image's
+    own colour if it is given, which is what {!Font} uses to draw one white
+    atlas in any colour a screen asks for.
 
     A pixel with zero alpha costs a comparison and no write, so a cut-out
     picture — which is most of them — is cheap over the parts that are not
@@ -60,8 +60,9 @@ let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
           match tint with
           | None -> (c.Color.r, c.Color.g, c.Color.b)
           | Some (t : Color.t) ->
-              (c.Color.r * t.Color.r / 255, c.Color.g * t.Color.g / 255,
-               c.Color.b * t.Color.b / 255)
+              ( c.Color.r * t.Color.r / 255,
+                c.Color.g * t.Color.g / 255,
+                c.Color.b * t.Color.b / 255 )
         in
         if a >= 255 then Framebuffer.set fb ~x:px ~y:py ~r ~g ~b
         else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~a
@@ -77,8 +78,9 @@ let image ?tint fb (img : Image.t) ~x ~y =
 let bar fb ~x ~y ~w ~h ~fraction ~r ~g ~b =
   rect fb ~x:(x - 1) ~y:(y - 1) ~w:(w + 2) ~h:(h + 2) ~r:0 ~g:0 ~b:0 ~alpha:140;
   let fraction = Float.max 0. (Float.min 1. fraction) in
-  rect fb ~x ~y ~w:(int_of_float (fraction *. float_of_int w)) ~h ~r ~g ~b
-    ~alpha:255
+  rect fb ~x ~y
+    ~w:(int_of_float (fraction *. float_of_int w))
+    ~h ~r ~g ~b ~alpha:255
 
 (** One pixel. Goes through {!rect} so that it is clipped like everything else
     here. *)

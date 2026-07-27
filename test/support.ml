@@ -25,7 +25,9 @@ let color =
     rephrasing one a test failure. *)
 let mentions haystack needle =
   let n = String.length needle and h = String.length haystack in
-  let rec at i = i + n <= h && (String.sub haystack i n = needle || at (i + 1)) in
+  let rec at i =
+    i + n <= h && (String.sub haystack i n = needle || at (i + 1))
+  in
   n = 0 || at 0
 
 (** {1 Fixtures} *)
@@ -56,9 +58,8 @@ let mesh =
 
 let air =
   Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:12.
-    ~min_brightness:0.25
-    ~light:(Vec.make (-0.4) (-0.9))
-    ~ambient:0.6 ~directional:0.4
+    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
+    ~directional:0.4
 
 (* Something to hang on a wall. Four quadrants, so a test can tell which corner
    of it a sample came from, and a clear border so the cut-out path is covered
@@ -66,11 +67,14 @@ let air =
 let poster =
   Image.make 8 (fun ~u ~v ->
       if u = 0 || v = 0 || u = 7 || v = 7 then Image.clear
-      else (Color.rgb (if u < 4 then 200 else 40) (if v < 4 then 200 else 40) 0, 255))
+      else
+        ( Color.rgb (if u < 4 then 200 else 40) (if v < 4 then 200 else 40) 0,
+          255 ))
 
 let flat_floor = { Room.plane = Plane.horizontal 0.; material = pale }
 
-let flat_ceiling = Room.Roof { Room.plane = Plane.horizontal 3.; material = dim }
+let flat_ceiling =
+  Room.Roof { Room.plane = Plane.horizontal 3.; material = dim }
 
 (** A cloudless sky, for the fixture room that is open to one. *)
 let open_sky =
@@ -97,18 +101,21 @@ let room =
       Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
     ]
 
-(** The same room with a short free-standing dim wall, one cell east
-    of the centre, spanning the ray fired east from it. Used to check that a ray
-    keeps the walls behind a near one. *)
+(** The same room with a short free-standing dim wall, one cell east of the
+    centre, spanning the ray fired east from it. Used to check that a ray keeps
+    the walls behind a near one. *)
 let room_with_pillar =
   Room.make ~floor:flat_floor ~ceiling:flat_ceiling
     (Array.to_list room.Room.walls
-    @ [ Room.wall ~height:1. ~material:dim (Vec.make 3. 1.5) (Vec.make 3. 2.5) ])
+    @ [ Room.wall ~height:1. ~material:dim (Vec.make 3. 1.5) (Vec.make 3. 2.5) ]
+    )
 
 (** The same room as the only room of a world, for the suites that need a
     {!World.t} but nothing to do with doorways. *)
 let world =
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:air
     ~spawn:("room", Vec.make 2. 2.)
 
 (** Two 4 x 4 rooms joined through a doorway one cell wide, each authored in its
@@ -157,7 +164,8 @@ let joined_rooms ?door () =
             (Vec.make 1.2 2.45);
         ])
   in
-  World.make ~rooms:[ ("first", first); ("second", second) ]
+  World.make
+    ~rooms:[ ("first", first); ("second", second) ]
     ~links:[ (("first", "east"), ("second", "west")) ]
     ~atmosphere:air
     ~spawn:("first", Vec.make 2. 2.)
@@ -189,7 +197,8 @@ let portal world ~room ~index = Option.get (World.portals world room).(index)
 
     Shared, because a frame that goes out of a room and back into it in one step
     is the case two suites need: the player's, for the crossings it reports, and
-    the engine's, for the growth hook that would otherwise never hear about it. *)
+    the engine's, for the growth hook that would otherwise never hear about it.
+*)
 let loop =
   let a_east_jambs, a_east =
     Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
@@ -221,9 +230,11 @@ let loop =
           Room.wall ~height:3. ~material:dim (Vec.make 4. 0.) (Vec.make 4. 4.);
         ])
   in
-  World.make ~rooms:[ ("a", a); ("b", b) ]
+  World.make
+    ~rooms:[ ("a", a); ("b", b) ]
     ~links:[ (("a", "east"), ("b", "west")); (("b", "north"), ("a", "south")) ]
-    ~atmosphere:air ~spawn:("a", Vec.make 2. 2.)
+    ~atmosphere:air
+    ~spawn:("a", Vec.make 2. 2.)
 
 (** Centre of the room, 2 cells from every wall. *)
 let centre = Vec.make 2. 2.

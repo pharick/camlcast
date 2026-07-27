@@ -73,7 +73,8 @@ let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
     (fun index (w : Room.wall) ->
       match segment ~origin ~direction ~a:w.a ~edge:w.edge with
       | Some (t, s) ->
-          hits := { distance = t; along = s *. w.length; wall = w; index } :: !hits
+          hits :=
+            { distance = t; along = s *. w.length; wall = w; index } :: !hits
       | None -> ())
     world.walls;
   let hits = !hits in
@@ -86,7 +87,9 @@ let openings (room : Room.t) ~origin ~direction =
   Array.to_list
     (Array.mapi
        (fun index (threshold : Room.threshold) ->
-         match segment ~origin ~direction ~a:threshold.a ~edge:threshold.edge with
+         match
+           segment ~origin ~direction ~a:threshold.a ~edge:threshold.edge
+         with
          | Some (distance, s) ->
              Some { distance; along = s *. threshold.length; index }
          | None -> None)
@@ -94,14 +97,14 @@ let openings (room : Room.t) ~origin ~direction =
   |> List.filter_map Fun.id
   |> List.sort (fun (a : opening) b -> Float.compare b.distance a.distance)
 
-type step = Wall of hit | Opening of opening
-(** One thing a ray met in a room, of whichever kind. Walls and doorways are
-    found by two separate passes but have to be dealt with in one order, since
-    each can stand in front of the other. *)
+type step =
+  | Wall of hit
+  | Opening of opening
+      (** One thing a ray met in a room, of whichever kind. Walls and doorways
+          are found by two separate passes but have to be dealt with in one
+          order, since each can stand in front of the other. *)
 
-let step_distance = function
-  | Wall h -> h.distance
-  | Opening o -> o.distance
+let step_distance = function Wall h -> h.distance | Opening o -> o.distance
 
 (** Both lists arrive farthest-first, so one merge puts walls and thresholds
     into a single far-to-near stream without sorting either of them again.

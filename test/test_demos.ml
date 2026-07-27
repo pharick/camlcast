@@ -77,14 +77,17 @@ let is_connected (demo : Catalogue.t) =
     (Array.for_all Fun.id seen)
 
 let names_are_distinct () =
-  let names = List.map (fun (d : Catalogue.t) -> d.Catalogue.name) Catalogue.demos in
+  let names =
+    List.map (fun (d : Catalogue.t) -> d.Catalogue.name) Catalogue.demos
+  in
   Alcotest.(check int)
     "no two demos answer to the same name" (List.length names)
     (List.length (List.sort_uniq String.compare names));
   List.iter
     (fun name ->
       Alcotest.(check bool)
-        (name ^ " can be found by name") true
+        (name ^ " can be found by name")
+        true
         (Catalogue.find name <> None))
     names;
   Alcotest.(check bool)
@@ -149,15 +152,14 @@ let the_trail_demo_unwinds_its_own_route () =
     (List.length Trail.start.Trail.stack);
   let out = walk Trail.start ~forward:0.15 ~frames:320 in
   Alcotest.(check int)
-    "walking east reaches the far chamber" 4
-    out.Trail.player.Player.room;
+    "walking east reaches the far chamber" 4 out.Trail.player.Player.room;
   Alcotest.(check int)
     "with four doorways on the way home" 4
     (List.length out.Trail.stack);
   (* Backwards down the same corridor, still facing the same way. *)
   let home = walk out ~forward:(-0.15) ~frames:320 in
-  Alcotest.(check int) "and back where it started" 0
-    home.Trail.player.Player.room;
+  Alcotest.(check int)
+    "and back where it started" 0 home.Trail.player.Player.room;
   Alcotest.(check int)
     "with the route unwound to nothing" 0
     (List.length home.Trail.stack)
@@ -179,8 +181,7 @@ let the_loading_demo_reads_its_art () =
   let sized n =
     Array.exists (fun w -> (pattern w).Texture.size = n) room.Room.walls
   in
-  Alcotest.(check bool)
-    "a 128-texel pattern came off the disk" true (sized 128);
+  Alcotest.(check bool) "a 128-texel pattern came off the disk" true (sized 128);
   Alcotest.(check bool)
     "beside a 64-texel generated one" true (sized Texture.size);
   (* grille.png has square holes cut out of it, and nothing told Material so:
@@ -258,7 +259,9 @@ let the_floating_demo_lifts_its_sprites () =
    from. The walls and both planes have to be the very same values, or seventy
    motes would be dragging four walls behind them sixty times a second. *)
 let the_dust_demo_moves_without_making_anything () =
-  let at t = fst (Dust.view { Dust.elapsed = t; player = Player.spawn Dust.world }) in
+  let at t =
+    fst (Dust.view { Dust.elapsed = t; player = Player.spawn Dust.world })
+  in
   let early = at 0.4 and late = at 3.1 in
   let sprites world = Array.to_list (World.room world 0).Room.sprites in
   Alcotest.(check int) "every mote is there" 70 (List.length (sprites early));
@@ -299,7 +302,10 @@ let the_dust_demo_moves_without_making_anything () =
    half back — inside {!Chalk.reach}, since a wall further off than that is
    named but not markable. *)
 let facing_the_partition ?(from = Vec.make 0.5 (-0.5)) (state : Chalk.t) =
-  { state with Chalk.player = Player.create ~room:0 ~pos:from ~angle:(Float.pi /. 2.) }
+  {
+    state with
+    Chalk.player = Player.create ~room:0 ~pos:from ~angle:(Float.pi /. 2.);
+  }
 
 let decal_under (state : Chalk.t) =
   match Sight.cast (Chalk.dressed state) state.Chalk.player with
@@ -308,7 +314,8 @@ let decal_under (state : Chalk.t) =
 
 let the_chalk_demo_marks_what_the_crosshair_is_on () =
   let aimed = facing_the_partition Chalk.start in
-  Alcotest.(check (option int)) "bare wall to start with" None (decal_under aimed);
+  Alcotest.(check (option int))
+    "bare wall to start with" None (decal_under aimed);
   let marked = Chalk.place aimed in
   Alcotest.(check int) "one mark placed" 1 (List.length marked.Chalk.marks);
   Alcotest.(check int) "and a stroke spent" 7 marked.Chalk.left;
@@ -325,7 +332,8 @@ let the_chalk_demo_marks_what_the_crosshair_is_on () =
         Player.create ~room:0 ~pos:(Vec.make 0.5 2.5) ~angle:(-.Float.pi /. 2.);
     }
   in
-  Alcotest.(check (option int)) "and nothing on its back" None (decal_under behind);
+  Alcotest.(check (option int))
+    "and nothing on its back" None (decal_under behind);
   Alcotest.(check bool)
     "though the partition is still what is being looked at" true
     (match Sight.cast (Chalk.dressed behind) behind.Chalk.player with
@@ -354,7 +362,7 @@ let the_chalk_demo_keeps_its_marks_through_a_rebuild () =
   Alcotest.(check bool)
     "and the air closed in with it" true
     ((Chalk.dressed later).World.atmosphere.Atmosphere.fog_distance
-    < (Chalk.dressed marked).World.atmosphere.Atmosphere.fog_distance);
+   < (Chalk.dressed marked).World.atmosphere.Atmosphere.fog_distance);
   Alcotest.(check (option int))
     "and the mark is still there" (Some 0) (decal_under later)
 
@@ -372,8 +380,7 @@ let the_chalk_demo_runs_out_of_chalk () =
   Alcotest.(check int) "eight marks placed" 8 (List.length spent.Chalk.marks);
   Alcotest.(check int) "and no chalk left" 0 spent.Chalk.left;
   let ninth = spend spent 8 in
-  Alcotest.(check int)
-    "the ninth is refused" 8 (List.length ninth.Chalk.marks);
+  Alcotest.(check int) "the ninth is refused" 8 (List.length ninth.Chalk.marks);
   Alcotest.(check int) "and costs nothing" 0 ninth.Chalk.left;
   let why state =
     Chalk.refusal state (Sight.cast (Chalk.dressed state) state.Chalk.player)
@@ -422,7 +429,10 @@ let the_chalk_demo_runs_out_of_chalk () =
    the symbol table, and a table where both were the same would still draw two
    distinguishable marks and pass every other test here. *)
 let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
-  let glow_of i = let _, _, g = Chalk.symbols.(i) in g in
+  let glow_of i =
+    let _, _, g = Chalk.symbols.(i) in
+    g
+  in
   Alcotest.(check (float 1e-9)) "the arrow is plain chalk" 0. (glow_of 0);
   Alcotest.(check bool) "the cross makes its own light" true (glow_of 1 > 0.);
   Alcotest.(check bool)
@@ -431,9 +441,7 @@ let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
   (* The lamp is the atmosphere and only the atmosphere: nothing about the room
      it lights depends on it. Two very different brightnesses, same materials. *)
   let hall_at t =
-    (World.room
-       (Chalk.dressed { Chalk.start with Chalk.elapsed = t })
-       0)
+    (World.room (Chalk.dressed { Chalk.start with Chalk.elapsed = t }) 0)
       .Room.walls.(2)
       .Room.material
   in

@@ -3,10 +3,11 @@ open Support
 
 let links_resolve () =
   Alcotest.(check int) "two rooms" 2 (Array.length two_rooms.World.rooms);
-  Alcotest.(check int) "one portal each way" 1
+  Alcotest.(check int)
+    "one portal each way" 1
     (Array.length (World.portals two_rooms 0));
-  Alcotest.(check int) "destination" 1
-    (portal two_rooms ~room:0 ~index:0).World.to_room;
+  Alcotest.(check int)
+    "destination" 1 (portal two_rooms ~room:0 ~index:0).World.to_room;
   (* The renderer looks a portal up by the index a ray reports for the
      threshold, so the two arrays have to line up. *)
   Array.iteri
@@ -97,7 +98,7 @@ let a_door_blocks_in_the_states_that_have_a_leaf () =
     "nor is there anything to cross into through a shut door" true
     (World.crossing two_rooms_closed ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.)
-     |> Option.is_some);
+    |> Option.is_some);
   (* [crossing] still reports the doorway — it answers "which opening is this
      step through", and [can_step] is what has already said no. Movement asks
      both, in that order. *)
@@ -109,8 +110,7 @@ let a_door_blocks_in_the_states_that_have_a_leaf () =
   let start = Player.create ~room:0 ~pos:(Vec.make 3.5 2.) ~angle:0. in
   let moved = Player.traverse two_rooms_closed start ~forward:1. ~strafe:0. in
   Alcotest.(check int)
-    "the player is still on this side of it" 0
-    moved.Player.player.Player.room;
+    "the player is still on this side of it" 0 moved.Player.player.Player.room;
   Alcotest.(check int)
     "and went through no doorway at all" 0
     (List.length moved.Player.crossings)
@@ -125,13 +125,15 @@ let gate ?(name = "gate") ?(length = 1.) ?(height = 2.) ?door () =
 (* Every one of these is an authoring mistake with no sensible run-time
    behaviour, so make refuses the world outright rather than building one that
    renders wrongly. *)
-let raises what message body = Alcotest.check_raises what (Invalid_argument message) body
+let raises what message body =
+  Alcotest.check_raises what (Invalid_argument message) body
 
 let invalid_worlds_are_refused () =
   raises "unknown room" "World.make: no room named missing" (fun () ->
       ignore
-        (World.make ~rooms:[ ("only", square ()) ] ~links:[]
-           ~atmosphere:air ~spawn:("missing", centre)));
+        (World.make
+           ~rooms:[ ("only", square ()) ]
+           ~links:[] ~atmosphere:air ~spawn:("missing", centre)));
   raises "unknown threshold" "World.make: no threshold a.nowhere" (fun () ->
       ignore
         (World.make
@@ -222,7 +224,9 @@ let invalid_worlds_are_refused () =
 let a_threshold_of_no_real_length_is_refused () =
   let nowhere = Vec.make Float.nan Float.nan in
   let broken () =
-    square ~thresholds:[ Room.threshold ~name:"gate" ~height:2. nowhere nowhere ] ()
+    square
+      ~thresholds:[ Room.threshold ~name:"gate" ~height:2. nowhere nowhere ]
+      ()
   in
   raises "a threshold measuring nan"
     "World.make: threshold has no length: a.gate" (fun () ->
@@ -239,13 +243,15 @@ let a_threshold_of_no_real_length_is_refused () =
 let cell ?(thresholds = []) ?(walls = []) () =
   Room.make ~thresholds ~floor:flat_floor ~ceiling:flat_ceiling
     (walls
-    @ [ Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) ])
+    @ [ Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.) ]
+    )
 
 (* A world of one room and no doorways at all: the smallest thing a generator
    could be handed to start from. *)
 let seed () =
-  World.make ~rooms:[ ("start", cell ()) ] ~links:[] ~atmosphere:air
-    ~spawn:("start", centre)
+  World.make
+    ~rooms:[ ("start", cell ()) ]
+    ~links:[] ~atmosphere:air ~spawn:("start", centre)
 
 let cut ~name a b =
   Room.doorway ~name ~width:1. ~opening:2. ~height:3. ~material:pale a b
@@ -277,7 +283,8 @@ let a_world_can_grow () =
   World.check world;
   let there = portal world ~room:0 ~index:0 in
   Alcotest.(check int) "the doorway leads to it now" next there.World.to_room;
-  Alcotest.(check int) "and back again" 0
+  Alcotest.(check int)
+    "and back again" 0
     (portal world ~room:next ~index:there.World.twin).World.to_room
 
 (* Every index anything holds across a frame is a bare int, so growing must only
@@ -288,7 +295,8 @@ let growing_never_disturbs_an_index () =
   let jambs, extra = cut ~name:"extra" (Vec.make 4. 4.) (Vec.make 0. 4.) in
   let opened =
     Room.make
-      ~thresholds:(Array.to_list (World.room before 0).Room.thresholds @ [ extra ])
+      ~thresholds:
+        (Array.to_list (World.room before 0).Room.thresholds @ [ extra ])
       ~floor:flat_floor ~ceiling:flat_ceiling
       (Array.to_list (World.room before 0).Room.walls @ jambs)
   in
@@ -379,8 +387,11 @@ let invalid_growth_is_refused () =
            ~opened:
              (cell
                 ~thresholds:
-                  [ north; Room.threshold ~name:"s" ~height:2. (Vec.make 0. 0.)
-                             (Vec.make 1. 0.) ]
+                  [
+                    north;
+                    Room.threshold ~name:"s" ~height:2. (Vec.make 0. 0.)
+                      (Vec.make 1. 0.);
+                  ]
                 ())));
   (* An existing doorway that moved would leave every twin pointing at it
      meaning a different opening. *)
@@ -393,12 +404,15 @@ let invalid_growth_is_refused () =
            ~opened:
              (cell
                 ~thresholds:
-                  [ moved;
+                  [
+                    moved;
                     Room.threshold ~name:"s" ~height:2. (Vec.make 0. 0.)
-                      (Vec.make 1. 0.) ]
+                      (Vec.make 1. 0.);
+                  ]
                 ())));
-  raises "linking a doorway twice" "World.link: threshold linked twice: first.east"
-    (fun () -> ignore (World.link two_rooms (0, "east") (1, "west")));
+  raises "linking a doorway twice"
+    "World.link: threshold linked twice: first.east" (fun () ->
+      ignore (World.link two_rooms (0, "east") (1, "west")));
   raises "linking a doorway to itself"
     "World.link: a threshold cannot lead to itself: start.north" (fun () ->
       ignore (World.link grown (0, "north") (0, "north")));
@@ -416,12 +430,11 @@ let invalid_growth_is_refused () =
       in
       ignore (World.link bigger (0, "north") (next, "south")));
   raises "linking a door to an opening"
-    "World.link: linked thresholds disagree about a door: start.north and next.south"
-    (fun () ->
+    "World.link: linked thresholds disagree about a door: start.north and \
+     next.south" (fun () ->
       let jambs, south =
         Room.doorway ~name:"south" ~door:(Door.make pale) ~width:1. ~opening:2.
-          ~height:3.
-          ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
+          ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
       in
       let bigger, next =
         World.add_room grown ~name:"next"
@@ -435,7 +448,8 @@ let invalid_growth_is_refused () =
      open_doorway, which insists on a new threshold at the same time; the
      disagreement is at index 0, so it is what check reaches first. *)
   raises "a leaf hung on one side only"
-    "World.check: linked thresholds disagree about a door: first.east" (fun () ->
+    "World.check: linked thresholds disagree about a door: first.east"
+    (fun () ->
       let first = World.room two_rooms 0 in
       let jambs, extra = cut ~name:"extra" (Vec.make 4. 4.) (Vec.make 0. 4.) in
       World.check
@@ -444,13 +458,17 @@ let invalid_growth_is_refused () =
              (Room.make
                 ~thresholds:
                   [
-                    { (first.Room.thresholds.(0)) with Room.door = Some (Door.make pale) };
+                    {
+                      (first.Room.thresholds.(0)) with
+                      Room.door = Some (Door.make pale);
+                    };
                     extra;
                   ]
                 ~floor:flat_floor ~ceiling:flat_ceiling
                 (Array.to_list first.Room.walls @ jambs))));
-  raises "an unlinked doorway" "World.check: nothing links threshold start.north"
-    (fun () -> World.check grown);
+  raises "an unlinked doorway"
+    "World.check: nothing links threshold start.north" (fun () ->
+      World.check grown);
   (* A generator appends rooms, and a name it has used before does not collide
      with the one that has it — it shadows it, because a room is resolved by
      [Array.find_index], which answers with the first. A world where the second
@@ -471,9 +489,11 @@ let a_room_can_be_replaced () =
       ~thresholds:(Array.to_list before.Room.thresholds)
       ~floor:{ Room.plane = Plane.horizontal 0.5; material = dim }
       ~ceiling:open_sky
-      ~sprites:[ Room.sprite ~size:1. ~image:poster (centre) ]
+      ~sprites:[ Room.sprite ~size:1. ~image:poster centre ]
       (Array.to_list before.Room.walls
-      @ [ Room.wall ~height:1. ~material:mesh (Vec.make 1. 1.) (Vec.make 2. 1.) ])
+      @ [
+          Room.wall ~height:1. ~material:mesh (Vec.make 1. 1.) (Vec.make 2. 1.);
+        ])
   in
   let after = World.replace_room two_rooms ~room:0 ~replacement in
   World.check after;
@@ -515,8 +535,8 @@ let replacing_never_disturbs_a_portal () =
   let after = World.replace_room two_rooms ~room:0 ~replacement:stripped in
   World.check after;
   let now = portal after ~room:0 ~index:0 in
-  Alcotest.(check int) "it leads to the same room" there.World.to_room
-    now.World.to_room;
+  Alcotest.(check int)
+    "it leads to the same room" there.World.to_room now.World.to_room;
   Alcotest.(check int) "by the same twin" there.World.twin now.World.twin;
   Alcotest.check vec "and lands in the same place"
     (Transform.point there.World.onto centre)
@@ -539,15 +559,16 @@ let a_door_takes_two_replacements () =
         (Room.make
            ~thresholds:
              (List.map
-                (fun (x : Room.threshold) -> { x with Room.door = Some (Door.make pale) })
+                (fun (x : Room.threshold) ->
+                  { x with Room.door = Some (Door.make pale) })
                 (Array.to_list before.Room.thresholds))
            ~floor:before.Room.floor ~ceiling:before.Room.ceiling
            (Array.to_list before.Room.walls))
   in
   let half = hang two_rooms ~room:0 in
   raises "one side only"
-    "World.check: linked thresholds disagree about a door: first.east" (fun () ->
-      World.check half);
+    "World.check: linked thresholds disagree about a door: first.east"
+    (fun () -> World.check half);
   let both = hang half ~room:1 in
   World.check both;
   Alcotest.(check bool)
@@ -570,7 +591,8 @@ let invalid_replacement_is_refused () =
   let _, moved = cut ~name:"east" (Vec.make 4. 0.) (Vec.make 4. 3.) in
   raises "an opening moved"
     "World.replace_room: first moved or reordered its threshold east" (fun () ->
-      ignore (World.replace_room two_rooms ~room:0 ~replacement:(like [ moved ])));
+      ignore
+        (World.replace_room two_rooms ~room:0 ~replacement:(like [ moved ])));
   (* Same opening, different height: the two sides would no longer line up. *)
   let _, taller =
     Room.doorway ~name:"east" ~width:1. ~opening:2.5 ~height:3. ~material:pale
@@ -578,7 +600,8 @@ let invalid_replacement_is_refused () =
   in
   raises "an opening that changed height"
     "World.replace_room: first moved or reordered its threshold east" (fun () ->
-      ignore (World.replace_room two_rooms ~room:0 ~replacement:(like [ taller ])));
+      ignore
+        (World.replace_room two_rooms ~room:0 ~replacement:(like [ taller ])));
   (* Reordering is the same fault seen from another angle: a twin is a bare
      index, so the doorway at 0 has to still be the doorway at 0. *)
   let jambs, extra = cut ~name:"extra" (Vec.make 4. 4.) (Vec.make 0. 4.) in
@@ -591,7 +614,8 @@ let invalid_replacement_is_refused () =
            (Array.to_list first.Room.walls @ jambs))
   in
   raises "the order changed"
-    "World.replace_room: first moved or reordered its threshold extra" (fun () ->
+    "World.replace_room: first moved or reordered its threshold extra"
+    (fun () ->
       ignore
         (World.replace_room two ~room:0
            ~replacement:
@@ -646,7 +670,12 @@ let a_door_can_be_worked_repeatedly () =
       (fun world state -> World.set_door world ~room:0 ~threshold:0 state)
       two_rooms_closed
       [
-        Door.Open; Door.Closed; Door.Closed; Door.Open; Door.Open; Door.Closed;
+        Door.Open;
+        Door.Closed;
+        Door.Closed;
+        Door.Open;
+        Door.Open;
+        Door.Closed;
         Door.Open;
       ]
   in

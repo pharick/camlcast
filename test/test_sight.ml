@@ -41,7 +41,8 @@ let rooms ?door ?(near = []) ?(far = []) () =
           Room.wall ~height:3. ~material:dim (Vec.make 4. 4.) (Vec.make 0. 4.);
         ])
   in
-  World.make ~rooms:[ ("first", first); ("second", second) ]
+  World.make
+    ~rooms:[ ("first", first); ("second", second) ]
     ~links:[ (("first", "east"), ("second", "west")) ]
     ~atmosphere:air ~spawn:("first", centre)
 
@@ -89,7 +90,9 @@ let a_sprite_is_read_across_by_its_width () =
      crosshair passes through and carries on into the room beyond, so what it
      finds there is the far room's business — all this case is asserting is that
      the sprite is not it. *)
-  let past = describe (Sight.cast world (looking_east ~from:(Vec.make 2. 2.35) ())) in
+  let past =
+    describe (Sight.cast world (looking_east ~from:(Vec.make 2. 2.35) ()))
+  in
   Alcotest.(check bool)
     (Printf.sprintf "the cut-away side is seen through (found %s)" past)
     true
@@ -103,7 +106,9 @@ let a_sprite_is_read_across_by_its_width () =
    towards it. *)
 let a_lifted_sprite_is_looked_at_where_it_floats () =
   let raised base =
-    rooms ~near:[ Room.sprite ~base ~size:1. ~image:poster (Vec.make 3.5 2.) ] ()
+    rooms
+      ~near:[ Room.sprite ~base ~size:1. ~image:poster (Vec.make 3.5 2.) ]
+      ()
   in
   is "sprite 0 of room 0"
     (Sight.cast (raised 0.) (looking_east ~from:(Vec.make 2. 2.) ()));
@@ -118,7 +123,8 @@ let a_lifted_sprite_is_looked_at_where_it_floats () =
      {!Viewport.centre_rise} of height per cell, and the sprite is a cell and a
      half away. *)
   is "sprite 0 of room 0"
-    (Sight.cast (raised 0.9) (looking_east ~pitch:0.6 ~from:(Vec.make 2. 2.) ()))
+    (Sight.cast (raised 0.9)
+       (looking_east ~pitch:0.6 ~from:(Vec.make 2. 2.) ()))
 
 (* Through an open doorway, into the room beyond, at a sprite standing there.
    This is the whole feature: the thing looked at is in another room, in another
@@ -138,7 +144,9 @@ let through_an_open_doorway () =
 (* A shut door stops the ray where an open one passed it, and says which
    doorway it was — which is what a game needs to open it. *)
 let a_shut_door_stops_it () =
-  let closed = rooms ~door:(Door.make dim) ~far:[ figure (Vec.make 2. 2.) ] () in
+  let closed =
+    rooms ~door:(Door.make dim) ~far:[ figure (Vec.make 2. 2.) ] ()
+  in
   is "doorway 0 of room 0" (Sight.cast closed (looking_east ()));
   (* And opening it lets the eye through again. *)
   let opened = World.set_door closed ~room:0 ~threshold:0 Door.Open in
@@ -147,10 +155,7 @@ let a_shut_door_stops_it () =
 (* A nearer opaque thing wins, wherever it stands. *)
 let a_nearer_thing_occludes () =
   let world =
-    rooms
-      ~near:[ figure (Vec.make 3. 2.) ]
-      ~far:[ figure (Vec.make 2. 2.) ]
-      ()
+    rooms ~near:[ figure (Vec.make 3. 2.) ] ~far:[ figure (Vec.make 2. 2.) ] ()
   in
   is "sprite 0 of room 0" (Sight.cast world (looking_east ()));
   (* The near one is in the room the player is standing in, so a game that only
@@ -181,11 +186,9 @@ let a_wall_occludes_and_names_itself () =
   | Some { Sight.kind = Sight.Wall w; room; distance; crossed } ->
       Alcotest.(check int) "the room the player is in" 0 room;
       Alcotest.(check int) "no doorway crossed" 0 crossed;
-      Alcotest.(check int)
-        "the wall just added, last in the array" 5 w.index;
+      Alcotest.(check int) "the wall just added, last in the array" 5 w.index;
       Alcotest.check close "one cell ahead" 1. distance;
-      Alcotest.check close "struck in the middle of its length" 1.
-        w.along;
+      Alcotest.check close "struck in the middle of its length" 1. w.along;
       (* Eye height above the flat floor, since the view is level. *)
       Alcotest.check close "at eye height" Config.eye_height w.z
   | other -> Alcotest.failf "expected a wall, got %s" (describe other)
@@ -371,7 +374,9 @@ let a_decal_on_a_see_through_wall_is_picked () =
    sighting would find bare wall. *)
 let a_wall_can_be_marked_where_the_crosshair_is () =
   let world = rooms () in
-  let aim = Player.create ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.) in
+  let aim =
+    Player.create ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.)
+  in
   let mark = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255)) in
   match Sight.cast world aim with
   | Some { Sight.kind = Sight.Wall w; room; _ } ->
@@ -388,19 +393,17 @@ let a_wall_can_be_marked_where_the_crosshair_is () =
           Alcotest.(check int) "the same wall" w.index w'.index;
           Alcotest.(check (option int))
             "and the mark is under the crosshair" (Some 0) w'.decal
-      | other -> Alcotest.failf "expected the marked wall, got %s" (describe other));
+      | other ->
+          Alcotest.failf "expected the marked wall, got %s" (describe other));
       (* From the other face of that wall there is nothing to find. The wall
          here is a room boundary, so getting behind it means asking Room
          directly — which is the same question the renderer asks. *)
       let wall = (World.room marked room).Room.walls.(w.index) in
-      let behind =
-        if w.facing = Room.Front then Room.Back else Room.Front
-      in
+      let behind = if w.facing = Room.Front then Room.Back else Room.Front in
       Alcotest.(check (option int))
         "and nothing of it from behind" None
-        (Room.decal_column
-           (List.hd wall.Room.decals)
-           ~seen_from:behind ~along:w.along)
+        (Room.decal_column (List.hd wall.Room.decals) ~seen_from:behind
+           ~along:w.along)
   | other -> Alcotest.failf "expected a wall, got %s" (describe other)
 
 (* What is targeted has to be drawable: the sighting carries the pose of the
@@ -415,7 +418,8 @@ let a_target_can_be_found_on_the_screen () =
       Alcotest.(check int) "in the room next door" 1 crossed;
       let viewport =
         Viewport.create ~pitch:0.
-          ~eye_z:(Plane.elevation flat_floor.Room.plane centre +. Config.eye_height)
+          ~eye_z:
+            (Plane.elevation flat_floor.Room.plane centre +. Config.eye_height)
           ~width:640 ~height:400
       in
       let sprite = (World.room world room).Room.sprites.(s.index) in

@@ -3,11 +3,12 @@
     sprites that stand in the world.
 
     Both this and a {!Texture} are colour with an alpha, and the difference is
-    what they are for rather than what they hold. A texture is {e part of a
-    surface}: square, and tiling once per world cell, so its size is a density
-    and its shape is not its own. A picture stands on its own — a painting framed
-    against the wall, a character cut out from the empty space around it — so it
-    keeps whatever shape it was drawn at and is drawn once rather than repeated.
+    what they are for rather than what they hold. A texture is
+    {e part of a surface}: square, and tiling once per world cell, so its size
+    is a density and its shape is not its own. A picture stands on its own — a
+    painting framed against the wall, a character cut out from the empty space
+    around it — so it keeps whatever shape it was drawn at and is drawn once
+    rather than repeated.
 
     An image is a rectangle and not a square, because the things it is used for
     are: a poster is wider than it is tall, a standing figure is taller than it

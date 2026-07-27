@@ -4,10 +4,10 @@
 
     {!Raycaster.Sight.cast} already said what the crosshair is on. A wall hit
     reports four numbers, and they are exactly the four a
-    {!Raycaster.Room.type-decal} is made of: [index] is which wall,
-    [along] and [z] are that wall's own coordinates, and [facing] is the face
-    being looked at. Nothing is converted between the two ends — the mark is put
-    where the crosshair was because those are the same numbers.
+    {!Raycaster.Room.type-decal} is made of: [index] is which wall, [along] and
+    [z] are that wall's own coordinates, and [facing] is the face being looked
+    at. Nothing is converted between the two ends — the mark is put where the
+    crosshair was because those are the same numbers.
 
     {b Marks are on one side.} A chalk stroke is paint, and paint is on one face
     of a wall. The free-standing partition across the middle of the hall is the
@@ -34,8 +34,8 @@
       a wall. {!markable} is where "not through a doorway" is written down, in
       one line, off [crossed].
     - {b Within arm's reach.} §6 has chalk placed "directly on" a wall, so a
-      wall further than {!reach} away is named but not markable — walk up to
-      the one you mean. That is one comparison against the [distance]
+      wall further than {!reach} away is named but not markable — walk up to the
+      one you mean. That is one comparison against the [distance]
       {!Raycaster.Sight} already reports.
 
     The crosshair says which of those you are up against: {b white} for nothing,
@@ -172,13 +172,13 @@ let back_jambs, back_here =
 
 (** The hall, built again.
 
-    Nothing in here depends on the clock: the lamp is the {!Raycaster.Atmosphere}
-    and the surfaces never change. Every wall — the jambs of the doorway
-    included — both planes and the partition are nevertheless {e new values}
-    every time this is called, and that is the point. A game rebuilds a room
-    whenever anything in it changes, and this demo has to show that the marks
-    come through one. They are not being left undisturbed; they are being put
-    back.
+    Nothing in here depends on the clock: the lamp is the
+    {!Raycaster.Atmosphere} and the surfaces never change. Every wall — the
+    jambs of the doorway included — both planes and the partition are
+    nevertheless {e new values} every time this is called, and that is the
+    point. A game rebuilds a room whenever anything in it changes, and this demo
+    has to show that the marks come through one. They are not being left
+    undisturbed; they are being put back.
 
     The doorway is cut here rather than once outside so that the jambs are
     rebuilt with everything else. Its {!Raycaster.Room.type-threshold} comes out
@@ -217,10 +217,7 @@ let back =
     ~floor:{ Room.plane = Plane.horizontal 0.; material = Surfaces.ground }
     ~ceiling:
       (Room.Roof
-         {
-           Room.plane = Plane.horizontal height;
-           material = Surfaces.soffit;
-         })
+         { Room.plane = Plane.horizontal height; material = Surfaces.soffit })
     ~sprites:[ Room.sprite ~size:1.7 ~image:Pictures.figure (Vec.make 4. 0.) ]
     (back_jambs
     @ [
@@ -270,7 +267,8 @@ let markable state = function
 
 (** How bright the lamp is: a slow swing, never all the way out. *)
 let lamp elapsed =
-  0.35 +. (0.65 *. ((1. +. cos (elapsed /. lamp_period *. 2. *. Float.pi)) /. 2.))
+  0.35
+  +. (0.65 *. ((1. +. cos (elapsed /. lamp_period *. 2. *. Float.pi)) /. 2.))
 
 (** The air at that brightness, and the whole of the lamp: fog closing in and
     less of everything reaching you. Nothing else in the room changes with it.
@@ -278,8 +276,7 @@ let lamp elapsed =
     {!Raycaster.World.atmosphere} is a plain field the renderer reads every
     frame, so a lamp is one record update and no rebuilding of anything. *)
 let air ~lamp =
-  Atmosphere.make
-    ~haze:(Color.rgb 18 18 24)
+  Atmosphere.make ~haze:(Color.rgb 18 18 24)
     ~fog_distance:(2.5 +. (11. *. lamp))
     ~min_brightness:(0.05 +. (0.2 *. lamp))
     ~light:(Vec.make (-0.4) (-0.9))
@@ -321,7 +318,8 @@ let dressed state =
     what pressing it does is the rule worth asserting. *)
 let place state =
   match markable state (Sight.cast (dressed state) state.player) with
-  | Some mark -> { state with marks = mark :: state.marks; left = state.left - 1 }
+  | Some mark ->
+      { state with marks = mark :: state.marks; left = state.left - 1 }
   | None -> state
 
 let update state ~dt ~motion ~actions =
@@ -332,7 +330,8 @@ let update state ~dt ~motion ~actions =
     else state.selected
   in
   let state = { state with player; selected; elapsed = state.elapsed +. dt } in
-  if Input.pressed actions (Input.Key Sdl.Scancode.c) then place state else state
+  if Input.pressed actions (Input.Key Sdl.Scancode.c) then place state
+  else state
 
 let view state = (dressed state, state.player)
 
@@ -401,8 +400,7 @@ let overlay fb state =
   let hw, _ = Font.measure font help in
   Font.draw fb font help
     ~x:(width - hw - pad)
-    ~y:pad
-    ~color:(Color.rgb 140 146 160)
+    ~y:pad ~color:(Color.rgb 140 146 160)
 
 let run () =
   let+ _ = Engine.run_state ~update ~view ~overlay start in

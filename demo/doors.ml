@@ -21,14 +21,15 @@
     for a door it declines to open, and the whole of that rule is {!locked}
     below — a list of the doorways it will not touch. An engine that carried a
     [Locked] state would have treated it exactly as [Closed] anyway, so the rule
-    would have lived here regardless; this way it is written where it is decided.
+    would have lived here regardless; this way it is written where it is
+    decided.
 
     What the division costs is visible in {!locked} too: it has {e two} entries
     for one door, because a door has two sides and a game's record of it has to
-    agree with itself just as the engine's does.
-    {!Raycaster.World.set_door} keeps the engine's two sides in step for you —
-    open the middle door, walk through, look back, and it is open from there —
-    but only for the part the engine knows about.
+    agree with itself just as the engine's does. {!Raycaster.World.set_door}
+    keeps the engine's two sides in step for you — open the middle door, walk
+    through, look back, and it is open from there — but only for the part the
+    engine knows about.
 
     The meter along the bottom is the nearest door: empty when it is open, full
     when it is shut, red for a moment when this demo refuses to work it. *)
@@ -66,15 +67,15 @@ let hall =
      unbroken: bare, workable, sealed. *)
   let bare_jambs, bare = cut "bare" ~door:None se (Vec.make 0. (-2.4))
   and worked_jambs, worked =
-    cut "worked" ~door:(Some (Door.make oak)) (Vec.make 0. (-2.4))
-      (Vec.make 0. 2.4)
+    cut "worked"
+      ~door:(Some (Door.make oak))
+      (Vec.make 0. (-2.4)) (Vec.make 0. 2.4)
   and sealed_jambs, sealed =
     cut "sealed" ~door:(Some (Door.make iron)) (Vec.make 0. 2.4) ne
   in
   let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
   let floor = Plane.horizontal 0. in
-  Room.make
-    ~thresholds:[ bare; worked; sealed ]
+  Room.make ~thresholds:[ bare; worked; sealed ]
     ~floor:{ Room.plane = floor; material = Surfaces.ground }
     ~ceiling:
       (Room.Roof
@@ -142,11 +143,11 @@ let nearest (world : World.t) (player : Player.t) =
   Array.to_list room.Room.thresholds
   |> List.mapi (fun i (t : Room.threshold) -> (i, t))
   |> List.filter_map (fun (i, (t : Room.threshold)) ->
-         if t.Room.door = None then None
-         else
-           let middle = Vec.scale (Vec.add t.Room.a t.Room.b) 0.5 in
-           let away = Vec.length (Vec.sub middle player.Player.pos) in
-           if away <= reach then Some (away, i) else None)
+      if t.Room.door = None then None
+      else
+        let middle = Vec.scale (Vec.add t.Room.a t.Room.b) 0.5 in
+        let away = Vec.length (Vec.sub middle player.Player.pos) in
+        if away <= reach then Some (away, i) else None)
   |> List.sort (fun (a, _) (b, _) -> Float.compare a b)
   |> function
   | [] -> None

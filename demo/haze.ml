@@ -21,11 +21,9 @@ let length = 90.
     blue-grey, and most of the shading directional, so the six faces of a pillar
     read as six different greys. *)
 let fog =
-  Atmosphere.make
-    ~haze:(Color.rgb 38 44 58)
-    ~fog_distance:13. ~min_brightness:0.15
-    ~light:(Vec.make (-0.5) (-0.85))
-    ~ambient:0.35 ~directional:0.65
+  Atmosphere.make ~haze:(Color.rgb 38 44 58) ~fog_distance:13.
+    ~min_brightness:0.15 ~light:(Vec.make (-0.5) (-0.85)) ~ambient:0.35
+    ~directional:0.65
 
 let world =
   (* The colonnade runs east, which is the way you are facing when you arrive. *)
@@ -53,7 +51,9 @@ let world =
            { Room.plane = Plane.above floor height; material = Surfaces.soffit })
       ([ wall sw se; wall se ne; wall ne nw; wall nw sw ] @ colonnade)
   in
-  World.make ~rooms:[ ("colonnade", room) ] ~links:[] ~atmosphere:fog
+  World.make
+    ~rooms:[ ("colonnade", room) ]
+    ~links:[] ~atmosphere:fog
     ~spawn:("colonnade", Vec.make 2. 0.)
 
 let run () = Engine.run world

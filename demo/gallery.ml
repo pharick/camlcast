@@ -59,7 +59,9 @@ let world =
   in
   (* Facing the hung wall down the length of the room, with the sprites between
      you and it. *)
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-5.) 0.)
 
 let run () = Engine.run world

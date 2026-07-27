@@ -5,10 +5,10 @@
     north, south, east or west. Here a wall is an arbitrary line {e segment}
     instead, so a room may have any number of walls facing any direction — an
     octagon, a triangle, a wedge. Each wall also carries its own height, the
-    {!Material} it is made of (some see-through) and any {!type-decal}s hung on it;
-    the floor is an inclined plane so it need not be horizontal; the ceiling is
-    either an inclined plane of its own or the open sky; and {!type-sprite}s stand —
-    or float — in the world as billboards facing the player.
+    {!Material} it is made of (some see-through) and any {!type-decal}s hung on
+    it; the floor is an inclined plane so it need not be horizontal; the ceiling
+    is either an inclined plane of its own or the open sky; and {!type-sprite}s
+    stand — or float — in the world as billboards facing the player.
 
     A room knows nothing of any other room, or of the {!World} it is in. Every
     coordinate here is its own, and the only thing that ever relates two rooms
@@ -41,10 +41,10 @@ type decal = {
   facing : side;
   glow : float;
 }
-(** A decoration flat on a wall — a painting, a poster, a chalk mark — drawn over
-    the wall's own texture. It is placed by how far [along] the wall it sits and
-    how high above the floor ([z]), and reaches [half_width] to each side and
-    [half_height] up and down.
+(** A decoration flat on a wall — a painting, a poster, a chalk mark — drawn
+    over the wall's own texture. It is placed by how far [along] the wall it
+    sits and how high above the floor ([z]), and reaches [half_width] to each
+    side and [half_height] up and down.
 
     [facing] is the side of the wall it is on, and it is not optional, because
     paint is not. A wall you can see through has two faces you can look at and a
@@ -61,8 +61,8 @@ type decal = {
 (** A decal on the [facing] side of a wall — {!Front} unless said otherwise,
     which for a room's own boundary is the inside — making [glow] of its own
     light, which is none unless said otherwise. *)
-let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height image
-    =
+let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height
+    image =
   { along; z; half_width; half_height; image; facing; glow }
 
 (** The light a decal is drawn in, given the light its wall is drawn in.
@@ -73,14 +73,14 @@ let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height imag
     past the colours the picture was drawn with, at any [light] and any [glow]
     in range.
 
-    {b Why this exists.} A game whose light fails by closing the
-    {!Atmosphere} in dims everything drawn, including the marks the player left
-    to find their way back — and those are the one thing that has to stay
-    readable. Dimming the {!Material}s instead would spare them, since a decal
-    never takes a wall's colour, but that is a different-looking dark and not
-    every game wants it. So which of the two a decal is subject to becomes the
-    decal's own to say: keep [glow] at zero and it is paint, raise it and it is
-    phosphorescent, and a game can raise it as its light dies. *)
+    {b Why this exists.} A game whose light fails by closing the {!Atmosphere}
+    in dims everything drawn, including the marks the player left to find their
+    way back — and those are the one thing that has to stay readable. Dimming
+    the {!Material}s instead would spare them, since a decal never takes a
+    wall's colour, but that is a different-looking dark and not every game wants
+    it. So which of the two a decal is subject to becomes the decal's own to
+    say: keep [glow] at zero and it is paint, raise it and it is phosphorescent,
+    and a game can raise it as its light dies. *)
 let decal_light d ~light = light +. (d.glow *. (1. -. light))
 
 (** Where along a decal's width a point [along] the wall falls, as a column of
@@ -119,7 +119,9 @@ let decal_row d ~above =
   if off < 0. || off > height then None
   else
     let n = d.image.Image.height in
-    Some (Int.max 0 (Int.min (n - 1) (int_of_float (off /. height *. float_of_int n))))
+    Some
+      (Int.max 0
+         (Int.min (n - 1) (int_of_float (off /. height *. float_of_int n))))
 
 type wall = {
   a : Vec.t;  (** one endpoint *)
@@ -153,8 +155,8 @@ type sprite = { pos : Vec.t; base : float; size : float; image : Image.t }
     not from an absolute height, so on a sloped floor a sprite rides with the
     floor rather than staying put while the ground falls away beneath it.
 
-    Its width is not [size]. A sprite is as wide as its picture says it is —
-    see {!sprite_half_width} — so a wide, short mote is drawn wide and short. *)
+    Its width is not [size]. A sprite is as wide as its picture says it is — see
+    {!sprite_half_width} — so a wide, short mote is drawn wide and short. *)
 
 (** A sprite at [pos], [size] cells tall, made of [image]; [base] cells above
     the floor if you say so, and standing on it if you do not.
@@ -194,12 +196,12 @@ let sprite_head s ~floor_z = sprite_foot s ~floor_z +. s.size
     reach. [lateral] is measured along the viewer's [right], since a billboard
     faces the viewer and has no side of its own.
 
-    This and {!sprite_row} are to a sprite what {!decal_column} and
-    {!decal_row} are to a decal: between them the only statement of "is this
-    point on that picture", so what can be picked stays exactly what is drawn.
-    {!Sight} asks both at once; {!Renderer} inverts them once per sprite into a
-    screen rectangle and interpolates across it, which is the same rule read
-    from the other end. *)
+    This and {!sprite_row} are to a sprite what {!decal_column} and {!decal_row}
+    are to a decal: between them the only statement of "is this point on that
+    picture", so what can be picked stays exactly what is drawn. {!Sight} asks
+    both at once; {!Renderer} inverts them once per sprite into a screen
+    rectangle and interpolates across it, which is the same rule read from the
+    other end. *)
 let sprite_column s ~lateral =
   let half = sprite_half_width s in
   if Float.abs lateral > half then None
@@ -243,10 +245,11 @@ type threshold = {
 (** A doorway in the room boundary — the gap in the wall loop that a {!World}
     link joins to a doorway of another room.
 
-    Its endpoints must be given in the {b same winding direction as the room's
-    own boundary walls}, because {!Transform.between} pairs linked endpoints in
-    reverse: the two rooms describe the same opening from opposite sides, so
-    walking the boundary through it in one room runs the other way in the other.
+    Its endpoints must be given in the
+    {b same winding direction as the room's own boundary walls}, because
+    {!Transform.between} pairs linked endpoints in reverse: the two rooms
+    describe the same opening from opposite sides, so walking the boundary
+    through it in one room runs the other way in the other.
     {!Transform.between}'s docstring carries the argument in full.
 
     An open threshold is a portal — the neighbour is drawn through it, and the
@@ -432,7 +435,7 @@ let can_step t ~from ~dest =
     (Array.exists
        (fun (w : wall) ->
          distance_between_segments from dest w.a w.b < Config.collision_padding)
-    t.walls)
+       t.walls)
 
 (** Walls following a run of points; [closed] joins the last point back to the
     first, turning a polyline into a polygon. *)
@@ -458,11 +461,11 @@ let path ?(closed = false) ~height ~material points =
     with no length has no middle to cut, and the division below would hand back
     a threshold whose every coordinate is [nan] — which {!World.make} would then
     accept, because [nan] answers false to every ordered comparison it is asked.
-    A doorway of no width is not a doorway. And one wider than the wall it is cut
-    into leaves jambs wound backwards, which is the one thing every transform
-    derived from the opening depends on. Each test is written as the negation of
-    the passing condition, so a [nan] argument fails it rather than slipping
-    through. *)
+    A doorway of no width is not a doorway. And one wider than the wall it is
+    cut into leaves jambs wound backwards, which is the one thing every
+    transform derived from the opening depends on. Each test is written as the
+    negation of the passing condition, so a [nan] argument fails it rather than
+    slipping through. *)
 let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
@@ -471,8 +474,7 @@ let doorway ~name ?door ~width ~opening ~height ~material a b =
   if not (width > 0.) then
     invalid_arg ("Room.doorway: a doorway has to have a width: " ^ name);
   if not (width <= span) then
-    invalid_arg
-      ("Room.doorway: wider than the wall it is cut into: " ^ name);
+    invalid_arg ("Room.doorway: wider than the wall it is cut into: " ^ name);
   let half = Vec.scale edge (width /. (2. *. span)) in
   let middle = Vec.scale (Vec.add a b) 0.5 in
   let p = Vec.sub middle half and q = Vec.add middle half in

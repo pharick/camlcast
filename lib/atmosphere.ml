@@ -15,7 +15,8 @@ type t = {
           band where the eye looks past both the floor and the ceiling *)
   fog_distance : float;  (** where the fade has fully arrived *)
   min_brightness : float;  (** the floor of the fade *)
-  light : Vec.t;  (** the fixed direction surfaces are lit from, a unit vector *)
+  light : Vec.t;
+      (** the fixed direction surfaces are lit from, a unit vector *)
   ambient : float;  (** the brightness a surface has facing away from it *)
   directional : float;  (** how much more it has facing squarely into it *)
 }

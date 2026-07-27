@@ -16,13 +16,12 @@ let make_builds_a_rectangle () =
   let img = Image.make ~height:2 5 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   Alcotest.(check int) "the width" 5 img.Image.width;
   Alcotest.(check int) "the height" 2 img.Image.height;
-  Alcotest.(check int)
-    "and that many pixels" 10
-    (Array.length img.Image.pixels);
+  Alcotest.(check int) "and that many pixels" 10 (Array.length img.Image.pixels);
   Alcotest.check color "the far corner is where it should be" (Color.rgb 4 1 0)
     (fst (Image.sample img ~u:4 ~v:1));
   (* Row major: one step down is a whole width along. *)
-  Alcotest.(check int) "one row down is one width along" 5
+  Alcotest.(check int)
+    "one row down is one width along" 5
     (Image.index img ~u:0 ~v:1)
 
 (* The hot drawing loop reads [pixels] and [alpha] directly rather than through
@@ -41,16 +40,20 @@ let index_agrees_with_sample () =
       Alcotest.check color
         (Printf.sprintf "(%d, %d) colour" u v)
         c img.Image.pixels.(i);
-      Alcotest.(check int) (Printf.sprintf "(%d, %d) alpha" u v) a
-        img.Image.alpha.(i))
+      Alcotest.(check int)
+        (Printf.sprintf "(%d, %d) alpha" u v)
+        a img.Image.alpha.(i))
     [ (0, 0); (7, 0); (0, 4); (3, 3); (7, 4) ]
 
 let images_carry_their_own_size () =
   List.iter
     (fun (w, h) ->
-      let img = Image.make ~height:h w (fun ~u:_ ~v:_ -> (Color.rgb 1 2 3, 255)) in
-      Alcotest.(check int) (Printf.sprintf "a %dx%d image's width" w h) w
-        img.Image.width;
+      let img =
+        Image.make ~height:h w (fun ~u:_ ~v:_ -> (Color.rgb 1 2 3, 255))
+      in
+      Alcotest.(check int)
+        (Printf.sprintf "a %dx%d image's width" w h)
+        w img.Image.width;
       Alcotest.(check int) "its height" h img.Image.height;
       Alcotest.(check int)
         "and has that many pixels" (w * h)
@@ -70,7 +73,9 @@ let load_reads_a_file () =
       List.iter
         (fun (u, v, r, g, b, a) ->
           let c, alpha = Image.sample img ~u ~v in
-          Alcotest.check color (Printf.sprintf "(%d, %d)" u v) (Color.rgb r g b) c;
+          Alcotest.check color
+            (Printf.sprintf "(%d, %d)" u v)
+            (Color.rgb r g b) c;
           Alcotest.(check int) (Printf.sprintf "(%d, %d) alpha" u v) a alpha)
         [
           (0, 0, 10, 100, 200, 245);

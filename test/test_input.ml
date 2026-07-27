@@ -14,11 +14,15 @@ let tick = 1. /. 60.
 
 (* One frame, in which [held] is everything the player is holding down. *)
 let frame ?(dt = tick) held actions =
-  Input.advance actions ~down:(fun control -> List.mem control held) ~pointer:(0, 0) ~dt
+  Input.advance actions
+    ~down:(fun control -> List.mem control held)
+    ~pointer:(0, 0) ~dt
 
 (* [count] frames of holding the same thing. *)
 let frames ?dt held count actions =
-  List.fold_left (fun actions () -> frame ?dt held actions) actions
+  List.fold_left
+    (fun actions () -> frame ?dt held actions)
+    actions
     (List.init count (fun _ -> ()))
 
 (* [count] frames the window spent out of focus, which is what [Engine.loop]
@@ -80,16 +84,16 @@ let a_hold_can_still_be_read_when_it_ends () =
 
 let letting_go_starts_the_next_hold_from_nothing () =
   let again = frame [ e ] (frame [] (frames [ e ] 30 Input.untouched)) in
-  Alcotest.(check bool) "the second press is an edge of its own" true
-    (Input.pressed again e);
+  Alcotest.(check bool)
+    "the second press is an edge of its own" true (Input.pressed again e);
   Alcotest.check close "counting from nothing" 0. (Input.held_for again e)
 
 let controls_are_counted_separately () =
   let both = frames [ e ] 10 Input.untouched |> frame [ e; c ] in
-  Alcotest.(check bool) "the one just added is pressed" true
-    (Input.pressed both c);
-  Alcotest.(check bool) "the one already down is not" false
-    (Input.pressed both e);
+  Alcotest.(check bool)
+    "the one just added is pressed" true (Input.pressed both c);
+  Alcotest.(check bool)
+    "the one already down is not" false (Input.pressed both e);
   Alcotest.check close "and keeps its own hold" (10. *. tick)
     (Input.held_for both e);
   Alcotest.check close "which is not the new one's" 0. (Input.held_for both c)
@@ -131,10 +135,9 @@ let an_unfocused_frame_costs_nothing () =
   Alcotest.(check bool) "what was down is still down" true (Input.down away e);
   Alcotest.check close "and has been held for exactly as long as it had" before
     (Input.held_for away e);
-  Alcotest.(check bool) "nothing was pressed while away" false
-    (Input.pressed away e);
   Alcotest.(check bool)
-    "and nothing released" false (Input.released away e)
+    "nothing was pressed while away" false (Input.pressed away e);
+  Alcotest.(check bool) "and nothing released" false (Input.released away e)
 
 (* What did change while nobody was looking arrives as an ordinary edge on the
    first frame that is looked at, which is the first frame a game could have
@@ -142,13 +145,13 @@ let an_unfocused_frame_costs_nothing () =
 let coming_back_reads_the_change_as_an_edge () =
   let away = frames_frozen 10 (frames [ e ] 30 Input.untouched) in
   let back = frame [] away in
-  Alcotest.(check bool) "the key let go of while away comes up now" true
-    (Input.released back e);
+  Alcotest.(check bool)
+    "the key let go of while away comes up now" true (Input.released back e);
   Alcotest.check close "with the hold it actually had" (29. *. tick)
     (Input.held_for back e);
   let pressed = frame [ e; c ] away in
-  Alcotest.(check bool) "and one pressed while away goes down now" true
-    (Input.pressed pressed c)
+  Alcotest.(check bool)
+    "and one pressed while away goes down now" true (Input.pressed pressed c)
 
 let () =
   Alcotest.run "Input"

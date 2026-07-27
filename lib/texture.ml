@@ -21,11 +21,11 @@
     its colour and applying it partially:
 
     {[
-      let brick ~color ~u ~v =
-        Color.level color (if in_mortar ~u ~v then 130 else 225)
+    let brick ~color ~u ~v =
+      Color.level color (if in_mortar ~u ~v then 130 else 225)
 
-      let red = generate (brick ~color:(Color.rgb 200 70 70))
-      and grey = generate (brick ~color:(Color.rgb 150 146 140))
+    let red = generate (brick ~color:(Color.rgb 200 70 70))
+    and grey = generate (brick ~color:(Color.rgb 150 146 140))
     ]}
 
     {!Color.level} is what makes that read as one line: it takes the 0 .. 255 a
@@ -33,10 +33,10 @@
     scales a colour by it, moving value without touching hue. A pattern that
     wants two colours in it simply does not go through [level].
 
-    The reuse is now explicit rather than free, and it costs an array per
-    colour where before two materials shared one. That is the trade: a pattern
-    is three times the memory and cannot be re-dressed after the fact, in
-    exchange for being able to say what it actually looks like.
+    The reuse is now explicit rather than free, and it costs an array per colour
+    where before two materials shared one. That is the trade: a pattern is three
+    times the memory and cannot be re-dressed after the fact, in exchange for
+    being able to say what it actually looks like.
 
     {1 Size}
 
@@ -77,7 +77,8 @@ let alpha t ~u ~v = t.alpha.((v * t.size) + u)
     [offset] reaches 1.0 exactly when a ray strikes a corner, which would index
     one past the end, so the result is clamped. *)
 let column_of_offset t offset =
-  Int.min (t.size - 1) (Int.max 0 (int_of_float (offset *. float_of_int t.size)))
+  Int.min (t.size - 1)
+    (Int.max 0 (int_of_float (offset *. float_of_int t.size)))
 
 let clamp v = Int.min 255 (Int.max 0 v)
 
@@ -148,8 +149,8 @@ let load path =
     to stop a surface looking machine-made, and reproducible so the tests can
     pin what it produces. *)
 let hash a b =
-  let h = (a * 73856093) lxor (b * 19349663) in
-  (h lxor (h lsr 13)) land max_int
+  let h = a * 73856093 lxor (b * 19349663) in
+  h lxor (h lsr 13) land max_int
 
 (** Smooth value noise, 0 .. 255: a hashed value at each corner of a lattice of
     [cell]-texel squares, interpolated between them with a smoothstep so the
@@ -174,7 +175,8 @@ let noise ~size ~seed ~cell ~u ~v =
     invalid_arg "Texture.noise: cell must divide the pattern size";
   let cells = size / cell in
   let corner x y =
-    float_of_int (hash ((x mod cells) + (seed * 7919)) ((y mod cells) + seed) land 255)
+    float_of_int
+      (hash ((x mod cells) + (seed * 7919)) ((y mod cells) + seed) land 255)
   in
   (* Smoothstep, so the interpolation arrives at each corner with zero slope and
      the eye cannot pick out the lattice the values hang on. *)

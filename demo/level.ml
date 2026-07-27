@@ -97,7 +97,8 @@ let default =
              let center = Vec.make (6. *. cos angle) (6. *. sin angle) in
              let height = [| 3.5; 0.6; 2.2; 4.5; 1.3; 2.8 |].(k) in
              Room.regular_polygon ~center ~radius:0.6 ~sides:4 ~rotation:0.6
-               ~height ~material:coats.(k mod 4)))
+               ~height
+               ~material:coats.(k mod 4)))
     and gallery =
       (* A brick wall hung with a painting and a poster. *)
       [
@@ -145,9 +146,7 @@ let default =
            see_through;
          ])
   and hall =
-    Room.make
-      ~thresholds:[ hall_west; hall_cellar ]
-      ~floor:(ground hall_floor)
+    Room.make ~thresholds:[ hall_west; hall_cellar ] ~floor:(ground hall_floor)
       ~ceiling:(roof (Plane.above hall_floor 4.))
       ~sprites:
         [ Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 3. (-2.)) ]
@@ -168,15 +167,13 @@ let default =
              ~rotation:0.3 ~height:4.5 ~material:Surfaces.tile;
          ])
   and nook =
-    Room.make ~thresholds:[ nook_south ]
-      ~floor:(ground nook_floor)
+    Room.make ~thresholds:[ nook_south ] ~floor:(ground nook_floor)
       ~ceiling:(roof (Plane.above nook_floor 2.9))
       (nook_jambs
       @ Room.path ~height:3.2 ~material:Surfaces.tile
           [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ])
   and garden =
-    Room.make ~thresholds:[ garden_east ]
-      ~floor:(ground garden_floor)
+    Room.make ~thresholds:[ garden_east ] ~floor:(ground garden_floor)
       ~ceiling:(Room.Open Surfaces.day)
       (List.concat
          [
@@ -186,11 +183,11 @@ let default =
                (Vec.make (-8.) 5.);
              Room.wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) 5.)
                (Vec.make (-8.) (-5.));
-             Room.wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) (-5.))
-               (Vec.make 0. (-5.));
+             Room.wall ~height:7. ~material:Surfaces.stone
+               (Vec.make (-8.) (-5.)) (Vec.make 0. (-5.));
              (* A lone tall monolith. *)
-             Room.wall ~height:6. ~material:Surfaces.brick (Vec.make (-6.) (-3.5))
-               (Vec.make (-4.5) (-4.5));
+             Room.wall ~height:6. ~material:Surfaces.brick
+               (Vec.make (-6.) (-3.5)) (Vec.make (-4.5) (-4.5));
            ];
            (* A winding low wall you look over into the sky beyond. *)
            Room.path ~height:0.5 ~material:Surfaces.panel
@@ -203,8 +200,7 @@ let default =
              ];
          ])
   and cellar =
-    Room.make ~thresholds:[ cellar_up ]
-      ~floor:(ground cellar_floor)
+    Room.make ~thresholds:[ cellar_up ] ~floor:(ground cellar_floor)
       ~ceiling:(roof (Plane.above cellar_floor 2.5))
       ~sprites:
         [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 0.) ]

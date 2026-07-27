@@ -107,8 +107,8 @@ let row_factor t ~row = (float_of_int row -. t.horizon) /. t.projection
 
     A vertical line in the world projects to a vertical line on the screen, and
     a straight line on a wall to a straight line on the screen, so four corners
-    are enough to outline anything flat — which is what a game wanting to ring
-    a decal needs, and why this is public. *)
+    are enough to outline anything flat — which is what a game wanting to ring a
+    decal needs, and why this is public. *)
 let project_point t (pose : Player.t) ~point ~z =
   let rel = Vec.sub point pose.Player.pos in
   let distance = Vec.dot rel pose.Player.dir in
@@ -143,7 +143,9 @@ let project_point t (pose : Player.t) ~point ~z =
     be one answer to where that is. {!Sight.t} carries the [pose] and the
     [distance] it needs. *)
 let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
-  let lateral = Vec.dot (Vec.sub s.Room.pos pose.Player.pos) pose.Player.right in
+  let lateral =
+    Vec.dot (Vec.sub s.Room.pos pose.Player.pos) pose.Player.right
+  in
   let camera_x = lateral /. (distance *. t.half_width) in
   let centre = (camera_x +. 1.) *. float_of_int t.width /. 2. in
   let base = project_height t ~z:(Room.sprite_foot s ~floor_z) ~distance in

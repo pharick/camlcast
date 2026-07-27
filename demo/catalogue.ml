@@ -6,8 +6,8 @@
     the feature it demonstrates as the only thing in it.
 
     A demo carries the world it starts from as well as the function that runs
-    it, so the test suite can check every one of them without opening a
-    window. *)
+    it, so the test suite can check every one of them without opening a window.
+*)
 
 open Raycaster
 

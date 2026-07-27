@@ -12,7 +12,8 @@
       threshold than it had, the ones it already had unmoved. That check is the
       whole safety of this: a room cannot move a doorway that something else is
       already linked through.
-    - {!Raycaster.World.add_room} appends a room whose doorways lead nowhere yet.
+    - {!Raycaster.World.add_room} appends a room whose doorways lead nowhere
+      yet.
     - {!Raycaster.World.link} joins two doorways that both exist and neither of
       which leads anywhere.
 
@@ -57,7 +58,10 @@ let segment ~index ~back ~onward =
   Room.make
     ~thresholds:
       (List.concat
-         [ (if back then [ back_door ] else []); (if onward then [ on_door ] else []) ])
+         [
+           (if back then [ back_door ] else []);
+           (if onward then [ on_door ] else []);
+         ])
     ~floor:{ Room.plane = floor; material = Surfaces.ground }
     ~ceiling:
       (Room.Roof

@@ -62,7 +62,6 @@ let annex_sw = Vec.make 0. (-4.)
 let annex_se = Vec.make 8. (-4.)
 let annex_ne = Vec.make 8. 4.
 let annex_nw = Vec.make 0. 4.
-
 let cloud ?base pos = Room.sprite ?base ~size:0.8 ~image:Pictures.motes.(0) pos
 
 (** Everything in the hall that does not move. The drifting one is added to
@@ -128,7 +127,11 @@ let world =
            })
       ~sprites:[ cloud ~base:1.9 (Vec.make 4. 0.) ]
       (annex_jambs
-      @ [ stone annex_sw annex_se; stone annex_se annex_ne; stone annex_ne annex_nw ])
+      @ [
+          stone annex_sw annex_se;
+          stone annex_se annex_ne;
+          stone annex_ne annex_nw;
+        ])
   in
   World.make
     ~rooms:[ ("hall", hall); ("annex", annex) ]
@@ -155,8 +158,7 @@ let view state =
   let drifting =
     Room.sprite ~size:0.8
       ~base:(0.6 +. (1.2 *. (1. -. cos (phase *. 2. *. Float.pi))))
-      ~image:Pictures.motes.(frame)
-      (Vec.make 7.5 (-0.5))
+      ~image:Pictures.motes.(frame) (Vec.make 7.5 (-0.5))
   in
   let hall = World.room world 0 in
   ( World.replace_room world ~room:0

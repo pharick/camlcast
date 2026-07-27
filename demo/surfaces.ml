@@ -56,10 +56,9 @@ let day =
   }
 
 (** Daylight air: a long, gentle fade to a blue-grey haze, and enough
-    directional light that walls at different angles read as different
-    surfaces. *)
+    directional light that walls at different angles read as different surfaces.
+*)
 let air =
   Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
-    ~min_brightness:0.25
-    ~light:(Vec.make (-0.4) (-0.9))
-    ~ambient:0.6 ~directional:0.4
+    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
+    ~directional:0.4

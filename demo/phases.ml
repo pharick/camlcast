@@ -10,9 +10,10 @@
     engine only ever hands the value back.
 
     [view] is where the light goes. The world's {!Raycaster.Atmosphere} is a
-    plain immutable field, so a frame can be drawn from [{ world with atmosphere
-    }] without the world it was made from changing at all. Every frame here is
-    drawn from a world that has never been stored anywhere.
+    plain immutable field, so a frame can be drawn from
+    [{ world with atmosphere }] without the world it was made from changing at
+    all. Every frame here is drawn from a world that has never been stored
+    anywhere.
 
     Time only passes while the window has focus. Click on another window on the
     way down and the light stops where it was. *)
@@ -25,7 +26,6 @@ let height = 4.
 let fuse = 20.
 
 type phase = Waiting | Burning | Done
-
 type t = { phase : phase; left : float; player : Player.t }
 
 let world =
@@ -53,7 +53,9 @@ let world =
              ~rotation:0.5 ~height:2.6 ~material:Surfaces.brick;
          ])
   in
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-5.) 0.)
 
 let start = { phase = Waiting; left = fuse; player = Player.spawn world }
@@ -63,8 +65,7 @@ let start = { phase = Waiting; left = fuse; player = Player.spawn world }
     reach of the fade move; the haze colour and the light's direction stay put,
     so what changes reads as the light going rather than as a different room. *)
 let air ~light =
-  Atmosphere.make
-    ~haze:(Color.rgb 24 24 32)
+  Atmosphere.make ~haze:(Color.rgb 24 24 32)
     ~fog_distance:(2. +. (10. *. light))
     ~min_brightness:(0.04 +. (0.21 *. light))
     ~light:(Vec.make (-0.4) (-0.9))

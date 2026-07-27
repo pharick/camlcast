@@ -11,13 +11,13 @@
     {1 What one frame costs}
 
     Seventy sprite records, one array to hold them, and the two records
-    {!Raycaster.Room.with_sprites} and {!Raycaster.World.replace_room} put around
-    them. That is the whole of it — about five microseconds, measured. The walls,
-    the floor plane and the ceiling plane are the ones this room was built with
-    and are shared, not copied, so a room's geometry is never touched by anything
-    moving through it however much of it is moving. Drawing the dust costs more
-    than moving it does, by a factor of a few hundred: at a 640 x 400 buffer this
-    room takes about 8.7 ms to draw empty and 10.1 ms full.
+    {!Raycaster.Room.with_sprites} and {!Raycaster.World.replace_room} put
+    around them. That is the whole of it — about five microseconds, measured.
+    The walls, the floor plane and the ceiling plane are the ones this room was
+    built with and are shared, not copied, so a room's geometry is never touched
+    by anything moving through it however much of it is moving. Drawing the dust
+    costs more than moving it does, by a factor of a few hundred: at a 640 x 400
+    buffer this room takes about 8.7 ms to draw empty and 10.1 ms full.
 
     {b And no picture is made.} {!Pictures.motes} is twelve images, built once
     when that module was loaded, and a mote animating is a mote reading a
@@ -88,8 +88,7 @@ let mote ~t k =
   Room.sprite
     ~base:(fall *. (height -. 0.2))
     ~size:(size k)
-    ~image:
-      Pictures.motes.((k + int_of_float (t *. 9. *. rate k)) mod frames)
+    ~image:Pictures.motes.((k + int_of_float (t *. 9. *. rate k)) mod frames)
     (Vec.make (base.Vec.x +. drift) (base.Vec.y +. (drift *. 0.6)))
 
 let motes ~t = List.init count (mote ~t)
@@ -115,7 +114,9 @@ let world =
         wall Surfaces.brick nw sw;
       ]
   in
-  World.make ~rooms:[ ("chamber", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("chamber", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("chamber", Vec.make (-5.) (-5.))
 
 let start = { elapsed = 0.; player = Player.spawn world }

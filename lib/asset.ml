@@ -51,7 +51,9 @@ let roots ~exe ~override =
     only useful thing to say about a missing asset is where it was not. *)
 let resolve ~exists ~exe ~override name =
   let tried = roots ~exe ~override in
-  match List.find_opt (fun root -> exists (Filename.concat root name)) tried with
+  match
+    List.find_opt (fun root -> exists (Filename.concat root name)) tried
+  with
   | Some root -> Ok (Filename.concat root name)
   | None ->
       let only =

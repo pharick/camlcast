@@ -1,10 +1,10 @@
 (** What actually arrives in the framebuffer, one pixel at a time.
 
     {!Renderer.draw_frame} is documented as pure array writes with no SDL calls
-    in it, and {!Framebuffer.offscreen} builds a buffer with no window behind it,
-    so a whole frame renders here headlessly. Everything below is about sprites:
-    where a billboard lands, what hides it, and what trims it. The rest of the
-    renderer is covered through {!Plane}, {!Viewport}, {!Material} and
+    in it, and {!Framebuffer.offscreen} builds a buffer with no window behind
+    it, so a whole frame renders here headlessly. Everything below is about
+    sprites: where a billboard lands, what hides it, and what trims it. The rest
+    of the renderer is covered through {!Plane}, {!Viewport}, {!Material} and
     {!Atmosphere}, whose arithmetic it is.
 
     {1 How a sprite is found on the screen}
@@ -81,7 +81,9 @@ let hall ?(floor = Plane.horizontal 0.) ?(extra = []) sprites =
 
 let alone ?floor ?extra sprites =
   let one room =
-    World.make ~rooms:[ ("hall", room) ] ~links:[] ~atmosphere:air
+    World.make
+      ~rooms:[ ("hall", room) ]
+      ~links:[] ~atmosphere:air
       ~spawn:("hall", Vec.make 0. 0.)
   in
   (one (hall ?floor ?extra sprites), one (hall ?floor ?extra []))
@@ -91,8 +93,8 @@ let looking_east ?(pos = Vec.make 0. 0.) () =
   Player.create ~room:0 ~pos ~angle:0.
 
 (** The viewport a frame of this size is drawn through, over a floor at
-    [floor_z] — what {!Viewport.sprite_box} has to be asked with if its answer is
-    to be comparable with what landed on the buffer. *)
+    [floor_z] — what {!Viewport.sprite_box} has to be asked with if its answer
+    is to be comparable with what landed on the buffer. *)
 let viewport ~floor_z =
   Viewport.create ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
 
@@ -121,7 +123,7 @@ let a_sprite_on_the_floor_is_where_the_viewport_says () =
   Alcotest.(check bool)
     (Printf.sprintf "as wide as it is tall (%d x %d)" (r - l) (b - t))
     true
-    (abs ((r - l) - (b - t)) <= 2)
+    (abs (r - l - (b - t)) <= 2)
 
 (* Lifting a sprite moves it up the screen and nowhere else: the same columns,
    and both edges raised by the rows the projection predicts. Nothing about the
@@ -136,11 +138,8 @@ let a_base_lifts_it_and_does_nothing_else () =
   let with_lifted, _ = alone [ lifted ] in
   let gl, gt, gr, gb = box ~with_it:with_ground ~without (looking_east ()) in
   let ll, lt, lr, lb = box ~with_it:with_lifted ~without (looking_east ()) in
-  Alcotest.(check (pair int int))
-    "the same columns" (gl, gr) (ll, lr);
-  Alcotest.(check bool)
-    "the same height" true
-    (abs ((gb - gt) - (lb - lt)) <= 1);
+  Alcotest.(check (pair int int)) "the same columns" (gl, gr) (ll, lr);
+  Alcotest.(check bool) "the same height" true (abs (gb - gt - (lb - lt)) <= 1);
   (* And by how much: 1.2 cells at distance 8, in pixels. *)
   let v = viewport ~floor_z:0. in
   let rise =
@@ -173,16 +172,14 @@ let a_wide_picture_makes_a_wide_billboard () =
   and with_wide, _ = alone [ Room.sprite ~size:1.6 ~image:wide pos ] in
   let sl, st, sr, sb = box ~with_it:with_square ~without (looking_east ()) in
   let wl, wt, wr, wb = box ~with_it:with_wide ~without (looking_east ()) in
-  Alcotest.(check bool)
-    "the same height" true
-    (abs ((sb - st) - (wb - wt)) <= 1);
+  Alcotest.(check bool) "the same height" true (abs (sb - st - (wb - wt)) <= 1);
   Alcotest.(check bool)
     (Printf.sprintf "twice as wide: %d against %d" (wr - wl) (sr - sl))
     true
-    (abs ((wr - wl) - (2 * (sr - sl))) <= 3);
+    (abs (wr - wl - (2 * (sr - sl))) <= 3);
   Alcotest.(check bool)
     "and still centred where the square one was" true
-    (abs ((wl + wr) - (sl + sr)) <= 2)
+    (abs (wl + wr - (sl + sr)) <= 2)
 
 (* A wall standing between the eye and a sprite hides the part of it behind,
    per pixel and not per sprite. The wall here is shorter than the sprite is
@@ -194,7 +191,9 @@ let a_low_wall_cuts_the_bottom_off () =
     [ Room.wall ~height:0.9 ~material:dim (Vec.make 4. (-2.)) (Vec.make 4. 2.) ]
   in
   let hidden_with, hidden_without = alone ~extra:wall [ s ] in
-  let _, ct, _, cb = box ~with_it:clear_with ~without:clear_without (looking_east ()) in
+  let _, ct, _, cb =
+    box ~with_it:clear_with ~without:clear_without (looking_east ())
+  in
   let _, ht, _, hb =
     box ~with_it:hidden_with ~without:hidden_without (looking_east ())
   in
@@ -255,8 +254,7 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
   done;
   Alcotest.(check bool)
     (Printf.sprintf "the doorway is columns %d..%d" !first !last)
-    true
-    (!first < !last);
+    true (!first < !last);
   Alcotest.(check bool)
     (Printf.sprintf "the sprite is drawn in %d..%d, inside it" l r)
     true
@@ -265,8 +263,8 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
      wider than the opening it came through. *)
   let unclipped =
     let el, _, er, _ =
-      Viewport.sprite_box (viewport ~floor_z:0.) looking ~floor_z:0. ~distance:4.
-        sprite
+      Viewport.sprite_box (viewport ~floor_z:0.) looking ~floor_z:0.
+        ~distance:4. sprite
     in
     er -. el
   in
@@ -284,7 +282,9 @@ let a_sloped_floor_carries_it () =
   let slope = Plane.make ~a:0.2 ~b:0. ~c:0. in
   let level_with, level_without = alone [ s ] in
   let slope_with, slope_without = alone ~floor:slope [ s ] in
-  let _, _, _, level = box ~with_it:level_with ~without:level_without (looking_east ()) in
+  let _, _, _, level =
+    box ~with_it:level_with ~without:level_without (looking_east ())
+  in
   let _, _, _, sloped =
     box ~with_it:slope_with ~without:slope_without (looking_east ())
   in
@@ -293,7 +293,9 @@ let a_sloped_floor_carries_it () =
   let v = viewport ~floor_z:0. in
   let rise =
     Viewport.project_height v ~z:0. ~distance:5.
-    -. Viewport.project_height v ~z:(Plane.elevation slope (Vec.make 5. 0.)) ~distance:5.
+    -. Viewport.project_height v
+         ~z:(Plane.elevation slope (Vec.make 5. 0.))
+         ~distance:5.
   in
   Alcotest.(check bool)
     (Printf.sprintf "its foot rose %d rows, expected %.1f" (level - sloped) rise)
@@ -317,7 +319,8 @@ let a_near_sprite_covers_a_far_one () =
   let differs = ref 0 in
   for y = 0 to height - 1 do
     for x = 0 to width - 1 do
-      if Framebuffer.pixel a ~x ~y <> Framebuffer.pixel b ~x ~y then incr differs
+      if Framebuffer.pixel a ~x ~y <> Framebuffer.pixel b ~x ~y then
+        incr differs
     done
   done;
   Alcotest.(check int)
@@ -351,8 +354,13 @@ let partition decals =
 
 let marked facing =
   fst
-    (alone ~extra:(partition [ Room.decal ~facing ~along:2. ~z:0.6
-                                 ~half_width:0.5 ~half_height:0.5 mark ])
+    (alone
+       ~extra:
+         (partition
+            [
+              Room.decal ~facing ~along:2. ~z:0.6 ~half_width:0.5
+                ~half_height:0.5 mark;
+            ])
        [])
 
 let bare = fst (alone ~extra:(partition []) [])
@@ -401,8 +409,8 @@ let a_mark_lands_under_the_crosshair () =
       let l, t, r, b = box ~with_it ~without:world aim in
       let cx = width / 2 and cy = height / 2 in
       Alcotest.(check bool)
-        (Printf.sprintf "the crosshair (%d, %d) is inside %d..%d by %d..%d" cx cy
-           l r t b)
+        (Printf.sprintf "the crosshair (%d, %d) is inside %d..%d by %d..%d" cx
+           cy l r t b)
         true
         (l <= cx && cx <= r && t <= cy && cy <= b);
       (* And it is a small mark on a far wall, not half the screen. *)
@@ -455,8 +463,9 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
   in
   let predicted = int_of_float (float_of_int texel *. light) in
   Alcotest.(check bool)
-    (Printf.sprintf "and the near reading is that texel under that light: %d against %d"
-       near predicted)
+    (Printf.sprintf
+       "and the near reading is that texel under that light: %d against %d" near
+       predicted)
     true
     (abs (near - predicted) <= 2)
 
@@ -522,7 +531,8 @@ let a_decal_ignores_what_the_wall_is_made_of () =
     let room =
       Room.make
         ~floor:{ Room.plane = Plane.horizontal 0.; material = pale }
-        ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material = dim })
+        ~ceiling:
+          (Room.Roof { Room.plane = Plane.horizontal 3.; material = dim })
         [
           Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-4.))
             (Vec.make 12. (-4.));
@@ -534,7 +544,9 @@ let a_decal_ignores_what_the_wall_is_made_of () =
             (Vec.make (-4.) (-4.));
         ]
     in
-    World.make ~rooms:[ ("hall", room) ] ~links:[] ~atmosphere:air
+    World.make
+      ~rooms:[ ("hall", room) ]
+      ~links:[] ~atmosphere:air
       ~spawn:("hall", Vec.make 0. 0.)
   in
   let frame world =
@@ -561,8 +573,7 @@ let a_decal_ignores_what_the_wall_is_made_of () =
    cells and in air that fades over six, once as paint and once glowing. *)
 let close_air ~fog_distance =
   Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance ~min_brightness:0.05
-    ~light:(Vec.make (-0.4) (-0.9))
-    ~ambient:0.6 ~directional:0.4
+    ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6 ~directional:0.4
 
 let a_glowing_decal_keeps_its_own_light () =
   let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
@@ -575,9 +586,7 @@ let a_glowing_decal_keeps_its_own_light () =
              (Room.decal ~glow ~along:4. ~z:Config.eye_height ~half_width:1.
                 ~half_height:1. white))
     in
-    let marked =
-      { marked with World.atmosphere = close_air ~fog_distance }
-    in
+    let marked = { marked with World.atmosphere = close_air ~fog_distance } in
     let fb = Framebuffer.offscreen ~width ~height in
     Renderer.draw_frame fb marked (looking_east ());
     (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r

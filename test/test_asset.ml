@@ -16,9 +16,7 @@ let tree paths path = List.mem path paths
 let resolve ?override ~exe present name =
   Asset.resolve ~exists:(tree present) ~exe ~override name
 
-let found = function
-  | Ok path -> path
-  | Error (`Msg m) -> Alcotest.fail m
+let found = function Ok path -> path | Error (`Msg m) -> Alcotest.fail m
 
 let message = function
   | Ok path -> Alcotest.fail ("unexpectedly found " ^ path)
@@ -40,7 +38,8 @@ let files_may_sit_beside_the_binary () =
   Alcotest.(check string)
     "the executable's own directory" "/opt/game/art/wall.png"
     (found
-       (resolve ~exe:"/opt/game/house" [ "/opt/game/art/wall.png" ]
+       (resolve ~exe:"/opt/game/house"
+          [ "/opt/game/art/wall.png" ]
           "art/wall.png"))
 
 (* A dune build, which is the layout every developer actually runs: each
@@ -94,7 +93,8 @@ let nothing_found_names_every_root () =
   let m = message (resolve ~exe:"/opt/game/house" [] "art/wall.png") in
   Alcotest.(check bool)
     (Printf.sprintf "the name is in it: %s" m)
-    true (mentions m "art/wall.png");
+    true
+    (mentions m "art/wall.png");
   List.iter
     (fun root ->
       Alcotest.(check bool)
@@ -116,7 +116,8 @@ let () =
     [
       ( "roots",
         [
-          case "a bundle looks beside the binary" a_bundle_looks_beside_the_binary;
+          case "a bundle looks beside the binary"
+            a_bundle_looks_beside_the_binary;
           case "files may sit beside the binary" files_may_sit_beside_the_binary;
           case "a dune build looks one directory up"
             a_dune_build_looks_one_directory_up;

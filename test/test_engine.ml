@@ -93,13 +93,7 @@ let a_short_frame_sleeps_off_the_rest () =
    with a phase in it — it counts the frames it is given, adds up the time it is
    told has passed and the turning it is asked for, and ends after a second. *)
 type phase = Playing | Ended
-
-type session = {
-  phase : phase;
-  elapsed : float;
-  frames : int;
-  heading : float;
-}
+type session = { phase : phase; elapsed : float; frames : int; heading : float }
 
 let start = { phase = Playing; elapsed = 0.; frames = 0; heading = 0. }
 
@@ -172,10 +166,9 @@ let losing_focus_pauses_the_game () =
 let pointing_takes_the_mouse_but_not_the_clock () =
   let pointed = play ~focused:true ~pointing:true (script 30) in
   Alcotest.check close "the mouse does not turn the camera" 0. pointed.heading;
-  Alcotest.check close "but the clock runs as it always did" 0.5
-    pointed.elapsed;
-  Alcotest.(check int) "and the frames arrive as they always did" 30
-    pointed.frames
+  Alcotest.check close "but the clock runs as it always did" 0.5 pointed.elapsed;
+  Alcotest.(check int)
+    "and the frames arrive as they always did" 30 pointed.frames
 
 (* {1 Growing on a crossing}
 
@@ -193,7 +186,8 @@ let grown moved = Engine.grown ~grow:(fun _ _ -> `Grown) `Untouched moved
 
 let a_frame_that_crosses_nothing_does_not_grow () =
   let stayed = Player.traverse world (player ()) ~forward:0.5 ~strafe:0. in
-  Alcotest.(check int) "the frame went through no doorway" 0
+  Alcotest.(check int)
+    "the frame went through no doorway" 0
     (List.length stayed.Player.crossings);
   Alcotest.(check bool)
     "so the world is left alone" true

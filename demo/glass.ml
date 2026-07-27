@@ -1,5 +1,5 @@
-(** {b See-through walls.} A steel grille and a leaded window, each with
-    someone standing behind it.
+(** {b See-through walls.} A steel grille and a leaded window, each with someone
+    standing behind it.
 
     A wall is see-through when the pattern its material wears carries an alpha —
     {!Patterns.bars} and {!Patterns.glass} are built with
@@ -50,7 +50,9 @@ let world =
         ]
       ([ solid sw se; solid se ne; solid ne nw; solid nw sw ] @ screen)
   in
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-5.5) 0.)
 
 let run () = Engine.run world

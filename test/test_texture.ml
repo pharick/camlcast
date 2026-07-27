@@ -84,12 +84,11 @@ let offsets_map_into_the_texture () =
 
 let generate_masked_flags_transparency () =
   Alcotest.(check bool) "a solid pattern is opaque" true checker.Texture.opaque;
-  Alcotest.(check bool)
-    "one with holes in it is not" false holes.Texture.opaque;
-  Alcotest.(check int) "a bar texel is solid" 255 (Texture.alpha holes ~u:0 ~v:0);
+  Alcotest.(check bool) "one with holes in it is not" false holes.Texture.opaque;
   Alcotest.(check int)
-    "a gap is clear" 0
-    (Texture.alpha holes ~u:10 ~v:10);
+    "a bar texel is solid" 255
+    (Texture.alpha holes ~u:0 ~v:0);
+  Alcotest.(check int) "a gap is clear" 0 (Texture.alpha holes ~u:10 ~v:10);
   (* Masked and solid have to agree on the flag, or the renderer would route a
      fully solid masked pattern into the translucent pass for nothing. *)
   let solid_but_masked =
@@ -112,9 +111,7 @@ let noise_stays_in_band () =
     (Printf.sprintf "every sample is a byte (%d .. %d)" !low !high)
     true
     (!low >= 0 && !high <= 255);
-  Alcotest.(check bool)
-    "and the field actually varies" true
-    (!high - !low > 32)
+  Alcotest.(check bool) "and the field actually varies" true (!high - !low > 32)
 
 (* The reason noise is in the engine rather than in a caller. A wall's pattern
    repeats once per world unit, so a field whose lattice did not close on itself
@@ -144,12 +141,10 @@ let noise_wraps_without_a_seam ~size () =
   Alcotest.(check bool)
     (Printf.sprintf "the u seam (%d) is no worse than the interior (%d)"
        !worst_u interior)
-    true
-    (!worst_u <= interior);
+    true (!worst_u <= interior);
   Alcotest.(check bool)
     (Printf.sprintf "and so is the v seam (%d)" !worst_v)
-    true
-    (!worst_v <= interior)
+    true (!worst_v <= interior)
 
 let noise_seeds_are_independent () =
   let fingerprint seed =
@@ -172,8 +167,7 @@ let noise_seeds_are_independent () =
 let noise_refuses_a_lattice_that_cannot_wrap () =
   List.iter
     (fun cell ->
-      Alcotest.check_raises
-        (Printf.sprintf "cell = %d" cell)
+      Alcotest.check_raises (Printf.sprintf "cell = %d" cell)
         (Invalid_argument "Texture.noise: cell must divide the pattern size")
         (fun () ->
           ignore (Texture.noise ~size:Texture.size ~seed:0 ~cell ~u:0 ~v:0)))
@@ -186,8 +180,7 @@ let noise_refuses_a_lattice_that_cannot_wrap () =
       true
     with Invalid_argument _ -> false
   in
-  Alcotest.(check bool)
-    "48 is refused at 64 and accepted at 96" true accepted
+  Alcotest.(check bool) "48 is refused at 64 and accepted at 96" true accepted
 
 (* A pattern is a texel density — so many texels per world cell — rather than a
    resolution, so it may be denser than the default without anything else in the
@@ -234,7 +227,9 @@ let load_keeps_the_colour_of_the_file () =
         (Texture.sample t ~u:0 ~v:1);
       Alcotest.check color "and runs along it" (Color.rgb 60 60 60)
         (Texture.sample t ~u:7 ~v:1);
-      Alcotest.(check int) "every texel is solid" 255 (Texture.alpha t ~u:5 ~v:5)
+      Alcotest.(check int)
+        "every texel is solid" 255
+        (Texture.alpha t ~u:5 ~v:5)
 
 (* Alpha survives loading, which is what makes a loaded pattern usable as a
    grille or a window: Material.opaque reads exactly this flag to decide whether
@@ -243,8 +238,8 @@ let load_keeps_transparency () =
   match Texture.load "fixtures/holes.png" with
   | Error (`Msg m) -> Alcotest.fail m
   | Ok t ->
-      Alcotest.(check bool) "a file with holes is not opaque" false
-        t.Texture.opaque;
+      Alcotest.(check bool)
+        "a file with holes is not opaque" false t.Texture.opaque;
       Alcotest.(check int) "a solid texel" 255 (Texture.alpha t ~u:0 ~v:0);
       Alcotest.(check int) "a clear one" 0 (Texture.alpha t ~u:6 ~v:6)
 
@@ -283,7 +278,8 @@ let () =
             (noise_wraps_without_a_seam ~size:Texture.size);
           (* And at a size that is not the default, which is the case a wrapping
              lattice left behind at 64 would fail. *)
-          case "wraps without a seam at 128" (noise_wraps_without_a_seam ~size:128);
+          case "wraps without a seam at 128"
+            (noise_wraps_without_a_seam ~size:128);
           case "seeds are independent" noise_seeds_are_independent;
           case "refuses a lattice that cannot wrap"
             noise_refuses_a_lattice_that_cannot_wrap;

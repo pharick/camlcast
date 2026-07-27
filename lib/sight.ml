@@ -28,8 +28,8 @@
     - An {b opaque wall}, but only where the wall actually is — the ray's height
       has to fall between the wall's foot on the sloped floor and its top, or it
       passes over or under it. A see-through wall ({!Material.opaque} is false)
-      does not stop it, exactly as it does not stop the renderer, and by the same
-      whole-wall rule rather than texel by texel.
+      does not stop it, exactly as it does not stop the renderer, and by the
+      same whole-wall rule rather than texel by texel.
     - A {b decal} on either sort of wall, where its image is not transparent
       there. This is what makes the see-through case an exception rather than a
       hole: the renderer draws a wall's decals whether or not the wall itself
@@ -109,7 +109,9 @@ type t = {
     the way {!decal_at} does below. That includes a sprite floating above the
     floor: the crosshair passing under its foot finds whatever is behind it. *)
 let touches (pose : Player.t) (sprite : Room.sprite) ~floor ~z =
-  let lateral = Vec.dot (Vec.sub sprite.Room.pos pose.Player.pos) pose.Player.right in
+  let lateral =
+    Vec.dot (Vec.sub sprite.Room.pos pose.Player.pos) pose.Player.right
+  in
   match
     ( Room.sprite_column sprite ~lateral,
       Room.sprite_row sprite ~floor_z:floor ~z )
@@ -184,8 +186,8 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
     | [] -> None
     | (d, Billboard i) :: rest ->
         let sprite = here.Room.sprites.(i) in
-        if touches pose sprite ~floor:(floor_at sprite.Room.pos) ~z:(z_at d) then
-          found d (Sprite { index = i })
+        if touches pose sprite ~floor:(floor_at sprite.Room.pos) ~z:(z_at d)
+        then found d (Sprite { index = i })
         else first rest
     | (d, Met (Ray.Wall hit)) :: rest ->
         let wall = hit.Ray.wall in
@@ -218,7 +220,7 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
       when entered = Some opening.Ray.index ->
         (* The doorway we are already looking through, met again from behind. *)
         first rest
-    | (d, Met (Ray.Opening opening)) :: rest ->
+    | (d, Met (Ray.Opening opening)) :: rest -> (
         let index = opening.Ray.index in
         let threshold = here.Room.thresholds.(index) in
         let foot = floor_at (point_at d) in
@@ -228,7 +230,8 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
              left standing above it — so this stops, but only if there is one:
              an opening with no lintel runs the full height of the wall it was
              cut into and there is nothing up there to meet. *)
-          if Option.is_some threshold.Room.lintel then found d (Doorway { index })
+          if Option.is_some threshold.Room.lintel then
+            found d (Doorway { index })
           else first rest
         else if z < foot then
           (* Under it, which is to say into the floor. Not something this picks;
@@ -245,7 +248,7 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
                      pose)
                 ~rise ~eye_z ~crossed:(crossed + 1) ~budget:(budget - 1)
                 ~entered:(Some portal.World.twin)
-          | Some _ | None -> found d (Doorway { index })
+          | Some _ | None -> found d (Doorway { index }))
   in
   first candidates
 

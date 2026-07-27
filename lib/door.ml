@@ -3,11 +3,11 @@
 
     {b Two states, not three.} A locked door is a closed one that the game will
     not let the player open, and that is the whole of the difference. Nothing
-    here ever behaved differently for one — it drew the same leaf and refused the
-    same step — so carrying the distinction only put a game's rule somewhere that
-    could not act on it. What the engine owns is what a door {e does}: it stands
-    in the way, or it does not. Whether trying it achieves anything is a game's
-    to decide and a game's to keep.
+    here ever behaved differently for one — it drew the same leaf and refused
+    the same step — so carrying the distinction only put a game's rule somewhere
+    that could not act on it. What the engine owns is what a door {e does}: it
+    stands in the way, or it does not. Whether trying it achieves anything is a
+    game's to decide and a game's to keep.
 
     That division has a price worth knowing before taking it. A door has two
     sides, so a game that locks doors keeps two entries per door in its own
@@ -17,9 +17,9 @@
     This is a module of its own rather than another type inside {!Room}, beside
     {!Room.type-lintel}, for two reasons. A door has behaviour where a lintel is
     only a measurement — the state decides both what is drawn across the opening
-    and whether a step is refused, and those two answers must never be allowed to
-    disagree. And {!Room} has already spent the name [Open] on a ceiling with sky
-    in it. *)
+    and whether a step is refused, and those two answers must never be allowed
+    to disagree. And {!Room} has already spent the name [Open] on a ceiling with
+    sky in it. *)
 
 type state =
   | Open  (** swung aside: nothing to see, and nothing to walk into *)
@@ -44,6 +44,6 @@ let make ?(state = Closed) material = { state; material }
 let leaf t = match t.state with Closed -> Some t.material | Open -> None
 
 (** Does it stop a step? Exactly when there is a leaf across the opening to stop
-    one — which is why this is asked of {!leaf} rather than of the state a second
-    time. What you cannot see through is what you cannot walk through. *)
+    one — which is why this is asked of {!leaf} rather than of the state a
+    second time. What you cannot see through is what you cannot walk through. *)
 let shut t = Option.is_some (leaf t)

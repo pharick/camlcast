@@ -18,8 +18,8 @@
 
     The two screens standing in front of the walls are see-through because the
     patterns they wear carry an alpha, and the loaded one was not told that: the
-    alpha came out of the file, and {!Raycaster.Material.opaque} read it and sent
-    the wall down the translucent pass on its own.
+    alpha came out of the file, and {!Raycaster.Material.opaque} read it and
+    sent the wall down the translucent pass on its own.
 
     The loaded poster is 96 x 64 and hangs in a 2.4 x 1.6 space, undistorted,
     because a decal keeps its two extents apart all the way through —
@@ -57,9 +57,8 @@ let picture name =
     fade would grey out half of what there is to compare. *)
 let air =
   Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:26.
-    ~min_brightness:0.45
-    ~light:(Vec.make (-0.4) (-0.9))
-    ~ambient:0.7 ~directional:0.3
+    ~min_brightness:0.45 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.7
+    ~directional:0.3
 
 let build () =
   let* tiles = pattern "assets/tiles.png" in
@@ -83,9 +82,7 @@ let build () =
      left and the northern one on your right. *)
   let mid = Vec.make 6. 0. in
   let print image =
-    [
-      Room.decal ~along:2.5 ~z:1.7 ~half_width:1.2 ~half_height:0.8 image;
-    ]
+    [ Room.decal ~along:2.5 ~z:1.7 ~half_width:1.2 ~half_height:0.8 image ]
   in
   let screen material a b = Room.wall ~height:2.6 ~material a b in
   let floor = Plane.horizontal 0. in
@@ -103,8 +100,9 @@ let build () =
       [
         Room.wall ~height ~material:stone sw se;
         (* Left: everything on this side came out of a file, colour and all. *)
-        Room.wall ~height ~material:(Material.make ~pattern:tiles) se mid
-          ~decals:(print poster);
+        Room.wall ~height
+          ~material:(Material.make ~pattern:tiles)
+          se mid ~decals:(print poster);
         (* Right: everything on this side is a function of u and v, and its
            colours are the arguments that function was given. *)
         Room.wall ~height
@@ -118,15 +116,16 @@ let build () =
            behind it to reveal. *)
         screen
           (Material.make ~pattern:grille)
-          (Vec.make 4. (-3.4))
-          (Vec.make 4. (-0.6));
+          (Vec.make 4. (-3.4)) (Vec.make 4. (-0.6));
         screen
           (Surfaces.seen_through (Patterns.bars ~color:iron))
           (Vec.make 4. 0.6) (Vec.make 4. 3.4);
       ]
   in
   Ok
-    (World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
+    (World.make
+       ~rooms:[ ("room", room) ]
+       ~links:[] ~atmosphere:air
        ~spawn:("room", Vec.make (-4.) 0.))
 
 (** The world sits behind a [lazy] in the catalogue, so this runs the first time

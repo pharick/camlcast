@@ -36,9 +36,7 @@ let gradient_climbs_to_the_zenith () =
 let the_sun_is_a_bright_spot () =
   let brightness (c : Color.t) = c.r + c.g + c.b in
   let at_sun = color ~azimuth:sun_azimuth ~up:sun_height in
-  let away =
-    color ~azimuth:(sun_azimuth +. Float.pi) ~up:sun_height
-  in
+  let away = color ~azimuth:(sun_azimuth +. Float.pi) ~up:sun_height in
   Alcotest.(check bool)
     "the sun is brighter than the sky away from it" true
     (brightness at_sun > brightness away);
@@ -50,9 +48,7 @@ let the_sun_is_a_bright_spot () =
    direction plus a full turn, must give the same sky (bar rounding). *)
 let azimuth_wraps_around () =
   let a = color ~azimuth:sun_azimuth ~up:sun_height in
-  let b =
-    color ~azimuth:(sun_azimuth +. (2. *. Float.pi)) ~up:sun_height
-  in
+  let b = color ~azimuth:(sun_azimuth +. (2. *. Float.pi)) ~up:sun_height in
   let near p q = abs (p - q) <= 1 in
   Alcotest.(check bool)
     "a full turn is the same sky" true

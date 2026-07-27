@@ -3,9 +3,8 @@ open Support
 
 let daylight =
   Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
-    ~min_brightness:0.25
-    ~light:(Vec.make (-0.4) (-0.9))
-    ~ambient:0.6 ~directional:0.4
+    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
+    ~directional:0.4
 
 (* Walls face every direction, so shading follows the normal's angle to the
    light rather than a fixed x/y rule. It must stay within the band the
@@ -19,8 +18,9 @@ let orientation_shades_within_its_band () =
         (Printf.sprintf "%.2f rad stays in band" angle)
         true
         (f >= daylight.Atmosphere.ambient -. 1e-12
-        && f <= daylight.Atmosphere.ambient +. daylight.Atmosphere.directional
-                +. 1e-12))
+        && f
+           <= daylight.Atmosphere.ambient +. daylight.Atmosphere.directional
+              +. 1e-12))
     (List.init 16 (fun i -> float_of_int i *. Float.pi /. 8.));
   let light = daylight.Atmosphere.light in
   Alcotest.check close "square-on reaches the top of the band"
@@ -49,9 +49,8 @@ let shading_ignores_which_way_the_normal_points () =
 let a_sourceless_atmosphere_flattens_orientation () =
   let dark =
     Atmosphere.make ~haze:(Color.rgb 8 8 9) ~fog_distance:9.
-      ~min_brightness:0.06
-      ~light:(Vec.make (-0.4) (-0.9))
-      ~ambient:1. ~directional:0.
+      ~min_brightness:0.06 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:1.
+      ~directional:0.
   in
   let a = Atmosphere.face_shading dark (Vec.of_angle 0.)
   and b = Atmosphere.face_shading dark (Vec.of_angle 1.3) in
@@ -74,9 +73,8 @@ let fog_fades_with_distance () =
 let a_closer_atmosphere_fades_sooner () =
   let close_in =
     Atmosphere.make ~haze:(Color.rgb 8 8 9) ~fog_distance:9.
-      ~min_brightness:0.06
-      ~light:(Vec.make (-0.4) (-0.9))
-      ~ambient:0.85 ~directional:0.15
+      ~min_brightness:0.06 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.85
+      ~directional:0.15
   in
   Alcotest.(check bool)
     "the same wall is dimmer in the closer air" true
@@ -90,8 +88,7 @@ let a_closer_atmosphere_fades_sooner () =
 let make_normalises_the_light () =
   let stretched =
     Atmosphere.make ~haze:(Color.rgb 0 0 0) ~fog_distance:10.
-      ~min_brightness:0.1 ~light:(Vec.make 0. 40.) ~ambient:0.5
-      ~directional:0.5
+      ~min_brightness:0.1 ~light:(Vec.make 0. 40.) ~ambient:0.5 ~directional:0.5
   in
   Alcotest.check close "the light is a unit vector" 1.
     (Vec.length stretched.Atmosphere.light);
@@ -114,6 +111,7 @@ let () =
       ( "fog",
         [
           case "fog fades with distance" fog_fades_with_distance;
-          case "a closer atmosphere fades sooner" a_closer_atmosphere_fades_sooner;
+          case "a closer atmosphere fades sooner"
+            a_closer_atmosphere_fades_sooner;
         ] );
     ]

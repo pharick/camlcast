@@ -41,15 +41,22 @@ type t = {
 }
 
 (** The buffer itself, zeroed. Rendering a frame covers every pixel before
-    anything reads one, so the clearing is not for the renderer's benefit — it is
-    so that a buffer nobody has drawn into yet is black rather than whatever the
-    allocator had lying there, which is what lets a test say what it expected. *)
+    anything reads one, so the clearing is not for the renderer's benefit — it
+    is so that a buffer nobody has drawn into yet is black rather than whatever
+    the allocator had lying there, which is what lets a test say what it
+    expected. *)
 let buffer ~width ~height =
   let pixels =
     Bigarray.(Array1.create int8_unsigned c_layout (width * height * 4))
   in
   Bigarray.Array1.fill pixels 0;
-  { texture = None; pixels; depth = Array.make (width * height) infinity; width; height }
+  {
+    texture = None;
+    pixels;
+    depth = Array.make (width * height) infinity;
+    width;
+    height;
+  }
 
 let create sdl ~width ~height =
   let+ texture =
@@ -61,12 +68,12 @@ let create sdl ~width ~height =
 (** A buffer with no window behind it: the same pixels and the same depth, drawn
     into by the same {!set} and {!blend}, and never uploaded anywhere.
 
-    It exists so that what is drawn can be {e read back and asserted}. Everything
-    downstream of this module — {!Paint}, {!Font}, and the renderer itself — used
-    to be testable only through the arithmetic that fed it, because a real buffer
-    needs a live SDL renderer to make its streaming texture and a test has no
-    window. The texture is the only part of that which is true, so it is the only
-    part that is optional. *)
+    It exists so that what is drawn can be {e read back and asserted}.
+    Everything downstream of this module — {!Paint}, {!Font}, and the renderer
+    itself — used to be testable only through the arithmetic that fed it,
+    because a real buffer needs a live SDL renderer to make its streaming
+    texture and a test has no window. The texture is the only part of that which
+    is true, so it is the only part that is optional. *)
 let offscreen ~width ~height = buffer ~width ~height
 
 let destroy t = Option.iter Sdl.destroy_texture t.texture
@@ -121,7 +128,8 @@ let pixel t ~x ~y =
     says so instead of quietly doing nothing. *)
 let present sdl t ~dst =
   match t.texture with
-  | None -> Error (`Msg "Framebuffer.present: this buffer has no window behind it")
+  | None ->
+      Error (`Msg "Framebuffer.present: this buffer has no window behind it")
   | Some texture ->
       let* () = Sdl.update_texture texture None t.pixels (t.width * 4) in
       Sdl.render_copy sdl texture ~dst

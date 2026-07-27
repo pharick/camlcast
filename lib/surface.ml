@@ -97,6 +97,7 @@ let read path =
 (** The byte offset of pixel [(x, y)]; its red channel, with green, blue and
     alpha in the three bytes after it. *)
 let offset t ~x ~y = ((y * t.width) + x) * 4
+
 let channel t i = Char.code (Bytes.unsafe_get t.rgba i)
 
 (** How solid pixel [(x, y)] is. A file with no alpha channel of its own has

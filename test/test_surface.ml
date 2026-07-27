@@ -15,9 +15,7 @@ open Raycaster
 open Support
 
 let read path =
-  match Surface.read path with
-  | Ok s -> s
-  | Error (`Msg m) -> Alcotest.fail m
+  match Surface.read path with Ok s -> s | Error (`Msg m) -> Alcotest.fail m
 
 let fails path =
   match Surface.read path with
@@ -49,9 +47,11 @@ let channels_arrive_in_order () =
    worth making is that a named pixel is where its coordinates say. *)
 let rows_are_laid_out_by_width () =
   let s = read "fixtures/swatch.png" in
-  Alcotest.(check int) "one row down is one width along" 16
+  Alcotest.(check int)
+    "one row down is one width along" 16
     (Surface.offset s ~x:0 ~y:1);
-  Alcotest.(check int) "and the last pixel is the last one" 44
+  Alcotest.(check int)
+    "and the last pixel is the last one" 44
     (Surface.offset s ~x:3 ~y:2)
 
 (* A JPEG has no alpha channel; converting to one that does must fill it solid,
@@ -88,7 +88,9 @@ let a_format_without_alpha_arrives_solid () =
 
 let a_missing_file_is_an_error () =
   let m = fails "fixtures/nothing-here.png" in
-  Alcotest.(check bool) (Printf.sprintf "and says something: %s" m) true
+  Alcotest.(check bool)
+    (Printf.sprintf "and says something: %s" m)
+    true
     (String.length m > 0)
 
 (* Not every file with pixels in the name has pixels in it. *)

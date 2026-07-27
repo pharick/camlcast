@@ -4,8 +4,7 @@
     Unlike a {!Raycaster.Texture}, which is square and tiles a world cell
     because it is part of a surface, an {!Raycaster.Image} is drawn once at
     whatever shape it was authored in. The decals are opaque within their frame;
-    the
-    sprites are cut out against {!Raycaster.Image.clear} so only the object
+    the sprites are cut out against {!Raycaster.Image.clear} so only the object
     itself is drawn. *)
 
 open Raycaster
@@ -82,8 +81,8 @@ let mote ~frame =
         let swing = 2.2 +. (6. *. fraction 0.2360679775 k)
         and lag = fraction 0.4142135624 k *. 2. *. Float.pi in
         ( fraction 0.7548776662 k *. float_of_int mote_width,
-          ((0.15 +. (0.7 *. fraction 0.5698402910 k))
-          *. float_of_int mote_height)
+          (0.15 +. (0.7 *. fraction 0.5698402910 k))
+          *. float_of_int mote_height
           +. (swing *. sin (lag +. turn)),
           1.2 +. (1.7 *. fraction 0.7320508076 k),
           0.4 +. (0.6 *. fraction 0.4142135624 k) ))

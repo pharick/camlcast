@@ -38,10 +38,10 @@ let spawn world =
   create ~room:world.World.spawn.room ~pos:world.World.spawn.pos ~angle:0.
 
 (** Carry the pose into a neighbouring room's frame: the position moves with
-    {!Transform.point}, the two basis vectors only rotate ({!Transform.direction}
-    — they carry no position), and the room changes. [pitch] is untouched,
-    because a rigid motion of the flat world is horizontal and cannot tilt the
-    view.
+    {!Transform.point}, the two basis vectors only rotate
+    ({!Transform.direction} — they carry no position), and the room changes.
+    [pitch] is untouched, because a rigid motion of the flat world is horizontal
+    and cannot tilt the view.
 
     Nothing is renormalised, and nothing needs to be: the rotation is exact, so
     [dir] and [right] come out unit and perpendicular however many doorways have
@@ -130,13 +130,13 @@ type movement = { player : t; crossings : crossing list }
     {1 What comes back}
 
     Every doorway gone through, in the order they were met. That order is the
-    whole reason this returns a list rather than a count: a game building a route
-    home has to unwind the crossings the way they were made, and a frame that
-    went out and came back — an {e L} that rounds a jamb, or a step all the way
-    round a loop of rooms — has to leave the stack as it found it. The two
+    whole reason this returns a list rather than a count: a game building a
+    route home has to unwind the crossings the way they were made, and a frame
+    that went out and came back — an {e L} that rounds a jamb, or a step all the
+    way round a loop of rooms — has to leave the stack as it found it. The two
     transforms of a link are inverses, so such a frame lands where it should, in
-    the room it set out from, and the list is what says it went anywhere at
-    all. *)
+    the room it set out from, and the list is what says it went anywhere at all.
+*)
 let slide world player (delta : Vec.t) =
   (* [leg] is what is left to walk, [pending] the axis not yet started; both are
      in the frame of the room the player is standing in, so both are carried at
@@ -145,7 +145,9 @@ let slide world player (delta : Vec.t) =
   let rec step player ~leg ~pending ~trace ~budget =
     let from = player.pos in
     let dest = Vec.add from leg in
-    let refuse ~dest = not (World.can_step world ~room:player.room ~from ~dest) in
+    let refuse ~dest =
+      not (World.can_step world ~room:player.room ~from ~dest)
+    in
     match World.crossing world ~room:player.room ~from ~dest with
     | Some (slot, (portal : World.portal), at) when budget > 0 ->
         (* Only as far as the opening: past it this room cannot answer. *)
@@ -210,8 +212,8 @@ let traverse world player ~forward ~strafe =
     (if length > limit then Vec.scale delta (limit /. length) else delta)
 
 (** {!traverse} for a caller that only wants to know where the player ended up.
-    Everything that walks and does not care which doorways it went through —
-    the demos, and the compatibility path through {!Engine.run} — goes through
-    here. *)
+    Everything that walks and does not care which doorways it went through — the
+    demos, and the compatibility path through {!Engine.run} — goes through here.
+*)
 let walk world player ~forward ~strafe =
   (traverse world player ~forward ~strafe).player

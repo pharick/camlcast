@@ -46,8 +46,7 @@ let levelling () =
     "the channels keep their order" true
     (dim.Color.r > dim.Color.g && dim.Color.g > dim.Color.b);
   Alcotest.check color "and a level out of range clamps rather than wrapping"
-    base
-    (Color.level base 400)
+    base (Color.level base 400)
 
 let clamping_a_colour () =
   Alcotest.check color "channels below zero come back to black"

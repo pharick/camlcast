@@ -67,9 +67,7 @@ let along_stays_on_the_wall () =
    The index is what ties an opening back to its portal. *)
 let openings_are_found_like_walls () =
   let first = World.room two_rooms 0 in
-  let through =
-    Ray.openings first ~origin:centre ~direction:(Vec.make 1. 0.)
-  in
+  let through = Ray.openings first ~origin:centre ~direction:(Vec.make 1. 0.) in
   Alcotest.(check int) "the doorway ahead is found" 1 (List.length through);
   let opening = List.hd through in
   Alcotest.check close "at the east wall, two cells away" 2.
@@ -81,7 +79,8 @@ let openings_are_found_like_walls () =
     opening.Ray.along;
   Alcotest.(check int)
     "a ray that misses it finds nothing" 0
-    (List.length (Ray.openings first ~origin:centre ~direction:(Vec.make 0. 1.)));
+    (List.length
+       (Ray.openings first ~origin:centre ~direction:(Vec.make 0. 1.)));
   Alcotest.(check int)
     "and neither does one pointing away from it" 0
     (List.length

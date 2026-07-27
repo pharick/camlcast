@@ -50,11 +50,12 @@ let world =
       ~ceiling:
         (Room.Roof
            { Room.plane = Plane.above floor height; material = Surfaces.soffit })
-      ~sprites:
-        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.) ]
+      ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.) ]
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 (** The typeface, read once. [\127] is the atlas's 96th cell, a hollow box, and
@@ -101,7 +102,8 @@ let overlay fb (_ : Player.t) =
   Font.draw fb font "abcdefghijklmnopqrstuvwxyz gjpqy" ~x:(2 * pad) ~y:(y + lh)
     ~color:dim;
   Font.draw fb font "0123456789 !?.,:;()[]{}<>+-*/=@#$%&" ~x:(2 * pad)
-    ~y:(y + (2 * lh)) ~color:warn;
+    ~y:(y + (2 * lh))
+    ~color:warn;
   (* Clipped, not truncated: this line is longer than the screen and nothing
      here knows or cares where the screen ends. *)
   Font.draw fb font
@@ -112,10 +114,13 @@ let overlay fb (_ : Player.t) =
     ~color:ink;
   (* A character the grid has no cell for, keeping its place. *)
   Font.draw fb font "a missing glyph:\208 keeps its space" ~x:(2 * pad)
-    ~y:(y + (5 * lh)) ~color:dim;
+    ~y:(y + (5 * lh))
+    ~color:dim;
   (* And the count, bottom right, to show measure placing something by its own
      size rather than by a number written down here. *)
-  let note = Printf.sprintf "%d lines wrapped to %dpx" (List.length lines) column in
+  let note =
+    Printf.sprintf "%d lines wrapped to %dpx" (List.length lines) column
+  in
   let nw, nh = Font.measure font note in
   Font.draw fb font note ~x:(width - nw - pad) ~y:(height - nh - pad) ~color:dim;
   Paint.crosshair fb ~r:245 ~g:245 ~b:245

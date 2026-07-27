@@ -56,7 +56,8 @@ let world =
   (* Sides 0 and 5 are the two that meet at due east: both slanted, so both
      links turn as well as move, and near enough each other to be seen at the
      same time. *)
-  let right_jambs, right = gate 0 "right" and left_jambs, left = gate 5 "left" in
+  let right_jambs, right = gate 0 "right"
+  and left_jambs, left = gate 5 "left" in
   let side k =
     Room.wall ~height ~material:Surfaces.stone (corner k)
       (corner ((k + 1) mod 6))
@@ -77,9 +78,12 @@ let world =
         ("east", chamber ());
         ("west", chamber ());
       ]
-    ~links:[ (("hub", "right"), ("east", "back")); (("hub", "left"), ("west", "back")) ]
+    ~links:
+      [
+        (("hub", "right"), ("east", "back")); (("hub", "left"), ("west", "back"));
+      ]
     ~atmosphere:Surfaces.air
-    (* Standing back from the middle, so that both doorways are ahead of you
+      (* Standing back from the middle, so that both doorways are ahead of you
        and the same room can be seen through each. *)
     ~spawn:("hub", Vec.make (-6.) 0.)
 

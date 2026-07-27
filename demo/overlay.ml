@@ -3,9 +3,8 @@
     what it draws is in front of everything and clipped by nothing.
 
     Three things are drawn here, all in {!Raycaster.Paint}: a crosshair in the
-    middle, a
-    meter along the bottom that fills over ten seconds and starts again, and a
-    translucent panel behind the meter. The panel is drawn with
+    middle, a meter along the bottom that fills over ten seconds and starts
+    again, and a translucent panel behind the meter. The panel is drawn with
     {!Raycaster.Framebuffer.blend} rather than {!Raycaster.Framebuffer.set} —
     walk up to a wall and it tints the wall rather than replacing it.
 
@@ -40,7 +39,9 @@ let world =
         [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 0.) ]
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:Surfaces.air
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 let start = { elapsed = 0.; player = Player.spawn world }
@@ -57,13 +58,11 @@ let overlay fb state =
   let bar_h = Int.max 4 (height / 60) in
   let bar_y = height - (height / 8) in
   (* A band behind the meter, blended so the world shows through it. *)
-  Paint.rect fb ~x:0 ~y:(bar_y - bar_h) ~w:width ~h:(bar_h * 4) ~r:10 ~g:12 ~b:20
-    ~alpha:110;
+  Paint.rect fb ~x:0 ~y:(bar_y - bar_h) ~w:width ~h:(bar_h * 4) ~r:10 ~g:12
+    ~b:20 ~alpha:110;
   Paint.bar fb ~x:margin ~y:bar_y
     ~w:(width - (2 * margin))
-    ~h:bar_h
-    ~fraction:(state.elapsed /. period)
-    ~r:230 ~g:190 ~b:90;
+    ~h:bar_h ~fraction:(state.elapsed /. period) ~r:230 ~g:190 ~b:90;
   Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
 let run () =

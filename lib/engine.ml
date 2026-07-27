@@ -11,7 +11,8 @@ type 'a game = {
           for over it and what the player is pressing and holding through it *)
   view : 'a -> World.t * Player.t;  (** what this frame is drawn from *)
   overlay : Framebuffer.t -> 'a -> unit;
-      (** anything drawn over the finished world, before it reaches the screen *)
+      (** anything drawn over the finished world, before it reaches the screen
+      *)
   pointing : 'a -> bool;
       (** whether the player is working a cursor over something the game has
           drawn, rather than looking around with the mouse *)
@@ -189,9 +190,8 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
       else Input.freeze actions
     in
     let state =
-      simulate ctx.game state ~focused
-        ~pointing:(ctx.game.pointing state)
-        ~dt ~motion ~actions
+      simulate ctx.game state ~focused ~pointing:(ctx.game.pointing state) ~dt
+        ~motion ~actions
     in
     if ctx.game.finished state then Ok state
     else
@@ -214,9 +214,9 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
       loop ctx ~state ~actions ~fullscreen ~relative ~previous:now
 
 (** Acquire a resource, use it, and release it even if the body raises. It lives
-    in {!Result_ext} now, because {!Surface} needs it too and sits far below this
-    module; the name stays here for the windows and renderers that were its only
-    callers when it was written. *)
+    in {!Result_ext} now, because {!Surface} needs it too and sits far below
+    this module; the name stays here for the windows and renderers that were its
+    only callers when it was written. *)
 let with_resource = Result_ext.with_resource
 
 (** Open a window and run [state] through the loop, returning what it has become
