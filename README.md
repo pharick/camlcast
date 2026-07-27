@@ -43,6 +43,7 @@ the thing it is about.
 | `portals`  | doorways: one room, built once, joined in two places              |
 | `changing` | replacing a room: an animated sign, rebuilt every frame           |
 | `floating` | sprites off the floor, and frames chosen rather than made         |
+| `dust`     | a chamber of falling dust: every mote moved every frame           |
 | `endless`  | the `grow` hook: a corridor built as you walk down it             |
 | `doors`    | doors that open and shut, and a lock that is the game's own rule  |
 | `targets`  | what the crosshair is on, through the doorway in front of you     |

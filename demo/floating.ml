@@ -37,7 +37,8 @@
     thresholds and both planes it already had — and
     {!Raycaster.World.replace_room} puts it in place. Compare {!Changing}, which
     rebuilds a room from its parts every frame because everything in it is
-    moving. *)
+    moving, and {!Dust}, which is this one sprite turned into seventy and is
+    where the cost of doing it is worth reading. *)
 
 open Raycaster
 open Result_ext

@@ -89,14 +89,19 @@ let mote ~frame =
   in
   Image.make ~height:mote_height mote_width (fun ~u ~v ->
       let x = float_of_int u +. 0.5 and y = float_of_int v +. 0.5 in
-      (* The brightest speck covering this pixel, faded towards its own edge so
-         a speck a pixel across still has an edge to it. *)
+      (* The brightest speck covering this pixel, faded across most of its own
+         radius rather than only at the rim. Sampling is nearest-neighbour, so a
+         speck two texels across is several screen pixels across when you walk
+         up to it; a gradient that wide is what keeps it a speck rather than a
+         square. *)
       let lit =
         List.fold_left
           (fun best (cx, cy, radius, bright) ->
             let d = Float.hypot (x -. cx) (y -. cy) in
             if d >= radius then best
-            else Float.max best (bright *. Float.min 1. (2.5 *. (1. -. (d /. radius)))))
+            else
+              Float.max best
+                (bright *. Float.min 1. (1.5 *. (1. -. (d /. radius)))))
           0. specks
       in
       if lit <= 0.02 then Image.clear

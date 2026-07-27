@@ -80,6 +80,12 @@ let demos =
       run = Floating.run;
     };
     {
+      name = "dust";
+      blurb = "a chamber of falling dust: every mote moved every frame";
+      world = lazy Dust.world;
+      run = Dust.run;
+    };
+    {
       name = "endless";
       blurb = "the grow hook: a corridor built as you walk it";
       world = lazy Endless.world;

@@ -245,6 +245,50 @@ let the_floating_demo_lifts_its_sprites () =
          && i.Image.height = Pictures.motes.(0).Image.height)
        Pictures.motes)
 
+(* The dust demo is the frames half at the scale a game wants it: seventy motes,
+   every one of them somewhere else each frame. Two things have to be true of
+   that, and neither is visible in a screenshot.
+
+   The first is §15's rule, and it is asserted by {e physical} equality: every
+   mote's picture must be one of the images Pictures built when it loaded, not
+   an equal one made during the frame. A version that generated a picture per
+   mote per frame would draw exactly the same thing and fail here.
+
+   The second is what makes it cheap: a moving room shares the room it moved
+   from. The walls and both planes have to be the very same values, or seventy
+   motes would be dragging four walls behind them sixty times a second. *)
+let the_dust_demo_moves_without_making_anything () =
+  let at t = fst (Dust.view { Dust.elapsed = t; player = Player.spawn Dust.world }) in
+  let early = at 0.4 and late = at 3.1 in
+  let sprites world = Array.to_list (World.room world 0).Room.sprites in
+  Alcotest.(check int) "every mote is there" 70 (List.length (sprites early));
+  Alcotest.(check bool)
+    "each one's picture came out of the precomputed strip" true
+    (List.for_all
+       (fun (s : Room.sprite) ->
+         Array.exists (fun im -> im == s.Room.image) Pictures.motes)
+       (sprites early @ sprites late));
+  (* And they are genuinely moving: not one of them is where it was. *)
+  Alcotest.(check bool)
+    "all seventy have moved" true
+    (List.for_all2
+       (fun (a : Room.sprite) (b : Room.sprite) ->
+         a.Room.base <> b.Room.base || a.Room.pos <> b.Room.pos)
+       (sprites early) (sprites late));
+  Alcotest.(check bool)
+    "and they are spread through the room, not stacked at one height" true
+    (List.exists (fun (s : Room.sprite) -> s.Room.base < 1.) (sprites early)
+    && List.exists (fun (s : Room.sprite) -> s.Room.base > 3.) (sprites early));
+  (* The geometry is shared, not rebuilt. *)
+  let authored = World.room Dust.world 0 and moved = World.room late 0 in
+  Alcotest.(check bool)
+    "the walls are the very same array" true
+    (moved.Room.walls == authored.Room.walls);
+  Alcotest.(check bool)
+    "and both planes the very same values" true
+    (moved.Room.floor == authored.Room.floor
+    && moved.Room.ceiling == authored.Room.ceiling)
+
 let () =
   Alcotest.run "Demos"
     [
@@ -262,5 +306,7 @@ let () =
           case "the loading demo reads its art" the_loading_demo_reads_its_art;
           case "the floating demo lifts its sprites"
             the_floating_demo_lifts_its_sprites;
+          case "the dust demo moves without making anything"
+            the_dust_demo_moves_without_making_anything;
         ] );
     ]
