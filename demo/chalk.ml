@@ -15,44 +15,54 @@
     nothing on the back. The rest of the hall is its own boundary, and the far
     face of that is not somewhere you can get to.
 
-    {b Marks survive the room being rebuilt.} The lamp in this room dims and
-    brightens, and it does it by building the room again from its parts with
-    different materials — walls, floor, ceiling, all new values, every few
-    seconds. The chalk is not part of that room. It is a list this demo keeps,
-    re-applied with {!Raycaster.Room.add_decal} after the rebuild, which is the
-    only thing that makes it persistent: the engine has no memory of a mark, and
-    a game that dropped its list would lose them all.
+    {b Marks survive the room being rebuilt.} The hall is built again from its
+    parts every frame — every wall, both planes, all new values. The chalk is
+    not part of that room. It is a list this demo keeps, re-applied with
+    {!Raycaster.Room.add_decal} after the rebuild, which is the only thing that
+    makes it persistent: the engine has no memory of a mark, and a game that
+    dropped its list would lose them all.
 
     {b What is the game's, not the engine's.}
 
     - {b Eight strokes.} How many marks there may be is a rule with no engine
       opinion behind it. The counter is in this file.
     - {b Two symbols,} an arrow and a cross, on {b 1} and {b 2}. What a mark
-      means is the player's business and nothing else here reads it.
+      means is the player's business and nothing else here reads it. They are
+      also chalked with different [glow]s — see below.
     - {b Your own room only.} You can see a wall through the doorway and
       {!Raycaster.Sight} will name it, but chalking it would be reaching through
       a wall. {!markable} is where "not through a doorway" is written down, in
       one line, off [crossed].
+    - {b Within arm's reach.} §6 has chalk placed "directly on" a wall, so a
+      wall further than {!reach} away is named but not markable — walk up to
+      the one you mean. That is one comparison against the [distance]
+      {!Raycaster.Sight} already reports.
 
     The crosshair says which of those you are up against: {b white} for nothing,
-    {b amber} for a wall you cannot mark, and {b chalk} for one you can.
+    {b amber} for a wall you cannot mark, and {b chalk} for one you can. Where
+    there is something to be done about it — walk closer, turn round, find more
+    chalk — {!refusal} puts the word under the crosshair.
 
-    {b Watch what the lamp does to the chalk.} It dims — a decal is lit by
-    exactly the same orientation-and-fog factor as the wall under it, so it
-    fades with distance and with the air like everything else drawn. But it dims
-    {e less} than the wall does, and the gap widens as the light fails. Measured
-    off this room, from full lamp to lowest: the mark falls to about four tenths
-    of its brightness and the wall to about one tenth, so what was twice as
-    bright as its background ends up five times as bright.
+    {b The lamp is the atmosphere, and one of the two chalks glows against it.}
+    A failing lamp here closes {!Raycaster.World.atmosphere} in and touches
+    nothing else — a single record update per frame, no room rebuilt for it, and
+    what a game should want a lamp to be.
 
-    That is not a special case for chalk. The lamp here does two things — it
-    closes the {!Raycaster.Atmosphere} in, and it re-tints every
-    {!Raycaster.Material} in the room — and only the first of them reaches a
-    decal. A {!Raycaster.Image} carries its own colours where a
-    {!Raycaster.Texture} takes them from the material wearing it, which is why a
-    poster on a red wall is not red. So the wall goes down twice over and the
-    mark goes down once, and a mark left in a dying room is the last thing still
-    legible in it. *)
+    That would take plain chalk with it. A decal is lit by exactly the same
+    orientation-and-fog factor as the wall under it, so paint fades into the
+    dark along with what it is painted on — correct for a poster, and useless
+    for the marks a player left to find their way back by. Which is what
+    {!Raycaster.Room.type-decal}'s [glow] is for, and why the two symbols here
+    carry different ones.
+
+    Chalk a wall with an arrow and a cross side by side and watch the lamp go
+    down. Both dim, because a glow lifts a decal towards its own colours rather
+    than pinning it there. But the arrow dims {e with} the wall and the cross
+    hardly does: across the swing the wall falls to 0.39 of its brightness and
+    the arrow to 0.39 with it, while the cross keeps 0.86. §6's "faintly
+    phosphorescent" is that one number, it is per mark rather than per room, and
+    it does not change as the light does — a material that glows glows the same
+    whatever the lamp is doing. *)
 
 open Raycaster
 open Result_ext
@@ -61,6 +71,14 @@ open Tsdl
 let height = 3.6
 let strokes = 8
 let lamp_period = 9.
+
+(** How far away a wall may be and still be chalkable, in cells.
+
+    §6 has the player place chalk "directly on" a wall, so this is close enough
+    to be an arm's length and no more: walk up to the wall you mean. Collision
+    stops the player {!Raycaster.Config.collision_padding} short of one, so
+    every wall in this hall can be reached. *)
+let reach = 2.
 
 (** {1 The symbols}
 
@@ -102,7 +120,19 @@ let cross =
       let line x0 y0 x1 y1 = stroke ~x0 ~y0 ~x1 ~y1 ~width:1.6 u v in
       line 5. 5. 19. 19. || line 19. 5. 5. 19.)
 
-let symbols = [| ("arrow", arrow); ("cross", cross) |]
+(** The two symbols, and how much of its own light each one makes.
+
+    They differ deliberately. The {b arrow} is plain chalk: a
+    {!Raycaster.Room.type-decal} with no [glow], lit by the room like the wall
+    it is on, so it goes into the dark with everything else. The {b cross} is
+    the phosphorescent kind. Mark a wall with one of each, let the lamp go down,
+    and one of them is still there.
+
+    A constant, and not something that rises as the light fails: a material that
+    glows glows the same whatever else is happening, and a glow tuned to cancel
+    the lamp exactly would leave the mark pinned at one brightness, which reads
+    as a sticker rather than a surface. *)
+let symbols = [| ("arrow", arrow, 0.); ("cross", cross, 0.7) |]
 
 (** {1 The world} *)
 
@@ -140,35 +170,33 @@ let back_jambs, back_here =
   Room.doorway ~name:"here" ~width:2.2 ~opening:2.8 ~height
     ~material:Surfaces.brick back_nw back_sw
 
-(** The hall, dressed for a given lamp brightness.
+(** The hall, built again.
 
-    Every wall — the jambs of the doorway included — both planes and the
-    partition are built again here. That is the point: nothing in this room is
-    the value it was a moment ago, so a mark that is still on the wall
-    afterwards is one that was put back.
+    Nothing in here depends on the clock: the lamp is the {!Raycaster.Atmosphere}
+    and the surfaces never change. Every wall — the jambs of the doorway
+    included — both planes and the partition are nevertheless {e new values}
+    every time this is called, and that is the point. A game rebuilds a room
+    whenever anything in it changes, and this demo has to show that the marks
+    come through one. They are not being left undisturbed; they are being put
+    back.
 
-    The doorway is cut here rather than once outside, so that its jambs dim with
-    the rest of the room instead of staying lit while everything around them
-    goes out. Its {!Raycaster.Room.type-threshold} comes out the same every time
-    — same name, same endpoints, same height — which is exactly what
-    {!Raycaster.World.replace_room} insists on, since a portal was derived from
-    those. *)
-let hall ~lamp =
-  let shade (m : Material.t) =
-    Material.make ~color:(Color.shade m.Material.color lamp)
-      ~pattern:m.Material.pattern
-  in
+    The doorway is cut here rather than once outside so that the jambs are
+    rebuilt with everything else. Its {!Raycaster.Room.type-threshold} comes out
+    the same every time — same name, same endpoints, same height — which is
+    exactly what {!Raycaster.World.replace_room} insists on, since a portal was
+    derived from those. *)
+let hall () =
   let jambs, onward =
     Room.doorway ~name:"onward" ~width:2.2 ~opening:2.8 ~height
-      ~material:(shade Surfaces.brick) hall_se hall_ne
+      ~material:Surfaces.brick hall_se hall_ne
   in
-  let wall material a b = Room.wall ~height ~material:(shade material) a b in
+  let wall material a b = Room.wall ~height ~material a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ onward ]
-    ~floor:{ Room.plane = floor; material = shade Surfaces.ground }
+    ~floor:{ Room.plane = floor; material = Surfaces.ground }
     ~ceiling:
       (Room.Roof
-         { Room.plane = Plane.above floor height; material = shade Surfaces.soffit })
+         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
     (jambs
     @ [
         wall Surfaces.stone hall_sw hall_se;
@@ -179,8 +207,8 @@ let hall ~lamp =
            you can see through is one {!Raycaster.Sight} looks {e through},
            so it is never what the crosshair is on and never something to
            mark. *)
-        Room.wall ~height:2.4 ~material:(shade Surfaces.panel)
-          (Vec.make (-1.5) 1.) (Vec.make 2.5 1.);
+        Room.wall ~height:2.4 ~material:Surfaces.panel (Vec.make (-1.5) 1.)
+          (Vec.make 2.5 1.);
       ])
 
 let back =
@@ -202,7 +230,7 @@ let back =
 
 let world =
   World.make
-    ~rooms:[ ("hall", hall ~lamp:1.); ("back", back) ]
+    ~rooms:[ ("hall", hall ()); ("back", back) ]
     ~links:[ (("hall", "onward"), ("back", "here")) ]
     ~atmosphere:Surfaces.air
     ~spawn:("hall", Vec.make (-4.) (-2.))
@@ -219,11 +247,15 @@ let start =
 (** {1 The rules this demo has and the engine does not} *)
 
 (** May the crosshair's target be marked, and where? A wall, in the room you are
-    standing in, with a stroke left. Everything before the [when] is
-    {!Raycaster.Sight}'s answer; everything in it is this demo's rule. *)
+    standing in, within {!reach}, with a stroke left. Everything before the
+    [when] is {!Raycaster.Sight}'s answer; everything in it is this demo's rule.
+
+    {!Raycaster.Sight.t} carries the [distance] already — it is how far the ray
+    went to find what it found — so "too far away" costs a comparison and no
+    engine support at all. *)
 let markable state = function
-  | Some { Sight.kind = Sight.Wall w; room; crossed; _ }
-    when crossed = 0 && state.left > 0 ->
+  | Some { Sight.kind = Sight.Wall w; room; crossed; distance; _ }
+    when crossed = 0 && distance <= reach && state.left > 0 ->
       Some
         {
           room;
@@ -239,15 +271,11 @@ let markable state = function
 let lamp elapsed =
   0.35 +. (0.65 *. ((1. +. cos (elapsed /. lamp_period *. 2. *. Float.pi)) /. 2.))
 
-(** The air at that brightness. A failing lamp is fog closing in and less of
-    everything reaching you, so it is {!Raycaster.Atmosphere} that changes and
-    not only the surfaces.
+(** The air at that brightness, and the whole of the lamp: fog closing in and
+    less of everything reaching you. Nothing else in the room changes with it.
 
-    This is the half of the lamp that reaches the chalk. The renderer multiplies
-    a {!Raycaster.Room.type-decal} by the same orientation-and-fog factor it
-    multiplies the wall by, so a mark goes down with the light exactly as the
-    wall it is on does. Walk away from one and watch it fade — that much is true
-    whatever the lamp is doing, since it is only distance. *)
+    {!Raycaster.World.atmosphere} is a plain field the renderer reads every
+    frame, so a lamp is one record update and no rebuilding of anything. *)
 let air ~lamp =
   Atmosphere.make
     ~haze:(Color.rgb 18 18 24)
@@ -257,34 +285,29 @@ let air ~lamp =
     ~ambient:(0.3 +. (0.3 *. lamp))
     ~directional:0.4
 
-(** The world as it stands: the hall built again at this moment's brightness, in
-    air of that brightness, then every mark put back onto it.
+(** The world as it stands: the hall built again, in air of this moment's
+    brightness, then every mark put back onto it.
 
-    The lamp does two separate things here and they are worth telling apart. It
-    re-tints every {!Raycaster.Material} in the room, which is what forces the
-    {b rebuild} — and so is what makes the marks surviving worth showing. And it
-    closes the {b atmosphere} in, which is what dims the marks along with
-    everything else. Neither alone would do: an atmosphere that changed on its
-    own would never rebuild the room, and materials that changed on their own
-    would leave the chalk conspicuously bright in a dark room.
+    Each mark takes the [glow] its symbol was given, so the two kinds behave
+    differently in the same room and under the same lamp. Nothing here depends
+    on the brightness: the glow is a property of the chalk, and the lamp is a
+    property of the air.
 
     Oldest mark first, so the newest ends up on top of the pile — which is the
     order {!Raycaster.Room.add_decal} appends in and the order
     {!Raycaster.Sight} reads back. *)
 let dressed state =
   let brightness = lamp state.elapsed in
-  let lit =
-    World.replace_room world ~room:0 ~replacement:(hall ~lamp:brightness)
-  in
+  let lit = World.replace_room world ~room:0 ~replacement:(hall ()) in
   let lit = { lit with World.atmosphere = air ~lamp:brightness } in
   List.fold_left
     (fun w m ->
-      let _, image = symbols.(m.symbol) in
+      let _, image, glow = symbols.(m.symbol) in
       World.replace_room w ~room:m.room
         ~replacement:
           (Room.add_decal (World.room w m.room) ~wall:m.wall
-             (Room.decal ~facing:m.facing ~along:m.along ~z:m.z ~half_width:0.22
-                ~half_height:0.22 image)))
+             (Room.decal ~facing:m.facing ~glow ~along:m.along ~z:m.z
+                ~half_width:0.22 ~half_height:0.22 image)))
     lit (List.rev state.marks)
 
 (** Chalk whatever the crosshair is on, or do nothing if it is not something
@@ -324,6 +347,21 @@ let font =
     | Ok font -> font
     | Error (`Msg m) -> failwith ("the chalk demo could not read its font: " ^ m))
 
+(** Why the crosshair's target cannot be chalked, in a word, or [None] where it
+    can be or where saying so would not help. Only the reasons the player can do
+    something about are worth a word: walk closer, or turn round and use one of
+    your own walls. *)
+let refusal state seen =
+  if markable state seen <> None then None
+  else
+    match seen with
+    | _ when state.left = 0 -> Some "no chalk left"
+    | Some { Sight.kind = Sight.Wall _; crossed; distance; _ } ->
+        if crossed > 0 then Some "another room"
+        else if distance > reach then Some "too far"
+        else None
+    | _ -> None
+
 let overlay fb state =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let seen = Sight.cast (dressed state) state.player in
@@ -335,9 +373,19 @@ let overlay fb state =
   Paint.crosshair fb ~r ~g ~b;
   let font = Lazy.force font in
   let pad = 6 in
-  let name, _ = symbols.(state.selected) in
+  (* A word under the crosshair when there is something to be done about it. *)
+  (match refusal state seen with
+  | None -> ()
+  | Some why ->
+      let w, _ = Font.measure font why in
+      Font.draw fb font why
+        ~x:((width - w) / 2)
+        ~y:((height / 2) + (2 * pad))
+        ~color:(Color.rgb 215 165 90));
+  let name, _, glow = symbols.(state.selected) in
   let line =
-    Printf.sprintf "%s   %d of %d strokes left" name state.left strokes
+    Printf.sprintf "%s  glow %.2f   %d of %d strokes left" name glow state.left
+      strokes
   in
   let tw, th = Font.measure font line in
   Paint.rect fb ~x:pad

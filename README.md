@@ -292,7 +292,11 @@ Three kinds of extra detail sit on top of the walls:
   mark a mark rather than a hole. `Room.add_decal` puts one on at run time, in
   the wall's own coordinates — which are exactly the ones `Sight` reports for
   whatever the crosshair is on, so aiming and marking need no conversion
-  between them.
+  between them. A decal is lit exactly as the wall under it is, unless it is
+  given a **`glow`**: how much of its own light it makes, from paint at `0.` to
+  undimmable at `1.`. That is what lets a mark stay readable in a room whose
+  light has failed, without the light having to be implemented in some
+  particular way to spare it.
 - **Sprites.** Objects and characters placed in the world as billboards — flat
   `Image`s that always face the player. A sprite is projected against the sloped
   floor at its position and blended in wherever it stands nearer than the wall.

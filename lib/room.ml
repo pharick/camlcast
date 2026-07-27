@@ -39,6 +39,7 @@ type decal = {
   half_height : float;
   image : Image.t;
   facing : side;
+  glow : float;
 }
 (** A decoration flat on a wall — a painting, a poster, a chalk mark — drawn over
     the wall's own texture. It is placed by how far [along] the wall it sits and
@@ -49,12 +50,38 @@ type decal = {
     paint is not. A wall you can see through has two faces you can look at and a
     mark drawn on the near one has nothing on the far one but the back of the
     wall; a wall you cannot see through has one face you will ever look at, and
-    saying which costs nothing. *)
+    saying which costs nothing.
+
+    [glow] is how much of its own light it makes, from [0.] to [1.]. At [0.] it
+    is paint: lit by the room and by nothing else, so it fades into the distance
+    and into the dark exactly as the wall it is on does. At [1.] it is drawn at
+    its own colours wherever it is and however dark the room has become. See
+    {!decal_light}. *)
 
 (** A decal on the [facing] side of a wall — {!Front} unless said otherwise,
-    which for a room's own boundary is the inside. *)
-let decal ?(facing = Front) ~along ~z ~half_width ~half_height image =
-  { along; z; half_width; half_height; image; facing }
+    which for a room's own boundary is the inside — making [glow] of its own
+    light, which is none unless said otherwise. *)
+let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height image
+    =
+  { along; z; half_width; half_height; image; facing; glow }
+
+(** The light a decal is drawn in, given the light its wall is drawn in.
+
+    [light] is the room's answer — orientation and fog together — and [glow]
+    lifts the decal off it towards its own full brightness. It is an
+    interpolation and not an addition, so it can only ever brighten and never
+    past the colours the picture was drawn with, at any [light] and any [glow]
+    in range.
+
+    {b Why this exists.} A game whose light fails by closing the
+    {!Atmosphere} in dims everything drawn, including the marks the player left
+    to find their way back — and those are the one thing that has to stay
+    readable. Dimming the {!Material}s instead would spare them, since a decal
+    never takes a wall's colour, but that is a different-looking dark and not
+    every game wants it. So which of the two a decal is subject to becomes the
+    decal's own to say: keep [glow] at zero and it is paint, raise it and it is
+    phosphorescent, and a game can raise it as its light dies. *)
+let decal_light d ~light = light +. (d.glow *. (1. -. light))
 
 (** Where along a decal's width a point [along] the wall falls, as a column of
     its image — or [None] where the decal does not reach, {e including} where it

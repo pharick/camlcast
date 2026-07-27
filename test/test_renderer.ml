@@ -504,6 +504,64 @@ let a_decal_ignores_the_walls_material_colour () =
     (Framebuffer.pixel bright ~x:(width / 2) ~y:30
     <> Framebuffer.pixel dark ~x:(width / 2) ~y:30)
 
+(* [glow] is how a mark stays readable in a room whose light has gone. The two
+   tests above are the default: a decal takes the room's light, and a lamp made
+   out of the atmosphere therefore takes the mark down with everything else.
+   This is the way out of that, and it is per decal.
+
+   The same white picture at the same place, in air that fades over forty
+   cells and in air that fades over six, once as paint and once glowing. *)
+let close_air ~fog_distance =
+  Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance ~min_brightness:0.05
+    ~light:(Vec.make (-0.4) (-0.9))
+    ~ambient:0.6 ~directional:0.4
+
+let a_glowing_decal_keeps_its_own_light () =
+  let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let lit ~glow ~fog_distance =
+    let world = fst (alone []) in
+    let marked =
+      World.replace_room world ~room:0
+        ~replacement:
+          (Room.add_decal (World.room world 0) ~wall:1
+             (Room.decal ~glow ~along:4. ~z:Config.eye_height ~half_width:1.
+                ~half_height:1. white))
+    in
+    let marked =
+      { marked with World.atmosphere = close_air ~fog_distance }
+    in
+    let fb = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame fb marked (looking_east ());
+    (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r
+  in
+  (* Paint: the failing light takes it with everything else. *)
+  let paint_lit = lit ~glow:0. ~fog_distance:40.
+  and paint_dark = lit ~glow:0. ~fog_distance:6. in
+  Alcotest.(check bool)
+    (Printf.sprintf "paint goes down with the room: %d to %d" paint_lit
+       paint_dark)
+    true
+    (paint_dark < paint_lit / 2);
+  (* Glowing: it is drawn at its own colours whatever the room has done. *)
+  let glowing_lit = lit ~glow:1. ~fog_distance:40.
+  and glowing_dark = lit ~glow:1. ~fog_distance:6. in
+  Alcotest.(check int)
+    "a fully glowing one does not move at all" glowing_lit glowing_dark;
+  Alcotest.(check bool)
+    (Printf.sprintf "and is the picture's own white: %d" glowing_lit)
+    true (glowing_lit > 250);
+  (* And it is an interpolation, so halfway is between the two and glow can
+     never darken anything. *)
+  let half = lit ~glow:0.5 ~fog_distance:6. in
+  Alcotest.(check bool)
+    (Printf.sprintf "half glow sits between: %d < %d < %d" paint_dark half
+       glowing_dark)
+    true
+    (paint_dark < half && half < glowing_dark);
+  Alcotest.(check bool)
+    "and glow never darkens" true
+    (lit ~glow:0.3 ~fog_distance:40. >= paint_lit)
+
 let () =
   Alcotest.run "Renderer"
     [
@@ -542,5 +600,7 @@ let () =
             a_decal_is_fogged_like_the_wall_it_is_on;
           case "a decal ignores the wall's material colour"
             a_decal_ignores_the_walls_material_colour;
+          case "a glowing decal keeps its own light"
+            a_glowing_decal_keeps_its_own_light;
         ] );
     ]

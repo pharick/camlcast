@@ -217,7 +217,9 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
            (int_of_float (Float.round y_foot)))
     in
     (* One light factor — orientation and fog — dims both the wall and its
-       decals, so the decals sit in the same light as the wall they are on. *)
+       decals, so a decal sits in the same light as the wall it is on unless it
+       says otherwise; {!Room.decal_light} is where a decal that makes its own
+       light lifts itself off this. *)
     let light =
       Atmosphere.face_shading air w.Room.normal *. Atmosphere.fog air d
     in
@@ -238,7 +240,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
       List.filter_map
         (fun (dec : Room.decal) ->
           Option.map
-            (fun ui -> (dec, ui))
+            (fun ui -> (dec, ui, Room.decal_light dec ~light))
             (Room.decal_column dec ~seen_from ~along:hit.Ray.along))
         w.Room.decals
     in
@@ -273,7 +275,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
         else if a > 0 then
           Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~a;
         List.iter
-          (fun ((dec : Room.decal), ui) ->
+          (fun ((dec : Room.decal), ui, lit) ->
             (* A decal hangs a height above the {e floor} under the wall, not at
                an absolute elevation, so it is placed against [above_foot] — on
                a sloped floor it then rides with the wall instead of tilting
@@ -287,9 +289,9 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
               if da > 0 then
                 let c = img.Image.pixels.(idx) in
                 Framebuffer.blend fb ~x:column ~y
-                  ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. light)))
-                  ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. light)))
-                  ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. light)))
+                  ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. lit)))
+                  ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. lit)))
+                  ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. lit)))
                   ~a:da)
           decals
       end

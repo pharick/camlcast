@@ -295,8 +295,10 @@ let the_dust_demo_moves_without_making_anything () =
 
    The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the one
    wall here with two faces you can stand at, so it is what the side cases use.
-   Facing it from the south is looking north, at +y. *)
-let facing_the_partition ?(from = Vec.make 0.5 (-1.5)) (state : Chalk.t) =
+   Facing it from the south is looking north, at +y, and standing a cell and a
+   half back — inside {!Chalk.reach}, since a wall further off than that is
+   named but not markable. *)
+let facing_the_partition ?(from = Vec.make 0.5 (-0.5)) (state : Chalk.t) =
   { state with Chalk.player = Player.create ~room:0 ~pos:from ~angle:(Float.pi /. 2.) }
 
 let decal_under (state : Chalk.t) =
@@ -320,7 +322,7 @@ let the_chalk_demo_marks_what_the_crosshair_is_on () =
     {
       marked with
       Chalk.player =
-        Player.create ~room:0 ~pos:(Vec.make 0.5 3.5) ~angle:(-.Float.pi /. 2.);
+        Player.create ~room:0 ~pos:(Vec.make 0.5 2.5) ~angle:(-.Float.pi /. 2.);
     }
   in
   Alcotest.(check (option int)) "and nothing on its back" None (decal_under behind);
@@ -363,7 +365,7 @@ let the_chalk_demo_runs_out_of_chalk () =
   let spend state k =
     Chalk.place
       (facing_the_partition
-         ~from:(Vec.make (-1. +. (float_of_int k *. 0.4)) (-1.5))
+         ~from:(Vec.make (-1. +. (float_of_int k *. 0.4)) (-0.5))
          state)
   in
   let spent = List.fold_left spend Chalk.start (List.init 8 Fun.id) in
@@ -373,20 +375,71 @@ let the_chalk_demo_runs_out_of_chalk () =
   Alcotest.(check int)
     "the ninth is refused" 8 (List.length ninth.Chalk.marks);
   Alcotest.(check int) "and costs nothing" 0 ninth.Chalk.left;
-  (* And a wall in the room through the doorway is named but not markable. *)
+  let why state =
+    Chalk.refusal state (Sight.cast (Chalk.dressed state) state.Chalk.player)
+  in
+  Alcotest.(check (option string))
+    "and it says so" (Some "no chalk left")
+    (why (facing_the_partition ninth));
+  (* A wall in the room through the doorway is named but not markable. Pitched
+     up over the figure standing in there, or the crosshair finds that instead
+     and a sprite is not something this demo has a word about. *)
   let through =
     {
       Chalk.start with
-      Chalk.player = Player.create ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.;
+      Chalk.player =
+        Player.pitch_by
+          (Player.create ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.)
+          ~delta:0.3;
     }
   in
-  let seen = Sight.cast (Chalk.dressed through) through.Chalk.player in
   Alcotest.(check bool)
-    "the eye does reach the next room" true
-    (match seen with Some s -> s.Sight.crossed > 0 | None -> false);
+    "the eye does reach a wall of the next room" true
+    (match Sight.cast (Chalk.dressed through) through.Chalk.player with
+    | Some { Sight.kind = Sight.Wall _; crossed; _ } -> crossed > 0
+    | _ -> false);
+  Alcotest.(check (option string))
+    "and that is why it cannot be chalked" (Some "another room") (why through);
+  (* The same partition from too far back: named, refused, and the refusal says
+     the one thing the player can act on. *)
+  let far = facing_the_partition ~from:(Vec.make 0.5 (-4.)) Chalk.start in
   Alcotest.(check bool)
-    "and it cannot be chalked from here" true
-    (Chalk.markable through seen = None)
+    "a wall out of reach is still seen" true
+    (match Sight.cast (Chalk.dressed far) far.Chalk.player with
+    | Some { Sight.kind = Sight.Wall _; distance; _ } -> distance > Chalk.reach
+    | _ -> false);
+  Alcotest.(check (option string)) "but refused" (Some "too far") (why far);
+  Alcotest.(check int)
+    "and pressing the key does nothing" 0
+    (List.length (Chalk.place far).Chalk.marks);
+  (* Walk up to it and the same wall takes a mark. *)
+  Alcotest.(check int)
+    "until you walk up to it" 1
+    (List.length (Chalk.place (facing_the_partition Chalk.start)).Chalk.marks)
+
+(* The demo's two chalks are meant to behave differently as the lamp goes down:
+   the arrow is paint and the cross glows. That is a property of the numbers in
+   the symbol table, and a table where both were the same would still draw two
+   distinguishable marks and pass every other test here. *)
+let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
+  let glow_of i = let _, _, g = Chalk.symbols.(i) in g in
+  Alcotest.(check (float 1e-9)) "the arrow is plain chalk" 0. (glow_of 0);
+  Alcotest.(check bool) "the cross makes its own light" true (glow_of 1 > 0.);
+  Alcotest.(check bool)
+    "and not so much that it stops dimming at all" true
+    (glow_of 1 < 1.);
+  (* The lamp is the atmosphere and only the atmosphere: nothing about the room
+     it lights depends on it. Two very different brightnesses, same materials. *)
+  let hall_at t =
+    (World.room
+       (Chalk.dressed { Chalk.start with Chalk.elapsed = t })
+       0)
+      .Room.walls.(2)
+      .Room.material
+  in
+  Alcotest.(check bool)
+    "so the walls are lit the same at any lamp" true
+    (hall_at 0. = hall_at (Chalk.lamp_period /. 2.))
 
 let () =
   Alcotest.run "Demos"
@@ -413,5 +466,7 @@ let () =
             the_chalk_demo_keeps_its_marks_through_a_rebuild;
           case "the chalk demo runs out of chalk"
             the_chalk_demo_runs_out_of_chalk;
+          case "the chalk demo has one glowing symbol and one not"
+            the_chalk_demo_has_one_glowing_symbol_and_one_not;
         ] );
     ]
