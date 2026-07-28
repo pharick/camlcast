@@ -444,7 +444,10 @@ Each module is self-contained and depends only on the ones above it.
 ## Documentation
 
 The modules are documented with odoc comments (`(** ... *)`), and the maths
-derivations live there rather than in this file.
+derivations live there rather than in this file. Every push to `main` publishes
+them: **[pharick.github.io/camlcast](https://pharick.github.io/camlcast/)**.
+
+To read them from a working tree instead:
 
 ```sh
 opam install odoc            # once

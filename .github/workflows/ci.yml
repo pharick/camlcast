@@ -1,4 +1,5 @@
-# Build, test and check the formatting of every push and pull request.
+# Build, test and check the formatting of every push and pull request, and
+# publish the API docs to GitHub Pages from main.
 #
 # Ubuntu only, deliberately. tsdl and tsdl-image need SDL2 and SDL2_image, and
 # on Linux opam resolves those depexts to libsdl2-dev and libsdl2-image-dev
@@ -20,9 +21,17 @@ on:
   pull_request:
 
 # A second push to the same branch makes the first run's answer irrelevant.
+# Cancelling a deploy midway is safe: Pages swaps the site in one step at the
+# end, so an interrupted run leaves the last published docs standing and the
+# run that replaced it publishes newer ones.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Read-only by default, so the job that runs other people's pull requests can
+# write nothing. The publish job below asks for more, and it alone gets it.
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -53,3 +62,55 @@ jobs:
       # Both libraries have a public name under the camlcast package, which is
       # what makes odoc pick their modules up.
       - run: opam exec -- dune build @doc
+
+      # odoc namespaces its output by package and a project site is rooted at
+      # the repository name, so publishing _html as it stands would put the docs
+      # at /camlcast/camlcast/. This moves the package directory up to be the
+      # site root and repairs the few links that pointed out of it. It runs on
+      # pull requests too, unpublished: it resolves every local link afterwards,
+      # which makes it the check that an odoc upgrade has not quietly reshaped
+      # the tree underneath us.
+      - name: Lay out the site
+        run: python3 tools/pages-site.py
+
+      # Only a push publishes, and `on.push` is main-only: a pull request has
+      # built and laid out the docs by now, and stops there, having no site of
+      # its own to publish to.
+      - name: Pack the docs for Pages
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  # Publishing is its own job because it is the only thing in this workflow that
+  # writes anything: the build job stays read-only while this one asks for
+  # pages: write and the id-token deploy-pages signs the deployment with. It
+  # reuses what build already produced rather than installing opam again, which
+  # is the slow half of a run.
+  #
+  # This needs Pages switched on once by hand — Settings → Pages → Source:
+  # "GitHub Actions" — and fails until it is. configure-pages can do it with
+  # `enablement: true`, but only with a personal access token; a stored
+  # credential is a steep price for a one-off click.
+  pages:
+    name: Publish docs
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    # Names the deployment, and puts the published URL on the run's summary
+    # page rather than leaving you to guess it.
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    # No checkout: the artifact carries everything, and deploy-pages talks to
+    # the API rather than to the tree.
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

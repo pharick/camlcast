@@ -2,5 +2,6 @@
 .claude/
 _build/
 _opam/
+_site/
 __pycache__/
 dist/
