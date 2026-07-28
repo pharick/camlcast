@@ -55,6 +55,37 @@ let day =
     gradient = 2.2;
   }
 
+(** The other end of the same afternoon: the sun gone round to the east and
+    almost down, so its disc sits near the horizon and the warmth is all in the
+    bottom of the sky.
+
+    A second sky value is the whole of what "two rooms under different ones"
+    takes. Nothing else changes — {!air} is one per world and lights both —
+    which is the split worth seeing: the sky is what a room is roofed with, and
+    the air is what the world is seen through. Walk from the plaza to the garden
+    and only the first of those changes.
+
+    The gradient is {e shallower} than {!day}'s, which is the opposite of what
+    the picture suggests and the reason worth writing down: [gradient] is how
+    fast the horizon colour gives way to the zenith one, so a large number keeps
+    the warmth in a band at eye level. The garden is walled seven cells high and
+    you meet its sky by looking up over them — a steep gradient would put every
+    part of it you can actually see at the zenith colour, and a dusk that reads
+    as dusk only where the walls hide it is no dusk at all. Hence 1.1, and a
+    zenith that is violet where {!day}'s is blue: the two have to tell apart in
+    a glance at the top of the frame, which is all a room this enclosed gives
+    you. *)
+let dusk =
+  {
+    Sky.horizon = Color.rgb 240 156 96;
+    zenith = Color.rgb 74 48 108;
+    sun = Color.rgb 255 226 170;
+    sun_azimuth = 2.1;
+    sun_height = 0.34;
+    sun_radius = 0.5;
+    gradient = 1.1;
+  }
+
 (** Daylight air: a long, gentle fade to a blue-grey haze, and enough
     directional light that walls at different angles read as different surfaces.
 *)

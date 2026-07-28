@@ -176,6 +176,8 @@ let () =
 checked floor. {b W}/{b A}/{b S}/{b D} walk, the mouse looks around, {b F11} is
 fullscreen, {b Esc} quits.
 
+{{image:images/minimal.png}The square room those six values make: a checked floor, four walls, and the far one already fading into the air}
+
 {2 What each piece is}
 
 {ul
@@ -200,6 +202,8 @@ fullscreen, {b Esc} quits.
 them.
 
 {b Read next:} [demo/masonry.ml] is this, with four materials and a post in it.
+
+{{image:images/masonry.png}A tiled green wall and an oak post: one pattern function, worn at two colours}
 
 {1 Step 2 — Colour, patterns and materials}
 
@@ -274,6 +278,8 @@ number is a fogbound cellar and a large one a clear day.
 disappears.
 
 {b Read next:} [demo/haze.ml].
+
+{{image:images/haze.png}A corridor fading into its own haze, brightest on the faces the light falls on}
 
 {1 Step 4 — Shapes without writing out every wall}
 
@@ -396,6 +402,8 @@ What it does {e not} check is whether the two floors meet. That is the next step
 
 {b Read next:} [demo/portals.ml].
 
+{{image:images/portals.png}Two doorways in one wall, and through both of them the same red room with the same figure in it}
+
 {1 Step 6 — Sloped floors and roofs}
 
 {b Goal.} A floor that is not flat, and a doorway with no step in it.
@@ -435,6 +443,8 @@ at the same angle.
 
 {b Read next:} [demo/slopes.ml].
 
+{{image:images/slopes.png}A tiled floor climbing the length of the hall to a doorway that stands higher than the floor underfoot, with the roof opening away from it as it goes}
+
 {1 Step 7 — Open sky}
 
 {b Goal.} A room with no roof.
@@ -465,6 +475,8 @@ wheels as you turn and tilts as you look up.
 brightly lit as one under noon unless you change the air too.
 
 {b Read next:} [demo/daylight.ml] puts two yards under two skies.
+
+{{image:images/daylight.png}A low wall under an evening sky, with a second, warmer sky through the doorway in it}
 
 {1 Step 8 — Pictures: decals and sprites}
 
@@ -532,6 +544,10 @@ short image is drawn wide and short. Cut sprites out against
 [~base] and for choosing among frames made in advance, [demo/dust.ml] for a great
 many of them moved every frame.
 
+{{image:images/gallery.png}Two pictures hung on the wall, with figures standing in front of them}
+
+{{image:images/floating.png}A sprite held off the floor, its frame picked from a strip made in advance}
+
 {1 Step 9 — See-through walls}
 
 {b Goal.} A grille you can see the next room through, and a window that tints it.
@@ -569,6 +585,8 @@ it.
 
 {b Read next:} [demo/glass.ml].
 
+{{image:images/glass.png}The next room seen through a grille and through a tinted window}
+
 {1 Step 10 — Doors}
 
 {b Goal.} A doorway with a leaf in it that opens and shuts.
@@ -601,6 +619,8 @@ see through a thing is not being able to walk through it. The same goes for the
 lintel, the strip of wall left standing over an opening, which is how you get a
 transom. {b Read next:} [demo/barred.ml] has one of each.
 
+{{image:images/barred.png}A barred gate and the transom over it: you see through both and can walk past neither}
+
 Opening one is a world rebuild, from your own update function:
 
 {@ocaml[
@@ -621,6 +641,8 @@ is what keeps the pair legal. A lock is then your own table of which doorways
 refuse to be toggled.
 
 {b Read next:} [demo/doors.ml], which has exactly that table.
+
+{{image:images/doors.png}An oak door standing open, and through the opening the chamber it was shutting off}
 
 {1:files Step 11 — Art from files}
 
@@ -678,6 +700,8 @@ arranged to make unnecessary.
 
 {b Read next:} [demo/loading.ml] puts a loaded pattern, decal and sprite beside
 their generated counterparts.
+
+{{image:images/loading.png}A pattern, a decal and a sprite read from PNG, beside the generated kind}
 
 {1 Step 12 — Your own game state}
 
@@ -776,6 +800,8 @@ its clock but drops the motion.
 
 {b Read next:} [demo/phases.ml].
 
+{{image:images/phases.png}The room two thirds of the way through its fuse: the light going out of it, and the fog closing in as it does}
+
 {1 Step 13 — Input}
 
 {b Goal.} Keys and mouse buttons that mean something in your game — including
@@ -860,6 +886,8 @@ without opening a window. [test/test_binding.ml] is that.
 
 {b Read next:} [demo/controls.ml], which binds a second set of walking keys and
 prints them with [Key.name].
+
+{{image:images/controls.png}A line of help text naming the keys, and a meter part way through a hold}
 
 {1 Step 14 — Drawing over the world: HUD, text and a cursor}
 
@@ -948,6 +976,10 @@ let overlay fb state =
 
 {b Read next:} [demo/overlay.ml], [demo/text.ml], [demo/controls.ml].
 
+{{image:images/overlay.png}A crosshair, and a meter along the bottom part filled}
+
+{{image:images/text.png}A page of text wrapped to a column, measured, clipped at the edge and coloured}
+
 {1 Step 15 — What the crosshair is on}
 
 {b Goal.} Picking: knowing what the player is looking at, through doorways.
@@ -973,6 +1005,8 @@ what you project a HUD marker from.
 
 {b Read next:} [demo/targets.ml] highlights what is under the crosshair through a
 doorway; [demo/chalk.ml] turns a sighting straight into a decal.
+
+{{image:images/targets.png}A green ring drawn round the barrel the crosshair is on, two rooms away through a doorway}
 
 {1 Step 16 — Changing the world at run time}
 
@@ -1014,6 +1048,12 @@ the whole of animating a sprite. There is no frame counter in the engine, becaus
 which frame it is at this moment is yours to decide.
 
 {b Read next:} [demo/changing.ml], [demo/dust.ml], [demo/chalk.ml].
+
+{{image:images/changing.png}A sign partway along the wall it is rebuilt onto every frame}
+
+{{image:images/dust.png}A chamber of falling motes, every one of them moved this frame}
+
+{{image:images/chalk.png}Three chalk marks on the wall, and a counter that agrees with them}
 
 {1 Step 17 — Growing a world under the player}
 
@@ -1067,6 +1107,8 @@ the edge, build more and you paid for rooms nobody will reach.
 
 {b Read next:} [demo/endless.ml].
 
+{{image:images/endless.png}A corridor that is built ahead of you as you walk it}
+
 {1 Step 18 — Knowing where the player walked}
 
 {b Goal.} A record of the route, rather than a guess from the geometry.
@@ -1097,6 +1139,8 @@ possibly go — and a route home built from the crossings still arrives, because
 is a record of what was walked and not an inference from where the rooms are.
 
 {b Read next:} [demo/trail.ml] builds a return route from them.
+
+{{image:images/trail.png}Four ticks along the bottom: one for each doorway between here and the way out}
 
 {1 Step 19 — Tuning}
 

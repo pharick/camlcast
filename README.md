@@ -7,6 +7,8 @@
 [![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.1-ec6813)](https://ocaml.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+![A walk through the showcase level: out of the twelve-sided plaza under an open sky, into a hall whose roof climbs away from its floor, through a door into a cellar with dust turning in it, back across the plaza and into a garden under a later sky, with a grille gate pulled down behind](doc/images/tour.gif)
+
 A first-person raycasting engine in OCaml on top of SDL2 (`tsdl`). A world is a
 graph of rooms built from walls at any angle, each authored in its own coordinate
 frame with its own inclined floor and its own ceiling or open sky, joined at
@@ -17,6 +19,15 @@ ceiling and sky are cast per pixel by a small software renderer and the walls ar
 painted over them back to front.
 
 This repository is the engine and the demos it is written against.
+
+## What it looks like
+
+|                                                                         |                                                                             |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| ![An open evening sky over a low wall](doc/images/daylight.png)          | ![A tiled floor climbing to a raised doorway](doc/images/slopes.png)         |
+| ![Two doorways showing one room](doc/images/portals.png)                 | ![Pictures hung on a wall, figures standing in front of them](doc/images/gallery.png) |
+| ![The next room seen through a grille and a tinted window](doc/images/glass.png) | ![A corridor of pillars fading into its own haze](doc/images/haze.png)       |
+| ![A chamber of falling dust motes](doc/images/dust.png)                  | ![A page of wrapped and clipped text over a room](doc/images/text.png)       |
 
 ## Running
 
@@ -284,12 +295,21 @@ To read them from a working tree instead:
 ```sh
 opam install odoc            # once
 dune build @doc
-open _build/default/_doc/_html/index.html
+python3 tools/pages-site.py  # lays the tree out, and copies doc/images/ in
+open _site/index.html
 ```
+
+The second step is what CI publishes from, and it is needed rather than optional:
+dune's `documentation` stanza has no way to carry assets, so the screenshots the
+guides are illustrated with reach the site through `tools/pages-site.py` and not
+through `@doc`. Opening `_build/default/_doc/_html/index.html` directly still
+works, with every picture in it broken.
 
 `doc/index.mld` is the landing page and the two guides are `.mld` pages beside
 it; both libraries have a public name under the `camlcast` package, which is what
 makes `@doc` pick their modules up (odoc skips private libraries).
+
+The pictures the guides and this file are illustrated with live in `doc/images/`.
 
 ## Tests
 

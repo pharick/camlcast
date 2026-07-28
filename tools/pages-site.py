@@ -40,10 +40,23 @@ from pathlib import Path
 
 PACKAGE = "camlcast"
 SUPPORT = "odoc.support"
+IMAGES = "images"
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_HTML = ROOT / "_build" / "default" / "_doc" / "_html"
 DEFAULT_OUT = ROOT / "_site"
+
+# odoc's stylesheet gives images no width of their own -- its reset names img
+# for margin and border only -- and the page is a grid whose middle track takes
+# its minimum from its content. A 1024-pixel screenshot therefore widens that
+# track past the body's own max-width and puts a horizontal scrollbar under the
+# whole page, tables of contents and all. One rule fixes it, and it is appended
+# rather than patched in so that an odoc upgrade rewriting the file above it
+# changes nothing here.
+IMAGE_CSS = """
+/* Added by tools/pages-site.py: see the comment beside IMAGE_CSS there. */
+.odoc-content img { max-width: 100%; height: auto; }
+"""
 
 # href="..." or src="...", the only two ways an odoc page names another file.
 LINK = re.compile(r'(?:href|src)="([^"]+)"')
@@ -55,13 +68,29 @@ def build(html: Path, out: Path) -> None:
     if not (html / PACKAGE).is_dir():
         sys.exit(f"pages-site: no odoc output at {html}; run 'dune build @doc' first")
 
+    images = ROOT / "doc" / IMAGES
+    if not images.is_dir():
+        # Committed, not built: nothing in this repository draws them, and a
+        # checkout that is missing them is a checkout with something wrong.
+        sys.exit(f"pages-site: no screenshots at {images}")
+
     if out.exists():
         shutil.rmtree(out)
     # dune leaves its output read-only and the rewrite below writes in place.
     shutil.copytree(html / PACKAGE, out)
     shutil.copytree(html / SUPPORT, out / SUPPORT)
+    # The pictures the two guides are illustrated with. dune's @doc does not
+    # carry them and says so -- "Dune does not yet support building
+    # documentation for assets" -- so the .mld pages name them by plain relative
+    # URL and this is what puts them where that URL points. Both guides land at
+    # the site root, so images/ is their sibling and "images/x.png" resolves.
+    # check_links below then proves it, the same as for every other link.
+    shutil.copytree(images, out / IMAGES)
     for path in out.rglob("*"):
         path.chmod(path.stat().st_mode | 0o200)
+
+    with (out / SUPPORT / "odoc.css").open("a", encoding="utf-8") as css:
+        css.write(IMAGE_CSS)
 
     for page in sorted(out.rglob("*.html")):
         # The prefix that escaped the package directory was one ../ longer than

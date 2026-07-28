@@ -534,6 +534,15 @@ the loop out in Phase 8; for now a fixed-size framebuffer created once is fine.)
 {b Checkpoint — Milestone 2.} You are standing in a shaded room. Walls are solid
 strips, tall up close and short far away, with no fish-eye. It already looks 3-D.
 
+{{image:images/flat.png}Three untextured pillars of falling height at rising
+distance, in a room with no floor drawn yet}
+
+That picture is the finished engine dressed back down to this point — flat
+materials, and a floor and ceiling of one dark colour standing in for the two
+you have not written yet. Everything in it that matters here is what your own
+code is producing: the strips, their shading, and the fact that the near pillar
+is taller on screen than the far one without either being drawn any differently.
+
 {b If the screen is one flat colour}, no ray is hitting anything: check that
 [t > min_distance] and that [s] is being tested against [0..1]. {b If the walls
 bulge towards you at the screen edges}, a Euclidean distance has crept in
@@ -776,6 +785,9 @@ Tiling per cell means a tall wall repeats its pattern instead of stretching it.
 mortar a colour of its own rather than a paler brick. Stand close to a course
 line and check that.
 
+{{image:images/masonry.png}A tiled green wall and an oak post, one pattern
+function wearing two different colours}
+
 {b If the pattern is stretched rather than tiled}, the [frac] is missing from the
 horizontal lookup. {b If it is upside down}, that [1. -. tile] is why: [v] runs
 down the texture and [z] runs up the world.
@@ -956,6 +968,11 @@ textured ceiling or a gradient sky with a sun. Build a bigger level here — an
 arena of pillars, low walls you see over — with [Room.path] and
 [Room.regular_polygon] helpers (a polyline and a closed polygon of walls).
 
+{{image:images/slopes.png}A tiled floor climbing the length of the hall to a doorway that stands higher than the floor underfoot, with the roof opening away from it as it goes}
+
+{{image:images/daylight.png}The other case: a low wall under an open evening
+sky, with a second, warmer sky visible through the doorway in it}
+
 {b If the floor is a smear of one colour}, the pattern is being sampled in screen
 space rather than at the world point. {b If the horizon has a bright seam}, a
 pixel is being cast against both planes and the wrong [d] is winning: take the
@@ -1055,6 +1072,20 @@ nothing restored. The renderer notices the new size next frame on its own.
 {b Checkpoint — Milestone 5.} Mouse look with pitch; the window resizes and goes
 fullscreen smoothly, and dragging it wider shows more of the room to the sides
 rather than magnifying what was already there.
+
+That last claim is the one worth looking at twice. Both of these are the same
+room from the same spot, and the only difference between them is the shape of
+the window:
+
+{{image:images/hor-narrow.png}A square window: one green wall and the corner of
+a post}
+
+{{image:images/hor-wide.png}A wide window from the same spot: the same green
+wall at the same size, with a red wall and a blue one now visible to either
+side}
+
+Nothing grew. The vertical field of view is fixed, so the second window did not
+magnify the first — it revealed what was always off to the sides of it.
 
 {b If the walls lean as you look up}, pitch is being applied as a rotation
 somewhere rather than purely as a shear of the horizon. {b If the view stretches
@@ -1200,6 +1231,12 @@ per-pixel depth), then {b one combined translucent pass} of sprites and windows.
 {b Checkpoint — Milestone 6.} A wall hung with a painting and a poster; a grille
 and a window you see the room through; barrels and figures standing about,
 correctly occluded — a short wall hides only their lower halves.
+
+{{image:images/gallery.png}Two pictures hung on the far wall, with figures
+standing between them and the eye — the nearer one covering part of a frame}
+
+{{image:images/glass.png}The same room through a grille and a tinted window:
+both write colour and neither writes depth}
 
 {b If a sprite shows through the wall in front of it}, the depth test is
 per-column rather than per-pixel. {b If a sprite behind a window vanishes}, the
@@ -1406,6 +1443,9 @@ catches at the threshold; and turning round, the room you came from is where you
 left it. Build the same room twice and join it in two places: both copies are one
 value, and only the doorways put them anywhere.
 
+{{image:images/portals.png}Two doorways in one wall, and through both of them
+the same red room with the same figure standing in it}
+
 {b If the neighbour looks mirrored}, the threshold endpoints are wound against
 the boundary. {b If you can walk through the far wall while standing in the
 opening}, collision is not asking the neighbour. {b If the view through a doorway
@@ -1463,6 +1503,10 @@ splitting it out is what lets {!Camlcast.Engine} keep an interface with nothing
 in it but the loop and the two ways in.
 
 {b Checkpoint — Milestone 8, the whole engine.} Everything runs together.
+
+{{image:images/showcase.png}The showcase plaza: a twelve-sided ring open to
+the sky, with a brick pillar, a barrel, a figure, a low wall, a leaded window
+and a steel grille all in one frame}
 
 {2 Step 8.2 — Tests and docs}
 

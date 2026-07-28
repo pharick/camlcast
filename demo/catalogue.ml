@@ -157,8 +157,11 @@ let demos =
     {
       name = "showcase";
       blurb = "the five-room level, with all of the above at once";
+      (* The level at rest, which is what the suites check: [Level.run] starts
+         from this and then has a state, but nothing it does to a world is
+         anything a world could not have been authored as. *)
       world = lazy Level.default;
-      run = (fun () -> Engine.run_world Level.default);
+      run = Level.run;
     };
   ]
 
