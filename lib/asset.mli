@@ -28,10 +28,16 @@
     asks for ["assets/brick.png"] and supplies its own vocabulary. *)
 
 val variable : string
-(** The environment variable that overrides the search, for development. *)
+(** [CAMLCAST_ASSETS], the environment variable that overrides the search, for
+    development. *)
 
 val roots : exe:string -> override:string option -> string list
-(** The directories an asset is looked for in, in order.
+(** [roots ~exe ~override] is the directories an asset is looked for in, in the
+    order they are tried. [exe] is the path of the running executable, which is
+    what every root is derived from — the four are the macOS bundle's
+    [Contents/Resources], the directory beside the binary, the one above it, and
+    [share/] under the binary's own name. [override] is the value of
+    {!variable}: given, it is the whole list, alone.
 
     Taking [exe] and [override] as arguments rather than reading the process is
     what makes the rule testable: {!resolve} below is a pure function of these
@@ -44,10 +50,18 @@ val resolve :
   override:string option ->
   string ->
   (string, [> `Msg of string ]) result
-(** [resolve ~exists ~exe ~override name] is the first root under which [name]
-    is present, joined to it — or an error naming every root tried, because the
-    only useful thing to say about a missing asset is where it was not. *)
+(** [resolve ~exists ~exe ~override name] is the first root of
+    [roots ~exe ~override] under which [name] is present, joined to it — or an
+    error naming every root tried, because the only useful thing to say about a
+    missing asset is where it was not. [name] is a caller's own relative path,
+    such as ["assets/brick.png"].
+
+    [exists] is asked of each candidate full path in turn and answers whether
+    there is a file there; in a program it is [Sys.file_exists], and a test
+    passes its own to describe a disk that is not on this machine. *)
 
 val path : string -> (string, [> `Msg of string ]) result
-(** {!resolve}, asking the running program where it is and the environment
-    whether it disagrees. *)
+(** [path name] is {!resolve} for that asset, asking the running program where
+    it is and the environment whether it disagrees — [Sys.executable_name],
+    {!variable} and the real disk, supplied for you. This is the one a game
+    calls; the error is the same list of roots. *)

@@ -12,38 +12,48 @@ type t = { a : float; b : float; c : float }
 *)
 
 val make : a:float -> b:float -> c:float -> t
+(** The plane [z = a*x + b*y + c]. [a] and [b] are the rise per unit travelled
+    along each axis, so both zero is horizontal; [c] is the height over the
+    origin. Nothing is checked or normalised — any three floats are a plane. *)
 
 val horizontal : float -> t
-(** A flat plane at constant height [z]. *)
+(** [horizontal z] is the flat plane at constant height [z], which is
+    [make ~a:0. ~b:0. ~c:z]. *)
 
 val elevation : t -> Vec.t -> float
-(** The height of the plane above the point [p]. *)
+(** [elevation plane p] is the height of [plane] over the ground point [p] — the
+    [z] of its defining equation. Defined everywhere; a point outside any room
+    still has a height. *)
 
 val gradient : t -> Vec.t -> float
-(** How fast the plane rises per unit travelled along [dir]. [dir] need not be a
-    unit vector: it is used with the camera ray, whose length already encodes
-    distance, and the gradient scales with it in step. *)
+(** [gradient plane dir] is how fast [plane] rises per unit travelled along
+    [dir]. [dir] need not be a unit vector: it is used with the camera ray,
+    whose length already encodes distance, and the result scales with it in step
+    — so this is rise per [dir], not rise per unit distance. *)
 
 val above : t -> float -> t
-(** A plane parallel to [t] and [height] above it — a ceiling that follows the
-    slope of the floor it roofs, rather than closing in on it at one end. *)
+(** [above plane height] is the plane parallel to [plane] and [height] world
+    units above it — a ceiling that follows the slope of the floor it roofs,
+    rather than closing in on it at one end. A negative [height] puts it below.
+    Only [c] moves; the two gradients stay equal, which is what parallel means
+    here. *)
 
 val through : Transform.t -> t -> t
-(** The same surface expressed in a neighbouring {!Room}'s frame: given the
-    rigid motion [m] that carries this room's coordinates into the neighbour's,
-    the plane a room reached through [m] must use if the two are to agree — in
-    particular across the doorway they share, where a disagreement shows as a
-    visible step in the floor.
+(** [through m plane] is [plane] expressed in a neighbouring {!Room}'s frame,
+    where [m] is the rigid motion carrying this room's coordinates into the
+    neighbour's. This is the plane the room reached through [m] must use if the
+    two are to agree — in particular across the doorway they share, where a
+    disagreement shows as a visible step in the floor.
 
     A point [p] here lands at [q = R p + offset] there, and we want the two
-    heights to match, [elevation result q = elevation t p]. Substituting
+    heights to match, [elevation result q = elevation plane p]. Substituting
     [p = R⁻¹ (q - offset)] and using that a rotation moves a gradient the same
     way it moves any direction — [g · R⁻¹ v = (R g) · v] — the neighbour's
     gradient is this one rotated, and its constant absorbs the translation:
 
     {v
-      elevation t p = g · R⁻¹ (q - offset) + c
-                    = (R g) · q  -  (R g) · offset  +  c
+      elevation plane p = g · R⁻¹ (q - offset) + c
+                        = (R g) · q  -  (R g) · offset  +  c
     v} *)
 
 val view_distance :
@@ -53,9 +63,10 @@ val view_distance :
   dir:Vec.t ->
   row_factor:float ->
   float option
-(** The perpendicular distance at which a pixel's line of sight meets the plane,
-    or [None] if that line runs parallel to the plane or only meets it behind
-    the camera.
+(** [view_distance plane ~eye_z ~eye_pos ~dir ~row_factor] is the perpendicular
+    distance at which one pixel's line of sight meets [plane], or [None] if that
+    line runs parallel to the plane or only meets it behind the camera. The eye
+    is at ground position [eye_pos], height [eye_z].
 
     A pixel in a column of horizontal direction [dir] sees, at perpendicular
     distance [d], the world point [eye_pos + d*dir] at height

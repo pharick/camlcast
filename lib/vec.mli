@@ -7,27 +7,48 @@ type t = { x : float; y : float }
     from being built by hand. *)
 
 val make : float -> float -> t
+(** [make x y] is that vector, [x] across and [y] along. The y axis points
+    {e down} the screen, which is what makes a positive angle turn clockwise —
+    see {!of_angle}. *)
+
 val add : t -> t -> t
+(** [add a b] is the componentwise sum. *)
+
 val sub : t -> t -> t
+(** [sub a b] is [a] minus [b], so it points from [b] towards [a] — the way
+    round a displacement between two positions is usually wanted. *)
+
 val scale : t -> float -> t
+(** [scale v factor] stretches [v] by [factor], keeping its direction. A
+    negative factor reverses it. *)
+
 val length : t -> float
+(** The Euclidean length, never negative. *)
+
 val dot : t -> t -> float
+(** The dot product [a.x*b.x + a.y*b.y]. For unit vectors it is the cosine of
+    the angle between them: positive when they point the same way, zero when
+    they are perpendicular, negative when opposed — which is how a surface is
+    shaded by how squarely it faces the light. *)
 
 val cross : t -> t -> float
-(** The 2-D cross product, a scalar: [a.x*b.y - a.y*b.x]. It is the signed area
-    of the parallelogram [a] and [b] span, and it is zero exactly when they are
-    parallel — which is what ray-versus-wall intersection tests. *)
+(** [cross a b] is the 2-D cross product, a scalar: [a.x*b.y - a.y*b.x]. It is
+    the signed area of the parallelogram [a] and [b] span, and it is zero
+    exactly when they are parallel — which is what ray-versus-wall intersection
+    tests. *)
 
 val normalize : t -> t
 (** The same vector scaled to unit length; a zero vector is returned unchanged
     rather than turned into [nan]s. *)
 
 val of_angle : float -> t
-(** Unit vector pointing at [angle] radians (0 = +x axis, growing clockwise on
-    screen because the y axis points down). *)
+(** [of_angle radians] is the unit vector pointing that way: [0.] is the +x
+    axis, and a growing angle turns clockwise on screen because the y axis
+    points down. *)
 
 val rotate : t -> float -> t
-(** Rotate by [angle] using the standard rotation matrix:
+(** [rotate v radians] turns [v] by that angle, clockwise on screen for a
+    positive one, keeping its length. The standard rotation matrix:
 
     {v
       | cos a   -sin a |   | x |
@@ -35,5 +56,5 @@ val rotate : t -> float -> t
     v} *)
 
 val perp : t -> t
-(** Perpendicular vector, i.e. rotated a quarter turn. Cheaper and exact
-    compared to [rotate v (pi /. 2.)]. *)
+(** The perpendicular vector, a quarter turn clockwise on screen — the same
+    direction {!rotate} would give for [pi /. 2.], but cheaper and exact. *)

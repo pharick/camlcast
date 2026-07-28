@@ -32,6 +32,9 @@ type t = private { pattern : Texture.t  (** how the surface is put together *) }
     written out by every caller that ever built one by hand. *)
 
 val make : pattern:Texture.t -> t
+(** A material wearing that pattern. Nothing is derived at the call — {!opaque}
+    reads the pattern each time it is asked — so this is as cheap as the record
+    it builds, and two materials made from the same {!Texture.t} share it. *)
 
 val opaque : t -> bool
 (** Whether the material hides what is behind it. It is the {e pattern} that
@@ -41,10 +44,13 @@ val opaque : t -> bool
     translucent pass. *)
 
 val plane_texel : t -> x:float -> y:float -> Color.t
-(** The colour this material shows at world point [(x, y)], for a floor or
-    ceiling {!Plane}. The pattern tiles every world unit, so the fractional part
-    of each coordinate indexes it — and that fraction is always between 0 and 1,
-    even for negative coordinates.
+(** [plane_texel material ~x ~y] is the colour [material] shows at that world
+    point, for a floor or ceiling {!Plane}. The two coordinates are the ground
+    position, in cells; the plane's height does not come into it.
+
+    The pattern tiles every world unit, so the fractional part of each
+    coordinate indexes it — and that fraction is always between 0 and 1, even
+    for negative coordinates.
 
     Tiling in world space rather than across the plane is what makes an incline
     visible: the features foreshorten and their rows tilt with the surface,

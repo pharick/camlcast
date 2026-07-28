@@ -12,6 +12,9 @@
     back out for a key this module has not named. *)
 
 type t
+(** One place on the board. Abstract, and every value below is in range, so the
+    only way to hold one that is not is {!of_scancode} — which is why that is
+    the only function here that can fail. *)
 
 val count : int
 (** How many places a keyboard has. {!Input} lays its controls out in one flat
@@ -26,9 +29,14 @@ val of_scancode : int -> t
     {!count} — and this refuses one that is not rather than handing back a key
     that is quietly something else. {!Input} lays keys and mouse buttons out in
     one flat range with the buttons starting where the keyboard ends, so the key
-    at {!count} would be the left mouse button and would be believed. *)
+    at {!count} would be the left mouse button and would be believed.
+
+    @raise Invalid_argument if the scancode is not a place a keyboard has. *)
 
 val to_scancode : t -> int
+(** The SDL scancode of a key: at least zero and below {!count}, and the inverse
+    of {!of_scancode} both ways round. For handing a key back to SDL, or to
+    something else that speaks scancodes. *)
 
 val name : t -> string
 (** What to print on screen for this key, under the layout in use: {!a} is ["A"]
@@ -94,7 +102,11 @@ val k8 : t
 val k9 : t
 val k0 : t
 
-(** {1 The function row} *)
+(** {1 The function row}
+
+    F1 to F12. What a desktop has already claimed of these is not something the
+    engine can know — F11 is fullscreen here, and window managers take others —
+    so a game that binds them should expect a few never to arrive. *)
 
 val f1 : t
 val f2 : t
@@ -133,7 +145,11 @@ val comma : t
 val period : t
 val slash : t
 
-(** {1 Arrows} *)
+(** {1 Arrows}
+
+    The four of them, and the keyboard's answer to a mouse: {!Binding.default}
+    turns with left and right and looks with up and down, so that the engine
+    walks and looks without one. *)
 
 val up : t
 val down : t
@@ -164,7 +180,11 @@ val ralt : t
 val lgui : t
 val rgui : t
 
-(** {1 The keypad} *)
+(** {1 The keypad}
+
+    Separate places from the number row above, so [kp_1] and {!k1} are two keys
+    and binding one does not bind the other. Whether they arrive at all depends
+    on Num Lock and on the board having them. *)
 
 val numlockclear : t
 val kp_divide : t

@@ -2,6 +2,9 @@
     code reads as logic instead of magic constants. *)
 
 val window_title : string
+(** What the window is called. The engine ships no content and this is the one
+    string in it that a player reads, so a game that wants its own name on the
+    title bar has to open its own window rather than change this. *)
 
 val initial_width : int
 (** Width the window opens at. It is resizable and can go fullscreen, so this is
@@ -12,11 +15,12 @@ val initial_height : int
     together are {!reference_aspect}. *)
 
 val fov : float
-(** Horizontal field of view at {!reference_aspect}. 60 degrees is the classic
-    Wolfenstein 3D value: wider angles start to look like a fish-eye lens. *)
+(** Horizontal field of view at {!reference_aspect}, {b in radians}. A third of
+    pi — 60 degrees — is the classic Wolfenstein 3D value: wider angles start to
+    look like a fish-eye lens. *)
 
 val reference_aspect : float
-(** The window shape [fov] is quoted for. Reshaping the window keeps the
+(** The window shape {!fov} is quoted for. Reshaping the window keeps the
     vertical angle this implies and lets the horizontal one follow, so a wider
     window shows more of the world rather than a stretched version of it. *)
 
@@ -32,9 +36,9 @@ val turn_speed : float
     feed. *)
 
 val collision_padding : float
-(** The player is a point, not a circle, so we probe for walls slightly ahead of
-    the point we want to move to. Without this you can press your nose flat
-    against a wall and see through the corner. *)
+(** How far ahead of the player a step probes for walls, in map cells. The
+    player is a point and not a circle, so without this you can press your nose
+    flat against a wall and see through the corner. *)
 
 val eye_height : float
 (** The player's eye sits half a cell above the floor — the middle of a normal
@@ -53,8 +57,11 @@ val pitch_sensitivity : float
     the same reason as {!look_sensitivity}. *)
 
 val pitch_speed : float
-(** Keyboard look speed, for the arrow keys: radians (yaw, see {!turn_speed})
-    and window-height fractions (pitch) per second. *)
+(** How fast the up and down arrows tilt the view, in fractions of the window's
+    height per second. Pitch is faked by shearing the image rather than by a
+    real rotation (see {!max_pitch}), so it is measured in screen height and not
+    in radians — which is what makes it the one look axis whose unit is not the
+    same as {!turn_speed}'s. *)
 
 val max_pitch : float
 (** How far the view may tip up or down, as the fraction of the window height

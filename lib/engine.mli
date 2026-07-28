@@ -63,18 +63,23 @@ val run :
     actions that arrived with it, and returns the next state. [view] says which
     world and which player to draw the frame from — a game keeps a great deal
     more than those two, and this is the part of it the renderer understands.
-    [overlay] draws over the finished world before it reaches the screen.
-    [pointing] says whether the mouse is working a cursor over what the game has
-    drawn instead of looking around, and the engine releases and recaptures the
-    cursor to match. [finished] is asked after every update.
+    [overlay] draws over the finished world before it reaches the screen, and
+    draws nothing if it is not given. [pointing] says whether the mouse is
+    working a cursor over what the game has drawn instead of looking around, and
+    the engine releases and recaptures the cursor to match; omitted, the mouse
+    always looks. [finished] is asked after every update, and omitted, the run
+    never ends of its own accord.
 
     [bindings] is what the player's controls are for, {!Binding.default} unless
     a game says otherwise. Note what that default does {e not} include: no key
     ends the run. A run with no other way out has to ask for one — see
     {!Binding.default} for why the engine will not assume it, and {!run_world}
-    for the one place it does.
+    for the one place it does. Omitting both [finished] and a leaving key is a
+    window the player can only close.
 
-    Returns the state the game reached and how it got there; see {!ending}.
+    Returns the state the game reached and how it got there; see {!ending}. The
+    error is [`Msg] carrying SDL's own message, from whichever call failed first
+    — opening the window, making the renderer, or a frame.
 
     Time passes only while the window has focus; see {!simulate}. *)
 
@@ -83,15 +88,17 @@ val run_world :
   ?bindings:Binding.t ->
   World.t ->
   (ending, [ `Msg of string ]) result
-(** Open a window on a world and run it until the player quits.
+(** Open a window on a world and run it until the player quits. The player
+    starts where the world says — {!Player.spawn}, which is the [~spawn] given
+    to {!World.make} — since a bare world has nobody in it yet.
 
     [extend] is called whenever the player goes through a doorway, with the
     world and the player's new position, and returns the world to draw from now
-    on. A fixed level needs none; a level that is generated as it is explored
-    uses it to build far enough ahead that the player never sees the edge —
-    {!Config.max_portal_depth} doorways, since that is exactly how deep the
-    renderer looks. It runs on a crossing and not per frame, so a generator may
-    take its time.
+    on. Left out, the world never changes. A level that is generated as it is
+    explored uses it to build far enough ahead that the player never sees the
+    edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
+    the renderer looks. It runs on a crossing and not per frame, so a generator
+    may take its time.
 
     Going through a doorway is the one moment the horizon can have moved, and
     {!Player.crossed} is what says whether a frame did — not the room the player
@@ -109,7 +116,7 @@ val run_world :
 
     Reports how the run ended, which is what a launcher needs to tell "back to
     the menu" from "close the program". A program with only one world to show
-    has no use for the answer and can [ignore] it. *)
+    has no use for the answer and can [ignore] it. The error is {!run}'s. *)
 
 val step : World.t -> Player.t -> Input.motion -> Player.t
 (** {!move} for a caller with nothing to do with the doorways it crossed, which

@@ -75,6 +75,14 @@ val between : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> t
     to [b1]. Both segments must have non-zero length, and the same length if the
     two doorways are to line up — {!World.make} checks both.
 
+    {b The check is the caller's.} This does not enforce it and does not raise:
+    a zero-length segment reaches {!Vec.normalize}, which passes a zero vector
+    through rather than producing [nan]s, and the result is a value with
+    [cos = 0.] and [sin = 0.] — the one way past the invariant the private type
+    above exists to hold. Everything in the engine arrives here through
+    {!World.make}, which refuses a degenerate doorway first; a caller building
+    transforms of its own has to do as much.
+
     {1 Why the endpoints reverse}
 
     The two rooms describe the {e same} opening from opposite sides. Walk a

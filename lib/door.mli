@@ -21,6 +21,9 @@
     to disagree. And {!Room} has already spent the name [Open] on a ceiling with
     sky in it. *)
 
+(** Whether the leaf is standing in the opening. Two states and not three, for
+    the reason above: locked is a game's word, and to the engine a locked door
+    is a {!Closed} one the game declines to open. *)
 type state =
   | Open  (** swung aside: nothing to see, and nothing to walk into *)
   | Closed  (** standing across the opening: drawn, and in the way *)
@@ -50,8 +53,9 @@ val set_state : t -> state -> t
     able to change what either side is made of while doing it. *)
 
 val leaf : t -> Material.t option
-(** What to draw across the opening: a closed leaf, of its own material. An open
-    one draws nothing and the room beyond shows through instead.
+(** What to draw across the opening: [Some material] for a closed leaf, of its
+    own material, and [None] for an open one — which draws nothing, and the room
+    beyond shows through instead.
 
     This is here rather than in {!Renderer} so that it can be tested. The
     renderer needs a live SDL surface; choosing what to draw needs nothing, and

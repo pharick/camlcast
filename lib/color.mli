@@ -8,10 +8,15 @@ type t = { r : int; g : int; b : int }
     does not hold. *)
 
 val rgb : int -> int -> int -> t
+(** [rgb r g b] is that colour, red green blue, each nominally 0 .. 255. The
+    three are stored as given: this is the one constructor that does {e not}
+    clamp, for the reason the type above gives. *)
 
 val shade : t -> float -> t
-(** Multiply every channel by [factor] (0 = black, 1 = unchanged). Used for
-    distance fog and for shading walls by orientation. *)
+(** [shade colour factor] multiplies every channel of [colour] by [factor] —
+    [0.] is black, [1.] leaves it alone, above [1.] brightens. The result is
+    clamped, so a large factor saturates to white rather than overflowing. Used
+    for distance fog and for shading walls by orientation. *)
 
 val clamp : t -> t
 (** Every channel clamped back into 0 .. 255. A colour arrived at by arithmetic
@@ -19,8 +24,10 @@ val clamp : t -> t
     pattern function hands it for exactly that reason. *)
 
 val level : t -> int -> t
-(** [c] shown at [level] out of 255: the integer counterpart of {!shade}, where
-    255 leaves the colour alone and 0 is black.
+(** [level colour amount] is [colour] shown at [amount] out of 255: the integer
+    counterpart of {!shade}, where 255 leaves the colour alone and 0 is black.
+    [amount] is itself clamped into 0 .. 255 first, so a pattern that overshoots
+    saturates rather than wrapping.
 
     This is what a surface pattern is written in terms of. {!Texture.noise} and
     the hashes beside it speak in 0 .. 255, so a pattern is naturally a function
@@ -30,5 +37,8 @@ val level : t -> int -> t
     usable at any colour it is handed. *)
 
 val lerp : t -> t -> float -> t
-(** Linear blend between two colours: [t = 0] gives [a], [t = 1] gives [b]. Used
-    for the sky gradient and its sun. *)
+(** [lerp a b amount] is the linear blend between the two colours: [0.] gives
+    [a], [1.] gives [b], and half-way gives the mixture. [amount] is not
+    clamped, so a value outside 0 .. 1 extrapolates past one end — but the
+    channels it produces are, so the result saturates rather than running away.
+    Used for the sky gradient and its sun. *)

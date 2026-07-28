@@ -11,10 +11,11 @@ val now : unit -> float
     SDL's business. *)
 
 val frame_time : previous:float -> now:float -> float
-(** How long the frame starting at [now] should advance the simulation by, given
-    that the previous one started at [previous]. Speeds are quoted per second
-    (see {!Config}), so measuring the frame is what keeps the player walking at
-    the same pace on a machine that renders slowly as on one that races.
+(** How long, in seconds, the frame starting at [now] should advance the
+    simulation by, given that the previous one started at [previous]. Speeds are
+    quoted per second (see {!Config}), so measuring the frame is what keeps the
+    player walking at the same pace on a machine that renders slowly as on one
+    that races.
 
     A frame longer than {!Config.max_frame_time} is capped at it. Those come
     from the program being held up rather than from the world moving — the
@@ -25,6 +26,6 @@ val frame_time : previous:float -> now:float -> float
 
 val idle_time : spent:float -> float
 (** What is left of {!Config.frame_budget} for a frame that has spent [spent]
-    seconds getting here — the time to sleep before starting the next one. A
+    seconds getting here — the seconds to sleep before starting the next one. A
     frame that overran its budget gets nothing: it is late already, and
     {!frame_time} has the simulation keep pace with it rather than slow down. *)

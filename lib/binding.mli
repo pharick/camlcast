@@ -25,19 +25,27 @@
     the way over, and a mouse bound to the same axis turns by its weight in
     radians per pixel. Both land on one number. *)
 
+(** Where one term's number comes from. A {!Hold} is a rate and a {!Read} is
+    whichever {!Input.reads} says it is — which is what decides how the term is
+    added up. *)
 type source =
   | Hold of Input.control  (** 1 while it is down, 0 otherwise *)
   | Read of Input.analog  (** whatever it reports *)
 
 type term = { source : source; weight : float }
-(** [weight] is signed: the same source at [-1.] pushes the other way. For a
-    rate it is usually [1.] or [-1.]; for a displacement it is the sensitivity,
-    in the axis's units per unit the source moved. *)
+(** One source and what it contributes. [weight] is signed: the same source at
+    [-1.] pushes the other way. For a rate it is usually [1.] or [-1.]; for a
+    displacement it is the sensitivity, in the axis's units per unit the source
+    moved. *)
 
 type axis = { terms : term list; speed : float }
-(** [speed] is what a rate of 1 asks for, per second — cells for {!t.forward}
-    and {!t.strafe}, radians for {!t.turn}, fractions of the window's height for
-    {!t.pitch}. It does not touch the displacement terms. *)
+(** One thing the player can ask for, and everything that asks for it. The
+    [terms] are summed — rates first, clamped, then displacements added as they
+    stand. [speed] is what a rate of 1 asks for, per second: cells for
+    {!t.forward} and {!t.strafe}, radians for {!t.turn}, fractions of the
+    window's height for {!t.pitch}. It does not touch the displacement terms.
+
+    An axis with no terms never moves, which is how a game turns one off. *)
 
 type t = {
   forward : axis;  (** walking along the way the player is facing *)
@@ -48,6 +56,9 @@ type t = {
   leave : Input.control list;
       (** any of these ends the run, reported as {!Camlcast.Engine.Left} *)
 }
+(** The whole of what the player's controls are for: four axes that produce an
+    {!Input.motion}, and two lists of controls that the engine acts on itself. A
+    game builds one with {!make} and hands it to the loop. *)
 
 val make :
   ?forward:axis ->
@@ -58,8 +69,13 @@ val make :
   ?leave:Input.control list ->
   unit ->
   t
-(** {!default}, with the given parts replaced. A game that only wants its own
-    way out of the window says so and inherits the rest. *)
+(** {!default}, with the given parts replaced. Each argument omitted keeps
+    {!default}'s field of the same name, so a game that only wants its own way
+    out of the window passes [~leave] and inherits WASD, the arrows, the mouse
+    and F11 unchanged.
+
+    Replacement and not merging: a given [~forward] is the whole of that axis,
+    not extra terms added to the default's. *)
 
 val default : t
 (** WASD to walk, the arrow keys to turn and to look, the mouse to look, F11 for
@@ -71,15 +87,24 @@ val default : t
     no other way out asks for one, as {!Camlcast.Engine.run_world} does. *)
 
 val motion : t -> Input.actions -> dt:float -> Input.motion
-(** What the player asked for over a frame of [dt] seconds, by this table.
+(** [motion table actions ~dt] is what the player asked for over a frame of [dt]
+    seconds, reading [actions] — one frame of keys, buttons and mouse — through
+    [table].
+
+    The four fields that come back are finished per-frame deltas, already scaled
+    by [dt] where scaling applies, and each in its axis's own unit: cells for
+    [forward] and [strafe], radians for [turn], fractions of the window's height
+    for [pitch]. A caller adds them to a pose and does not scale them again —
+    which is what {!Camlcast.Engine.move} does with one.
 
     Pure, and the frame's input is the whole of what it reads, so a game or a
     test can ask what a given frame of keys and mouse would have done without a
     window in sight. *)
 
 val taken : Input.control list -> Input.actions -> bool
-(** Whether any of these controls went down this frame. The edge and not the
-    state, so a key held across a hundred frames answers on one of them — which
-    is what [fullscreen] and [leave] both want, and what a game's own list of
-    controls for one action usually wants too. Reach for {!Input.val-down} where
-    it is the holding that matters. *)
+(** [taken controls actions] is whether any of [controls] went down during the
+    frame [actions] describes. The edge and not the state, so a key held across
+    a hundred frames answers on one of them — which is what [fullscreen] and
+    [leave] both want, and what a game's own list of controls for one action
+    usually wants too. Reach for {!Input.val-down} where it is the holding that
+    matters. *)

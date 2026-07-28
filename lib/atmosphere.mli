@@ -36,20 +36,37 @@ val make :
   ambient:float ->
   directional:float ->
   t
-(** [light] need not arrive normalised; it is only ever used for the cosine
-    against a wall's normal, so it is normalised here once. *)
+(** The air with those six properties. [haze] is the colour distance fades to,
+    [fog_distance] how many cells it takes to get there, and [min_brightness]
+    the floor the fade stops at. [light] is the direction it comes from, and
+    [ambient] and [directional] the two ends of the band a surface is lit across
+    — see the field docs above for each.
+
+    [light] need not arrive normalised; it is only ever used for the cosine
+    against a wall's normal, so it is normalised here once. A [light] of exactly
+    zero is the one input that defeats that — {!Vec.normalize} passes a zero
+    vector through rather than producing [nan]s — and leaves every surface lit
+    at [ambient] alone, which reads as a place with no direction to its light.
+*)
 
 val fog : t -> float -> float
-(** Linear distance fog: full colour up close, [min_brightness] at and beyond
-    [fog_distance]. On the floor and ceiling it doubles as a horizon haze,
-    fading the planes out into the distance instead of letting them run to a
-    hard edge. *)
+(** [fog air distance] is how much of a surface's own colour survives at that
+    many cells away: [1.] up close, falling linearly to [min_brightness] at
+    [fog_distance] and staying there beyond it. Multiply a colour by it — that
+    is what {!Color.shade} is for — and what is lost goes to [haze].
+
+    On the floor and ceiling it doubles as a horizon haze, fading the planes out
+    into the distance instead of letting them run to a hard edge. *)
 
 val face_shading : t -> Vec.t -> float
-(** How brightly a surface of a given orientation catches the light. With walls
-    at every angle a fixed east/west versus north/south rule no longer works, so
-    the brightness follows how squarely the surface's [normal] faces the light.
-    [Float.abs] means both faces of a wall light the same.
+(** [face_shading air normal] is how brightly a surface facing that way catches
+    the light, where [normal] is the surface's unit normal. With walls at every
+    angle a fixed east/west versus north/south rule no longer works, so the
+    brightness follows how squarely the normal faces the light. [Float.abs]
+    means both faces of a wall light the same.
+
+    A normal that is not unit length scales the result, the same way an
+    un-normalised [light] would; nothing here checks it.
 
     The band is [ambient .. ambient + directional] and never reaches zero, so no
     wall falls to black on orientation alone. Narrowing it to almost nothing is
