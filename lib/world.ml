@@ -29,7 +29,7 @@
     towards it. {!make} still refuses to produce such a world, because in a
     hand-authored level a doorway onto nowhere is a mistake; it is
     {!open_doorway}, {!add_room} and {!link} that leave one, and a generator
-    that composes them can build the house ahead of the player forever.
+    that composes them can build the level ahead of the player forever.
 
     Everything that survives a frame refers to a room by a bare index —
     {!Player.t}'s [room], a portal's [to_room] and [twin]. Appending never
@@ -248,7 +248,7 @@ let make ~rooms ~links ~atmosphere ~spawn =
 
 (** {1 Growing a world}
 
-    Three primitives that a generator composes to build a house ahead of the
+    Three primitives that a generator composes to build a level ahead of the
     player. Each appends and nothing else, so every index anything is holding
     stays valid; and each leaves a world that renders and walks, so a generator
     that stops halfway leaves the player facing a doorway onto black rather than

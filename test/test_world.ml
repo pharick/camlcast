@@ -341,7 +341,7 @@ let a_loop_may_contradict_itself () =
              (fun p -> (Option.get p).World.to_room = 1)
              (Array.to_list (World.portals world 0)))));
   (* The two routes disagree about where the second room is, which is exactly
-     what makes the house bigger on the inside. *)
+     what makes a world bigger on the inside. *)
   let through index = (portal world ~room:0 ~index).World.onto in
   let landing t = Transform.point t centre in
   Alcotest.(check bool)

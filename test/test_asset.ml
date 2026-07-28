@@ -33,11 +33,11 @@ let message = function
 (* A macOS bundle: the binary sits in Contents/MacOS and its files in
    Contents/Resources, so the first root is one level up and across. *)
 let a_bundle_looks_beside_the_binary () =
-  let bundled = "/A/House.app/Contents" / "Resources" / "art/wall.png" in
+  let bundled = "/A/Demo.app/Contents" / "Resources" / "art/wall.png" in
   Alcotest.(check string)
     "the Resources directory" bundled
     (found
-       (resolve ~exe:"/A/House.app/Contents/MacOS/house" [ bundled ]
+       (resolve ~exe:"/A/Demo.app/Contents/MacOS/demo" [ bundled ]
           "art/wall.png"))
 
 (* An AppImage, a tarball or a Windows folder puts the files beside the binary
@@ -46,7 +46,7 @@ let files_may_sit_beside_the_binary () =
   let beside = "/opt/game" / "art/wall.png" in
   Alcotest.(check string)
     "the executable's own directory" beside
-    (found (resolve ~exe:"/opt/game/house" [ beside ] "art/wall.png"))
+    (found (resolve ~exe:"/opt/game/demo" [ beside ] "art/wall.png"))
 
 (* A dune build, which is the layout every developer actually runs: each
    executable is one directory below _build/default, beside the copied source
@@ -69,7 +69,7 @@ let the_first_root_that_has_it_wins () =
   Alcotest.(check string)
     "the bundle's copy, not the stale one above it" bundled
     (found
-       (resolve ~exe:"/A/Contents/MacOS/house" [ bundled; stale ] "art/wall.png"))
+       (resolve ~exe:"/A/Contents/MacOS/demo" [ bundled; stale ] "art/wall.png"))
 
 (* The override is used alone. Falling back from it would be worse than
    failing: a developer who points it at the wrong directory would get the
@@ -96,7 +96,7 @@ let the_override_is_used_alone () =
 
 (* The only useful thing to say about a missing picture is where it was not. *)
 let nothing_found_names_every_root () =
-  let m = message (resolve ~exe:"/opt/game/house" [] "art/wall.png") in
+  let m = message (resolve ~exe:"/opt/game/demo" [] "art/wall.png") in
   Alcotest.(check bool)
     (Printf.sprintf "the name is in it: %s" m)
     true
@@ -106,16 +106,16 @@ let nothing_found_names_every_root () =
       Alcotest.(check bool)
         (Printf.sprintf "%s is in it" root)
         true (mentions m root))
-    (Asset.roots ~exe:"/opt/game/house" ~override:None)
+    (Asset.roots ~exe:"/opt/game/demo" ~override:None)
 
 let roots_are_ordered_and_distinct () =
   Alcotest.(check (list string))
     "bundle, beside, above"
     [ "/opt/game" / "Resources"; "/opt/game/bin"; "/opt/game" ]
-    (Asset.roots ~exe:"/opt/game/bin/house" ~override:None);
+    (Asset.roots ~exe:"/opt/game/bin/demo" ~override:None);
   Alcotest.(check (list string))
     "and an override replaces the lot" [ "/scratch" ]
-    (Asset.roots ~exe:"/opt/game/bin/house" ~override:(Some "/scratch"))
+    (Asset.roots ~exe:"/opt/game/bin/demo" ~override:(Some "/scratch"))
 
 let () =
   Alcotest.run "Asset"

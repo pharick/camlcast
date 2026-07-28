@@ -327,7 +327,7 @@ let grown ~grow world (moved : Player.movement) =
 
     [grow] is called whenever the player goes through a doorway, with the world
     and the player's new position, and returns the world to draw from now on —
-    see {!grown}. A fixed level needs none; a house that is generated as it is
+    see {!grown}. A fixed level needs none; a level that is generated as it is
     explored uses it to build far enough ahead that the player never sees the
     edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
     the renderer looks. It runs on a crossing and not per frame, so a generator
