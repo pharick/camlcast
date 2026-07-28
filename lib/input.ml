@@ -24,7 +24,7 @@ let still = { forward = 0.; strafe = 0.; turn = 0.; pitch = 0. }
     runs into a screen edge.
 
     SDL accumulates the delta until somebody reads it, so this has to be called
-    every frame whether the answer is wanted or not — see {!Engine.loop}. *)
+    every frame whether the answer is wanted or not, focused or not. *)
 let mouse_delta () =
   let _buttons, (dx, dy) = Sdl.get_relative_mouse_state () in
   (float_of_int dx, float_of_int dy)

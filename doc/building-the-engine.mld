@@ -582,7 +582,7 @@ let distance_between_segments a1 a2 b1 b2 =
     and to_a p = distance_to_segment p ~a:a1 ~b:a2 in
     Float.min (Float.min (to_b a1) (to_b a2)) (Float.min (to_a b1) (to_a b2))
 
-let can_step t ~from ~dest =
+let passable t ~from ~dest =
   not (Array.exists
          (fun w -> distance_between_segments from dest w.a w.b
                    < Config.collision_padding)
@@ -594,7 +594,7 @@ In [Player]:
 {@ocaml[
 let slide room player (delta : Vec.t) =
   let open Vec in
-  let step from moved = if Room.can_step room ~from ~dest:moved then moved else from in
+  let step from moved = if Room.passable room ~from ~dest:moved then moved else from in
   let after_x = step player.pos { player.pos with x = player.pos.x +. delta.x } in
   let after_y = step after_x   { after_x   with y = after_x.y   +. delta.y } in
   { player with pos = after_y }
@@ -974,14 +974,14 @@ pitch·height]. Everything (the plane casts, every wall) is measured from
 
 {@ocaml[
 (* Player *)
-let pitch_by p ~delta =
+let pitch_by p ~radians =
   let l = Config.max_pitch in
-  { p with pitch = Float.max (-.l) (Float.min l (p.pitch +. delta)) }
+  { p with pitch = Float.max (-.l) (Float.min l (p.pitch +. radians)) }
 ]}
 
 Input ([lib/input.ml]) reads held keys as a snapshot and blends in {b relative
 mouse} motion. Each field comes out as a finished per-frame delta. Held keys ask
-for a {e speed} — [Config.move_speed] is cells per second, [rot_speed] radians per
+for a {e speed} — [Config.move_speed] is cells per second, [turn_speed] radians per
 second — which [dt], the length of the frame, turns into the distance covered
 this frame; that is what keeps walking speed independent of the frame rate. Mouse
 deltas are already everything since the last frame, so they are not scaled:
@@ -1001,7 +1001,7 @@ let motion ~dt =
   let mdx, mdy = mouse_delta () in
   { forward = axis ~speed:Config.move_speed ~pos:Sdl.Scancode.[w] ~neg:Sdl.Scancode.[s];
     strafe  = axis ~speed:Config.move_speed ~pos:Sdl.Scancode.[d] ~neg:Sdl.Scancode.[a];
-    turn = axis ~speed:Config.rot_speed ~pos:Sdl.Scancode.[right] ~neg:Sdl.Scancode.[left]
+    turn = axis ~speed:Config.turn_speed ~pos:Sdl.Scancode.[right] ~neg:Sdl.Scancode.[left]
            +. (mdx *. Config.look_sensitivity);
     (* mouse up is negative dy but should look up, hence the minus *)
     pitch = axis ~speed:Config.pitch_speed ~pos:Sdl.Scancode.[up] ~neg:Sdl.Scancode.[down]
@@ -1014,7 +1014,7 @@ applies the deltas in order — turn, pitch, then walk:
 
 {@ocaml[
 let step world player (m : Input.motion) =
-  player |> Player.turn ~radians:m.turn |> Player.pitch_by ~delta:m.pitch
+  player |> Player.turn ~radians:m.turn |> Player.pitch_by ~radians:m.pitch
          |> Player.walk world ~forward:m.forward ~strafe:m.strafe
 ]}
 
@@ -1366,9 +1366,9 @@ will meet within a minute of playing.
 
 {b Collision must ask the neighbour.} A step that comes near a threshold has to
 be carried into the neighbour's frame and tested there too — otherwise you clip
-through the far side's wall while straddling the opening. So [can_step] moves up
+through the far side's wall while straddling the opening. So [passable] moves up
 from [Room] to [World], and [Player.slide] and [Player.walk] take a world from
-here on. [Room.can_step] stays, as the single-room question [World.can_step] asks
+here on. [Room.passable] stays, as the single-room question [World.passable] asks
 twice.
 
 Once a step can report the doorways it went through, [Player.walk] has a choice
@@ -1455,6 +1455,13 @@ let rec loop ctx ~player ~fullscreen ~previous =
 [Renderer.render] reads the output size, resizes the framebuffer to the internal
 size if needed, [clear_depth], [draw_frame], [present], [render_present].
 
+The three above the loop are the only part of it that never touches a window, so
+in the shipped engine they live apart from one, as {!Camlcast.Clock} —
+[frame_time] and [idle_time] under those names, and [seconds] as
+{!Camlcast.Clock.now}. That is the whole of what a test can pin about pacing, and
+splitting it out is what lets {!Camlcast.Engine} keep an interface with nothing
+in it but the loop and the two ways in.
+
 {b Checkpoint — Milestone 8, the whole engine.} Everything runs together.
 
 {2 Step 8.2 — Tests and docs}
@@ -1524,7 +1531,7 @@ using end.
 {2 Constants worth exposing ([Config])}
 
 [fov], [reference_aspect], [eye_height] (0.5), [move_speed] (~3.6 cells/s),
-[rot_speed] (~2.1 rad/s), [collision_padding] (~0.15),
+[turn_speed] (~2.1 rad/s), [collision_padding] (~0.15),
 [look_sensitivity]/[pitch_sensitivity] (~0.0025), [pitch_speed] (~1.2/s),
 [max_pitch] (~0.75), [max_render_height] (~480), [frame_budget] (1/60 s),
 [max_frame_time] (~0.1 s), and — once Phase 7 exists — [max_portal_depth] (3).

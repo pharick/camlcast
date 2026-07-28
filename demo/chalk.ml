@@ -2,7 +2,7 @@
     where the crosshair was, on the face you were looking at, and there for the
     rest of the run.
 
-    {!Camlcast.Sight.cast} already said what the crosshair is on. A wall hit
+    {!Camlcast.Sight.look} already said what the crosshair is on. A wall hit
     reports four numbers, and they are exactly the four a
     {!Camlcast.Room.type-decal} is made of: [index] is which wall, [along] and
     [z] are that wall's own coordinates, and [facing] is the face being looked
@@ -316,7 +316,7 @@ let dressed state =
     {!update} because the test suite drives it: pressing a key is SDL's, but
     what pressing it does is the rule worth asserting. *)
 let place state =
-  match markable state (Sight.cast (dressed state) state.player) with
+  match markable state (Sight.look (dressed state) state.player) with
   | Some mark ->
       { state with marks = mark :: state.marks; left = state.left - 1 }
   | None -> state
@@ -357,7 +357,7 @@ let refusal state seen =
 
 let overlay fb state =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
-  let seen = Sight.cast (dressed state) state.player in
+  let seen = Sight.look (dressed state) state.player in
   let can = markable state seen <> None in
   let r, g, b =
     if can then (236, 233, 222)
@@ -402,6 +402,6 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings:Bindings.escapable ~update ~view ~overlay start
+    Engine.run ~bindings:Bindings.escapable ~update ~view ~overlay start
   in
   ending

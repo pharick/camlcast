@@ -43,13 +43,13 @@ let pitch_tips_within_a_limit () =
   let p = facing_east () in
   Alcotest.check close "starts level" 0. p.Player.pitch;
   Alcotest.check close "a small tip is kept" 0.1
-    (Player.pitch_by p ~delta:0.1).Player.pitch;
+    (Player.pitch_by p ~radians:0.1).Player.pitch;
   Alcotest.(check bool)
     "looking too far up is capped" true
-    ((Player.pitch_by p ~delta:100.).Player.pitch <= Config.max_pitch +. 1e-9);
+    ((Player.pitch_by p ~radians:100.).Player.pitch <= Config.max_pitch +. 1e-9);
   Alcotest.(check bool)
     "and too far down" true
-    ((Player.pitch_by p ~delta:(-100.)).Player.pitch
+    ((Player.pitch_by p ~radians:(-100.)).Player.pitch
    >= -.Config.max_pitch -. 1e-9)
 
 let turning_does_not_move_the_player () =

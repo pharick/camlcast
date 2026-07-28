@@ -39,8 +39,8 @@ type 'a game = {
 }
 (** How the loop reaches a game whose state it knows nothing else about. ['a] is
     the game's own — phases, doors, journal, whatever it keeps — and the engine
-    only ever hands it back to these five functions. What it needs from a game
-    is small: something to advance, a world and a player to draw it from, an
+    only ever hands it back to these six things. What it needs from a game is
+    small: something to advance, a world and a player to draw it from, an
     optional layer over the top, which of the two things the mouse is for, an
     answer to whether it is over, and the table its controls are read through.
 *)
@@ -58,7 +58,7 @@ type 'a context = {
     state changes every frame by definition, so the loop threads it beside the
     context rather than holding it fixed here. *)
 
-(** Advance the simulation by one frame. Pure: input in, new player out, along
+(** Move the player through one frame. Pure: input in, new player out, along
     with every doorway the frame went through. The motion already carries
     finished per-frame deltas (see {!Binding.motion}), so this only decides the
     order — turn and pitch before walking, so a frame that both turns and moves
@@ -67,15 +67,15 @@ type 'a context = {
     That ordering is the reason this exists rather than a game calling
     {!Player.traverse} itself: it is a rule about a frame, and there should be
     one copy of it. *)
-let advance world player (motion : Input.motion) =
+let move world player (motion : Input.motion) =
   player
   |> Player.turn ~radians:motion.turn
-  |> Player.pitch_by ~delta:motion.pitch
+  |> Player.pitch_by ~radians:motion.pitch
   |> Player.traverse world ~forward:motion.forward ~strafe:motion.strafe
 
-(** {!advance} for a caller with nothing to do with the doorways it crossed. *)
+(** {!move} for a caller with nothing to do with the doorways it crossed. *)
 let step world player (motion : Input.motion) =
-  (advance world player motion).Player.player
+  (move world player motion).Player.player
 
 (** SDL only offers "set", not "toggle", so the loop carries the current state
     and returns the new one.
@@ -101,33 +101,6 @@ let set_relative_mouse ~current enabled =
   else
     let+ () = Sdl.set_relative_mouse_mode enabled in
     enabled
-
-(** The clock the loop paces itself by, in seconds. SDL's high resolution
-    counter, rather than its millisecond one: a frame is only some sixteen
-    milliseconds long, so counting in whole milliseconds would quantise it
-    badly. *)
-let seconds () =
-  Int64.to_float (Sdl.get_performance_counter ())
-  /. Int64.to_float (Sdl.get_performance_frequency ())
-
-(** How long the frame starting at [now] should advance the simulation by, given
-    that the previous one started at [previous]. Speeds are quoted per second
-    (see {!Config}), so measuring the frame is what keeps the player walking at
-    the same pace on a machine that renders slowly as on one that races.
-
-    A frame longer than {!Config.max_frame_time} is capped at it. Those come
-    from the program being held up rather than from the world moving — the
-    window was dragged, the machine swapped — and honouring one would move the
-    player further in a single step than any collision test is meant to cope
-    with. *)
-let frame_time ~previous ~now =
-  Float.min Config.max_frame_time (Float.max 0. (now -. previous))
-
-(** What is left of {!Config.frame_budget} for a frame that has spent [spent]
-    seconds getting here — the time to sleep before starting the next one. A
-    frame that overran its budget gets nothing: it is late already, and
-    {!frame_time} has the simulation keep pace with it rather than slow down. *)
-let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
 
 (** Whether the window is the one the keyboard is talking to. A window that has
     lost focus is behind another one or on another desktop, and nobody is at the
@@ -182,8 +155,8 @@ let in_framebuffer window framebuffer (x, y) =
 let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
   if Input.quit_requested ctx.event then Ok (state, Closed)
   else
-    let now = seconds () in
-    let dt = frame_time ~previous ~now in
+    let now = Clock.now () in
+    let dt = Clock.frame_time ~previous ~now in
     (* Drained every frame, focused or not: the delta accumulates until somebody
        reads it, so a paused frame that skipped the read would hand the whole
        idle spell to the frame that resumes. An unfocused frame reads it and
@@ -234,7 +207,7 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
           ~overlay:(fun fb -> ctx.game.overlay fb state)
           world player
       in
-      let idle = idle_time ~spent:(seconds () -. now) in
+      let idle = Clock.idle_time ~spent:(Clock.now () -. now) in
       Sdl.delay (Int32.of_float (idle *. 1000.));
       (* Frames are timed start to start, so the sleep above counts towards the
          next one's length rather than falling outside every frame. *)
@@ -256,15 +229,14 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
     [bindings] is what the player's controls are for, {!Binding.default} unless
     a game says otherwise. Note what that default does {e not} include: no key
     ends the run. A run with no other way out has to ask for one — see
-    {!Binding.default} for why the engine will not assume it, and {!enter} for
-    the one place it does.
+    {!Binding.default} for why the engine will not assume it, and {!run_world}
+    for the one place it does.
 
     Returns the state the game reached and how it got there; see {!ending}.
 
     Time passes only while the window has focus; see {!simulate}. *)
-let run_state ~update ~view ?(overlay = fun _ _ -> ())
-    ?(pointing = fun _ -> false) ?(finished = fun _ -> false)
-    ?(bindings = Binding.default) state =
+let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
+    ?(finished = fun _ -> false) ?(bindings = Binding.default) state =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
@@ -304,41 +276,27 @@ let run_state ~update ~view ?(overlay = fun _ _ -> ())
           game = { update; view; overlay; pointing; finished; bindings };
         }
         ~state ~actions:Input.untouched ~fullscreen:false ~relative:true
-        ~previous:(seconds ()))
-
-(** The world to draw from now on, given the world a frame began with and what
-    that frame did.
-
-    [grow] runs when the player has gone {e through a doorway}, which is not the
-    same question as whether they have finished the frame in a different room. A
-    single frame can round a jamb — out through an opening and back in through
-    its twin — and end where it started; so can a step all the way round a loop
-    of rooms. The room index calls both of those nothing happening. The horizon
-    moved in each of them, and the crossings are the only place that is written
-    down, which is why this reads them and not [moved.player.room].
-
-    Once per frame however many doorways it went through, and with the pose it
-    ended in: that is the only one that means anything by then, and what [grow]
-    is being asked for is the world to draw from {e now}.
-
-    Split out of {!enter} because {!enter} needs a window and this does not. *)
-let grown ~grow world (moved : Player.movement) =
-  match moved.Player.crossings with
-  | [] -> world
-  | _ :: _ -> grow world moved.Player.player
+        ~previous:(Clock.now ()))
 
 (** Open a window on [world] and run it until the player quits.
 
-    [grow] is called whenever the player goes through a doorway, with the world
-    and the player's new position, and returns the world to draw from now on —
-    see {!grown}. A fixed level needs none; a level that is generated as it is
-    explored uses it to build far enough ahead that the player never sees the
-    edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
-    the renderer looks. It runs on a crossing and not per frame, so a generator
-    may take its time.
+    [extend] is called whenever the player goes through a doorway, with the
+    world and the player's new position, and returns the world to draw from now
+    on. A fixed level needs none; a level that is generated as it is explored
+    uses it to build far enough ahead that the player never sees the edge —
+    {!Config.max_portal_depth} doorways, since that is exactly how deep the
+    renderer looks. It runs on a crossing and not per frame, so a generator may
+    take its time.
 
-    This is {!run_state} over the state the engine can hold on a game's behalf:
-    the world and the player. Escape leaving is this function's rule and not the
+    Going through a doorway is the one moment the horizon can have moved, and
+    {!Player.crossed} is what says whether a frame did — not the room the player
+    ended in, which calls a step round a jamb or all the way round a loop of
+    rooms nothing happening. A game that has outgrown this wrapper and moved to
+    {!run} asks {!Player.crossed} for itself rather than working the rule out
+    again.
+
+    This is {!run} over the state the engine can hold on a game's behalf: the
+    world and the player. Escape leaving is this function's rule and not the
     engine's — a game with screens in it wants that key for closing them, which
     is why {!Binding.default} binds no such key at all — but a bare world has
     nothing else to end it with, so this is where the default table is asked for
@@ -347,16 +305,16 @@ let grown ~grow world (moved : Player.movement) =
     Reports how the run ended, which is what a launcher needs to tell "back to
     the menu" from "close the program". A program with only one world to show
     has no use for the answer and can [ignore] it. *)
-let enter ?(grow = fun world _ -> world)
+let run_world ?(extend = fun world _ -> world)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) world =
   let update (world, player) ~dt:_ ~motion ~actions:_ =
-    let moved = advance world player motion in
-    (* Walking through a doorway is the one moment the horizon can have moved,
-       so it is the only moment worth asking the world to grow. Every other
-       frame this is a look at an empty list. *)
-    (grown ~grow world moved, moved.Player.player)
+    let moved = move world player motion in
+    let player = moved.Player.player in
+    (* Every frame that crosses nothing is a look at an empty list, which is
+       almost all of them. *)
+    ((if Player.crossed moved then extend world player else world), player)
   in
   let+ _, ending =
-    run_state ~update ~view:Fun.id ~bindings (world, Player.spawn world)
+    run ~update ~view:Fun.id ~bindings (world, Player.spawn world)
   in
   ending

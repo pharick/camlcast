@@ -4,10 +4,12 @@
 val window_title : string
 
 val initial_width : int
-(** Size the window opens at. It is resizable and can go fullscreen, so this is
+(** Width the window opens at. It is resizable and can go fullscreen, so this is
     a starting point and nothing may assume it afterwards — see {!Viewport}. *)
 
 val initial_height : int
+(** Height the window opens at, on the same terms as {!initial_width}. The two
+    together are {!reference_aspect}. *)
 
 val fov : float
 (** Horizontal field of view at {!reference_aspect}. 60 degrees is the classic
@@ -19,12 +21,15 @@ val reference_aspect : float
     window shows more of the world rather than a stretched version of it. *)
 
 val move_speed : float
-(** Movement is expressed in map cells per second, rotation in radians per
-    second. {!Input} scales both by the length of the frame, so how fast the
-    player walks is a property of the world and not of how long a frame took to
-    render. *)
+(** How fast the player walks, in map cells per second. {!Binding} scales it by
+    the length of the frame, so how fast the player walks is a property of the
+    world and not of how long a frame took to render. *)
 
-val rot_speed : float
+val turn_speed : float
+(** How fast the player turns, in radians per second — {!move_speed} for yaw,
+    and scaled by the frame in the same way. This is the speed of the {e turn}
+    axis of a {!Binding.t}, which is what the arrow keys and the mouse both
+    feed. *)
 
 val collision_padding : float
 (** The player is a point, not a circle, so we probe for walls slightly ahead of
@@ -38,15 +43,18 @@ val eye_height : float
     neighbours. See {!Viewport} and {!World}. *)
 
 val look_sensitivity : float
-(** Mouse look. [look_sensitivity] turns one pixel of horizontal mouse motion
-    into radians of yaw; [pitch_sensitivity] turns one pixel of vertical motion
-    into a fraction of the window height that the horizon shears by. *)
+(** Mouse look, sideways: radians of yaw per pixel of horizontal mouse motion.
+    The mouse is a displacement and not a rate, so this is {e not} scaled by the
+    frame again — see {!Binding}. *)
 
 val pitch_sensitivity : float
+(** Mouse look, up and down: the fraction of the window height that the horizon
+    shears by per pixel of vertical mouse motion. Not scaled by the frame, for
+    the same reason as {!look_sensitivity}. *)
 
 val pitch_speed : float
-(** Keyboard look speed, for the arrow keys: radians (yaw, see {!rot_speed}) and
-    window-height fractions (pitch) per second. *)
+(** Keyboard look speed, for the arrow keys: radians (yaw, see {!turn_speed})
+    and window-height fractions (pitch) per second. *)
 
 val max_pitch : float
 (** How far the view may tip up or down, as the fraction of the window height

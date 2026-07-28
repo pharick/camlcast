@@ -311,7 +311,7 @@ let a_see_through_lintel_shows_the_room_behind () =
   let looking =
     Player.pitch_by
       (Player.create ~room:0 ~pos:centre ~angle:0.)
-      ~delta:Config.max_pitch
+      ~radians:Config.max_pitch
   in
   let roofed world material =
     let before = World.room world 1 in
@@ -456,7 +456,7 @@ let a_decal_on_the_far_face_is_drawn_from_behind () =
 let a_mark_lands_under_the_crosshair () =
   let world = fst (alone []) in
   let aim = looking_east () in
-  match Sight.cast world aim with
+  match Sight.look world aim with
   | Some { Sight.kind = Sight.Wall w; room; _ } ->
       let with_it =
         World.replace_room world ~room

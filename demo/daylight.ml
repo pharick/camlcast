@@ -67,4 +67,4 @@ let world =
     ~atmosphere:Surfaces.air
     ~spawn:("noon", Vec.make 3. 0.)
 
-let run () = Engine.enter world
+let run () = Engine.run_world world

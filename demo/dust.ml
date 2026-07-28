@@ -139,6 +139,6 @@ let view state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings:Bindings.escapable ~update ~view start
+    Engine.run ~bindings:Bindings.escapable ~update ~view start
   in
   ending

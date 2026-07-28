@@ -2,9 +2,8 @@
 
     {!Input} reports controls; this says what they are for. Walking, looking,
     fullscreen and leaving the run all come from a value of this type, and a
-    game hands one to {!Camlcast.Engine.run_state}. {!default} is the engine's
-    own, and it is a default and not a rule: the engine has no keys of its own
-    left.
+    game hands one to {!Camlcast.Engine.run}. {!default} is the engine's own,
+    and it is a default and not a rule: the engine has no keys of its own left.
 
     {1 Rates and displacements}
 
@@ -69,7 +68,7 @@ val default : t
     That last one is deliberate. Whether Escape ends a run is not the engine's
     to decide: a game with screens in it wants that key for closing them, and
     would be poorly served by a window that quit underneath it. A run that has
-    no other way out asks for one, as {!Camlcast.Engine.enter} does. *)
+    no other way out asks for one, as {!Camlcast.Engine.run_world} does. *)
 
 val motion : t -> Input.actions -> dt:float -> Input.motion
 (** What the player asked for over a frame of [dt] seconds, by this table.

@@ -15,7 +15,7 @@ let listing () =
 
 (* Menu, demo, menu again, for as long as the player keeps coming back.
    Escape ends a demo and returns here; shutting the window ends the program.
-   Telling those two apart is the whole reason {!Engine.run_state} reports an
+   Telling those two apart is the whole reason {!Engine.run} reports an
    ending, and the only reason the launcher is a loop rather than a line. *)
 let rec browse () =
   match Menu.choose () with

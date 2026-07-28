@@ -293,10 +293,10 @@ let a_step_along_a_wall_is_refused () =
   in
   Alcotest.(check bool)
     "a step down the line of a wall does not pass through it" false
-    (Room.can_step level ~from:(Vec.make 0. 0.) ~dest:(Vec.make 3. 0.));
+    (Room.passable level ~from:(Vec.make 0. 0.) ~dest:(Vec.make 3. 0.));
   Alcotest.(check bool)
     "the same step alongside it is free" true
-    (Room.can_step level ~from:(Vec.make 0. 0.5) ~dest:(Vec.make 3. 0.5))
+    (Room.passable level ~from:(Vec.make 0. 0.5) ~dest:(Vec.make 3. 0.5))
 
 (* Two segments that miss each other are as far apart as the nearest of their
    endpoints is from the other segment. *)
@@ -321,12 +321,12 @@ let a_step_clipping_a_wall_end_is_refused () =
   let brushing_the_end = 1. -. (Config.collision_padding /. 2.) in
   Alcotest.(check bool)
     "a wide step round the end of a wall clips it" false
-    (Room.can_step level
+    (Room.passable level
        ~from:(Vec.make (-2.) brushing_the_end)
        ~dest:(Vec.make 2. brushing_the_end));
   Alcotest.(check bool)
     "the same step given the end a wider berth is free" true
-    (Room.can_step level
+    (Room.passable level
        ~from:(Vec.make (-2.) (1. -. (Config.collision_padding *. 2.)))
        ~dest:(Vec.make 2. (1. -. (Config.collision_padding *. 2.))))
 

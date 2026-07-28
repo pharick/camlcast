@@ -1,7 +1,7 @@
 (** {b Looking through a doorway.} What the crosshair is on, named — including
     when it is in the room next door.
 
-    {!Camlcast.Sight.cast} traces the middle of the view through one open
+    {!Camlcast.Sight.look} traces the middle of the view through one open
     doorway, carries it into the next room's frame, and reports what it meets
     first: which room, and which wall, sprite or threshold of it. Everything
     that stops the eye stops it — a nearer sprite, an opaque wall, a shut door,
@@ -151,7 +151,7 @@ let collectable state (seen : Sight.t option) =
 let update state ~dt:_ ~motion ~actions =
   let player = Engine.step world state.player motion in
   let state = { state with player } in
-  match (Input.pressed actions (Input.Key Key.e), Sight.cast world player) with
+  match (Input.pressed actions (Input.Key Key.e), Sight.look world player) with
   | true, seen -> (
       match collectable state seen with
       | Some what -> { state with collected = what :: state.collected }
@@ -221,7 +221,7 @@ let ringed fb (state : t) (seen : Sight.t option) =
 let overlay fb state =
   let height = fb.Framebuffer.height in
   let unit = Int.max 3 (height / 60) in
-  let seen = Sight.cast world state.player in
+  let seen = Sight.look world state.player in
   let r, g, b =
     match (collectable state seen, seen) with
     | Some _, _ -> (120, 230, 130)
@@ -253,7 +253,7 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings:Bindings.escapable ~update
+    Engine.run ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (world, state.player))
       ~overlay start
   in

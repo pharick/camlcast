@@ -431,7 +431,7 @@ let distance_between_segments a1 a2 b1 b2 =
     longer than the padding safe: it can neither tunnel through a thin wall nor
     clip past the end of one, both of which land clear of every wall and would
     pass a test taken at the destination alone. *)
-let can_step t ~from ~dest =
+let passable t ~from ~dest =
   not
     (Array.exists
        (fun (w : wall) ->

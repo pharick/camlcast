@@ -45,8 +45,8 @@ Which one you get says what kind of mistake it was.
 
 {ul
 {li {b Things that can fail at run time return a result} —
-    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.enter},
-    {!Camlcast.Engine.run_state},
+    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.run_world},
+    {!Camlcast.Engine.run},
     {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
     {!Camlcast.Framebuffer.create}. A missing file is one of these.}
 {li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
@@ -161,7 +161,7 @@ let world =
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 let () =
-  match Engine.enter world with
+  match Engine.run_world world with
   (* How the run ended matters only to a program that opens a second window.
      This one has the single room above and nothing to go back to. *)
   | Ok _ending -> ()
@@ -191,7 +191,7 @@ fullscreen, {b Esc} quits.
     {!Camlcast.Room.type-ceiling}.}
 {li {!Camlcast.World.make} names the rooms, links their doorways (none yet),
     gives the world its air, and says where the player starts.}
-{li {!Camlcast.Engine.enter} opens the window and runs the loop until the
+{li {!Camlcast.Engine.run_world} opens the window and runs the loop until the
     player quits.}}
 
 {b If the room is black from the inside}, the walls are wound clockwise. Reverse
@@ -681,9 +681,9 @@ their generated counterparts.
 
 {b Goal.} Anything that is not just a world and a player walking it.
 
-Everything so far used {!Camlcast.Engine.enter}, which holds the only state
+Everything so far used {!Camlcast.Engine.run_world}, which holds the only state
 the engine can hold on its own. A game with phases, doors, a journal, a score or a
-random seed uses {!Camlcast.Engine.run_state}, which runs a state of {e whatever
+random seed uses {!Camlcast.Engine.run}, which runs a state of {e whatever
 type you like} and asks six things of it:
 
 {ul
@@ -737,7 +737,7 @@ let view state =
 
 let () =
   match
-    Engine.run_state ~update ~view
+    Engine.run ~update ~view
       ~bindings:(Binding.make ~leave:[ Input.Key Key.escape ] ())
       ~finished:(fun state -> state.phase = Done)
       start
@@ -750,20 +750,20 @@ let () =
 
 {2 How a run ends}
 
-[run_state] hands back the state it reached and an {!Camlcast.Engine.ending}:
+[run] hands back the state it reached and an {!Camlcast.Engine.ending}:
 [Closed] means the window was shut or the desktop asked the program to stop,
 [Left] means the run ended on its own terms — [finished] said so, or the player
 pressed something the binding table lists under [~leave]. Only something that
 opens one window after another needs the difference; a launcher shows its menu
-again after [Left] and stops after [Closed]. {!Camlcast.Engine.enter} is
-[run_state] over a bare world, returning the same answer; a program with only
-one world to show has no use for it and can [ignore] it.
+again after [Left] and stops after [Closed]. {!Camlcast.Engine.run_world} is
+[run] over a bare world, returning the same answer; a program with only one
+world to show has no use for it and can [ignore] it.
 
 {b Nothing ends a run unless you say so.} {!Camlcast.Binding.default} binds no
 key that leaves, because a game with a pause screen wants Escape for closing it
-and would be poorly served by a window that quit underneath. [enter] asks for
-Escape, since a bare world has nothing else to end it with; [run_state] leaves
-it to you, which is the [~bindings] line above.
+and would be poorly served by a window that quit underneath. [run_world] asks
+for Escape, since a bare world has nothing else to end it with; [run] leaves it
+to you, which is the [~bindings] line above.
 
 {2 Time and focus}
 
@@ -816,7 +816,7 @@ direction it ends up facing.
 {2 The keys that walk are yours too}
 
 Where that motion came from is a {!Camlcast.Binding.t}, which you hand to
-[run_state] beside the callbacks. {!Camlcast.Binding.default} is {b W}/{b A}/
+[run] beside the callbacks. {!Camlcast.Binding.default} is {b W}/{b A}/
 {b S}/{b D}, the arrow keys, the mouse and {b F11} — and no key that ends the
 run. It is a default and not a rule; the engine has no keys of its own.
 
@@ -951,7 +951,7 @@ let overlay fb state =
 {b Goal.} Picking: knowing what the player is looking at, through doorways.
 
 {@ocaml[
-match Sight.cast world player with
+match Sight.look world player with
 | Some { Sight.kind = Sight.Wall w; room; crossed; distance; _ }
   when crossed = 0 && distance <= reach ->
     (* w.index is which wall; w.along and w.z are where on it, in the wall's own
@@ -1030,18 +1030,18 @@ Between cutting a doorway and linking it, the doorway leads nowhere: the rendere
 fills it with haze and collision treats it as solid. {b A half-built world is a
 playable one}, rather than a crash waiting for someone to walk towards it.
 
-The [grow] hook runs whenever the player goes {e through} a doorway — not every
+The [extend] hook runs whenever the player goes {e through} a doorway — not every
 frame, so a generator may take its time — and returns the world to draw from now
 on:
 
 {@ocaml[
-let rec extend world ~room ~ahead =
+let rec build world ~room ~ahead =
   if ahead <= 0 then world
   else
     match way_on (World.room world room) with
     | Some index ->
         let portal = Option.get (World.portals world room).(index) in
-        extend world ~room:portal.World.to_room ~ahead:(ahead - 1)
+        build world ~room:portal.World.to_room ~ahead:(ahead - 1)
     | None ->
         let world =
           World.open_doorway world ~room ~opened:(segment ~onward:true room)
@@ -1051,12 +1051,12 @@ let rec extend world ~room ~ahead =
           World.add_room world ~name:(named index) (segment ~onward:false index)
         in
         let world = World.link world (room, "on") (next, "back") in
-        extend world ~room:next ~ahead:(ahead - 1)
+        build world ~room:next ~ahead:(ahead - 1)
 
-let grow world (player : Player.t) =
-  extend world ~room:player.Player.room ~ahead:Config.max_portal_depth
+let extend world (player : Player.t) =
+  build world ~room:player.Player.room ~ahead:Config.max_portal_depth
 
-let () = ignore (Engine.enter ~grow world)
+let () = ignore (Engine.run_world ~extend world)
 ]}
 
 {b Build exactly {!Camlcast.Config.max_portal_depth} doorways ahead}, which is
@@ -1069,12 +1069,12 @@ the edge, build more and you paid for rooms nobody will reach.
 
 {b Goal.} A record of the route, rather than a guess from the geometry.
 
-{!Camlcast.Engine.advance} is [step] that also hands back every doorway the frame
+{!Camlcast.Engine.move} is [step] that also hands back every doorway the frame
 went through:
 
 {@ocaml[
 let update state ~dt:_ ~motion ~actions:_ =
-  let moved = Engine.advance world state.player motion in
+  let moved = Engine.move world state.player motion in
   { player = moved.Player.player;
     stack = List.fold_left record state.stack moved.Player.crossings }
 ]}
@@ -1102,7 +1102,7 @@ is a record of what was walked and not an inference from where the rooms are.
 usually wants to think about:
 
 {ul
-{li [move_speed], [rot_speed] — how fast walking and turning are;}
+{li [move_speed], [turn_speed] — how fast walking and turning are;}
 {li [look_sensitivity], [pitch_sensitivity], [max_pitch] — the mouse, and how
     far up and down it can go;}
 {li [eye_height] — half a unit, which is what makes a wall of height 4 feel as
@@ -1112,7 +1112,7 @@ usually wants to think about:
 {li [max_render_height] — the cap on the software buffer, and so the trade
     between sharpness and frame rate;}
 {li [max_portal_depth] — how many doorways deep the renderer looks, and so how
-    far ahead a [grow] hook must build.}}
+    far ahead an [extend] hook must build.}}
 
 {b Resizing is Hor+.} The vertical field of view is fixed, so dragging the window
 wider reveals more of the world to the sides rather than magnifying what was

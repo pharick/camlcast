@@ -25,7 +25,7 @@ let frames ?dt held count actions =
     actions
     (List.init count (fun _ -> ()))
 
-(* [count] frames the window spent out of focus, which is what [Engine.loop]
+(* [count] frames the window spent out of focus, which is what the engine's loop
    does with one instead of sampling it. *)
 let frames_frozen count actions =
   List.fold_left

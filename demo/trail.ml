@@ -4,9 +4,10 @@
     {!Camlcast.Player.traverse} returns where the player ended up {e and} a list
     of crossings, each naming the room and threshold it left by, the room and
     threshold it arrived at, and the transform applied on the way.
-    {!Camlcast.Engine.advance} is the same thing for a whole frame, with the
-    turn applied first; {!Camlcast.Engine.step} is that with the list dropped,
-    which is what every other demo here uses.
+    {!Camlcast.Engine.move} is the same thing for a whole frame, with the turn
+    applied first; {!Camlcast.Engine.step} is that with the list dropped, which
+    is what every other demo here uses. {!Camlcast.Player.crossed} answers only
+    whether the list is empty, which is all a world that grows needs.
 
     A frame can cross more than one doorway. Movement resolves its two axes one
     after the other, and each leg can go through an opening of its own — so the
@@ -100,7 +101,7 @@ let record stack crossing =
   | _ -> crossing :: stack
 
 let update state ~dt:_ ~motion ~actions:_ =
-  let moved = Engine.advance world state.player motion in
+  let moved = Engine.move world state.player motion in
   {
     player = moved.Player.player;
     (* Folded in the order they were crossed, which is the order they have to be
@@ -130,7 +131,7 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings:Bindings.escapable ~update
+    Engine.run ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (world, state.player))
       ~overlay start
   in

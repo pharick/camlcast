@@ -56,13 +56,13 @@ let a_step_into_the_neighbour_is_refused () =
   let from = Vec.make 3.7 2.2 and dest = Vec.make 4.3 2.35 in
   Alcotest.(check bool)
     "this room sees nothing in the way" true
-    (Room.can_step (World.room two_rooms 0) ~from ~dest);
+    (Room.passable (World.room two_rooms 0) ~from ~dest);
   Alcotest.(check bool)
     "but the world sees the neighbour's wall" false
-    (World.can_step two_rooms ~room:0 ~from ~dest);
+    (World.passable two_rooms ~room:0 ~from ~dest);
   Alcotest.(check bool)
     "straight through the middle is still free" true
-    (World.can_step two_rooms ~room:0 ~from:(Vec.make 3.5 2.)
+    (World.passable two_rooms ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.))
 
 (* A leaf standing open changes none of that: it is a door swung aside, so the
@@ -73,20 +73,20 @@ let a_step_through_a_door_is_refused_by_the_neighbour () =
   let from = Vec.make 3.7 2.2 and dest = Vec.make 4.3 2.35 in
   Alcotest.(check bool)
     "this room sees nothing in the way" true
-    (Room.can_step (World.room ajar 0) ~from ~dest);
+    (Room.passable (World.room ajar 0) ~from ~dest);
   Alcotest.(check bool)
     "but the world sees the neighbour's wall" false
-    (World.can_step ajar ~room:0 ~from ~dest);
+    (World.passable ajar ~room:0 ~from ~dest);
   Alcotest.(check bool)
     "and an open door is still one you can walk through" true
-    (World.can_step ajar ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.))
+    (World.passable ajar ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.))
 
 (* The straight step through the middle of the opening, in both states. This is
    the one the engine used to get wrong in either: a leaf was drawn and the
    player walked through it regardless. *)
 let a_door_blocks_in_the_states_that_have_a_leaf () =
   let through world =
-    World.can_step world ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.)
+    World.passable world ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.)
   in
   Alcotest.(check bool)
     "an open door lets the step by" true
@@ -100,11 +100,11 @@ let a_door_blocks_in_the_states_that_have_a_leaf () =
        ~dest:(Vec.make 4.5 2.)
     |> Option.is_some);
   (* [crossing] still reports the doorway — it answers "which opening is this
-     step through", and [can_step] is what has already said no. Movement asks
+     step through", and [passable] is what has already said no. Movement asks
      both, in that order. *)
   Alcotest.(check bool)
     "a step alongside a shut door is unaffected" true
-    (World.can_step two_rooms_closed ~room:0 ~from:(Vec.make 2. 2.)
+    (World.passable two_rooms_closed ~room:0 ~from:(Vec.make 2. 2.)
        ~dest:(Vec.make 2.5 2.));
   (* Walking is where the two meet: the step is refused, so the player stays. *)
   let start = Player.create ~room:0 ~pos:(Vec.make 3.5 2.) ~angle:0. in
@@ -360,17 +360,17 @@ let a_doorway_onto_nowhere_is_solid () =
   let from = Vec.make 3.5 2. and dest = Vec.make 4.5 2. in
   Alcotest.(check bool)
     "the room alone sees the gap and lets you through" true
-    (Room.can_step (World.room world 0) ~from ~dest);
+    (Room.passable (World.room world 0) ~from ~dest);
   Alcotest.(check bool)
     "the world refuses it" false
-    (World.can_step world ~room:0 ~from ~dest);
+    (World.passable world ~room:0 ~from ~dest);
   Alcotest.(check bool)
     "and there is nothing to cross into" true
     (World.crossing world ~room:0 ~from ~dest = None);
   (* Walking past it, not through it, is still fine. *)
   Alcotest.(check bool)
     "a step alongside is unaffected" true
-    (World.can_step world ~room:0 ~from:(Vec.make 2. 2.) ~dest:(Vec.make 2.5 2.))
+    (World.passable world ~room:0 ~from:(Vec.make 2. 2.) ~dest:(Vec.make 2.5 2.))
 
 let invalid_growth_is_refused () =
   let world = seed () in
@@ -695,7 +695,7 @@ let a_door_can_be_worked_repeatedly () =
     (portal world ~room:0 ~index:0).World.to_room;
   Alcotest.(check bool)
     "so an opened door is walkable again" true
-    (World.can_step world ~room:0 ~from:(Vec.make 3.5 2.)
+    (World.passable world ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.))
 
 (* An unlinked doorway has only one side, and gets it. *)
@@ -716,7 +716,7 @@ let a_door_on_an_unlinked_doorway_has_one_side () =
      no room to walk into. *)
   Alcotest.(check bool)
     "and still leads nowhere" false
-    (World.can_step opened ~room:0 ~from:(Vec.make 2. 3.5)
+    (World.passable opened ~room:0 ~from:(Vec.make 2. 3.5)
        ~dest:(Vec.make 2. 4.5))
 
 let working_a_door_that_is_not_there_is_refused () =

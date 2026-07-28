@@ -16,12 +16,12 @@
     - {b Click.} The amber lamp lights. A mouse button is a control like a key.
     - {b Tab.} Releases the mouse. The cursor comes back, a white square follows
       it, and the camera stops turning with it — that is [pointing] on
-      {!Camlcast.Engine.run_state}, which is how a game that opens a screen over
-      its world hands the mouse to it. Press it again to take the mouse back.
+      {!Camlcast.Engine.run}, which is how a game that opens a screen over its
+      world hands the mouse to it. Press it again to take the mouse back.
     - {b IJKL, as well as WASD.} Walking is bound by a {!Camlcast.Binding.t}
-      like everything else, and this demo hands {!Camlcast.Engine.run_state} one
-      of its own with a second set of keys added. Both sets are live at once,
-      and holding one of each walks at {e one} speed rather than two — an axis
+      like everything else, and this demo hands {!Camlcast.Engine.run} one of
+      its own with a second set of keys added. Both sets are live at once, and
+      holding one of each walks at {e one} speed rather than two — an axis
       clamps what its terms add up to, which is what stops a table with two keys
       on one axis from running.
 
@@ -58,7 +58,7 @@ let named = function
 
 (** The engine's table with a second set of walking keys added to it: the whole
     of rebinding is a value like this one, stated once and handed to
-    {!Camlcast.Engine.run_state}.
+    {!Camlcast.Engine.run}.
 
     [~leave] has to be asked for — {!Camlcast.Binding.default} binds no key that
     ends a run, since a game with screens in it wants Escape for closing them —
@@ -208,7 +208,7 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings ~update
+    Engine.run ~bindings ~update
       ~view:(fun state -> (world, state.player))
       ~overlay
       ~pointing:(fun state -> state.pointing)

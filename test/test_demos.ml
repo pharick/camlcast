@@ -105,7 +105,7 @@ let growing_leaves_a_world_that_still_works () =
   for _ = 1 to 8 do
     let far = rooms () - 1 in
     world :=
-      Endless.grow !world
+      Endless.extend !world
         (Player.create ~room:far ~pos:(Vec.make 0. 2.) ~angle:0.);
     World.check !world;
     Array.iteri
@@ -308,7 +308,7 @@ let facing_the_partition ?(from = Vec.make 0.5 (-0.5)) (state : Chalk.t) =
   }
 
 let decal_under (state : Chalk.t) =
-  match Sight.cast (Chalk.dressed state) state.Chalk.player with
+  match Sight.look (Chalk.dressed state) state.Chalk.player with
   | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
   | _ -> None
 
@@ -336,7 +336,7 @@ let the_chalk_demo_marks_what_the_crosshair_is_on () =
     "and nothing on its back" None (decal_under behind);
   Alcotest.(check bool)
     "though the partition is still what is being looked at" true
-    (match Sight.cast (Chalk.dressed behind) behind.Chalk.player with
+    (match Sight.look (Chalk.dressed behind) behind.Chalk.player with
     | Some { Sight.kind = Sight.Wall _; _ } -> true
     | _ -> false)
 
@@ -383,7 +383,7 @@ let the_chalk_demo_runs_out_of_chalk () =
   Alcotest.(check int) "the ninth is refused" 8 (List.length ninth.Chalk.marks);
   Alcotest.(check int) "and costs nothing" 0 ninth.Chalk.left;
   let why state =
-    Chalk.refusal state (Sight.cast (Chalk.dressed state) state.Chalk.player)
+    Chalk.refusal state (Sight.look (Chalk.dressed state) state.Chalk.player)
   in
   Alcotest.(check (option string))
     "and it says so" (Some "no chalk left")
@@ -397,12 +397,12 @@ let the_chalk_demo_runs_out_of_chalk () =
       Chalk.player =
         Player.pitch_by
           (Player.create ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.)
-          ~delta:0.3;
+          ~radians:0.3;
     }
   in
   Alcotest.(check bool)
     "the eye does reach a wall of the next room" true
-    (match Sight.cast (Chalk.dressed through) through.Chalk.player with
+    (match Sight.look (Chalk.dressed through) through.Chalk.player with
     | Some { Sight.kind = Sight.Wall _; crossed; _ } -> crossed > 0
     | _ -> false);
   Alcotest.(check (option string))
@@ -412,7 +412,7 @@ let the_chalk_demo_runs_out_of_chalk () =
   let far = facing_the_partition ~from:(Vec.make 0.5 (-4.)) Chalk.start in
   Alcotest.(check bool)
     "a wall out of reach is still seen" true
-    (match Sight.cast (Chalk.dressed far) far.Chalk.player with
+    (match Sight.look (Chalk.dressed far) far.Chalk.player with
     | Some { Sight.kind = Sight.Wall _; distance; _ } -> distance > Chalk.reach
     | _ -> false);
   Alcotest.(check (option string)) "but refused" (Some "too far") (why far);

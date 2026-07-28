@@ -139,4 +139,4 @@ let world =
     | Error (`Msg m) ->
         failwith ("the loading demo could not read its art: " ^ m))
 
-let run () = Engine.enter (Lazy.force world)
+let run () = Engine.run_world (Lazy.force world)

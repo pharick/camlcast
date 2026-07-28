@@ -60,7 +60,7 @@ let rooms ?door ?lintel ?(near = []) ?(far = []) () =
    (2, 2) in it is two cells beyond the threshold. *)
 let looking_east ?(pitch = 0.) ?(from = centre) () =
   let p = Player.create ~room:0 ~pos:from ~angle:0. in
-  Player.pitch_by p ~delta:pitch
+  Player.pitch_by p ~radians:pitch
 
 let describe = function
   | None -> "nothing"
@@ -94,13 +94,13 @@ let a_sprite_is_read_across_by_its_width () =
   (* Dead ahead: the middle of the sprite's width, which is the first solid
      column. *)
   is "sprite 0 of room 0"
-    (Sight.cast world (looking_east ~from:(Vec.make 2. 2.) ()));
+    (Sight.look world (looking_east ~from:(Vec.make 2. 2.) ()));
   (* A quarter of the way across it, which is on the side that was cut away. The
      crosshair passes through and carries on into the room beyond, so what it
      finds there is the far room's business — all this case is asserting is that
      the sprite is not it. *)
   let past =
-    describe (Sight.cast world (looking_east ~from:(Vec.make 2. 2.35) ()))
+    describe (Sight.look world (looking_east ~from:(Vec.make 2. 2.35) ()))
   in
   Alcotest.(check bool)
     (Printf.sprintf "the cut-away side is seen through (found %s)" past)
@@ -120,9 +120,9 @@ let a_lifted_sprite_is_looked_at_where_it_floats () =
       ()
   in
   is "sprite 0 of room 0"
-    (Sight.cast (raised 0.) (looking_east ~from:(Vec.make 2. 2.) ()));
+    (Sight.look (raised 0.) (looking_east ~from:(Vec.make 2. 2.) ()));
   let under =
-    describe (Sight.cast (raised 0.9) (looking_east ~from:(Vec.make 2. 2.) ()))
+    describe (Sight.look (raised 0.9) (looking_east ~from:(Vec.make 2. 2.) ()))
   in
   Alcotest.(check bool)
     (Printf.sprintf "level, the crosshair passes under it (found %s)" under)
@@ -132,7 +132,7 @@ let a_lifted_sprite_is_looked_at_where_it_floats () =
      {!Viewport.centre_rise} of height per cell, and the sprite is a cell and a
      half away. *)
   is "sprite 0 of room 0"
-    (Sight.cast (raised 0.9)
+    (Sight.look (raised 0.9)
        (looking_east ~pitch:0.6 ~from:(Vec.make 2. 2.) ()))
 
 (* Through an open doorway, into the room beyond, at a sprite standing there.
@@ -140,7 +140,7 @@ let a_lifted_sprite_is_looked_at_where_it_floats () =
    coordinate frame, and is named without going in. *)
 let through_an_open_doorway () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
-  let seen = Sight.cast world (looking_east ()) in
+  let seen = Sight.look world (looking_east ()) in
   is "sprite 0 of room 1" seen;
   match seen with
   | None -> Alcotest.fail "expected to see the sprite"
@@ -156,10 +156,10 @@ let a_shut_door_stops_it () =
   let closed =
     rooms ~door:(Door.make dim) ~far:[ figure (Vec.make 2. 2.) ] ()
   in
-  is "doorway 0 of room 0" (Sight.cast closed (looking_east ()));
+  is "doorway 0 of room 0" (Sight.look closed (looking_east ()));
   (* And opening it lets the eye through again. *)
   let opened = World.set_door closed ~room:0 ~threshold:0 Door.Open in
-  is "sprite 0 of room 1" (Sight.cast opened (looking_east ()))
+  is "sprite 0 of room 1" (Sight.look opened (looking_east ()))
 
 (* A leaf of a material that carries an alpha stops the ray no more than a
    see-through wall does — the renderer draws the room behind it, and what can
@@ -169,7 +169,7 @@ let a_see_through_leaf_does_not_stop_it () =
   let barred =
     rooms ~door:(Door.make mesh) ~far:[ figure (Vec.make 2. 2.) ] ()
   in
-  is "sprite 0 of room 1" (Sight.cast barred (looking_east ()));
+  is "sprite 0 of room 1" (Sight.look barred (looking_east ()));
   Alcotest.(check bool)
     "and it is still a door to walk into" true
     (Room.shut (World.room barred 0).Room.thresholds.(0))
@@ -182,7 +182,7 @@ let a_see_through_leaf_does_not_stop_it () =
    {!looking_over_the_opening_meets_the_lintel} spells out. *)
 let a_see_through_lintel_does_not_stop_it () =
   let over_the_door lintel =
-    Sight.cast
+    Sight.look
       (rooms ?lintel
          ~far:[ Room.sprite ~base:2.7 ~size:1. ~image:poster (Vec.make 1. 2.) ]
          ())
@@ -196,10 +196,10 @@ let a_nearer_thing_occludes () =
   let world =
     rooms ~near:[ figure (Vec.make 3. 2.) ] ~far:[ figure (Vec.make 2. 2.) ] ()
   in
-  is "sprite 0 of room 0" (Sight.cast world (looking_east ()));
+  is "sprite 0 of room 0" (Sight.look world (looking_east ()));
   (* The near one is in the room the player is standing in, so a game that only
      collects from the next room reads [crossed] and discards this. *)
-  match Sight.cast world (looking_east ()) with
+  match Sight.look world (looking_east ()) with
   | Some s -> Alcotest.(check int) "no doorway crossed" 0 s.Sight.crossed
   | None -> Alcotest.fail "expected the near sprite"
 
@@ -221,7 +221,7 @@ let a_wall_occludes_and_names_itself () =
                  (Vec.make 3. 3.);
              ]))
   in
-  match Sight.cast blocked (looking_east ()) with
+  match Sight.look blocked (looking_east ()) with
   | Some { Sight.kind = Sight.Wall w; room; distance; crossed } ->
       Alcotest.(check int) "the room the player is in" 0 room;
       Alcotest.(check int) "no doorway crossed" 0 crossed;
@@ -249,7 +249,7 @@ let a_see_through_wall_does_not_occlude () =
                  (Vec.make 3. 3.);
              ]))
   in
-  is "sprite 0 of room 1" (Sight.cast screened (looking_east ()))
+  is "sprite 0 of room 1" (Sight.look screened (looking_east ()))
 
 (* Looking somewhere else finds something else, or nothing. The sprite is a
    cut-out and mostly empty, so this also covers the texel test: a crosshair
@@ -259,12 +259,12 @@ let the_wrong_angle_misses () =
   let turned radians =
     Player.turn (Player.create ~room:0 ~pos:centre ~angle:0.) ~radians
   in
-  is "wall 3 of room 0" (Sight.cast world (turned 1.6));
+  is "wall 3 of room 0" (Sight.look world (turned 1.6));
   (* Level, but aimed at the jamb above the opening rather than through it. *)
-  is "wall 1 of room 0" (Sight.cast world (turned 0.6));
+  is "wall 1 of room 0" (Sight.look world (turned 0.6));
   (* Pitched down far enough that the ray is under every wall it meets before
      it would reach one — the floor is not something this picks. *)
-  is "nothing" (Sight.cast world (looking_east ~pitch:(-.Config.max_pitch) ()))
+  is "nothing" (Sight.look world (looking_east ~pitch:(-.Config.max_pitch) ()))
 
 (* Looking up over the opening meets the wall standing above it, and not the
    room beyond: a doorway is a hole of a certain height, not a gap in the whole
@@ -279,24 +279,24 @@ let looking_over_the_opening_meets_the_lintel () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
   let far_side = Vec.make 1. 2. in
   is "doorway 0 of room 0"
-    (Sight.cast world (looking_east ~pitch:Config.max_pitch ~from:far_side ()));
+    (Sight.look world (looking_east ~pitch:Config.max_pitch ~from:far_side ()));
   (* Level from the same spot, it goes straight through. *)
-  is "sprite 0 of room 1" (Sight.cast world (looking_east ~from:far_side ()))
+  is "sprite 0 of room 1" (Sight.look world (looking_east ~from:far_side ()))
 
 (* One doorway by default, because that is what the design asks for. Asking for
    none is asking about the room you are standing in. *)
 let it_looks_as_far_as_it_is_told_to () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
-  is "sprite 0 of room 1" (Sight.cast world (looking_east ()));
-  is "doorway 0 of room 0" (Sight.cast ~through:0 world (looking_east ()))
+  is "sprite 0 of room 1" (Sight.look world (looking_east ()));
+  is "doorway 0 of room 0" (Sight.look ~through:0 world (looking_east ()))
 
 (* Asked twice, it answers the same. Nothing here consumes anything: collecting
    a sign is a change to the game's own record, and the engine's part is a pure
    function of the world and the pose. *)
 let asking_twice_gives_the_same_answer () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
-  let once = Sight.cast world (looking_east ())
-  and twice = Sight.cast world (looking_east ()) in
+  let once = Sight.look world (looking_east ())
+  and twice = Sight.look world (looking_east ()) in
   is (describe once) twice;
   Alcotest.(check bool)
     "and the distance with it" true
@@ -336,7 +336,7 @@ let a_decal_on_a_wall_is_named () =
       ~links:[] ~atmosphere:air ~spawn:("only", centre)
   in
   let decal_under player =
-    match Sight.cast world player with
+    match Sight.look world player with
     | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
     | _ -> None
   in
@@ -350,7 +350,7 @@ let a_decal_on_a_wall_is_named () =
     (decal_under (Player.create ~room:0 ~pos:(Vec.make 2. 0.8) ~angle:0.));
   (* And the wall is still what was hit, picture or no picture. *)
   is "wall 0 of room 0"
-    (Sight.cast world (Player.create ~room:0 ~pos:centre ~angle:0.))
+    (Sight.look world (Player.create ~room:0 ~pos:centre ~angle:0.))
 
 (* A mark on a wall you can see through is drawn, so it can be picked.
    [Renderer.draw_wall] runs its decal loop outside the test on the wall's own
@@ -389,13 +389,13 @@ let a_decal_on_a_see_through_wall_is_picked () =
   in
   let bare = world ~decals:[] in
   (* Bare, it is no obstacle at all, exactly as before. *)
-  is "sprite 0 of room 1" (Sight.cast bare (looking_east ()));
+  is "sprite 0 of room 1" (Sight.look bare (looking_east ()));
   (* Marked, the mark stops the ray — and what is named is the wall it is on,
      since a decal is something on a wall and never a thing of its own. *)
-  is "wall 5 of room 0" (Sight.cast marked (looking_east ()));
+  is "wall 5 of room 0" (Sight.look marked (looking_east ()));
   Alcotest.(check (option int))
     "and the mark under the crosshair" (Some 0)
-    (match Sight.cast marked (looking_east ()) with
+    (match Sight.look marked (looking_east ()) with
     | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
     | _ -> None)
 
@@ -417,7 +417,7 @@ let a_wall_can_be_marked_where_the_crosshair_is () =
     Player.create ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.)
   in
   let mark = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255)) in
-  match Sight.cast world aim with
+  match Sight.look world aim with
   | Some { Sight.kind = Sight.Wall w; room; _ } ->
       Alcotest.(check (option int)) "bare wall to begin with" None w.decal;
       let marked =
@@ -427,7 +427,7 @@ let a_wall_can_be_marked_where_the_crosshair_is () =
                (Room.decal ~facing:w.facing ~along:w.along ~z:w.z
                   ~half_width:0.25 ~half_height:0.25 mark))
       in
-      (match Sight.cast marked aim with
+      (match Sight.look marked aim with
       | Some { Sight.kind = Sight.Wall w'; _ } ->
           Alcotest.(check int) "the same wall" w.index w'.index;
           Alcotest.(check (option int))
@@ -452,7 +452,7 @@ let a_wall_can_be_marked_where_the_crosshair_is () =
 let a_target_can_be_found_on_the_screen () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
   let player = looking_east () in
-  match Sight.cast world player with
+  match Sight.look world player with
   | Some { Sight.kind = Sight.Sprite s; room; pose; distance; crossed } ->
       Alcotest.(check int) "in the room next door" 1 crossed;
       let viewport =

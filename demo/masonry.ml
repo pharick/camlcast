@@ -45,4 +45,4 @@ let world =
     ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
-let run () = Engine.enter world
+let run () = Engine.run_world world

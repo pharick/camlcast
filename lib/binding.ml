@@ -42,7 +42,7 @@ let default =
         ~negative:[ key Key.a ];
     turn =
       (let arrows =
-         opposed ~speed:Config.rot_speed
+         opposed ~speed:Config.turn_speed
            ~positive:[ key Key.right ]
            ~negative:[ key Key.left ]
        in

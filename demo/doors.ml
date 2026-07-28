@@ -204,7 +204,7 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings:Bindings.escapable ~update
+    Engine.run ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (state.world, state.player))
       ~overlay start
   in

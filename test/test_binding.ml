@@ -71,7 +71,8 @@ let the_axes_are_read_separately () =
 let the_arrow_keys_turn_and_look () =
   let turned = Binding.motion Binding.default (frame [ key Key.right ]) ~dt:tick
   and looked = Binding.motion Binding.default (frame [ up ]) ~dt:tick in
-  Alcotest.check close "a frame of turning" (Config.rot_speed *. tick)
+  Alcotest.check close "a frame of turning"
+    (Config.turn_speed *. tick)
     turned.Input.turn;
   Alcotest.check close "a frame of looking up"
     (Config.pitch_speed *. tick)
@@ -112,7 +113,7 @@ let the_mouse_and_the_arrows_add_up () =
       ~dt:tick
   in
   Alcotest.check close "the rate plus the displacement"
-    ((Config.rot_speed *. tick) +. (10. *. Config.look_sensitivity))
+    ((Config.turn_speed *. tick) +. (10. *. Config.look_sensitivity))
     asked.Input.turn
 
 (* {1 Tables of a game's own} *)

@@ -152,7 +152,7 @@ let decal_at (wall : Room.wall) ~seen_from ~along ~above =
 
 type candidate = Met of Ray.step | Billboard of int
 
-let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
+let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
   let here = World.room world room in
   let origin = pose.Player.pos and direction = pose.Player.dir in
   let floor_at point = Plane.elevation here.Room.floor.Room.plane point in
@@ -235,7 +235,7 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
         let onwards () =
           match (World.portals world room).(index) with
           | Some portal when budget > 0 ->
-              look world ~room:portal.World.to_room
+              trace world ~room:portal.World.to_room
                 ~pose:
                   (Player.through portal.World.onto ~room:portal.World.to_room
                      pose)
@@ -273,12 +273,12 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
 
     [through] is how many doorways the ray may pass through; one by default,
     which is the room beyond the doorway in front of you and no further. *)
-let cast ?(through = 1) world (player : Player.t) =
+let look ?(through = 1) world (player : Player.t) =
   let here = World.room world player.Player.room in
   let eye_z =
     Plane.elevation here.Room.floor.Room.plane player.Player.pos
     +. Config.eye_height
   in
-  look world ~room:player.Player.room ~pose:player
+  trace world ~room:player.Player.room ~pose:player
     ~rise:(Viewport.centre_rise ~pitch:player.Player.pitch)
     ~eye_z ~crossed:0 ~budget:through ~entered:None

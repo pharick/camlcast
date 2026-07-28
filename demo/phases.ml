@@ -1,7 +1,7 @@
-(** {b A game state.} {!Camlcast.Engine.run_state} runs a state of whatever type
-    you like, and asks four things of it: what it becomes after a frame, what
-    world and player to draw it from, what to put over the top, and whether it
-    is over.
+(** {b A game state.} {!Camlcast.Engine.run} runs a state of whatever type you
+    like, and asks four things of it: what it becomes after a frame, what world
+    and player to draw it from, what to put over the top, and whether it is
+    over.
 
     The state here is a phase, a clock and a player. Nothing happens until you
     press {b space}; then the light begins to go, and when it has gone the run
@@ -95,7 +95,7 @@ let view state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~bindings:Bindings.escapable ~update ~view
+    Engine.run ~bindings:Bindings.escapable ~update ~view
       ~finished:(fun state -> state.phase = Done)
       start
   in

@@ -134,7 +134,7 @@ let overlay font fb state =
 let choose () =
   let* font = Typeface.load () in
   let+ state, ending =
-    Engine.run_state ~update ~view ~overlay:(overlay font)
+    Engine.run ~update ~view ~overlay:(overlay font)
       ~finished:(fun state -> state.chosen <> None)
       ~bindings:Bindings.escapable start
   in

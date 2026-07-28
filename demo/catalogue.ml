@@ -96,7 +96,7 @@ let demos =
     };
     {
       name = "endless";
-      blurb = "the grow hook: a corridor built as you walk it";
+      blurb = "the extend hook: a corridor built as you walk it";
       world = lazy Endless.world;
       run = Endless.run;
     };
@@ -126,7 +126,7 @@ let demos =
     };
     {
       name = "phases";
-      blurb = "run_state: a phase, a clock, and a light going out";
+      blurb = "Engine.run: a phase, a clock, and a light going out";
       world = lazy Phases.world;
       run = Phases.run;
     };
@@ -158,7 +158,7 @@ let demos =
       name = "showcase";
       blurb = "the five-room level, with all of the above at once";
       world = lazy Level.default;
-      run = (fun () -> Engine.enter Level.default);
+      run = (fun () -> Engine.run_world Level.default);
     };
   ]
 

@@ -42,7 +42,7 @@ and two games can share an engine without sharing a look.
 
 {1 Building a game on it}
 
-{!Camlcast.Engine.run_state} runs a state of whatever type the game likes, and
+{!Camlcast.Engine.run} runs a state of whatever type the game likes, and
 asks six things of it: [update], given the frame's length, the movement asked
 for over it and what the player is pressing and holding through it; [view],
 which world and which player to draw this frame from; [overlay], anything drawn
@@ -72,12 +72,12 @@ mouse is a {e displacement} that has already moved and is added as it stands.
 Reading a table is {!Camlcast.Binding.motion}, which touches nothing and is
 where a second kind of device would arrive.
 
-{!Camlcast.Engine.enter} is that loop over a bare {!Camlcast.World} and the
-player walking it, plus an optional [grow : World.t -> Player.t -> World.t],
+{!Camlcast.Engine.run_world} is that loop over a bare {!Camlcast.World} and the
+player walking it, plus an optional [extend : World.t -> Player.t -> World.t],
 which it calls whenever the player crosses into another room. A program with
 only one world to show has no use for the ending and can [ignore] it.
 
-A game that builds its world as the player explores it uses [grow] to stay far
+A game that builds its world as the player explores it uses [extend] to stay far
 enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
 doorways, which is exactly as deep as the renderer looks through them.
 {!Camlcast_demo.Endless} does this in miniature.
@@ -143,6 +143,8 @@ Each depends only on the ones above it.
 - {!Camlcast.Renderer} — the software renderer: casts the planes, paints the
   walls, per pixel
 - {!Camlcast.Engine} — window lifetime, fullscreen state, and the game loop
+- {!Camlcast.Clock} — the pacing arithmetic the loop measures its frames by,
+  apart from any window
 
 {1 The demos}
 
@@ -169,8 +171,8 @@ Each is a single file with the feature it demonstrates as the only thing in it.
   at once
 - {!Camlcast_demo.Targets} — what the crosshair is on, through a doorway
 - {!Camlcast_demo.Trail} — traversal traces, as a return route
-- {!Camlcast_demo.Endless} — the grow hook: a corridor built as you walk it
-- {!Camlcast_demo.Phases} — [run_state]: a phase, a clock and a light going out
+- {!Camlcast_demo.Endless} — the [extend] hook: a corridor built as you walk it
+- {!Camlcast_demo.Phases} — [run]: a phase, a clock and a light going out
 - {!Camlcast_demo.Overlay} — drawing over the finished world
 - {!Camlcast_demo.Controls} — a table of its own, press versus hold, and letting
   go of the cursor

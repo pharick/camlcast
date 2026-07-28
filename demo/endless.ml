@@ -1,9 +1,9 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Camlcast.Engine.enter} takes a [grow] callback and calls it whenever the
-    player crosses from one room into another, with the world and where they now
-    are; whatever it returns is the world drawn from then on. It runs on a room
-    change and not per frame, so a generator may take its time.
+    {!Camlcast.Engine.run_world} takes an [extend] callback and calls it
+    whenever the player goes through a doorway, with the world and where they
+    now are; whatever it returns is the world drawn from then on. It runs on a
+    crossing and not per frame, so a generator may take its time.
 
     What it does here is build ahead of the player, using the three primitives a
     world grows by and nothing else:
@@ -83,13 +83,13 @@ let way_on (room : Room.t) =
 
 (** Build [depth] segments beyond [room], following the ones that are there
     already and adding the ones that are not. *)
-let rec extend world ~room ~ahead =
+let rec build world ~room ~ahead =
   if ahead <= 0 then world
   else
     match way_on (World.room world room) with
     | Some index ->
         let portal = Option.get (World.portals world room).(index) in
-        extend world ~room:portal.World.to_room ~ahead:(ahead - 1)
+        build world ~room:portal.World.to_room ~ahead:(ahead - 1)
     | None ->
         (* This room was built as a dead end. Give it a way on — the doorway it
            already has stays exactly where it was — and put a new dead end
@@ -104,7 +104,7 @@ let rec extend world ~room ~ahead =
             (segment ~index ~back:true ~onward:false)
         in
         let world = World.link world (room, "on") (next, "back") in
-        extend world ~room:next ~ahead:(ahead - 1)
+        build world ~room:next ~ahead:(ahead - 1)
 
 let world =
   (* The first segment has no way back, and the second is where growth begins. *)
@@ -119,9 +119,9 @@ let world =
       ~atmosphere:Surfaces.air
       ~spawn:(named 0, Vec.make 2. 0.)
   in
-  extend start ~room:0 ~ahead:Config.max_portal_depth
+  build start ~room:0 ~ahead:Config.max_portal_depth
 
-let grow world (player : Player.t) =
-  extend world ~room:player.Player.room ~ahead:Config.max_portal_depth
+let extend world (player : Player.t) =
+  build world ~room:player.Player.room ~ahead:Config.max_portal_depth
 
-let run () = Engine.enter ~grow world
+let run () = Engine.run_world ~extend world

@@ -49,6 +49,7 @@
   test_binding
   test_key
   test_sight
+  test_clock
   test_engine
   test_patterns
   test_pictures

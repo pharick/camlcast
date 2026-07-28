@@ -1,6 +1,7 @@
-(** [Engine.step] is the pure part of the loop: input in, new player out, plus
-    the arithmetic it paces itself by. The rest of the module owns the window
-    and cannot run headless. *)
+(** [Engine.step] and [Engine.simulate] are the pure part of the loop: input in,
+    new player out, and what an arbitrary game state becomes over a frame. The
+    rest of the module owns the window and cannot run headless; the arithmetic
+    it paces itself by is {!Camlcast.Clock} and is tested there. *)
 
 open Camlcast
 open Support
@@ -63,29 +64,6 @@ let collisions_still_apply () =
   Alcotest.(check bool)
     "the loop cannot walk through a wall" false
     (Room.blocked room far_side.Player.pos)
-
-(* The frame the simulation is advanced by is the real one, so that speed does
-   not depend on how long rendering took — but only up to a limit, past which a
-   stalled program would otherwise move the player an enormous distance in one
-   step. *)
-let a_frame_lasts_as_long_as_it_took () =
-  Alcotest.check close "an ordinary frame is measured as it happened" 0.02
-    (Engine.frame_time ~previous:1.5 ~now:1.52);
-  Alcotest.check close "a very long one is capped" Config.max_frame_time
-    (Engine.frame_time ~previous:1.5 ~now:12.);
-  Alcotest.check close "and a clock that went backwards moves nothing" 0.
-    (Engine.frame_time ~previous:1.5 ~now:1.4)
-
-(* Whatever is left of the budget is slept off, so a cheap frame does not spin
-   the CPU; an expensive one is late already and waits no longer. *)
-let a_short_frame_sleeps_off_the_rest () =
-  Alcotest.check close "a frame that took half the budget sleeps the other half"
-    (Config.frame_budget /. 2.)
-    (Engine.idle_time ~spent:(Config.frame_budget /. 2.));
-  Alcotest.check close "one that filled it sleeps not at all" 0.
-    (Engine.idle_time ~spent:Config.frame_budget);
-  Alcotest.check close "nor does one that overran it" 0.
-    (Engine.idle_time ~spent:(Config.frame_budget *. 3.))
 
 (* The loop runs an arbitrary state through the callbacks of an [Engine.game],
    and [simulate] is the whole of a frame that does not need a window: what the
@@ -175,26 +153,21 @@ let pointing_takes_the_mouse_but_not_the_clock () =
 
 (* {1 Growing on a crossing}
 
-   [Engine.run] asks a generator to grow the world when the horizon can have
-   moved, and the horizon moves when the player goes {e through a doorway}. That
-   is not the same question as whether they finished the frame somewhere else: a
-   frame can round a jamb, or go all the way round a loop of rooms, and come
-   back to the index it started with. Comparing the two indices calls both of
-   those nothing happening, and the crossings are the only place they are
-   written down.
-
-   [grown] is polymorphic in the world, so these hand it a tag rather than a
-   world and read back which branch it took. *)
-let grown moved = Engine.grown ~grow:(fun _ _ -> `Grown) `Untouched moved
-
+   [Engine.run_world] asks a generator to extend the world when the horizon can
+   have moved, and the horizon moves when the player goes {e through a doorway}.
+   That is not the same question as whether they finished the frame somewhere
+   else: a frame can round a jamb, or go all the way round a loop of rooms, and
+   come back to the index it started with. Comparing the two indices calls both
+   of those nothing happening, and the crossings are the only place they are
+   written down. [Player.crossed] is that rule, and it is what a game reads
+   whether it uses the wrapper or its own [Engine.run]. *)
 let a_frame_that_crosses_nothing_does_not_grow () =
   let stayed = Player.traverse world (player ()) ~forward:0.5 ~strafe:0. in
   Alcotest.(check int)
     "the frame went through no doorway" 0
     (List.length stayed.Player.crossings);
   Alcotest.(check bool)
-    "so the world is left alone" true
-    (grown stayed = `Untouched)
+    "so the world is left alone" false (Player.crossed stayed)
 
 (* A step round the loop fixture goes out of a room and back into it within one
    frame. The room index at the end is the one it set out with — which is
@@ -210,19 +183,11 @@ let a_round_trip_still_grows () =
     "having gone through two doorways to get there" 2
     (List.length moved.Player.crossings);
   Alcotest.(check bool)
-    "so the world is grown all the same" true
-    (grown moved = `Grown)
+    "so the world is grown all the same" true (Player.crossed moved)
 
 let () =
   Alcotest.run "Engine"
     [
-      ( "pacing",
-        [
-          case "a frame lasts as long as it took"
-            a_frame_lasts_as_long_as_it_took;
-          case "a short frame sleeps off the rest"
-            a_short_frame_sleeps_off_the_rest;
-        ] );
       ( "step",
         [
           case "standing still" standing_still;

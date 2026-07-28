@@ -24,7 +24,7 @@
 
     A world need not be finished. A doorway whose portal is [None] is one that
     leads nowhere {e yet}: the renderer fills it with the world's
-    {!Atmosphere.haze} and {!can_step} treats it as solid, so an unfinished
+    {!Atmosphere.haze} and {!passable} treats it as solid, so an unfinished
     world is a playable one rather than a crash waiting for the player to walk
     towards it. {!make} still refuses to produce such a world, because in a
     hand-authored level a doorway onto nowhere is a mistake; it is
@@ -481,7 +481,7 @@ let set_door t ~room ~threshold state =
     [threshold] each {!portal} is carrying, which is the copy taken when the
     link was made. {!same_opening} lets a leaf be hung into an opening that is
     already linked, so the two can differ, and it is the room the renderer and
-    {!can_step} read that has to be right.
+    {!passable} read that has to be right.
 
     A generator's tests run this; nothing at run time needs to. *)
 let check t =
@@ -529,7 +529,7 @@ let check t =
 
 (** May the player step from [from] to [dest], both in [room]'s frame?
 
-    The room's own walls are the first answer ({!Room.can_step}), but they are
+    The room's own walls are the first answer ({!Room.passable}), but they are
     not the whole one. A doorway is a gap in this room's boundary, so nothing of
     this room stops a step taken through it — while on the other side the
     neighbour's own jamb is right there. Straddling an open threshold, a step
@@ -537,7 +537,7 @@ let check t =
 
     So for every portal the swept step comes near, the step is carried into the
     neighbour's frame and asked again there. Asking the neighbour cannot by
-    itself make a step collide, because {!Room.can_step} measures against walls
+    itself make a step collide, because {!Room.passable} measures against walls
     and a doorway is a {!Room.type-threshold}, never a wall. What the question
     does catch is the wall or fitting standing just beyond an opening, which is
     otherwise as invisible to collision as it is to the eye.
@@ -553,7 +553,7 @@ let check t =
     An open door is not one of them. It is a leaf swung aside, and it neither
     draws nor blocks — so opening a door never moves the player, which is a rule
     the game wants and gets for free from doing nothing here. *)
-let can_step t ~room:index ~from ~dest =
+let passable t ~room:index ~from ~dest =
   let here = t.rooms.(index) in
   let near (threshold : Room.threshold) =
     Room.distance_between_segments from dest threshold.Room.a threshold.Room.b
@@ -566,7 +566,7 @@ let can_step t ~room:index ~from ~dest =
       | None -> not (near threshold)
       | Some portal ->
           (not (near threshold))
-          || Room.can_step t.rooms.(portal.to_room)
+          || Room.passable t.rooms.(portal.to_room)
                ~from:(Transform.point portal.onto from)
                ~dest:(Transform.point portal.onto dest)
   in
@@ -574,7 +574,7 @@ let can_step t ~room:index ~from ~dest =
     j >= Array.length here.Room.thresholds
     || (clear j here.Room.thresholds.(j) && every (j + 1))
   in
-  Room.can_step here ~from ~dest && every 0
+  Room.passable here ~from ~dest && every 0
 
 (** The doorway a step from [from] to [dest] goes through, if it goes through
     one: which of this room's thresholds it was, the portal behind it — whose
@@ -632,9 +632,9 @@ let can_step t ~room:index ~from ~dest =
     and always less than one.
 
     A doorway that leads nowhere yet is not a crossing, because there is nowhere
-    to cross to, and {!can_step} has already refused any step that would reach
+    to cross to, and {!passable} has already refused any step that would reach
     one. A shut one still is: this answers which opening a step is through, and
-    {!can_step} is what says no. *)
+    {!passable} is what says no. *)
 let crossing t ~room ~from ~dest =
   let row = t.portals.(room) in
   let side (threshold : Room.threshold) p =

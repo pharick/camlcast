@@ -60,12 +60,12 @@ is about.
 | `floating` | sprites off the floor, and frames chosen rather than made        |
 | `dust`     | a chamber of falling dust: every mote moved every frame          |
 | `chalk`    | marking a wall where the crosshair is, on the face you see       |
-| `endless`  | the `grow` hook: a corridor built as you walk it                 |
+| `endless`  | the `extend` hook: a corridor built as you walk it                 |
 | `doors`    | doors that open and shut, on both sides of the link at once      |
 | `barred`   | a door and a transom you can see through, and cannot walk past   |
 | `targets`  | what the crosshair is on, through the doorway in front of you    |
 | `trail`    | traversal traces: a return route built from the doorways         |
-| `phases`   | `run_state`: a phase, a clock, and a light going out             |
+| `phases`   | `Engine.run`: a phase, a clock, and a light going out             |
 | `overlay`  | drawing over the finished world                                  |
 | `controls` | binding keys, press versus hold, and letting go of the mouse     |
 | `text`     | a bitmap font: wrapping, measuring, clipping and colour          |
@@ -144,18 +144,18 @@ let world =
   World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
-let () = ignore (Engine.enter world)
+let () = ignore (Engine.run_world world)
 ```
 
-`Engine.enter` is the loop over the only state the engine holds by itself: a world
-and the player walking it, plus an optional `grow : World.t -> Player.t ->
-World.t` called whenever the player crosses into another room. A game that keeps
+`Engine.run_world` is the loop over the only state the engine holds by itself: a
+world and the player walking it, plus an optional `extend : World.t -> Player.t
+-> World.t` called whenever the player goes through a doorway. A game that keeps
 anything else — phases, doors, a journal, a score, a random seed — uses
-`Engine.run_state` instead, which runs a state of whatever type it likes and asks
-six things of it: `update`, `view`, `overlay`, `pointing`, `finished` and
-`bindings` — the last being what the player's controls are for, since the engine
-holds no keys any more than it holds colours. Everything else stays on the game's
-side of the line, and the engine stays a pure function of what it is handed.
+`Engine.run` instead, which runs a state of whatever type it likes and asks six
+things of it: `update`, `view`, `overlay`, `pointing`, `finished` and `bindings`
+— the last being what the player's controls are for, since the engine holds no
+keys any more than it holds colours. Everything else stays on the game's side of
+the line, and the engine stays a pure function of what it is handed.
 
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
 walks through all of that a feature at a time, with the demo that isolates each
@@ -164,7 +164,7 @@ one.
 ## Controls
 
 The engine names no key of its own. Walking, looking, fullscreen and leaving the
-run all come out of a `Binding.t` the game hands to `Engine.run_state`;
+run all come out of a `Binding.t` the game hands to `Engine.run`;
 `Binding.default` is what the demos walk on, and it is a default and not a rule.
 
 | key / device | action                                |
@@ -196,7 +196,7 @@ gamepad would arrive through.
 
 That last row is the one the engine will not assume. `Binding.default` binds *no*
 key that ends a run, because a game with screens in it wants `Esc` for closing
-them; `Engine.enter` asks for it, since a bare world has nothing else to end it
+them; `Engine.run_world` asks for it, since a bare world has nothing else to end it
 with. Three demos add keys of their own — `phases` starts on `space`, `chalk`
 marks on `C`, and `controls` binds a second set of walking keys and prints them
 with `Key.name` — each says so at the top of its own file.
@@ -265,6 +265,7 @@ Each module is self-contained and depends only on the ones above it.
 | `Framebuffer` | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
 | `Renderer`    | the software renderer: floor/ceiling/sky, opaque walls with decals, then sprites and see-through walls composited by depth |
 | `Engine`      | window lifetime, fullscreen state, and the game loop                                                                       |
+| `Clock`       | the pacing arithmetic the loop measures its frames by, apart from any window                                               |
 
 ## Documentation
 

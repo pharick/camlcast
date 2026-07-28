@@ -191,7 +191,7 @@ let two_rooms = joined_rooms ()
 let two_rooms_with_a_door state = joined_rooms ~door:(Door.make ~state dim) ()
 
 (** Shut, which is what "a door" means unless something has opened it. This is
-    the fixture that puts anything down the door path of {!World.can_step} or
+    the fixture that puts anything down the door path of {!World.passable} or
     the renderer. *)
 let two_rooms_closed = two_rooms_with_a_door Door.Closed
 

@@ -63,13 +63,13 @@ let turn player ~radians =
     right = Vec.rotate player.right radians;
   }
 
-(** Tip the view up or down by [delta], clamped to {!Config.max_pitch} so it
+(** Tip the view up or down by [radians], clamped to {!Config.max_pitch} so it
     never tips past where the sheared image stops looking right. *)
-let pitch_by player ~delta =
+let pitch_by player ~radians =
   let limit = Config.max_pitch in
   {
     player with
-    pitch = Float.max (-.limit) (Float.min limit (player.pitch +. delta));
+    pitch = Float.max (-.limit) (Float.min limit (player.pitch +. radians));
   }
 
 type crossing = {
@@ -92,9 +92,23 @@ type movement = { player : t; crossings : crossing list }
 (** Where a step ended, and every doorway it went through on the way, in the
     order they were crossed. Most frames cross nothing and the list is empty. *)
 
+(** Whether the step went through a doorway, which is not the same question as
+    whether it ended in a different room. A single step can round a jamb — out
+    through an opening and back in through its twin — and end where it started;
+    so can one that goes all the way round a loop of rooms. Comparing
+    [movement.player.room] against the room it set out from calls both of those
+    nothing happening, and the crossings are the only place they are written
+    down.
+
+    That is what this is for: a game that builds its world as it is walked
+    through asks this and not the room index. {!Camlcast.Engine.run_world} asks
+    it on a game's behalf, and a game that has outgrown that wrapper and moved
+    to {!Camlcast.Engine.run} asks it here rather than working it out again. *)
+let crossed movement = movement.crossings <> []
+
 (** Move by [delta] cells, resolving the two axes independently so that walking
     into a wall at an angle keeps the component that is still free — you slide
-    along the wall instead of sticking to it. {!World.can_step} sweeps the
+    along the wall instead of sticking to it. {!World.passable} sweeps the
     player's {!Config.collision_padding} disc along each of the two steps, so it
     is enough here to take the ones it allows and leave the axis where it was
     otherwise.
@@ -146,7 +160,7 @@ let slide world player (delta : Vec.t) =
     let from = player.pos in
     let dest = Vec.add from leg in
     let refuse ~dest =
-      not (World.can_step world ~room:player.room ~from ~dest)
+      not (World.passable world ~room:player.room ~from ~dest)
     in
     match World.crossing world ~room:player.room ~from ~dest with
     | Some (slot, (portal : World.portal), at) when budget > 0 ->
