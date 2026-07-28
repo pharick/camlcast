@@ -10,6 +10,12 @@
 # one is a few dozen lines of otool, ldd and copying that is far easier to get
 # right when it can be run on a laptop, and the macOS one was written that way.
 #
+# Every job builds bin/demo.exe by name rather than running a bare `dune build`.
+# The root default alias reaches the test suites (see dune:14), which would drag
+# alcotest — a with-test dependency — into a job that runs no tests. All three
+# bundlers want the executable and the source assets/ directory and nothing
+# else; platforms.yml is where the suites get built and run.
+#
 # The .app is signed ad-hoc, which is what lets it run at all on Apple silicon —
 # an unsigned binary is refused by the kernel there — but not what Gatekeeper
 # wants to see on a machine that downloaded it. Notarizing needs a paid Apple
@@ -55,7 +61,7 @@ jobs:
       # See platforms.yml for why opam cannot see what brew just installed.
       - run: opam install . --deps-only --no-depexts
 
-      - run: opam exec -- dune build
+      - run: opam exec -- dune build bin/demo.exe
 
       - run: ./tools/bundle-macos.sh
 
@@ -80,7 +86,7 @@ jobs:
       # On Linux opam resolves the SDL2 depexts through apt without help.
       - run: opam install . --deps-only
 
-      - run: opam exec -- dune build
+      - run: opam exec -- dune build bin/demo.exe
 
       - run: ./tools/bundle-linux.sh
 
@@ -120,7 +126,7 @@ jobs:
 
       - run: opam install . --deps-only
 
-      - run: opam exec -- dune build
+      - run: opam exec -- dune build bin/demo.exe
 
       # ldd only reads a PE file from inside MSYS2, so the bundler runs there.
       - name: Bundle
