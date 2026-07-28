@@ -36,9 +36,10 @@ jobs:
           ocaml-compiler: "5.5"
           dune-cache: true
 
-      # --with-dev-setup is what brings in the pinned ocamlformat the last step
-      # needs; it is a dev-setup dependency rather than a build one.
-      - run: opam install . --deps-only --with-test --with-dev-setup
+      # --with-dev-setup is what brings in the pinned ocamlformat the fmt step
+      # needs, and --with-doc the odoc the @doc step needs. Neither is a build
+      # dependency, so neither arrives without being asked for.
+      - run: opam install . --deps-only --with-test --with-doc --with-dev-setup
 
       - run: opam exec -- dune build
 
