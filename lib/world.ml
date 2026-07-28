@@ -138,7 +138,12 @@ let check_room_names ~who names =
     neither long enough to reject nor different enough from its twin to reject,
     and the world would be built out of a transform that was [nan] throughout.
     {!Room.doorway} refuses the degenerate wall such a threshold comes from, and
-    this is the backstop for one built any other way. *)
+    this catches one built any other way. {!Transform.between} refuses it a
+    third time, on its own account: a length of zero is the one thing that would
+    let it hand back something that was not a rotation, so it does not rely on
+    being called from here. What is only checked here is the {e agreement}
+    between the two — lengths, heights, doors — which is a fact about a doorway
+    rather than about a transform. *)
 let pair ~who ~describe (ia, ja, (a : Room.threshold))
     (ib, jb, (b : Room.threshold)) =
   let length (t : Room.threshold) room =

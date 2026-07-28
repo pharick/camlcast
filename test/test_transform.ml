@@ -75,6 +75,34 @@ let between_preserves_lengths () =
        (Transform.direction t (Vec.make 1. 0.))
        (Transform.direction t (Vec.make 0. 1.)))
 
+(* A segment whose two ends are the same point has no direction, so there is no
+   rotation laying it onto anything. Left to itself it would reach
+   [Vec.normalize], which hands a zero vector back unchanged, and the result
+   would be a value with [cos = 0.] and [sin = 0.] — past the invariant the
+   private type exists to hold, and drifting the camera basis a little further
+   at every doorway from there on. *)
+let a_segment_with_no_length_is_refused () =
+  let refused what message a1 a2 b1 b2 =
+    Alcotest.check_raises what (Invalid_argument message) (fun () ->
+        ignore (Transform.between ~a1 ~a2 ~b1 ~b2))
+  in
+  let here = Vec.make 2. 2. and there = Vec.make 2. 5. in
+  (* The control: the same points, apart, still build one. *)
+  Alcotest.check close "an ordinary pair is a rotation" 1.
+    (let t = Transform.between ~a1:here ~a2:there ~b1:here ~b2:there in
+     (t.Transform.cos *. t.Transform.cos) +. (t.Transform.sin *. t.Transform.sin));
+  refused "the first segment" "Transform.between: a1 and a2 are the same point"
+    here here here there;
+  refused "the second segment" "Transform.between: b1 and b2 are the same point"
+    here there here here;
+  (* [nan] answers false to every ordered comparison, so it is refused by the
+     guard being written as the negation of what would pass rather than as an
+     assertion of what would fail. *)
+  refused "a coordinate that is nan"
+    "Transform.between: a1 and a2 are the same point" here
+    (Vec.make Float.nan Float.nan)
+    here there
+
 let () =
   Alcotest.run "Transform"
     [
@@ -85,5 +113,7 @@ let () =
           case "inverse and compose round trip" inverse_and_compose_round_trip;
           case "between reverses endpoints" between_reverses_endpoints;
           case "between preserves lengths" between_preserves_lengths;
+          case "a segment with no length is refused"
+            a_segment_with_no_length_is_refused;
         ] );
     ]

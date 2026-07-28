@@ -18,9 +18,18 @@ let compose outer inner =
     offset = point outer inner.offset;
   }
 
+(* Measured before either is normalised, because normalising is what loses the
+   evidence: {!Vec.normalize} hands a zero vector back unchanged, and the
+   [cos = 0., sin = 0.] that follows is the one way past this type's invariant.
+   Refused by negating what would pass, so that a [nan] coordinate is refused
+   too rather than answering false to every comparison and slipping through. *)
 let between ~a1 ~a2 ~b1 ~b2 =
-  let u = Vec.normalize (Vec.sub a2 a1) in
-  let w = Vec.normalize (Vec.sub b1 b2) in
+  let u = Vec.sub a2 a1 and w = Vec.sub b1 b2 in
+  if not (Vec.length u > 0.) then
+    invalid_arg "Transform.between: a1 and a2 are the same point";
+  if not (Vec.length w > 0.) then
+    invalid_arg "Transform.between: b1 and b2 are the same point";
+  let u = Vec.normalize u and w = Vec.normalize w in
   let rotation =
     { cos = Vec.dot u w; sin = Vec.cross u w; offset = Vec.make 0. 0. }
   in

@@ -7,7 +7,13 @@ type t = {
   directional : float;
 }
 
+(* The field is documented as a unit vector and {!face_shading} takes its cosine
+   without normalising, so the normalisation below is the only thing holding
+   that up — and a zero light is exactly what {!Vec.normalize} passes through
+   unchanged. Negated, so a [nan] is refused with it. *)
 let make ~haze ~fog_distance ~min_brightness ~light ~ambient ~directional =
+  if not (Vec.length light > 0.) then
+    invalid_arg "Atmosphere.make: the light has no direction";
   {
     haze;
     fog_distance;

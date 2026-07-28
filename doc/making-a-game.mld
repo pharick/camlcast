@@ -52,10 +52,12 @@ Which one you get says what kind of mistake it was.
 {li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
     {!Camlcast.World.link}, {!Camlcast.World.add_room},
     {!Camlcast.World.open_doorway}, {!Camlcast.Room.doorway},
-    {!Camlcast.Font.make}. A doorway linked to nothing, two rooms with the same
-    name, a doorway wider than the wall it is cut into — these are bugs in the
-    level, not conditions to handle, and they stop the program with a message
-    naming what was wrong.}}
+    {!Camlcast.Font.make}, {!Camlcast.Atmosphere.make},
+    {!Camlcast.Transform.between}, {!Camlcast.Texture.noise},
+    {!Camlcast.Key.of_scancode}. A doorway linked to nothing, two rooms with the
+    same name, a doorway wider than the wall it is cut into, air lit from
+    nowhere — these are bugs in the level, not conditions to handle, and they
+    stop the program with a message naming what was wrong.}}
 
 So [World.make] crashing is the engine telling you the level is malformed. Read
 the message; it names the room and the doorway.

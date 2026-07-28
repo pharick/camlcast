@@ -95,6 +95,23 @@ let make_normalises_the_light () =
   Alcotest.check close "so shading still reaches the top of the band" 1.
     (Atmosphere.face_shading stretched (Vec.make 0. 1.))
 
+(* Normalising is the only thing holding up the field's promise to be a unit
+   vector, and a zero light is exactly what [Vec.normalize] passes through
+   unchanged. A world with no direction to its light is written with
+   [~directional:0.] instead — see above, where that is tested as the setting it
+   is. *)
+let a_light_that_points_nowhere_is_refused () =
+  let refused what light =
+    Alcotest.check_raises what
+      (Invalid_argument "Atmosphere.make: the light has no direction")
+      (fun () ->
+        ignore
+          (Atmosphere.make ~haze:(Color.rgb 0 0 0) ~fog_distance:10.
+             ~min_brightness:0.1 ~light ~ambient:0.5 ~directional:0.5))
+  in
+  refused "the zero vector" (Vec.make 0. 0.);
+  refused "one that is nan" (Vec.make Float.nan 1.)
+
 let () =
   Alcotest.run "Atmosphere"
     [
@@ -107,6 +124,8 @@ let () =
           case "a sourceless atmosphere flattens orientation"
             a_sourceless_atmosphere_flattens_orientation;
           case "make normalises the light" make_normalises_the_light;
+          case "a light that points nowhere is refused"
+            a_light_that_points_nowhere_is_refused;
         ] );
       ( "fog",
         [

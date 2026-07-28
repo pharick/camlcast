@@ -73,15 +73,18 @@ val between : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> t
 (** The rigid motion that lays the segment [a1..a2] of one room onto the segment
     [b1..b2] of another, {e endpoints reversed}: [a1] goes to [b2] and [a2] goes
     to [b1]. Both segments must have non-zero length, and the same length if the
-    two doorways are to line up — {!World.make} checks both.
+    two doorways are to line up.
 
-    {b The check is the caller's.} This does not enforce it and does not raise:
-    a zero-length segment reaches {!Vec.normalize}, which passes a zero vector
-    through rather than producing [nan]s, and the result is a value with
+    A segment with no length is refused here, because there is no rotation that
+    lays a point onto a segment and the value that came of trying was one with
     [cos = 0.] and [sin = 0.] — the one way past the invariant the private type
-    above exists to hold. Everything in the engine arrives here through
-    {!World.make}, which refuses a degenerate doorway first; a caller building
-    transforms of its own has to do as much.
+    above exists to hold.
+
+    The {e matching} of the two lengths is not checked here and is not this
+    function's business: two segments of different lengths still give a rotation
+    that satisfies [cos² + sin² = 1], and merely fail to line the doorways up.
+    {!World.make} is where that is refused, along with the heights and the
+    doors, because a doorway is what it is a fact about.
 
     {1 Why the endpoints reverse}
 
@@ -110,4 +113,6 @@ val between : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> t
     angle is formed and no trigonometry is called. The offset is then whatever
     puts the rotated [a1] on [b2]. That the other endpoint follows,
     [R a2 + offset = |a2 - a1| w + b2 = b1], is exactly the equal-length
-    condition. *)
+    condition.
+
+    @raise Invalid_argument if either segment's two ends are the same point. *)

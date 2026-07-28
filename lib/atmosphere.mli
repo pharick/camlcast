@@ -43,11 +43,18 @@ val make :
     — see the field docs above for each.
 
     [light] need not arrive normalised; it is only ever used for the cosine
-    against a wall's normal, so it is normalised here once. A [light] of exactly
-    zero is the one input that defeats that — {!Vec.normalize} passes a zero
-    vector through rather than producing [nan]s — and leaves every surface lit
-    at [ambient] alone, which reads as a place with no direction to its light.
-*)
+    against a wall's normal, so it is normalised here once. It must point
+    {e somewhere}, though: a zero vector is what {!Vec.normalize} passes through
+    unchanged, and it would leave the field below claiming to be a unit vector
+    when it is not.
+
+    A place with no discernible direction to its light is made with
+    [~directional:0.] instead, which closes the band {!face_shading} works
+    across so that every wall reads the same whichever way it faces. That is a
+    setting and not a degenerate case, which is the whole reason for refusing
+    the other spelling of it.
+
+    @raise Invalid_argument if [light] is the zero vector. *)
 
 val fog : t -> float -> float
 (** [fog air distance] is how much of a surface's own colour survives at that
