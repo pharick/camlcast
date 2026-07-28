@@ -10,6 +10,14 @@
 open Raycaster
 open Support
 
+(** Joined the way {!Asset} joins, which is not the way a POSIX machine spells
+    it: [Filename.concat] uses a backslash on Windows, so a case that wrote its
+    expected path out by hand passed on a Mac and failed on a runner. What is
+    under test is which directory is tried and in what order, and that rule is
+    the same everywhere — so the cases below name the components and leave the
+    separator to [Filename]. *)
+let ( / ) = Filename.concat
+
 (** An [exists] that says yes to exactly these paths. *)
 let tree paths path = List.mem path paths
 
@@ -25,54 +33,52 @@ let message = function
 (* A macOS bundle: the binary sits in Contents/MacOS and its files in
    Contents/Resources, so the first root is one level up and across. *)
 let a_bundle_looks_beside_the_binary () =
+  let bundled = "/A/House.app/Contents" / "Resources" / "art/wall.png" in
   Alcotest.(check string)
-    "the Resources directory" "/A/House.app/Contents/Resources/art/wall.png"
+    "the Resources directory" bundled
     (found
-       (resolve ~exe:"/A/House.app/Contents/MacOS/house"
-          [ "/A/House.app/Contents/Resources/art/wall.png" ]
+       (resolve ~exe:"/A/House.app/Contents/MacOS/house" [ bundled ]
           "art/wall.png"))
 
 (* An AppImage, a tarball or a Windows folder puts the files beside the binary
    itself, which is the second root. *)
 let files_may_sit_beside_the_binary () =
+  let beside = "/opt/game" / "art/wall.png" in
   Alcotest.(check string)
-    "the executable's own directory" "/opt/game/art/wall.png"
-    (found
-       (resolve ~exe:"/opt/game/house"
-          [ "/opt/game/art/wall.png" ]
-          "art/wall.png"))
+    "the executable's own directory" beside
+    (found (resolve ~exe:"/opt/game/house" [ beside ] "art/wall.png"))
 
 (* A dune build, which is the layout every developer actually runs: each
    executable is one directory below _build/default, beside the copied source
    tree. Without this root, nothing would find anything before it was packaged. *)
 let a_dune_build_looks_one_directory_up () =
+  let above = "/repo/_build/default" / "assets/wall.png" in
   Alcotest.(check string)
-    "one above the executable" "/repo/_build/default/assets/wall.png"
+    "one above the executable" above
     (found
-       (resolve ~exe:"/repo/_build/default/bin/demo.exe"
-          [ "/repo/_build/default/assets/wall.png" ]
+       (resolve ~exe:"/repo/_build/default/bin/demo.exe" [ above ]
           "assets/wall.png"))
 
 (* The roots are tried in order, so a bundle's own copy wins over anything that
    happens to be lying beside or above the binary. *)
 let the_first_root_that_has_it_wins () =
+  let bundled = "/A/Contents" / "Resources" / "art/wall.png" in
+  (* Above the binary is /A/Contents, the third root — not /A, which is no root
+     at all and so could never have lost to anything. *)
+  let stale = "/A/Contents" / "art/wall.png" in
   Alcotest.(check string)
-    "the bundle's copy, not the stale one above it"
-    "/A/Contents/Resources/art/wall.png"
+    "the bundle's copy, not the stale one above it" bundled
     (found
-       (resolve ~exe:"/A/Contents/MacOS/house"
-          [ "/A/Contents/Resources/art/wall.png"; "/A/art/wall.png" ]
-          "art/wall.png"))
+       (resolve ~exe:"/A/Contents/MacOS/house" [ bundled; stale ] "art/wall.png"))
 
 (* The override is used alone. Falling back from it would be worse than
    failing: a developer who points it at the wrong directory would get the
    copy they were trying to stop using, and nothing would say so. *)
 let the_override_is_used_alone () =
-  let present =
-    [ "/scratch/art/wall.png"; "/repo/_build/default/assets/wall.png" ]
-  in
+  let chosen = "/scratch" / "art/wall.png" in
+  let present = [ chosen; "/repo/_build/default" / "assets/wall.png" ] in
   Alcotest.(check string)
-    "it is preferred" "/scratch/art/wall.png"
+    "it is preferred" chosen
     (found
        (resolve ~override:"/scratch" ~exe:"/repo/_build/default/bin/demo.exe"
           present "art/wall.png"));
@@ -105,7 +111,7 @@ let nothing_found_names_every_root () =
 let roots_are_ordered_and_distinct () =
   Alcotest.(check (list string))
     "bundle, beside, above"
-    [ "/opt/game/Resources"; "/opt/game/bin"; "/opt/game" ]
+    [ "/opt/game" / "Resources"; "/opt/game/bin"; "/opt/game" ]
     (Asset.roots ~exe:"/opt/game/bin/house" ~override:None);
   Alcotest.(check (list string))
     "and an override replaces the lot" [ "/scratch" ]
