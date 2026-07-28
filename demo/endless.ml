@@ -125,4 +125,4 @@ let world =
 let grow world (player : Player.t) =
   extend world ~room:player.Player.room ~ahead:Config.max_portal_depth
 
-let run () = Engine.run ~grow world
+let run () = Engine.enter ~grow world

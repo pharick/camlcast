@@ -90,7 +90,6 @@ here=$(cd "$(dirname "$0")" && pwd)
 LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 LIBSDL2_IMAGE_SHLIB="$here/lib/libSDL2_image-2.0.so.0"
 export LD_LIBRARY_PATH LIBSDL2_IMAGE_SHLIB
-[ $# -eq 0 ] && set -- showcase
 exec "$here/camlcast-demo-bin" "$@"
 EOF
 chmod +x "$stage/camlcast-demo"

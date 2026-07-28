@@ -5,6 +5,20 @@
 open Tsdl
 open Result_ext
 
+(** How a run came to an end.
+
+    Only something that opens one window after another has any use for the
+    difference, which is why it took until there was a launcher to write it
+    down. The demo browser shows its menu again when a demo is [Left] and stops
+    altogether when one is [Closed], so that shutting the window — or Cmd-Q,
+    which reaches SDL by the same road — ends the program instead of bouncing
+    back to the list. *)
+type ending =
+  | Closed  (** the window was shut, or the desktop asked the program to stop *)
+  | Left
+      (** the run ended on its own terms: [finished] said so, or Escape was
+          pressed by a run that asked for [~escape] *)
+
 type 'a game = {
   update : 'a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a;
       (** the next state, given how long the frame lasted, the movement asked
@@ -17,6 +31,11 @@ type 'a game = {
       (** whether the player is working a cursor over something the game has
           drawn, rather than looking around with the mouse *)
   finished : 'a -> bool;  (** asked after every update; [true] ends the run *)
+  escape : bool;
+      (** whether Escape ends the run. Off unless asked for, because that key
+          belongs to whoever opened the window rather than to the engine — a
+          game with screens in it wants it for closing them (see {!Input.poll}).
+          A demo has no screens and no menu of its own, so it asks. *)
 }
 (** How the loop reaches a game whose state it knows nothing else about. ['a] is
     the game's own — phases, doors, journal, whatever it keeps — and the engine
@@ -160,7 +179,7 @@ let in_framebuffer window framebuffer (x, y) =
 
 let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
   let request = Input.poll ctx.event in
-  if request.Input.quit then Ok state
+  if request.Input.quit then Ok (state, Closed)
   else
     let* fullscreen =
       if request.Input.toggle_fullscreen then
@@ -193,7 +212,10 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
       simulate ctx.game state ~focused ~pointing:(ctx.game.pointing state) ~dt
         ~motion ~actions
     in
-    if ctx.game.finished state then Ok state
+    if ctx.game.finished state then Ok (state, Left)
+    else if
+      ctx.game.escape && Input.pressed actions (Input.Key Sdl.Scancode.escape)
+    then Ok (state, Left)
     else
       (* Which of the two things the mouse is for is the game's to say and the
          engine's to carry out, and the state it has just become is the one that
@@ -230,11 +252,15 @@ let with_resource = Result_ext.with_resource
     [overlay] draws over the finished world before it reaches the screen.
     [pointing] says whether the mouse is working a cursor over what the game has
     drawn instead of looking around, and the engine releases and recaptures the
-    cursor to match. [finished] is asked after every update.
+    cursor to match. [finished] is asked after every update, and [escape] says
+    whether that key ends the run too.
+
+    Returns the state the game reached and how it got there; see {!ending}.
 
     Time passes only while the window has focus; see {!simulate}. *)
 let run_state ~update ~view ?(overlay = fun _ _ -> ())
-    ?(pointing = fun _ -> false) ?(finished = fun _ -> false) state =
+    ?(pointing = fun _ -> false) ?(finished = fun _ -> false) ?(escape = false)
+    state =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
@@ -271,7 +297,7 @@ let run_state ~update ~view ?(overlay = fun _ _ -> ())
           window;
           event = Sdl.Event.create ();
           framebuffer;
-          game = { update; view; overlay; pointing; finished };
+          game = { update; view; overlay; pointing; finished; escape };
         }
         ~state ~actions:Input.untouched ~fullscreen:false ~relative:true
         ~previous:(seconds ()))
@@ -308,24 +334,28 @@ let grown ~grow world (moved : Player.movement) =
     may take its time.
 
     This is {!run_state} over the only state the engine used to be able to hold:
-    the world, the player, and whether Escape has been pressed. Escape quitting
-    is this function's rule and not the engine's — a game with screens in it
-    wants that key for closing them (see {!Input.poll}) — but a bare world has
-    no other way out, so the third of the three is here to carry it. *)
-let run ?(grow = fun world _ -> world) world =
-  let update (world, player, _) ~dt:_ ~motion ~actions =
+    the world and the player. Escape quitting is this function's rule and not
+    the engine's — a game with screens in it wants that key for closing them
+    (see {!Input.poll}) — but a bare world has no other way out, so it asks for
+    [~escape].
+
+    Reports how the run ended, which is what a launcher needs to tell "back to
+    the menu" from "close the program". {!run} is this with the answer thrown
+    away, and is what a game that owns the whole window wants. *)
+let enter ?(grow = fun world _ -> world) world =
+  let update (world, player) ~dt:_ ~motion ~actions:_ =
     let moved = advance world player motion in
     (* Walking through a doorway is the one moment the horizon can have moved,
        so it is the only moment worth asking the world to grow. Every other
        frame this is a look at an empty list. *)
-    ( grown ~grow world moved,
-      moved.Player.player,
-      Input.pressed actions (Input.Key Sdl.Scancode.escape) )
+    (grown ~grow world moved, moved.Player.player)
   in
-  let+ _ =
-    run_state ~update
-      ~view:(fun (world, player, _) -> (world, player))
-      ~finished:(fun (_, _, quit) -> quit)
-      (world, Player.spawn world, false)
+  let+ _, ending =
+    run_state ~update ~view:Fun.id ~escape:true (world, Player.spawn world)
   in
+  ending
+
+(** {!enter}, for a program with only one world to show. *)
+let run ?grow world =
+  let+ _ = enter ?grow world in
   ()

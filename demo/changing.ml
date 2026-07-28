@@ -105,5 +105,5 @@ let view state =
   (World.replace_room world ~room:0 ~replacement:(room ~phase), state.player)
 
 let run () =
-  let+ _ = Engine.run_state ~update ~view start in
-  ()
+  let+ _, ending = Engine.run_state ~escape:true ~update ~view start in
+  ending

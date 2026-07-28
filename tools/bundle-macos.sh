@@ -128,16 +128,14 @@ adopt "$prefix/lib/libSDL3.dylib"
 relocate "$frameworks/libSDL2_image.dylib"
 relocate "$frameworks/libSDL3.dylib"
 
-# Finder gives a launched app no terminal, and the executable with no argument
-# only prints its catalogue — so a double-click would flash and quit. Default to
-# the showcase, which is the level the engine was built against, and still pass
-# arguments through for anyone starting it from a shell.
+# Finder gives a launched app no terminal, so a double-click arrives here with
+# no arguments — which is exactly what opens the menu. Arguments are still
+# passed through for anyone starting it from a shell.
 cat >"$macos/camlcast-demo" <<'EOF'
 #!/bin/sh
 here=$(cd "$(dirname "$0")" && pwd)
 LIBSDL2_IMAGE_SHLIB="$here/../Frameworks/libSDL2_image.dylib"
 export LIBSDL2_IMAGE_SHLIB
-[ $# -eq 0 ] && set -- showcase
 exec "$here/camlcast-demo-bin" "$@"
 EOF
 chmod +x "$macos/camlcast-demo"

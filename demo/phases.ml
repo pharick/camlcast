@@ -95,9 +95,9 @@ let view state =
   ({ world with World.atmosphere = air ~light }, state.player)
 
 let run () =
-  let+ _ =
-    Engine.run_state ~update ~view
+  let+ _, ending =
+    Engine.run_state ~escape:true ~update ~view
       ~finished:(fun state -> state.phase = Done)
       start
   in
-  ()
+  ending

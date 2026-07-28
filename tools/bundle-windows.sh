@@ -54,13 +54,10 @@ fi
 cp /mingw64/bin/SDL2_image.dll "$stage/SDL2_image.dll"
 harvest "$stage/SDL2_image.dll"
 
-# Double-clicking a console program that was given no argument would show the
-# catalogue in a window that closes again immediately, so leave something to
-# click that starts the showcase — the level the engine was built against.
-cat >"$stage/showcase.cmd" <<'EOF'
-@echo off
-"%~dp0camlcast-demo.exe" showcase
-EOF
+# No launcher script: the executable with no argument opens the menu, so
+# double-clicking camlcast-demo.exe is already the right thing. A console window
+# opens behind it, which is what an OCaml executable on mingw is — the alternative
+# is linking -mwindows, and see the CI workflow for how well that goes with tsdl.
 
 for needed in SDL2.dll SDL2_image.dll; do
   if [ ! -e "$stage/$needed" ]; then

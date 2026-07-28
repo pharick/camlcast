@@ -16,10 +16,16 @@ lives in its own repo and brings its own content — see
 
 ```sh
 eval $(opam env --switch=. --set-switch)   # this repo uses a local switch
-dune exec camlcast-demo                    # what there is to look at
-dune exec camlcast-demo portals            # one of them
+dune exec camlcast-demo                    # the list, on screen
+dune exec camlcast-demo -- --list          # the same list, printed
+dune exec camlcast-demo portals            # straight to one of them
 dune test                                  # all suites
 ```
+
+Named nothing, it opens the list in a window: arrow keys to move through it,
+Enter to run what is highlighted, Escape to come back, over one slowly turning
+room. Named a demo, it runs that one and nothing else — Escape then ends the
+program, because there is nothing to come back to.
 
 The demos that read art from files find it relative to the executable, which
 under dune is `_build/default/assets/` — `dune build` puts it there. Set
@@ -32,6 +38,10 @@ release: a `.app` for macOS on Apple silicon and on Intel, a tarball for Linux
 x64, a folder for Windows x64. Each carries its own SDL2 and image codecs, so
 nothing has to be installed to run one. `tools/bundle-*.sh` build them, and can
 be run on a laptop against a `dune build` tree.
+
+A bundle opens on the list of demos, since a window that was double-clicked has
+no command line behind it — that is the whole reason the list is drawn as well
+as printed.
 
 The `.app` is signed ad-hoc — which is what lets it run at all on Apple silicon,
 where the kernel refuses an unsigned binary — but it is not notarized, so a Mac

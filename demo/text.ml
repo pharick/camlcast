@@ -126,11 +126,11 @@ let overlay fb (_ : Player.t) =
   Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
 let run () =
-  let+ _ =
-    Engine.run_state
+  let+ _, ending =
+    Engine.run_state ~escape:true
       ~update:(fun player ~dt:_ ~motion ~actions:_ ->
         Engine.step world player motion)
       ~view:(fun player -> (world, player))
       ~overlay (Player.spawn world)
   in
-  ()
+  ending

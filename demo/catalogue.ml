@@ -20,7 +20,10 @@ type t = {
           Behind a [lazy] because [loading] builds its world out of files, which
           can fail. Eager, one missing picture would stop [--list] from listing
           anything; deferred, it stops only the demo that needed it. *)
-  run : unit -> (unit, [ `Msg of string ]) result;
+  run : unit -> (Engine.ending, [ `Msg of string ]) result;
+      (** opens a window, and says how the player left it — {!Menu} shows itself
+          again after a demo that was [Left] and stops after one that was
+          [Closed] *)
 }
 
 let demos =
@@ -149,7 +152,7 @@ let demos =
       name = "showcase";
       blurb = "the five-room level, with all of the above at once";
       world = lazy Level.default;
-      run = (fun () -> Engine.run Level.default);
+      run = (fun () -> Engine.enter Level.default);
     };
   ]
 

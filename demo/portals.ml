@@ -87,4 +87,4 @@ let world =
        and the same room can be seen through each. *)
     ~spawn:("hub", Vec.make (-6.) 0.)
 
-let run () = Engine.run world
+let run () = Engine.enter world

@@ -337,15 +337,10 @@ let view state = (dressed state, state.player)
 
 (** {1 The overlay} *)
 
-let font =
-  lazy
-    (match
-       let* path = Asset.path "assets/font.png" in
-       let+ atlas = Image.load path in
-       Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
-     with
-    | Ok font -> font
-    | Error (`Msg m) -> failwith ("the chalk demo could not read its font: " ^ m))
+(* Shared with the menu, and with nothing to teach here: this demo is about
+   marking a wall, and the words over it are only there to say why it will not.
+   {!Text} still builds its own, because there the font is the lesson. *)
+let font = Typeface.font
 
 (** Why the crosshair's target cannot be chalked, in a word, or [None] where it
     can be or where saying so would not help. Only the reasons the player can do
@@ -403,5 +398,5 @@ let overlay fb state =
     ~y:pad ~color:(Color.rgb 140 146 160)
 
 let run () =
-  let+ _ = Engine.run_state ~update ~view ~overlay start in
-  ()
+  let+ _, ending = Engine.run_state ~escape:true ~update ~view ~overlay start in
+  ending
