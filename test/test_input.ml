@@ -4,19 +4,19 @@
     these drive it with scripted keys and never open a window. *)
 
 open Camlcast
-open Tsdl
 open Support
 
-let e = Input.Key Sdl.Scancode.e
-let c = Input.Key Sdl.Scancode.c
+let e = Input.Key Key.e
+let c = Input.Key Key.c
 let click = Input.Button Input.Left
 let tick = 1. /. 60.
 
-(* One frame, in which [held] is everything the player is holding down. *)
+(* One frame, in which [held] is everything the player is holding down. The
+   mouse is still: what it read is [Binding]'s business, not the edges'. *)
 let frame ?(dt = tick) held actions =
   Input.advance actions
     ~down:(fun control -> List.mem control held)
-    ~pointer:(0, 0) ~dt
+    ~mouse:(0., 0.) ~pointer:(0, 0) ~dt
 
 (* [count] frames of holding the same thing. *)
 let frames ?dt held count actions =
@@ -108,7 +108,7 @@ let a_button_is_a_control_like_any_other () =
   Alcotest.(check bool)
     "without any key going down with it" false
     (List.exists (Input.down clicked)
-       [ e; c; Input.Key Sdl.Scancode.escape; Input.Button Input.Right ])
+       [ e; c; Input.Key Key.escape; Input.Button Input.Right ])
 
 (* The frame's length is what the hold is measured in, not the frame count, so
    a machine that renders slowly counts the same seconds as one that races. *)

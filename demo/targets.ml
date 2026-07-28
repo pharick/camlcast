@@ -47,7 +47,6 @@
 
 open Camlcast
 open Result_ext
-open Tsdl
 
 let height = 4.
 
@@ -152,9 +151,7 @@ let collectable state (seen : Sight.t option) =
 let update state ~dt:_ ~motion ~actions =
   let player = Engine.step world state.player motion in
   let state = { state with player } in
-  match
-    (Input.pressed actions (Input.Key Sdl.Scancode.e), Sight.cast world player)
-  with
+  match (Input.pressed actions (Input.Key Key.e), Sight.cast world player) with
   | true, seen -> (
       match collectable state seen with
       | Some what -> { state with collected = what :: state.collected }
@@ -256,7 +253,7 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~escape:true ~update
+    Engine.run_state ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (world, state.player))
       ~overlay start
   in

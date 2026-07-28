@@ -8,7 +8,6 @@
 
 open Camlcast
 open Camlcast_demo
-open Tsdl
 open Support
 
 let tick = 1. /. 60.
@@ -20,16 +19,16 @@ let count = List.length Catalogue.demos
 let frame held =
   Input.advance Input.untouched
     ~down:(fun control -> List.mem control held)
-    ~pointer:(0, 0) ~dt:tick
+    ~mouse:(0., 0.) ~pointer:(0, 0) ~dt:tick
 
 let after keys state =
   Menu.update state ~dt:tick ~motion:Input.still
     ~actions:(frame (List.map (fun key -> Input.Key key) keys))
 
 let idle state = after [] state
-let down = Sdl.Scancode.down
-let up = Sdl.Scancode.up
-let enter = Sdl.Scancode.return
+let down = Key.down
+let up = Key.up
+let enter = Key.return
 
 let selection =
   [
@@ -48,14 +47,12 @@ let selection =
         (* [pressed] is the edge, so a key that was already down on the previous
            frame must not scroll again — the difference between a list you can
            land on an entry of and one that runs away from you. *)
-        let held =
-          Input.advance Input.untouched
+        let hold previous =
+          Input.advance previous
             ~down:(fun _ -> true)
-            ~dt:tick ~pointer:(0, 0)
+            ~mouse:(0., 0.) ~dt:tick ~pointer:(0, 0)
         in
-        let again =
-          Input.advance held ~down:(fun _ -> true) ~dt:tick ~pointer:(0, 0)
-        in
+        let again = hold (hold Input.untouched) in
         let moved = after [ down ] Menu.start in
         let still =
           Menu.update moved ~dt:tick ~motion:Input.still ~actions:again

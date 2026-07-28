@@ -36,7 +36,6 @@
 
 open Camlcast
 open Result_ext
-open Tsdl
 
 let height = 4.
 let oak = Surfaces.oak
@@ -163,7 +162,7 @@ let state_of world (player : Player.t) threshold =
 let update state ~dt ~motion ~actions =
   let player = Engine.step state.world state.player motion in
   let fade = Float.max 0. (state.refused -. dt) in
-  let tried = Input.pressed actions (Input.Key Sdl.Scancode.e) in
+  let tried = Input.pressed actions (Input.Key Key.e) in
   match (tried, nearest state.world player) with
   | false, _ | _, None -> { state with player; refused = fade }
   | true, Some threshold ->
@@ -205,7 +204,7 @@ let overlay fb state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~escape:true ~update
+    Engine.run_state ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (state.world, state.player))
       ~overlay start
   in

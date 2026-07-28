@@ -63,7 +63,7 @@ is about.
 | `trail`    | traversal traces: a return route built from the doorways         |
 | `phases`   | `run_state`: a phase, a clock, and a light going out             |
 | `overlay`  | drawing over the finished world                                  |
-| `controls` | press versus hold, buttons, and letting go of the mouse          |
+| `controls` | binding keys, press versus hold, and letting go of the mouse     |
 | `text`     | a bitmap font: wrapping, measuring, clipping and colour          |
 | `loading`  | art read from files, beside the generated kind                   |
 | `showcase` | the five-room level, with all of the above at once               |
@@ -135,23 +135,28 @@ let world =
   World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
-let () = ignore (Engine.run world)
+let () = ignore (Engine.enter world)
 ```
 
-`Engine.run` is the loop over the only state the engine holds by itself: a world
+`Engine.enter` is the loop over the only state the engine holds by itself: a world
 and the player walking it, plus an optional `grow : World.t -> Player.t ->
 World.t` called whenever the player crosses into another room. A game that keeps
 anything else — phases, doors, a journal, a score, a random seed — uses
 `Engine.run_state` instead, which runs a state of whatever type it likes and asks
 six things of it: `update`, `view`, `overlay`, `pointing`, `finished` and
-`escape`. Everything else stays on the game's side of the line, and the engine
-stays a pure function of what it is handed.
+`bindings` — the last being what the player's controls are for, since the engine
+holds no keys any more than it holds colours. Everything else stays on the game's
+side of the line, and the engine stays a pure function of what it is handed.
 
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
 walks through all of that a feature at a time, with the demo that isolates each
 one.
 
 ## Controls
+
+The engine names no key of its own. Walking, looking, fullscreen and leaving the
+run all come out of a `Binding.t` the game hands to `Engine.run_state`;
+`Binding.default` is what the demos walk on, and it is a default and not a rule.
 
 | key / device | action                                |
 | ------------ | ------------------------------------- |
@@ -161,15 +166,34 @@ one.
 | `←` / `→`    | turn left / right (keyboard fallback) |
 | `↑` / `↓`    | look up / down (keyboard fallback)    |
 | `F11`        | toggle fullscreen                     |
-| `Esc`        | quit                                  |
+| `Esc`        | leave the run (asked for, not default)|
 
-Two demos add to this: `phases` starts on `space`, and `controls` uses `E`, `Tab`
-and the left mouse button — each says so at the top of its own file.
+Rebinding is a value:
+
+```ocaml
+let bindings =
+  Binding.make
+    ~forward:{ Binding.speed = 4.; terms = [ { source = Hold (Input.Key Key.i); weight = 1. } ] }
+    ~leave:[ Input.Key Key.escape ]
+    ()
+```
+
+An axis adds up terms, and a term is a source and a signed weight. A held key or
+a stick is a **rate** — how hard the player is asking, between −1 and 1 — summed,
+clamped, and paid out at the axis's speed over the frame. The mouse is a
+**displacement**: it reports how far it has already moved, so it is added as it
+stands rather than scaled by the frame again. That distinction is the seam a
+gamepad would arrive through.
+
+That last row is the one the engine will not assume. `Binding.default` binds *no*
+key that ends a run, because a game with screens in it wants `Esc` for closing
+them; `Engine.enter` asks for it, since a bare world has nothing else to end it
+with. Three demos add keys of their own — `phases` starts on `space`, `chalk`
+marks on `C`, and `controls` binds a second set of walking keys and prints them
+with `Key.name` — each says so at the top of its own file.
 
 The mouse is captured in relative mode, so the cursor is hidden and never reaches
-a screen edge. `Esc` is not the engine's rule but the caller's: `Engine.run` asks
-for it because a bare world has no other way out, and a game with screens in it
-wants that key for closing them.
+a screen edge.
 
 The window is resizable and `F11` toggles borderless fullscreen. Reshaping it is
 **Hor+**: the vertical field of view is fixed, so dragging the window wider
@@ -205,7 +229,8 @@ Each module is self-contained and depends only on the ones above it.
 | module        | responsibility                                                                                                             |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `Config`      | all tunable constants                                                                                                      |
-| `Result_ext`  | `let*` / `let+` and a short-circuiting range loop for fallible SDL calls                                                    |
+| `Result_ext`  | `let*` / `let+` for chaining fallible SDL calls, and acquire/use/release                                                    |
+| `Key`         | the keyboard, named by the engine: a binding is a place on the board, not a letter                                         |
 | `Vec`         | immutable 2-D vectors, with the dot and cross products the geometry needs                                                  |
 | `Transform`   | rigid rotations and translations between room-local coordinate frames                                                      |
 | `Plane`       | an inclined floor/ceiling plane, and the per-pixel casting equation                                                        |
@@ -226,7 +251,8 @@ Each module is self-contained and depends only on the ones above it.
 | `Player`      | camera pose: `pos` + unit `dir` + unit `right` + `pitch`; movement with wall sliding                                       |
 | `Viewport`    | window size → camera geometry, projection, eye height and the pitch shear; the resize rules                                |
 | `Sight`       | what the crosshair is on, traced through doorways and named by index                                                       |
-| `Input`       | SDL keyboard and mouse-look → engine intent                                                                                |
+| `Input`       | the keyboard and the mouse as they are: controls, their edges and holds, and what the analog sources read                   |
+| `Binding`     | what those controls are for — the game's table, and the one pure function that turns a frame of them into a movement       |
 | `Framebuffer` | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
 | `Renderer`    | the software renderer: floor/ceiling/sky, opaque walls with decals, then sprites and see-through walls composited by depth |
 | `Engine`      | window lifetime, fullscreen state, and the game loop                                                                       |

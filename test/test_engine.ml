@@ -112,9 +112,9 @@ let counting =
     overlay = (fun _ _ -> ());
     pointing = (fun _ -> false);
     finished = (fun session -> session.phase = Ended);
-    (* Escape is read by the loop, which wants a window; [simulate] is the part
-       of a frame that does not, so nothing here can press it. *)
-    escape = false;
+    (* The table is read by the loop, which wants a window; [simulate] is the
+       part of a frame that does not, so nothing here reaches it. *)
+    bindings = Binding.default;
   }
 
 (* [count] sixtieths of a second, each asking for a slightly wider turn than the

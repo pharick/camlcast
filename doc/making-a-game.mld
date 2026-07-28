@@ -45,8 +45,8 @@ Which one you get says what kind of mistake it was.
 
 {ul
 {li {b Things that can fail at run time return a result} —
-    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.run},
-    {!Camlcast.Engine.enter}, {!Camlcast.Engine.run_state},
+    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.enter},
+    {!Camlcast.Engine.run_state},
     {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
     {!Camlcast.Framebuffer.create}. A missing file is one of these.}
 {li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
@@ -161,8 +161,10 @@ let world =
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 let () =
-  match Engine.run world with
-  | Ok () -> ()
+  match Engine.enter world with
+  (* How the run ended matters only to a program that opens a second window.
+     This one has the single room above and nothing to go back to. *)
+  | Ok _ending -> ()
   | Error (`Msg m) ->
       prerr_endline m;
       exit 1
@@ -189,8 +191,8 @@ fullscreen, {b Esc} quits.
     {!Camlcast.Room.type-ceiling}.}
 {li {!Camlcast.World.make} names the rooms, links their doorways (none yet),
     gives the world its air, and says where the player starts.}
-{li {!Camlcast.Engine.run} opens the window and runs the loop until the player
-    quits.}}
+{li {!Camlcast.Engine.enter} opens the window and runs the loop until the
+    player quits.}}
 
 {b If the room is black from the inside}, the walls are wound clockwise. Reverse
 them.
@@ -597,8 +599,8 @@ let toggled world (player : Player.t) threshold =
     (World.room world player.Player.room).Room.thresholds.(threshold).Room.door
   in
   let next =
-    match Option.map Door.shut current with
-    | Some true -> Door.Open
+    match current with
+    | Some { Door.state = Door.Closed; _ } -> Door.Open
     | _ -> Door.Closed
   in
   World.set_door world ~room:player.Player.room ~threshold next
@@ -671,8 +673,8 @@ their generated counterparts.
 
 {b Goal.} Anything that is not just a world and a player walking it.
 
-Everything so far used {!Camlcast.Engine.run}, which holds the only state the
-engine can hold on its own. A game with phases, doors, a journal, a score or a
+Everything so far used {!Camlcast.Engine.enter}, which holds the only state
+the engine can hold on its own. A game with phases, doors, a journal, a score or a
 random seed uses {!Camlcast.Engine.run_state}, which runs a state of {e whatever
 type you like} and asks six things of it:
 
@@ -684,9 +686,11 @@ type you like} and asks six things of it:
 {li [pointing] — whether the mouse is working a cursor over something you have
     drawn, rather than looking around (optional);}
 {li [finished] — asked after every update; [true] ends the run (optional);}
-{li [escape] — whether {b Esc} ends the run. {b Off unless asked for}, because
-    that key belongs to whoever opened the window: a game with screens in it
-    wants it for closing them.}}
+{li [bindings] — what the player's controls are for: which walk, which look,
+    which goes fullscreen, and which — {b if any} — ends the run. Step 13 is
+    about this one. It defaults to {!Camlcast.Binding.default}, which binds
+    {b no} key that leaves: that key belongs to whoever opened the window, and a
+    game with screens in it wants it for closing them.}}
 
 {@ocaml[
 open Camlcast
@@ -703,7 +707,7 @@ let update state ~dt ~motion ~actions =
   let player = Engine.step world state.player motion in
   match state.phase with
   | Waiting ->
-      if Input.pressed actions (Input.Key Sdl.Scancode.space) then
+      if Input.pressed actions (Input.Key Key.space) then
         { phase = Burning; left = fuse; player }
       else { state with player }
   | Burning ->
@@ -725,7 +729,8 @@ let view state =
 
 let () =
   match
-    Engine.run_state ~escape:true ~update ~view
+    Engine.run_state ~update ~view
+      ~bindings:(Binding.make ~leave:[ Input.Key Key.escape ] ())
       ~finished:(fun state -> state.phase = Done)
       start
   with
@@ -739,12 +744,18 @@ let () =
 
 [run_state] hands back the state it reached and an {!Camlcast.Engine.ending}:
 [Closed] means the window was shut or the desktop asked the program to stop,
-[Left] means the run ended on its own terms — [finished] said so, or Escape was
-pressed by a run that asked for it. Only something that opens one window after
-another needs the difference; a launcher shows its menu again after [Left] and
-stops after [Closed]. {!Camlcast.Engine.enter} is [run_state] over a bare world,
-returning the same answer, and {!Camlcast.Engine.run} is [enter] with the answer
-thrown away.
+[Left] means the run ended on its own terms — [finished] said so, or the player
+pressed something the binding table lists under [~leave]. Only something that
+opens one window after another needs the difference; a launcher shows its menu
+again after [Left] and stops after [Closed]. {!Camlcast.Engine.enter} is
+[run_state] over a bare world, returning the same answer; a program with only
+one world to show has no use for it and can [ignore] it.
+
+{b Nothing ends a run unless you say so.} {!Camlcast.Binding.default} binds no
+key that leaves, because a game with a pause screen wants Escape for closing it
+and would be poorly served by a window that quit underneath. [enter] asks for
+Escape, since a bare world has nothing else to end it with; [run_state] leaves
+it to you, which is the [~bindings] line above.
 
 {2 Time and focus}
 
@@ -757,17 +768,22 @@ its clock but drops the motion.
 
 {1 Step 13 — Input}
 
-{b Goal.} Keys and mouse buttons that mean something in your game.
+{b Goal.} Keys and mouse buttons that mean something in your game — including
+the ones that walk.
 
 {b Input arrives as controls, not as actions.} The engine knows only that
 something went down, came up, or has been held for so many seconds. What
 "interact" or "journal" mean is your own table from the one to the other.
 
-{@ocaml[
-open Tsdl  (* to name a scancode *)
+A control is a {!Camlcast.Key} or a mouse button. A key is a {e place on the
+board} and not a letter: [Key.w] is the key above [Key.s] on any layout, so a
+French player holding the key their board calls Z walks forward like everybody
+else. {!Camlcast.Key.name} gives the layout's own name for it, which is what a
+line of help text on screen should say.
 
-let interact = Input.Key Sdl.Scancode.e
-let journal = Input.Key Sdl.Scancode.tab
+{@ocaml[
+let interact = Input.Key Key.e
+let journal = Input.Key Key.tab
 let primary = Input.Button Input.Left
 
 let update state ~dt ~motion ~actions =
@@ -784,13 +800,56 @@ let update state ~dt ~motion ~actions =
   else { state with player }
 ]}
 
-Movement is handled for you: [~motion] already carries the frame's forward,
-strafe, turn and pitch, with {b W}/{b A}/{b S}/{b D}, the arrow keys and the
-mouse wired in, and [Engine.step] applies it in the right order — turn and pitch
-before walking, so a frame that both turns and moves walks in the direction it
-ends up facing.
+Movement arrives already worked out: [~motion] carries the frame's forward,
+strafe, turn and pitch, and [Engine.step] applies it in the right order — turn
+and pitch before walking, so a frame that both turns and moves walks in the
+direction it ends up facing.
 
-{b Read next:} [demo/controls.ml].
+{2 The keys that walk are yours too}
+
+Where that motion came from is a {!Camlcast.Binding.t}, which you hand to
+[run_state] beside the callbacks. {!Camlcast.Binding.default} is {b W}/{b A}/
+{b S}/{b D}, the arrow keys, the mouse and {b F11} — and no key that ends the
+run. It is a default and not a rule; the engine has no keys of its own.
+
+{@ocaml[
+let bindings =
+  Binding.make
+    ~forward:
+      {
+        Binding.speed = 3.6;  (* cells a second at full ask *)
+        terms =
+          [
+            { Binding.source = Binding.Hold (Input.Key Key.i); weight = 1. };
+            { Binding.source = Binding.Hold (Input.Key Key.k); weight = -1. };
+          ];
+      }
+    ~leave:[ Input.Key Key.escape ]
+    ()
+]}
+
+Every part not named keeps the default's — so the table above moves walking
+forward and back onto {b I} and {b K}, adds Escape as a way out, and leaves
+strafing, looking and fullscreen alone.
+
+{b An axis adds up terms, and there are two kinds.} A {e rate} — a held control,
+or an analog source like a gamepad stick — says how hard the player is asking,
+between [-1] and [1]. Rates are summed, clamped to that range, and multiplied by
+the axis's [speed] and by the length of the frame. The clamp matters: bind two
+keys to one axis and holding both still walks at one speed, not two.
+
+A {e displacement} — the mouse — says how far something {e has already moved}
+during this frame. It is added on as it stands, because scaling it by the frame's
+length would count the frame twice. That is why a mouse term's weight is a
+sensitivity (radians per pixel) while a key's is just a sign.
+
+{b Reading a table takes nothing but the table.} {!Camlcast.Binding.motion} is
+pure — a table, a frame of {!Camlcast.Input.actions} and a duration in, a
+movement out — so a test can ask what a given frame of keys would have done
+without opening a window. [test/test_binding.ml] is that.
+
+{b Read next:} [demo/controls.ml], which binds a second set of walking keys and
+prints them with [Key.name].
 
 {1 Step 14 — Drawing over the world: HUD, text and a cursor}
 

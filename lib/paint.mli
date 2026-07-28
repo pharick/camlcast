@@ -66,10 +66,6 @@ val bar :
   unit
 (** A meter [fraction] full: a dark trough with a bright fill over it. *)
 
-val dot : Framebuffer.t -> x:int -> y:int -> r:int -> g:int -> b:int -> unit
-(** One pixel. Goes through {!rect} so that it is clipped like everything else
-    here. *)
-
 val line :
   Framebuffer.t ->
   x0:int ->
@@ -91,11 +87,3 @@ val crosshair : Framebuffer.t -> r:int -> g:int -> b:int -> unit
 (** A cross in the middle of the buffer, wherever the window has been resized
     to: the overlay is drawn in the buffer's own coordinates, and it changes
     size with the window. *)
-
-(**/**)
-
-val clipped :
-  Framebuffer.t -> x:int -> y:int -> w:int -> h:int -> int * int * int * int
-(** The part of the rectangle that is on the buffer, as first and last-plus-one
-    in each direction. Exposed for the tests; every shape above already clips.
-*)

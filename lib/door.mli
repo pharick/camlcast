@@ -55,9 +55,8 @@ val leaf : t -> Material.t option
 
     This is here rather than in {!Renderer} so that it can be tested. The
     renderer needs a live SDL surface; choosing what to draw needs nothing, and
-    it is the choice rather than the pixels that a door's state decides. *)
+    it is the choice rather than the pixels that a door's state decides.
 
-val shut : t -> bool
-(** Does it stop a step? Exactly when there is a leaf across the opening to stop
-    one — which is why this is asked of {!leaf} rather than of the state a
-    second time. What you cannot see through is what you cannot walk through. *)
+    It is also the whole of whether a door stops a step: what you cannot see
+    through is what you cannot walk through, which is why {!Room.shut} asks this
+    rather than asking the state a second time. *)

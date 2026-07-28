@@ -6,10 +6,8 @@
 ; which is the upload and the present, is left untested, and there is nothing in
 ; it but those two calls. Input reads SDL for the keyboard and the mouse, but
 ; its edges and hold timer are a pure function of two frames and a duration, and
-; test_input drives that directly.
-;
-; tsdl is a direct dependency here because naming a key is naming an
-; Sdl.Scancode — the same way a game binding one has to.
+; test_input drives that directly; Binding turns such a frame into a movement
+; and touches nothing at all, so test_binding drives that.
 ;
 ; The demo's suites live here too, beside the engine's own, because they share
 ; these fixtures and there is no reason to run them separately. A game built on
@@ -48,6 +46,8 @@
   test_material
   test_atmosphere
   test_input
+  test_binding
+  test_key
   test_sight
   test_engine
   test_patterns
@@ -55,4 +55,4 @@
   test_level
   test_demos
   test_menu)
- (libraries camlcast camlcast_demo alcotest tsdl))
+ (libraries camlcast camlcast_demo alcotest))

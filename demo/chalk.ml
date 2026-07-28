@@ -66,7 +66,6 @@
 
 open Camlcast
 open Result_ext
-open Tsdl
 
 let height = 3.6
 let strokes = 8
@@ -325,13 +324,12 @@ let place state =
 let update state ~dt ~motion ~actions =
   let player = Engine.step world state.player motion in
   let selected =
-    if Input.pressed actions (Input.Key Sdl.Scancode.k1) then 0
-    else if Input.pressed actions (Input.Key Sdl.Scancode.k2) then 1
+    if Input.pressed actions (Input.Key Key.k1) then 0
+    else if Input.pressed actions (Input.Key Key.k2) then 1
     else state.selected
   in
   let state = { state with player; selected; elapsed = state.elapsed +. dt } in
-  if Input.pressed actions (Input.Key Sdl.Scancode.c) then place state
-  else state
+  if Input.pressed actions (Input.Key Key.c) then place state else state
 
 let view state = (dressed state, state.player)
 
@@ -391,12 +389,19 @@ let overlay fb state =
   Font.draw fb font line ~x:(2 * pad)
     ~y:(height - th - (2 * pad))
     ~color:(Color.rgb 236 233 222);
-  let help = "C to mark   1 arrow   2 cross" in
+  (* Printed from the keys themselves rather than spelled out, so that moving a
+     binding above moves the words here with it. *)
+  let help =
+    Printf.sprintf "%s to mark   %s arrow   %s cross" (Key.name Key.c)
+      (Key.name Key.k1) (Key.name Key.k2)
+  in
   let hw, _ = Font.measure font help in
   Font.draw fb font help
     ~x:(width - hw - pad)
     ~y:pad ~color:(Color.rgb 140 146 160)
 
 let run () =
-  let+ _, ending = Engine.run_state ~escape:true ~update ~view ~overlay start in
+  let+ _, ending =
+    Engine.run_state ~bindings:Bindings.escapable ~update ~view ~overlay start
+  in
   ending

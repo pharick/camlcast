@@ -127,7 +127,7 @@ let overlay fb (_ : Player.t) =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~escape:true
+    Engine.run_state ~bindings:Bindings.escapable
       ~update:(fun player ~dt:_ ~motion ~actions:_ ->
         Engine.step world player motion)
       ~view:(fun player -> (world, player))

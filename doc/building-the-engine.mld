@@ -165,11 +165,6 @@ Every SDL call can fail ([('a, [ `Msg of string ]) result]). Rather than nest
 {@ocaml[
 let ( let* ) = Result.bind                 (* chain: stop at the first error *)
 let ( let+ ) result f = Result.map f result
-
-(* A Result-flavoured for-loop: stops and returns the first error. *)
-let rec iter_range ~first ~last f =
-  if first > last then Ok ()
-  else let* () = f first in iter_range ~first:(first + 1) ~last f
 ]}
 
 Now [let* x = fallible () in ...] reads like normal code but short-circuits on
@@ -1023,6 +1018,21 @@ let step world player (m : Input.motion) =
          |> Player.walk world ~forward:m.forward ~strafe:m.strafe
 ]}
 
+{b What the shipped engine does instead.} Everything above is right except for
+one thing: it decides which keys walk. That is a decision the engine has no
+business making, so [motion] is split in two. [Input] keeps the reading — the
+keyboard, the mouse, the edges and the hold timer — and {!Camlcast.Binding} holds
+a {e table} the game supplies, from controls and analog sources onto the four
+axes. [Binding.motion] is the [axis] function above with its keys taken out of
+it, and because it reads a frame of input rather than SDL, it is pure and can be
+tested without a window. It is also where a gamepad would arrive: a stick is a
+term on an axis like a key is, differing only in that it reports a fraction of
+full speed rather than all or nothing.
+
+Build it the way it is above first. The split is worth making once there is
+something to walk around in, and worth understanding as a split rather than as
+the way input has to look.
+
 {2 Step 5.2 — Resizing and fullscreen}
 
 Cache {b no} size. Each frame, ask SDL for the current drawable size and build a
@@ -1361,6 +1371,13 @@ from [Room] to [World], and [Player.slide] and [Player.walk] take a world from
 here on. [Room.can_step] stays, as the single-room question [World.can_step] asks
 twice.
 
+Once a step can report the doorways it went through, [Player.walk] has a choice
+to make about them, and the shipped engine resolves it by not having a [walk] at
+all: {!Camlcast.Player.traverse} returns the pose {e and} the crossings, and
+{!Camlcast.Engine.step} is the one place that drops them. One function that
+answers everything and one caller that asks for less beats two functions that
+have to be kept in step.
+
 {b The pose has to cross mid-step.} Movement resolves one axis at a time, so
 whichever leg goes through the doorway carries the pose into the next room before
 the other leg is taken. A diagonal through an opening then finishes in the room
@@ -1419,11 +1436,13 @@ let frame_time ~previous ~now =
 let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
 
 let rec loop ctx ~player ~fullscreen ~previous =
-  let request = Input.poll ctx.event in                 (* drains the event queue *)
-  if request.Input.quit then Ok ()
+  (* Drains the event queue — which has to happen every frame or the window
+     stops responding — and says whether the desktop asked us to stop. *)
+  if Input.quit_requested ctx.event then Ok ()
   else
     let* fullscreen =
-      if request.toggle_fullscreen then set_fullscreen ctx.window (not fullscreen)
+      if Input.pressed ctx.actions (Input.Key Key.f11) then
+        set_fullscreen ctx.window (not fullscreen)
       else Ok fullscreen in
     let now = seconds () in
     let player = step ctx.world player (Input.motion ~dt:(frame_time ~previous ~now)) in
@@ -1471,7 +1490,8 @@ mental model):
 
 {[
 Config       (every tunable constant)
-Result_ext   (let* / let+ and a short-circuiting range loop)
+Key          (the keyboard, named: a place on the board, not a letter)
+Result_ext   (let* / let+, and acquire/use/release)
 Vec          (2-D vectors, with the dot and cross products)
 Transform    (rigid motions between room-local frames)
 Plane        (inclined floor/ceiling + the casting equation)
@@ -1486,7 +1506,8 @@ World        (named rooms, linked portals, the world's air and spawn)
 Ray          (ray-vs-segment; every wall crossed, farthest first)
 Player       (pose pos/dir/right/pitch; movement, sliding and crossings)
 Viewport     (window → projection, eye height, pitch shear, resize rules)
-Input        (keyboard + relative mouse → intent)
+Input        (keyboard + mouse as they are: controls, edges, holds, analog)
+Binding      (what those controls are for — the game's table, read purely)
 Framebuffer  (CPU pixels + alpha blend + per-pixel depth + streaming texture)
 Renderer     (floor/ceiling/sky, opaque walls + decals, then sprites + windows by depth)
 Engine       (window lifetime, fullscreen, the loop)

@@ -1,6 +1,6 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Camlcast.Engine.run} takes a [grow] callback and calls it whenever the
+    {!Camlcast.Engine.enter} takes a [grow] callback and calls it whenever the
     player crosses from one room into another, with the world and where they now
     are; whatever it returns is the world drawn from then on. It runs on a room
     change and not per frame, so a generator may take its time.

@@ -132,7 +132,7 @@ let demos =
     };
     {
       name = "controls";
-      blurb = "press versus hold, buttons, and letting go of the mouse";
+      blurb = "binding keys, press versus hold, and letting go of the mouse";
       world = lazy Controls.world;
       run = Controls.run;
     };

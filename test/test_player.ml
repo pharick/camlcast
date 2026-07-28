@@ -1,6 +1,12 @@
 open Camlcast
 open Support
 
+(* Where a step ends up, with the doorways it went through dropped. The engine
+   walks through {!Player.traverse} and reads the crossings; most of the suite
+   below only cares where the player landed, so it says so once here. *)
+let walk world player ~forward ~strafe =
+  (Player.traverse world player ~forward ~strafe).Player.player
+
 let facing_east ?(pos = centre) () = Player.create ~room:0 ~pos ~angle:0.
 
 (* Viewport builds every ray as [dir + right * k]. That is only correct while
@@ -53,17 +59,17 @@ let turning_does_not_move_the_player () =
     "a positive turn swings dir towards +y" true (turned.Player.dir.y > 0.)
 
 let walking_follows_the_facing () =
-  let forward = Player.walk world (facing_east ()) ~forward:0.5 ~strafe:0. in
+  let forward = walk world (facing_east ()) ~forward:0.5 ~strafe:0. in
   Alcotest.check vec "forward moves along dir, without drift" (Vec.make 2.5 2.)
     forward.Player.pos;
-  let back = Player.walk world (facing_east ()) ~forward:(-0.5) ~strafe:0. in
+  let back = walk world (facing_east ()) ~forward:(-0.5) ~strafe:0. in
   Alcotest.check vec "backwards moves against dir" (Vec.make 1.5 2.)
     back.Player.pos
 
 (* Sidestepping must cover the same ground as walking, or the two axes fight
    each other when you move diagonally. *)
 let strafing_matches_walking_speed () =
-  let strafed = Player.walk world (facing_east ()) ~forward:0. ~strafe:0.5 in
+  let strafed = walk world (facing_east ()) ~forward:0. ~strafe:0.5 in
   Alcotest.check vec "sideways, and the same distance" (Vec.make 2. 2.5)
     strafed.Player.pos
 
@@ -74,18 +80,18 @@ let a_diagonal_is_no_faster () =
   let start = facing_east () in
   let travelled p = Vec.length (Vec.sub p.Player.pos start.Player.pos) in
   Alcotest.check close "one axis covers the step" 0.5
-    (travelled (Player.walk world start ~forward:0.5 ~strafe:0.));
+    (travelled (walk world start ~forward:0.5 ~strafe:0.));
   Alcotest.check close "two axes cover no more" 0.5
-    (travelled (Player.walk world start ~forward:0.5 ~strafe:0.5));
+    (travelled (walk world start ~forward:0.5 ~strafe:0.5));
   let corner = 0.5 /. Float.sqrt 2. in
   Alcotest.check vec "and it still goes diagonally, evenly split"
     (Vec.make (2. +. corner) (2. +. corner))
-    (Player.walk world start ~forward:0.5 ~strafe:0.5).Player.pos
+    (walk world start ~forward:0.5 ~strafe:0.5).Player.pos
 
 let walls_block_movement () =
   let player =
     List.fold_left
-      (fun p _ -> Player.walk world p ~forward:0.5 ~strafe:0.)
+      (fun p _ -> walk world p ~forward:0.5 ~strafe:0.)
       (facing_east ()) (List.init 20 Fun.id)
   in
   Alcotest.(check bool)
@@ -101,7 +107,7 @@ let a_blocked_axis_does_not_block_the_other () =
   let player = facing_east ~pos:(Vec.make 3.7 2.) () in
   Alcotest.check vec "x is blocked, y still moves"
     (Vec.make 3.7 (2. +. (0.5 /. Float.sqrt 2.)))
-    (Player.walk world player ~forward:0.5 ~strafe:0.5).Player.pos
+    (walk world player ~forward:0.5 ~strafe:0.5).Player.pos
 
 (* A diagonal step through a doorway has to resolve its second leg in the room it
    has arrived in. The first leg carries it far enough through that the second no
@@ -110,7 +116,7 @@ let a_blocked_axis_does_not_block_the_other () =
    wall standing just inside the second. *)
 let a_diagonal_through_a_doorway_lands_clear () =
   let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.2) ~angle:0. in
-  let moved = Player.walk two_rooms start ~forward:0.5 ~strafe:0.3 in
+  let moved = walk two_rooms start ~forward:0.5 ~strafe:0.3 in
   Alcotest.(check int) "ends up in the second room" 1 moved.Player.room;
   Alcotest.(check bool)
     "and not inside its wall" false
@@ -126,7 +132,7 @@ let spawn_uses_the_world () =
 
 let walking_through_a_doorway () =
   let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
-  let crossed = Player.walk two_rooms start ~forward:0.4 ~strafe:0. in
+  let crossed = walk two_rooms start ~forward:0.4 ~strafe:0. in
   Alcotest.(check int) "room changes" 1 crossed.room;
   Alcotest.check vec "lands inside" (Vec.make 0.2 2.) crossed.pos;
   Alcotest.check close "dir stays unit" 1. (Vec.length crossed.dir);
@@ -139,9 +145,9 @@ let walking_through_a_doorway () =
    so anything else means the pair has drifted apart. *)
 let walking_through_and_back_returns_you () =
   let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
-  let there = Player.walk two_rooms start ~forward:0.4 ~strafe:0. in
+  let there = walk two_rooms start ~forward:0.4 ~strafe:0. in
   Alcotest.(check int) "through" 1 there.Player.room;
-  let back = Player.walk two_rooms there ~forward:(-0.4) ~strafe:0. in
+  let back = walk two_rooms there ~forward:(-0.4) ~strafe:0. in
   Alcotest.(check int) "and back again" start.Player.room back.Player.room;
   Alcotest.check vec "to where it started" start.Player.pos back.Player.pos;
   Alcotest.check vec "facing the same way" start.Player.dir back.Player.dir;
@@ -152,7 +158,7 @@ let walking_through_and_back_returns_you () =
    not be counted as going through. *)
 let rounding_a_jamb_is_not_a_crossing () =
   let player = Player.create ~room:0 ~pos:(Vec.make 3.9 1.9) ~angle:0. in
-  let moved = Player.walk two_rooms player ~forward:0. ~strafe:0.1 in
+  let moved = walk two_rooms player ~forward:0. ~strafe:0.1 in
   Alcotest.(check int) "still in the first room" 0 moved.Player.room
 
 (* {1 Traversal traces}
@@ -448,18 +454,6 @@ let a_shut_door_beyond_the_first_doorway_stops_the_step () =
   Alcotest.check vec "standing where it came in" (Vec.make 0. 2.)
     moved.Player.player.Player.pos
 
-(* walk is traverse with the crossings dropped, and has to stay exactly that. *)
-let walk_is_traverse_without_the_trace () =
-  let start = at two_rooms ~room:0 ~pos:(Vec.make 3.8 2.) in
-  let plain = Player.walk two_rooms start ~forward:0.4 ~strafe:0.2 in
-  let traced = Player.traverse two_rooms start ~forward:0.4 ~strafe:0.2 in
-  Alcotest.(check int)
-    "same room" plain.Player.room traced.Player.player.Player.room;
-  Alcotest.check vec "same position" plain.Player.pos
-    traced.Player.player.Player.pos;
-  Alcotest.check vec "same facing" plain.Player.dir
-    traced.Player.player.Player.dir
-
 let () =
   Alcotest.run "Player"
     [
@@ -500,8 +494,6 @@ let () =
             a_leg_clears_a_room_and_keeps_going;
           case "a crossing does not double back however the rooms meet"
             a_crossing_does_not_double_back_however_the_rooms_meet;
-          case "walk is traverse without the trace"
-            walk_is_traverse_without_the_trace;
         ] );
       ( "collision",
         [

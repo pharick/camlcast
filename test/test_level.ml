@@ -148,7 +148,9 @@ let the_cellar_door_can_be_walked_through () =
   Alcotest.(check bool)
     "the near side of the door is somewhere you can stand" false
     (Room.blocked room start.Player.pos);
-  let through = Player.walk Level.default start ~forward:0.6 ~strafe:0. in
+  let through =
+    (Player.traverse Level.default start ~forward:0.6 ~strafe:0.).Player.player
+  in
   Alcotest.(check int)
     "walking into the door goes through it"
     (link Level.default ~room:hall ~index:1).World.to_room through.Player.room;
@@ -157,7 +159,10 @@ let the_cellar_door_can_be_walked_through () =
     (Room.blocked
        (World.room Level.default through.Player.room)
        through.Player.pos);
-  let back = Player.walk Level.default through ~forward:(-0.6) ~strafe:0. in
+  let back =
+    (Player.traverse Level.default through ~forward:(-0.6) ~strafe:0.)
+      .Player.player
+  in
   Alcotest.(check int)
     "and it opens from the other side too" hall back.Player.room;
   Alcotest.check vec "landing where it set out from" start.Player.pos
@@ -185,7 +190,9 @@ let a_diagonal_through_a_turning_doorway_keeps_its_shape () =
   (* Facing the doorway from a short step inside the hall, then a diagonal: the
      first leg crosses, the second is taken in the plaza. *)
   let start = Player.create ~room:hall ~pos:(Vec.make 0.3 0.) ~angle:Float.pi in
-  let moved = Player.walk Level.default start ~forward:0.5 ~strafe:0.3 in
+  let moved =
+    (Player.traverse Level.default start ~forward:0.5 ~strafe:0.3).Player.player
+  in
   Alcotest.(check int)
     "the step went through" west.World.to_room moved.Player.room;
   let delta =

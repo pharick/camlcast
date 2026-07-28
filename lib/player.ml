@@ -45,7 +45,7 @@ let spawn world =
 
     Nothing is renormalised, and nothing needs to be: the rotation is exact, so
     [dir] and [right] come out unit and perpendicular however many doorways have
-    been walked through. Used both by {!walk}, when the player crosses, and by
+    been walked through. Used both by {!slide}, when the player crosses, and by
     the renderer, when a ray looks through. *)
 let through transform ~room player =
   {
@@ -210,10 +210,3 @@ let traverse world player ~forward ~strafe =
   let length = Vec.length delta in
   slide world player
     (if length > limit then Vec.scale delta (limit /. length) else delta)
-
-(** {!traverse} for a caller that only wants to know where the player ended up.
-    Everything that walks and does not care which doorways it went through — the
-    demos, and the compatibility path through {!Engine.run} — goes through here.
-*)
-let walk world player ~forward ~strafe =
-  (traverse world player ~forward ~strafe).player

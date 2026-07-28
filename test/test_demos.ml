@@ -449,6 +449,35 @@ let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
     "so the walls are lit the same at any lamp" true
     (hall_at 0. = hall_at (Chalk.lamp_period /. 2.))
 
+(* The controls demo is the one that binds anything of its own, and what it
+   demonstrates is a claim its doc header makes to the player: both sets of
+   walking keys work, and holding one of each does not walk twice as fast. That
+   is exactly the sort of thing nobody notices going wrong, so it is asserted
+   rather than felt. *)
+let the_controls_demo_binds_a_second_set_of_walking_keys () =
+  let tick = 1. /. 60. in
+  let frame held =
+    Input.advance Input.untouched
+      ~down:(fun control -> List.mem control held)
+      ~mouse:(0., 0.) ~pointer:(0, 0) ~dt:tick
+  in
+  let forward held =
+    (Binding.motion Controls.bindings (frame held) ~dt:tick).Input.forward
+  in
+  let expected = Config.move_speed *. tick in
+  Alcotest.check close "the engine's own key still walks" expected
+    (forward [ Input.Key Key.w ]);
+  Alcotest.check close "and so does the one the demo added" expected
+    (forward [ Input.Key Key.i ]);
+  Alcotest.check close "one of each is still one step, not two" expected
+    (forward [ Input.Key Key.w; Input.Key Key.i ]);
+  Alcotest.check close "and the opposite of each cancels it" 0.
+    (forward [ Input.Key Key.i; Input.Key Key.s ]);
+  Alcotest.(check bool)
+    "Escape leaves, which the engine's table would not have done" true
+    (Binding.taken Controls.bindings.Binding.leave
+       (frame [ Input.Key Key.escape ]))
+
 let () =
   Alcotest.run "Demos"
     [
@@ -476,5 +505,7 @@ let () =
             the_chalk_demo_runs_out_of_chalk;
           case "the chalk demo has one glowing symbol and one not"
             the_chalk_demo_has_one_glowing_symbol_and_one_not;
+          case "the controls demo binds a second set of walking keys"
+            the_controls_demo_binds_a_second_set_of_walking_keys;
         ] );
     ]

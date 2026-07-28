@@ -48,8 +48,7 @@ for over it and what the player is pressing and holding through it; [view],
 which world and which player to draw this frame from; [overlay], anything drawn
 over the finished picture; [pointing], whether the mouse is working a cursor
 over something the game has drawn instead of looking around; [finished],
-whether the run is over; and [escape], whether that key ends the run — off
-unless asked for, because a game with screens in it wants it for closing them.
+whether the run is over; and [bindings], what the player's controls are for.
 Everything else a game keeps — phases, doors, a journal, a random seed, what it
 has already built — stays on the game's side of the line and the engine stays a
 pure function of what it is handed. Time passes only while the window has focus.
@@ -60,14 +59,23 @@ something that opens one window after another needs the difference.
 
 Input arrives as controls and not as actions — {!Camlcast.Input.pressed},
 {!Camlcast.Input.released}, {!Camlcast.Input.val-down} and
-{!Camlcast.Input.held_for} over a key or a mouse button. What "interact" or
-"journal" mean is a game's own table from the one to the other.
+{!Camlcast.Input.held_for} over a {!Camlcast.Key} or a mouse button. What
+"interact" or "journal" mean is a game's own table from the one to the other.
+
+Walking is that too. {!Camlcast.Binding} is the table a game hands over, and it
+covers the four movement axes, the key that goes fullscreen and the key — if any
+— that ends the run; {!Camlcast.Binding.default} is WASD, the arrows and the
+mouse, and it is a default and not a rule. An axis adds up terms, and the two
+kinds are added up differently: a held control or a stick is a {e rate}, summed,
+clamped to [[-1, 1]] and paid out at the axis's speed over the frame, while the
+mouse is a {e displacement} that has already moved and is added as it stands.
+Reading a table is {!Camlcast.Binding.motion}, which touches nothing and is
+where a second kind of device would arrive.
 
 {!Camlcast.Engine.enter} is that loop over a bare {!Camlcast.World} and the
 player walking it, plus an optional [grow : World.t -> Player.t -> World.t],
-which it calls whenever the player crosses into another room.
-{!Camlcast.Engine.run} is [enter] with the ending thrown away, for a program with
-only one world to show.
+which it calls whenever the player crosses into another room. A program with
+only one world to show has no use for the ending and can [ignore] it.
 
 A game that builds its world as the player explores it uses [grow] to stay far
 enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
@@ -90,8 +98,10 @@ world grows by.
 Each depends only on the ones above it.
 
 - {!Camlcast.Config} — every tunable constant, in one place
-- {!Camlcast.Result_ext} — [let*] and a short-circuiting range loop, for
-  chaining fallible SDL calls
+- {!Camlcast.Key} — the keyboard, named by the engine: a place on the board
+  rather than a letter, so a binding survives a change of layout
+- {!Camlcast.Result_ext} — [let*] and [let+], for chaining fallible SDL calls,
+  and the acquire/use/release that frees a window however a frame ends
 - {!Camlcast.Vec} — immutable 2-D vectors, with the dot and cross products the
   geometry needs
 - {!Camlcast.Transform} — rigid motions between room-local coordinate frames
@@ -124,7 +134,10 @@ Each depends only on the ones above it.
 - {!Camlcast.Viewport} — window size to camera geometry; the eye height, the
   pitch shear and the resize rules
 - {!Camlcast.Sight} — what the crosshair is on, traced through doorways
-- {!Camlcast.Input} — SDL keyboard and mouse-look, as engine intent
+- {!Camlcast.Input} — the keyboard and the mouse as they are: controls, their
+  edges and holds, and what the analog sources read
+- {!Camlcast.Binding} — what those controls are for: a game's table, and the one
+  pure function that turns a frame of them into a movement
 - {!Camlcast.Framebuffer} — a CPU pixel buffer and the streaming texture it
   uploads through
 - {!Camlcast.Renderer} — the software renderer: casts the planes, paints the
@@ -159,7 +172,8 @@ Each is a single file with the feature it demonstrates as the only thing in it.
 - {!Camlcast_demo.Endless} — the grow hook: a corridor built as you walk it
 - {!Camlcast_demo.Phases} — [run_state]: a phase, a clock and a light going out
 - {!Camlcast_demo.Overlay} — drawing over the finished world
-- {!Camlcast_demo.Controls} — press versus hold, and letting go of the cursor
+- {!Camlcast_demo.Controls} — a table of its own, press versus hold, and letting
+  go of the cursor
 - {!Camlcast_demo.Loading} — art read from files, beside the generated kind
 - {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping, colour
 - {!Camlcast_demo.Level} — [showcase]: the five-room level, with all of the

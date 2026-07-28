@@ -1,5 +1,8 @@
-(** Turns SDL input into engine-level intent. Nothing here knows about positions
-    or walls: it only reports what the user asked for. *)
+(** What the hardware is reporting, and nothing about what it means. Nothing
+    here knows about positions or walls, and — since {!Binding} — nothing here
+    knows which key walks forward either: this module reads the keyboard and the
+    mouse, counts the edges and the holds, and hands the result on for somebody
+    else to interpret. *)
 
 open Tsdl
 
@@ -9,58 +12,22 @@ type motion = {
   turn : float;  (** radians to rotate this frame, + clockwise *)
   pitch : float;  (** change in view pitch this frame, + looks up *)
 }
+(** What the player is asking for over one frame, as finished per-frame deltas,
+    so {!Engine} can apply it straight to the {!Player}. {!Binding.motion} is
+    what produces one; the type lives here because it is what a frame of input
+    amounts to. *)
 
 let still = { forward = 0.; strafe = 0.; turn = 0.; pitch = 0. }
 
 (** How far the mouse moved since the last call. Relative mouse mode (enabled by
     {!Engine}) reports these deltas and keeps the cursor pinned, so it never
-    runs into a screen edge. *)
+    runs into a screen edge.
+
+    SDL accumulates the delta until somebody reads it, so this has to be called
+    every frame whether the answer is wanted or not — see {!Engine.loop}. *)
 let mouse_delta () =
   let _buttons, (dx, dy) = Sdl.get_relative_mouse_state () in
   (float_of_int dx, float_of_int dy)
-
-(** What the user is asking for over a frame of [dt] seconds. Movement is read
-    from the keyboard as a state snapshot — holding a key should move
-    continuously, and events would only report the moment it was pressed — while
-    looking around blends the mouse motion in with the arrow keys. Each field
-    comes out as a finished per-frame delta, so {!Engine} can apply it straight
-    to the {!Player}.
-
-    Held keys ask for a speed, in cells or radians per second (see {!Config}),
-    and are scaled by [dt] into the distance that speed covers over this frame:
-    the player walks at the same pace whether the machine renders 30 frames a
-    second or 300. The mouse needs no such scaling — its deltas are already
-    everything that has happened since the last frame. *)
-let motion ~dt =
-  let keys = Sdl.get_keyboard_state () in
-  let down scancode = Bigarray.Array1.get keys scancode = 1 in
-  (* An axis comes out as the distance its speed covers over the frame. *)
-  let axis ~speed ~positive ~negative =
-    let held scancodes = if List.exists down scancodes then 1. else 0. in
-    (held positive -. held negative) *. speed *. dt
-  in
-  let mouse_dx, mouse_dy = mouse_delta () in
-  {
-    forward =
-      axis ~speed:Config.move_speed
-        ~positive:Sdl.Scancode.[ w ]
-        ~negative:Sdl.Scancode.[ s ];
-    strafe =
-      axis ~speed:Config.move_speed
-        ~positive:Sdl.Scancode.[ d ]
-        ~negative:Sdl.Scancode.[ a ];
-    turn =
-      axis ~speed:Config.rot_speed
-        ~positive:Sdl.Scancode.[ right ]
-        ~negative:Sdl.Scancode.[ left ]
-      +. (mouse_dx *. Config.look_sensitivity);
-    (* Mouse up is a negative delta but should look up, hence the subtraction. *)
-    pitch =
-      axis ~speed:Config.pitch_speed
-        ~positive:Sdl.Scancode.[ up ]
-        ~negative:Sdl.Scancode.[ down ]
-      -. (mouse_dy *. Config.pitch_sensitivity);
-  }
 
 type button =
   | Left
@@ -70,57 +37,86 @@ type button =
           three every mouse has. *)
 
 type control =
-  | Key of Sdl.scancode
+  | Key of Key.t
   | Button of button
-      (** Something the player can hold down. Keys are named by [Sdl.Scancode] —
-          scancodes and not keycodes, so a binding is a place on the keyboard
-          rather than a letter, and it stays where it is under a different
-          layout.
+      (** Something the player can hold down. Keys are places on the keyboard
+          rather than letters, so a binding stays where it is under a different
+          layout — see {!module-Key}.
 
           The engine has no opinion about what any of them mean. "Interact",
           "chalk", "journal" are a game's words for its own table from controls
           to actions; what the engine owns is the mechanism underneath — when a
-          control went down, when it came up, and how long it was held. *)
+          control went down, when it came up, and how long it was held. Even
+          walking is a game's table now: {!Binding} holds it, and the engine's
+          only part in that is a default. *)
 
-(* Controls are counted off into one flat range so that a frame's worth of them
-   is three arrays and an index, rather than a lookup structure. The keyboard
-   occupies its own scancodes and the buttons follow it. *)
-let controls = Sdl.Scancode.num_scancodes + 3
+(** A source that reports a number rather than being down or not, for the half
+    of the input a control cannot express. A gamepad's sticks and triggers would
+    join this list. *)
+type analog =
+  | Mouse_x  (** pixels the mouse moved right during this frame *)
+  | Mouse_y  (** pixels it moved down *)
+
+type reading =
+  | Rate
+      (** a fraction of full speed, in [-1, 1]: a stick pushed halfway asks to
+          walk at half pace. Scaled by the frame's length, exactly as a held
+          control is. *)
+  | Displacement
+      (** how far the thing has already moved during this frame, in its own
+          units. Already a per-frame quantity, so scaling it by the frame's
+          length again would be counting the frame twice. *)
+
+(** What an analog source's number means, which is the one thing {!Binding}
+    needs in order to scale it. The mouse reports where it has been; a stick
+    reports how hard it is being pushed, and the two are not the same kind of
+    number however alike they look. *)
+let reads = function Mouse_x | Mouse_y -> Displacement
+
+(* Controls are counted off into one flat range, a contiguous block per device,
+   so that a frame's worth of them is three arrays and an index rather than a
+   lookup structure. Each block begins where the one before it ends, so another
+   device is another offset here and nothing above it moves. *)
+let buttons = 3
+let first_key = 0
+let first_button = first_key + Key.count
+let controls = first_button + buttons
 let button_index = function Left -> 0 | Middle -> 1 | Right -> 2
 
 let index = function
-  | Key scancode -> scancode
-  | Button button -> Sdl.Scancode.num_scancodes + button_index button
+  | Key key -> first_key + Key.to_scancode key
+  | Button button -> first_button + button_index button
 
 let control_of_index i =
-  if i < Sdl.Scancode.num_scancodes then Key i
+  if i < first_button then Key (Key.of_scancode (i - first_key))
   else
-    Button
-      (match i - Sdl.Scancode.num_scancodes with
-      | 0 -> Left
-      | 1 -> Middle
-      | _ -> Right)
+    Button (match i - first_button with 0 -> Left | 1 -> Middle | _ -> Right)
 
 type actions = {
   down : bool array;  (** what is held now, indexed by [index] *)
   was_down : bool array;  (** what was held when the previous frame asked *)
   held : float array;  (** seconds each control has been held for *)
+  mouse : float * float;
+      (** how far the mouse moved during this frame, in pixels: what {!Mouse_x}
+          and {!Mouse_y} report *)
   pointer : int * int;
       (** where the cursor is. Meaningful only while the game has asked for a
           free cursor — under mouse look it is pinned and says nothing. *)
 }
-(** What the player is holding, and what they have just done. Read it through
-    {!val-down}, {!pressed}, {!released} and {!held_for} rather than through the
-    arrays: the layout is an implementation detail of the counting above. *)
+(** What the player is holding, what they have just done, and what the analog
+    sources read. Read it through {!val-down}, {!pressed}, {!released},
+    {!held_for} and {!value} rather than through the arrays: the layout is an
+    implementation detail of the counting above. *)
 
-(** Nothing held, nothing pressed, the cursor at the origin. The arrays in it
-    are never written to — {!advance} builds new ones every frame — so sharing
-    this one value between runs is safe. *)
+(** Nothing held, nothing pressed, nothing moved, the cursor at the origin. The
+    arrays in it are never written to — {!advance} builds new ones every frame —
+    so sharing this one value between runs is safe. *)
 let untouched =
   {
     down = Array.make controls false;
     was_down = Array.make controls false;
     held = Array.make controls 0.;
+    mouse = (0., 0.);
     pointer = (0, 0);
   }
 
@@ -148,12 +144,18 @@ let released actions control =
     long the hold lasted. *)
 let held_for actions control = actions.held.(index control)
 
+(** What an analog source read over this frame. *)
+let value actions = function
+  | Mouse_x -> fst actions.mouse
+  | Mouse_y -> snd actions.mouse
+
 (** Roll [previous] forward onto what is held at this instant: [down] answers
-    for each control, and the frame being asked about lasted [dt] seconds.
+    for each control, [mouse] is how far the mouse moved, and the frame being
+    asked about lasted [dt] seconds.
 
     This is the whole of the edge detection and the hold timer, and none of it
     touches SDL, so it is where the behaviour is tested. *)
-let advance previous ~down ~pointer ~dt =
+let advance previous ~down ~mouse ~pointer ~dt =
   let now = Array.init controls (fun i -> down (control_of_index i)) in
   let held =
     Array.init controls (fun i ->
@@ -164,7 +166,7 @@ let advance previous ~down ~pointer ~dt =
         | false, true -> previous.held.(i)
         | false, false -> 0.)
   in
-  { down = now; was_down = previous.down; held; pointer }
+  { down = now; was_down = previous.down; held; mouse; pointer }
 
 (** [previous] again, with nothing having changed and no time having passed:
     what a frame the window spent out of focus is worth.
@@ -177,6 +179,10 @@ let advance previous ~down ~pointer ~dt =
     ordinary {!released} on the first frame the window is back, which is the
     frame a game could have done anything about it.
 
+    The mouse is set back to nothing rather than carried, because unlike the
+    controls it is a movement and not a state: keeping the previous frame's
+    would report the same inch of desk twice.
+
     {!Engine.simulate} already stops the clock and drops the motion of an
     unfocused frame. This is the third of the three, and it has to happen where
     the sampling does: by the time [simulate] has the actions the seconds have
@@ -184,57 +190,48 @@ let advance previous ~down ~pointer ~dt =
 let freeze previous =
   advance previous
     ~down:(fun control -> previous.down.(index control))
-    ~pointer:previous.pointer ~dt:0.
+    ~mouse:(0., 0.) ~pointer:previous.pointer ~dt:0.
 
 (** Read the keyboard and the mouse buttons as they are now, and roll [previous]
-    forward onto them.
+    forward onto them. [mouse] comes in from {!mouse_delta}, which {!Engine}
+    calls whether this is reached or not.
 
     The keyboard array SDL hands back is its own and it changes underneath us,
     so [advance] copies out of it rather than keeping it. The cursor comes out
     in window coordinates; {!Engine} scales it into the framebuffer's, being the
     one that knows how the two compare. *)
-let sample previous ~dt =
+let sample previous ~mouse ~dt =
   let keys = Sdl.get_keyboard_state () in
-  let buttons, pointer = Sdl.get_mouse_state () in
+  let held, pointer = Sdl.get_mouse_state () in
   let mask = function
     | Left -> Sdl.Button.lmask
     | Middle -> Sdl.Button.mmask
     | Right -> Sdl.Button.rmask
   in
   let down = function
-    | Key scancode -> Bigarray.Array1.get keys scancode = 1
-    | Button button -> Int32.logand buttons (mask button) <> 0l
+    | Key key -> Bigarray.Array1.get keys (Key.to_scancode key) = 1
+    | Button button -> Int32.logand held (mask button) <> 0l
   in
-  advance previous ~down ~pointer ~dt
+  advance previous ~down ~mouse ~pointer ~dt
 
-type request = { quit : bool; toggle_fullscreen : bool }
-(** What the window system has asked of the program this frame, as opposed to
-    what the player has asked of the game. Both of these are the engine's to act
-    on; everything a game binds is read as state instead, by {!sample}. *)
+(** Drain the event queue, and say whether the window system asked the program
+    to stop while we were reading it — the close button, or Cmd-Q, which reaches
+    SDL by the same road.
 
-let nothing = { quit = false; toggle_fullscreen = false }
+    Draining is the part that has to happen: the queue must be pumped every
+    frame even when nothing in it interests us, or the window stops responding.
+    Answering one question about what went past is what the caller gets for it.
 
-(** Drain the event queue into a single request. The queue has to be pumped
-    every frame even when nothing in it interests us, otherwise the window stops
-    responding.
-
-    Escape is not in here. It is a key like any other as far as the engine is
-    concerned, because what it means is a game's to decide — closing a screen
-    when one is open and quitting when none is (see {!Engine.run}, which is
-    where the demo's own "Escape quits" lives). *)
-let rec poll ?(request = nothing) event =
-  if not (Sdl.poll_event (Some event)) then request
+    No key is in here, not even the two the engine acts on itself. Fullscreen
+    and leaving the run are read as ordinary state from {!Binding}, like
+    anything a game binds: {!pressed} is already true for exactly one frame per
+    press, which is the whole of what watching for the event and filtering out
+    the auto-repeat used to buy. That is why this asks about the window and
+    nothing else — what a {e player} presses is {!sample}'s business. *)
+let rec quit_requested ?(quit = false) event =
+  if not (Sdl.poll_event (Some event)) then quit
   else
-    let request =
-      match Sdl.Event.(enum (get event typ)) with
-      | `Quit -> { request with quit = true }
-      (* Holding a key down repeats it many times a second; a toggle must
-         only see the press that started it. *)
-      | `Key_down when Sdl.Event.(get event keyboard_repeat) = 0 ->
-          if Sdl.Event.(get event keyboard_scancode) = Sdl.Scancode.f11 then
-            (* Two presses in one frame cancel out, as they should. *)
-            { request with toggle_fullscreen = not request.toggle_fullscreen }
-          else request
-      | _ -> request
+    let quit =
+      match Sdl.Event.(enum (get event typ)) with `Quit -> true | _ -> quit
     in
-    poll ~request event
+    quit_requested ~quit event

@@ -3,10 +3,11 @@
 ; Nothing in the engine depends on any of this, which is the point: it is
 ; content, and it lives outside the library it is content for.
 ;
-; tsdl is a direct dependency because a demo that binds a key names an
-; Sdl.Scancode, the same way a game does.
+; camlcast is the only dependency, SDL included: a demo that binds a key names
+; a Camlcast.Key and never reaches past the engine for it, the same way a game
+; does.
 
 (library
  (name camlcast_demo)
  (public_name camlcast.demo)
- (libraries camlcast tsdl))
+ (libraries camlcast))

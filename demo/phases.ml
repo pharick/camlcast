@@ -20,7 +20,6 @@
 
 open Camlcast
 open Result_ext
-open Tsdl
 
 let height = 4.
 let fuse = 20.
@@ -76,7 +75,7 @@ let update state ~dt ~motion ~actions =
   let player = Engine.step world state.player motion in
   match state.phase with
   | Waiting ->
-      if Input.pressed actions (Input.Key Sdl.Scancode.space) then
+      if Input.pressed actions (Input.Key Key.space) then
         { phase = Burning; left = fuse; player }
       else { state with player }
   | Burning ->
@@ -96,7 +95,7 @@ let view state =
 
 let run () =
   let+ _, ending =
-    Engine.run_state ~escape:true ~update ~view
+    Engine.run_state ~bindings:Bindings.escapable ~update ~view
       ~finished:(fun state -> state.phase = Done)
       start
   in

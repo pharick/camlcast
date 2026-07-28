@@ -16,7 +16,6 @@
 
 open Camlcast
 open Result_ext
-open Tsdl
 
 let demos = Array.of_list Catalogue.demos
 
@@ -59,8 +58,8 @@ let start = { selected = 0; chosen = None; player = Player.spawn backdrop }
 let update state ~dt ~motion:_ ~actions =
   let count = Array.length demos in
   let moved =
-    if Input.pressed actions (Input.Key Sdl.Scancode.down) then 1
-    else if Input.pressed actions (Input.Key Sdl.Scancode.up) then -1
+    if Input.pressed actions (Input.Key Key.down) then 1
+    else if Input.pressed actions (Input.Key Key.up) then -1
     else 0
   in
   (* Wraps, so a long list is reachable from either end. *)
@@ -68,7 +67,7 @@ let update state ~dt ~motion:_ ~actions =
   let taken =
     List.exists
       (fun key -> Input.pressed actions (Input.Key key))
-      [ Sdl.Scancode.return; Sdl.Scancode.kp_enter; Sdl.Scancode.space ]
+      [ Key.return; Key.kp_enter; Key.space ]
   in
   {
     selected;
@@ -123,7 +122,10 @@ let overlay font fb state =
     Font.draw fb font "v" ~x:(width - margin)
       ~y:(top + ((rows - 1) * line))
       ~color:dim;
-  Font.draw fb font "up down  choose      enter  run      esc  quit" ~x:margin
+  Font.draw fb font
+    (Printf.sprintf "%s %s  choose      %s  run      %s  quit" (Key.name Key.up)
+       (Key.name Key.down) (Key.name Key.return) (Key.name Key.escape))
+    ~x:margin
     ~y:(height - margin - font.Font.height)
     ~color:dim
 
@@ -134,7 +136,7 @@ let choose () =
   let+ state, ending =
     Engine.run_state ~update ~view ~overlay:(overlay font)
       ~finished:(fun state -> state.chosen <> None)
-      ~escape:true start
+      ~bindings:Bindings.escapable start
   in
   match ending with
   | Engine.Closed -> None
