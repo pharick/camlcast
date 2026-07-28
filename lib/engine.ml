@@ -1,49 +1,18 @@
-(** Window lifetime and the game loop. Every SDL call can fail, so the whole
-    module is written inside the [Result] monad and the first error aborts the
-    frame — and with it the program. *)
+(* Implementation of {!Camlcast.Engine}; the interface carries the prose. *)
 
 open Tsdl
 open Result_ext
 
-(** How a run came to an end.
-
-    Only something that opens one window after another has any use for the
-    difference, which is why it took until there was a launcher to write it
-    down. The demo browser shows its menu again when a demo is [Left] and stops
-    altogether when one is [Closed], so that shutting the window — or Cmd-Q,
-    which reaches SDL by the same road — ends the program instead of bouncing
-    back to the list. *)
-type ending =
-  | Closed  (** the window was shut, or the desktop asked the program to stop *)
-  | Left
-      (** the run ended on its own terms: [finished] said so, or the player
-          pressed something the game's {!Binding.t} listed as leaving it *)
+type ending = Closed | Left
 
 type 'a game = {
   update : 'a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a;
-      (** the next state, given how long the frame lasted, the movement asked
-          for over it and what the player is pressing and holding through it *)
-  view : 'a -> World.t * Player.t;  (** what this frame is drawn from *)
+  view : 'a -> World.t * Player.t;
   overlay : Framebuffer.t -> 'a -> unit;
-      (** anything drawn over the finished world, before it reaches the screen
-      *)
   pointing : 'a -> bool;
-      (** whether the player is working a cursor over something the game has
-          drawn, rather than looking around with the mouse *)
-  finished : 'a -> bool;  (** asked after every update; [true] ends the run *)
+  finished : 'a -> bool;
   bindings : Binding.t;
-      (** what the player's controls are for: which of them walk, which look,
-          which toggles fullscreen, and which — if any — ends the run. The
-          engine names no key of its own; {!Binding.default} is a default and
-          not a rule. *)
 }
-(** How the loop reaches a game whose state it knows nothing else about. ['a] is
-    the game's own — phases, doors, journal, whatever it keeps — and the engine
-    only ever hands it back to these six things. What it needs from a game is
-    small: something to advance, a world and a player to draw it from, an
-    optional layer over the top, which of the two things the mouse is for, an
-    answer to whether it is over, and the table its controls are read through.
-*)
 
 type 'a context = {
   renderer : Sdl.renderer;
@@ -52,32 +21,22 @@ type 'a context = {
   framebuffer : Framebuffer.t ref;
   game : 'a game;
 }
-(** The things a frame needs that never change during one. Two are deliberately
+(* The things a frame needs that never change during one. Two are deliberately
     not among them. The window size can change at any moment, so {!Renderer}
     asks for it per frame and resizes the framebuffer to match. And the game
     state changes every frame by definition, so the loop threads it beside the
     context rather than holding it fixed here. *)
 
-(** Move the player through one frame. Pure: input in, new player out, along
-    with every doorway the frame went through. The motion already carries
-    finished per-frame deltas (see {!Binding.motion}), so this only decides the
-    order — turn and pitch before walking, so a frame that both turns and moves
-    walks in the direction it ends up facing.
-
-    That ordering is the reason this exists rather than a game calling
-    {!Player.traverse} itself: it is a rule about a frame, and there should be
-    one copy of it. *)
 let move world player (motion : Input.motion) =
   player
   |> Player.turn ~radians:motion.turn
   |> Player.pitch_by ~radians:motion.pitch
   |> Player.traverse world ~forward:motion.forward ~strafe:motion.strafe
 
-(** {!move} for a caller with nothing to do with the doorways it crossed. *)
 let step world player (motion : Input.motion) =
   (move world player motion).Player.player
 
-(** SDL only offers "set", not "toggle", so the loop carries the current state
+(* SDL only offers "set", not "toggle", so the loop carries the current state
     and returns the new one.
 
     [fullscreen_desktop] stretches the window over the desktop instead of
@@ -91,7 +50,7 @@ let set_fullscreen window enabled =
   in
   enabled
 
-(** The same again for relative mouse mode, which pins the cursor out of sight
+(* The same again for relative mouse mode, which pins the cursor out of sight
     and hands the camera bare deltas. Releasing it puts a real cursor back on
     the screen — what a game wants while the player is pointing at something it
     has drawn. Setting it to what it already is is not free (SDL warps the
@@ -102,46 +61,18 @@ let set_relative_mouse ~current enabled =
     let+ () = Sdl.set_relative_mouse_mode enabled in
     enabled
 
-(** Whether the window is the one the keyboard is talking to. A window that has
+(* Whether the window is the one the keyboard is talking to. A window that has
     lost focus is behind another one or on another desktop, and nobody is at the
     controls of what it shows. *)
 let has_focus window =
   Sdl.Window.(test (Sdl.get_window_flags window) input_focus)
 
-(** Advance the game by one frame, with nothing drawn: this is everything the
-    loop does between reading the input and rendering the result, and it is a
-    pure function of the state and that input.
-
-    An unfocused window advances by nothing at all. Without this, a game left
-    behind another window for a minute would be handed that minute the moment it
-    came back — a minute of burnt lamp oil, of whatever else runs on the clock,
-    none of which the player was there for. The loop keeps timing frames while
-    paused, so focus returns at an ordinary frame's length rather than a jump.
-
-    Motion is dropped rather than scaled down by the zero [dt], because the
-    mouse is not scaled by [dt] in the first place: its deltas are already
-    everything that has happened since the last read (see
-    {!Input.Displacement}), so a paused frame that passed them on would still
-    turn the camera.
-
-    A frame the player spends [pointing] at something the game has drawn drops
-    the motion too, for the same reason — the cursor is loose, and every inch of
-    it would otherwise also swing the camera. The clock keeps running through
-    one, though: a screen the game opens over its world is its own business, and
-    whether time stops for it is a question only the game can answer.
-
-    The actions are not suppressed here, and want no suppression: an unfocused
-    frame's have already been frozen by {!loop}, through {!Input.freeze}, which
-    is the only place they still could be. Their hold timer is fed the real
-    length of the frame at the moment they are sampled, so by the time they
-    arrive here the seconds are counted and nothing done to them would give
-    those back. *)
 let simulate game state ~focused ~pointing ~dt ~motion ~actions =
   let dt = if focused then dt else 0. in
   let motion = if focused && not pointing then motion else Input.still in
   game.update state ~dt ~motion ~actions
 
-(** Where the cursor is in the coordinates the overlay draws in. SDL reports it
+(* Where the cursor is in the coordinates the overlay draws in. SDL reports it
     in window coordinates, and the framebuffer is a fraction of that size (see
     {!Renderer.internal_size}), so a game that wants to know what its own
     drawing the player is pointing at has to be told in the buffer's terms. *)
@@ -213,28 +144,6 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
          next one's length rather than falling outside every frame. *)
       loop ctx ~state ~actions ~fullscreen ~relative ~previous:now
 
-(** Open a window and run [state] through the loop, returning what it has become
-    when the game says it is finished or the player quits.
-
-    The engine knows nothing about the state but these callbacks. [update] is
-    given the frame's length, the movement asked for over it and the one-off
-    actions that arrived with it, and returns the next state. [view] says which
-    world and which player to draw the frame from — a game keeps a great deal
-    more than those two, and this is the part of it the renderer understands.
-    [overlay] draws over the finished world before it reaches the screen.
-    [pointing] says whether the mouse is working a cursor over what the game has
-    drawn instead of looking around, and the engine releases and recaptures the
-    cursor to match. [finished] is asked after every update.
-
-    [bindings] is what the player's controls are for, {!Binding.default} unless
-    a game says otherwise. Note what that default does {e not} include: no key
-    ends the run. A run with no other way out has to ask for one — see
-    {!Binding.default} for why the engine will not assume it, and {!run_world}
-    for the one place it does.
-
-    Returns the state the game reached and how it got there; see {!ending}.
-
-    Time passes only while the window has focus; see {!simulate}. *)
 let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
     ?(finished = fun _ -> false) ?(bindings = Binding.default) state =
   with_resource
@@ -278,33 +187,6 @@ let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
         ~state ~actions:Input.untouched ~fullscreen:false ~relative:true
         ~previous:(Clock.now ()))
 
-(** Open a window on [world] and run it until the player quits.
-
-    [extend] is called whenever the player goes through a doorway, with the
-    world and the player's new position, and returns the world to draw from now
-    on. A fixed level needs none; a level that is generated as it is explored
-    uses it to build far enough ahead that the player never sees the edge —
-    {!Config.max_portal_depth} doorways, since that is exactly how deep the
-    renderer looks. It runs on a crossing and not per frame, so a generator may
-    take its time.
-
-    Going through a doorway is the one moment the horizon can have moved, and
-    {!Player.crossed} is what says whether a frame did — not the room the player
-    ended in, which calls a step round a jamb or all the way round a loop of
-    rooms nothing happening. A game that has outgrown this wrapper and moved to
-    {!run} asks {!Player.crossed} for itself rather than working the rule out
-    again.
-
-    This is {!run} over the state the engine can hold on a game's behalf: the
-    world and the player. Escape leaving is this function's rule and not the
-    engine's — a game with screens in it wants that key for closing them, which
-    is why {!Binding.default} binds no such key at all — but a bare world has
-    nothing else to end it with, so this is where the default table is asked for
-    one. A caller with its own idea passes [~bindings] and gets that instead.
-
-    Reports how the run ended, which is what a launcher needs to tell "back to
-    the menu" from "close the program". A program with only one world to show
-    has no use for the answer and can [ignore] it. *)
 let run_world ?(extend = fun world _ -> world)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) world =
   let update (world, player) ~dt:_ ~motion ~actions:_ =

@@ -44,15 +44,19 @@ let channels_arrive_in_order () =
 (* Rows are laid end to end at four bytes a pixel, whatever the file's own
    arrangement was. A picture wider than it is tall would still decode if the
    two extents were swapped and the pixels transposed with them, so the check
-   worth making is that a named pixel is where its coordinates say. *)
+   worth making is that a named pixel is where its coordinates say — asked of
+   the colours that come back rather than of the byte offsets they were read
+   from, which are the decoder's own business. *)
 let rows_are_laid_out_by_width () =
   let s = read "fixtures/swatch.png" in
-  Alcotest.(check int)
-    "one row down is one width along" 16
-    (Surface.offset s ~x:0 ~y:1);
-  Alcotest.(check int)
-    "and the last pixel is the last one" 44
-    (Surface.offset s ~x:3 ~y:2)
+  let at x y = fst (Surface.sample s ~x ~y) in
+  (* The swatch's four corners are four distinct colours, so a picture read
+     transposed, or a row out, could not answer all of them. *)
+  Alcotest.check color "the origin" (Color.rgb 10 100 200) (at 0 0);
+  Alcotest.check color "the end of the first row" (Color.rgb 70 100 170)
+    (at 3 0);
+  Alcotest.check color "the start of the last" (Color.rgb 10 180 190) (at 0 2);
+  Alcotest.check color "and the last pixel" (Color.rgb 70 180 160) (at 3 2)
 
 (* A JPEG has no alpha channel; converting to one that does must fill it solid,
    not clear, or every photograph loaded would come out invisible.
@@ -72,7 +76,8 @@ let a_format_without_alpha_arrives_solid () =
     for x = 0 to 3 do
       Alcotest.(check int)
         (Printf.sprintf "(%d, %d) is solid" x y)
-        255 (Surface.alpha s ~x ~y)
+        255
+        (snd (Surface.sample s ~x ~y))
     done
   done;
   let at x y = fst (Surface.sample s ~x ~y) in
