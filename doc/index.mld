@@ -2,8 +2,7 @@
 
 A first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
 
-It began as a Wolfenstein-style grid raycaster and grew past it. A
-{!Camlcast.World} is a graph of independently-authored {!Camlcast.Room}s, each
+A {!Camlcast.World} is a graph of independently-authored {!Camlcast.Room}s, each
 in its own coordinates, joined at named doorways that you both see and walk
 through: an open one is a portal, drawn recursively into the opening, and a
 {!Camlcast.Transform} carries the camera and the ray across. Rooms are built
@@ -18,6 +17,15 @@ the see-through walls last so the room behind shows through. Surfaces take their
 patterns from a procedural {!Camlcast.Texture} and their colour from their
 material, dimmed by the world's {!Camlcast.Atmosphere}. The buffer is then
 scaled to the window by the GPU.
+
+{1 Two guides}
+
+- {{!page-"making-a-game"} {b Making a game on CamlCast}} — from an empty
+  directory to a game, one engine feature at a time, with the demo that isolates
+  each one. Start here if you want to build something on the engine.
+- {{!page-"building-the-engine"} {b Building the engine from scratch}} — how the
+  picture is drawn, rebuilt by hand in eight phases with every derivation written
+  out. Start here if you want to know how a raycaster works.
 
 {1 Two libraries}
 
@@ -35,25 +43,31 @@ and two games can share an engine without sharing a look.
 {1 Building a game on it}
 
 {!Camlcast.Engine.run_state} runs a state of whatever type the game likes, and
-asks five things of it: [update], given the frame's length, the movement asked
+asks six things of it: [update], given the frame's length, the movement asked
 for over it and what the player is pressing and holding through it; [view],
 which world and which player to draw this frame from; [overlay], anything drawn
 over the finished picture; [pointing], whether the mouse is working a cursor
-over something the game has drawn instead of looking around; and [finished],
-whether the run is over. Everything else a game keeps — phases, doors, a
-journal, a random seed, what it has already built — stays on the game's side of
-the line and the engine stays a pure function of what it is handed. Time passes
-only while the window has focus.
+over something the game has drawn instead of looking around; [finished],
+whether the run is over; and [escape], whether that key ends the run — off
+unless asked for, because a game with screens in it wants it for closing them.
+Everything else a game keeps — phases, doors, a journal, a random seed, what it
+has already built — stays on the game's side of the line and the engine stays a
+pure function of what it is handed. Time passes only while the window has focus.
+
+It reports how the run ended, as an {!Camlcast.Engine.ending}: [Closed] for a
+window that was shut, [Left] for a run that finished on its own terms. Only
+something that opens one window after another needs the difference.
 
 Input arrives as controls and not as actions — {!Camlcast.Input.pressed},
 {!Camlcast.Input.released}, {!Camlcast.Input.val-down} and
 {!Camlcast.Input.held_for} over a key or a mouse button. What "interact" or
 "journal" mean is a game's own table from the one to the other.
 
-{!Camlcast.Engine.run} is that loop over the only state the engine used to be
-able to hold: a {!Camlcast.World} and the player walking it, plus an optional
-[grow : World.t -> Player.t -> World.t], which it calls whenever the player
-crosses into another room.
+{!Camlcast.Engine.enter} is that loop over a bare {!Camlcast.World} and the
+player walking it, plus an optional [grow : World.t -> Player.t -> World.t],
+which it calls whenever the player crosses into another room.
+{!Camlcast.Engine.run} is [enter] with the ending thrown away, for a program with
+only one world to show.
 
 A game that builds its world as the player explores it uses [grow] to stay far
 enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
@@ -124,15 +138,22 @@ Each is a single file with the feature it demonstrates as the only thing in it.
 
 - {!Camlcast_demo.Catalogue} — every demo there is, and what each one is for
 - {!Camlcast_demo.Masonry} — materials: one pattern function, applied at several colours
-- {!Camlcast_demo.Gallery} — decals on walls, sprites in the room
+- {!Camlcast_demo.Gallery} — decals on the walls, sprites standing in the room
 - {!Camlcast_demo.Glass} — see-through walls and the translucent pass
 - {!Camlcast_demo.Slopes} — inclined floors and roofs, and a seamless threshold
 - {!Camlcast_demo.Daylight} — the open sky, and two rooms under different ones
 - {!Camlcast_demo.Haze} — atmosphere: the fade into the distance and the light
-- {!Camlcast_demo.Portals} — one room, built once, joined in two places
-- {!Camlcast_demo.Changing} — replacing a room: a sign rebuilt every frame
-- {!Camlcast_demo.Doors} — doors that open and shut, and a lock that is the
-  game's own
+- {!Camlcast_demo.Portals} — doorways: the same room, joined in two places
+- {!Camlcast_demo.Changing} — replacing a room: a sign that moves, rebuilt
+  every frame
+- {!Camlcast_demo.Floating} — sprites off the floor, and frames chosen rather
+  than made
+- {!Camlcast_demo.Dust} — a chamber of falling dust: every mote moved every
+  frame
+- {!Camlcast_demo.Chalk} — marking a wall where the crosshair is, on the face
+  you see
+- {!Camlcast_demo.Doors} — doors that open and shut, on both sides of the link
+  at once
 - {!Camlcast_demo.Targets} — what the crosshair is on, through a doorway
 - {!Camlcast_demo.Trail} — traversal traces, as a return route
 - {!Camlcast_demo.Endless} — the grow hook: a corridor built as you walk it
@@ -141,7 +162,8 @@ Each is a single file with the feature it demonstrates as the only thing in it.
 - {!Camlcast_demo.Controls} — press versus hold, and letting go of the cursor
 - {!Camlcast_demo.Loading} — art read from files, beside the generated kind
 - {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping, colour
-- {!Camlcast_demo.Level} — the five-room showcase world
+- {!Camlcast_demo.Level} — [showcase]: the five-room level, with all of the
+  above at once
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
 - {!Camlcast_demo.Pictures} — two decals and two sprites
 - {!Camlcast_demo.Surfaces} — the demos' materials, daylight sky and air

@@ -1,0 +1,1114 @@
+{0 Making a game on CamlCast}
+
+A step-by-step guide to building a game on this engine, from an empty directory
+to something you can walk around in. Every step adds one feature, shows the code
+that uses it, says what you should see when you run it, and names the demo that
+does nothing else — so anything unclear here can be read at full length in a file
+short enough to finish in a sitting.
+
+{b Who this is for.} Anyone who can write OCaml. No graphics background is
+assumed: the engine draws the picture, and what a game hands it is geometry and
+values. If you want to know {e how} the picture gets drawn, that is the other
+page — {{!page-"building-the-engine"} Building the engine from scratch}.
+
+{b What you will have built.} A world of rooms joined by doorways, dressed in
+materials of your own, with pictures on the walls and figures standing in it,
+doors that open, a HUD over the top, a crosshair that knows what it is pointing
+at, and a level that builds itself as the player walks into it.
+
+{1 Four things to know before the first line}
+
+These surprise everyone, and every one of them is load-bearing.
+
+{2 There is no level file format}
+
+No JSON, no TOML, no map editor, no custom binary. {b A level is OCaml code.} A
+room is a value built by calling functions, and a world is a list of those with a
+list of links beside it. That is the whole of it — so a level is type-checked, a
+level generator is an ordinary function, and half a level can be shared between
+two others by giving it a name.
+
+The only things read from disk are PNG and JPEG, through
+{!Camlcast.Texture.load}, {!Camlcast.Image.load} and {!Camlcast.Font.make}'s
+atlas. See {{!files} Art from files}.
+
+{2 The engine holds no content}
+
+Not one colour, pattern, picture or room. What it has are the types those things
+are values of. So every step below supplies its own {!Camlcast.Texture},
+{!Camlcast.Material} and {!Camlcast.Atmosphere}, and two games built on this
+engine need not look remotely alike.
+
+{2 Two ways of failing}
+
+Which one you get says what kind of mistake it was.
+
+{ul
+{li {b Things that can fail at run time return a result} —
+    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.run},
+    {!Camlcast.Engine.enter}, {!Camlcast.Engine.run_state},
+    {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
+    {!Camlcast.Framebuffer.create}. A missing file is one of these.}
+{li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
+    {!Camlcast.World.link}, {!Camlcast.World.add_room},
+    {!Camlcast.World.open_doorway}, {!Camlcast.Room.doorway},
+    {!Camlcast.Font.make}. A doorway linked to nothing, two rooms with the same
+    name, a doorway wider than the wall it is cut into — these are bugs in the
+    level, not conditions to handle, and they stop the program with a message
+    naming what was wrong.}}
+
+So [World.make] crashing is the engine telling you the level is malformed. Read
+the message; it names the room and the doorway.
+
+{2 Rooms are wound counterclockwise}
+
+Author a room's boundary counterclockwise, so each wall's normal faces {e into}
+the room. Give a doorway's endpoints in that same direction. A link between two
+doorways is derived from their four endpoints and nothing else, and
+{!Camlcast.Transform.between} pairs them in reverse — because the two rooms
+describe the same opening from opposite sides. Wind one the other way and the
+neighbour arrives inside out.
+
+If a room looks black from the inside, this is why.
+
+{1 Step 0 — A project that depends on the engine}
+
+The engine is not on opam yet, so pin it from git.
+
+{@sh[
+mkdir mygame && cd mygame
+opam switch create . 5.5.0        # or use a switch you already have
+opam pin add camlcast git+https://github.com/pharick/camlcast.git
+]}
+
+{b If the pin fails on macOS}, it is opam's depext check: Homebrew ships
+[sdl2-compat] under the name [sdl2] and opam cannot see it. Install the system
+libraries yourself and tell opam to stop looking:
+
+{@sh[
+brew install sdl2 sdl2_image
+opam pin add camlcast git+https://github.com/pharick/camlcast.git --no-depexts
+]}
+
+On Debian or Ubuntu, opam resolves [libsdl2-dev] and [libsdl2-image-dev] through
+apt without help. On Windows, use the MSYS2 environment.
+
+Three files. [dune-project]:
+
+{[
+(lang dune 3.21)
+(name mygame)
+]}
+
+[bin/dune]:
+
+{[
+(executable
+ (name main)
+ (libraries camlcast))
+]}
+
+And [bin/main.ml], empty for now.
+
+{b Check it:} [dune build] finishes with no output.
+
+{1:room Step 1 — One room you can walk in}
+
+{b Goal.} A window, four walls, a floor and a ceiling, and mouse-look movement
+inside them.
+
+Six values and you are standing in a room. Here is the whole program:
+
+{@ocaml[
+open Camlcast
+
+(* A pattern is a pure function from a texel coordinate to a colour. This one is
+   a check; Color.level scales all three channels together, so it moves the
+   brightness without touching the hue. *)
+let checker ~color ~u ~v =
+  Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
+
+let stone =
+  Material.make ~pattern:(Texture.generate (checker ~color:(Color.rgb 150 150 160)))
+
+let ground =
+  Material.make ~pattern:(Texture.generate (checker ~color:(Color.rgb 116 110 98)))
+
+let air =
+  Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
+    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
+    ~directional:0.4
+
+let world =
+  let height = 4. in
+  (* Counterclockwise, so every wall's normal faces into the room. *)
+  let sw = Vec.make (-6.) (-6.)
+  and se = Vec.make 6. (-6.)
+  and ne = Vec.make 6. 6.
+  and nw = Vec.make (-6.) 6. in
+  let wall a b = Room.wall ~height ~material:stone a b in
+  let floor = Plane.horizontal 0. in
+  let room =
+    Room.make
+      ~floor:{ Room.plane = floor; material = ground }
+      ~ceiling:
+        (Room.Roof { Room.plane = Plane.above floor height; material = stone })
+      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
+  in
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:air
+    ~spawn:("room", Vec.make (-4.5) 0.)
+
+let () =
+  match Engine.run world with
+  | Ok () -> ()
+  | Error (`Msg m) ->
+      prerr_endline m;
+      exit 1
+]}
+
+{b Check it:} [dune exec bin/main.exe]. A window opens on a square room with a
+checked floor. {b W}/{b A}/{b S}/{b D} walk, the mouse looks around, {b F11} is
+fullscreen, {b Esc} quits.
+
+{2 What each piece is}
+
+{ul
+{li {!Camlcast.Vec} is a plain 2-D point. One unit is one "cell" — the eye sits
+    at {!Camlcast.Config.eye_height}, half a unit up, so a wall four units tall
+    is about eight times eye height.}
+{li {!Camlcast.Texture.generate} turns a function of [~u] and [~v] into a square
+    pattern that tiles {e once per world unit}. It is a density, not a
+    resolution: a 64-texel texture on a wall six units long repeats six times.}
+{li {!Camlcast.Material.make} wraps a pattern into the thing a wall wears.}
+{li {!Camlcast.Plane} is an elevation over the room, [z = a*x + b*y + c].
+    {!Camlcast.Plane.horizontal} is the flat case and {!Camlcast.Plane.above}
+    raises one by a fixed amount.}
+{li {!Camlcast.Room.make} takes a wall list, a floor surface and a
+    {!Camlcast.Room.type-ceiling}.}
+{li {!Camlcast.World.make} names the rooms, links their doorways (none yet),
+    gives the world its air, and says where the player starts.}
+{li {!Camlcast.Engine.run} opens the window and runs the loop until the player
+    quits.}}
+
+{b If the room is black from the inside}, the walls are wound clockwise. Reverse
+them.
+
+{b Read next:} [demo/masonry.ml] is this, with four materials and a post in it.
+
+{1 Step 2 — Colour, patterns and materials}
+
+{b Goal.} Walls that look like something.
+
+A texel is a {!Camlcast.Color.t}, so one wall can have more than one colour in
+it: brick with grey mortar between it, lead around a pale pane. The idiom that
+makes patterns reusable is {b taking the colours before [~u] and [~v]}, so that a
+partial application is a pattern:
+
+{@ocaml[
+let hash = Texture.hash
+
+(* Running bond: courses 16 texels high, every other one shifted half a brick so
+   the vertical joints never line up. The mortar is its own colour and not a
+   paler brick — which is the whole reason a texel carries a colour. *)
+let brick ~color ~mortar ~u ~v =
+  let course = v / 16 in
+  let u = (u + if course land 1 = 0 then 0 else 16) mod Texture.size in
+  if v mod 16 < 2 || u mod 32 < 2 then Color.level mortar 210
+  else Color.level color (225 + (hash (u / 32) course mod 30))
+
+let solid f = Material.make ~pattern:(Texture.generate f)
+
+let red =
+  solid (brick ~color:(Color.rgb 200 70 70) ~mortar:(Color.rgb 188 182 172))
+
+let grey =
+  solid (brick ~color:(Color.rgb 120 120 128) ~mortar:(Color.rgb 188 182 172))
+]}
+
+Two materials, one function. {!Camlcast.Color.level} is the join between the two
+halves: patterns compute in the 0..255 that {!Camlcast.Texture.noise} and the
+hashes beside it speak, and [level] turns that back into a colour by scaling all
+three channels together.
+
+{!Camlcast.Texture.noise} is a value-noise field that {b wraps at the texture's
+size}, which is what lets a pattern have no courses or joints at all — an
+unwrapped field would put a hard seam down every wall, one per world unit, and a
+pattern with no lines of its own has nothing to hide it behind.
+
+{b Check it:} swap [stone] for [red] in step 1 and look closely at a course line.
+The mortar is grey, not pink.
+
+{b Read next:} [demo/patterns.ml] has seven patterns as pure functions and
+[demo/surfaces.ml] fills their colours in; [demo/masonry.ml] shows four at once.
+
+{1 Step 3 — The air and the light}
+
+{b Goal.} Distance and shape, which come from the air rather than from the walls.
+
+An {!Camlcast.Atmosphere} is one per {e world}, and is most of what tells one
+place from another:
+
+{@ocaml[
+let air =
+  Atmosphere.make
+    ~haze:(Color.rgb 24 24 32)       (* what things fade to *)
+    ~fog_distance:12.                (* how far away that takes *)
+    ~min_brightness:0.25             (* the darkest a face ever gets *)
+    ~light:(Vec.make (-0.4) (-0.9))  (* where the light comes from; normalised for you *)
+    ~ambient:0.6                     (* light arriving from everywhere *)
+    ~directional:0.4                 (* light arriving from ~light *)
+]}
+
+[ambient] and [directional] together decide how much a wall's angle matters: all
+ambient and every wall is equally lit, all directional and a wall facing away is
+black. [fog_distance] is the scale over which things fade into [haze], so a small
+number is a fogbound cellar and a large one a clear day.
+
+{b Check it:} set [~fog_distance:4.] and walk backwards. The far wall
+disappears.
+
+{b Read next:} [demo/haze.ml].
+
+{1 Step 4 — Shapes without writing out every wall}
+
+{b Goal.} Rooms that are not squares.
+
+{@ocaml[
+(* An open run of walls, or a closed loop with ~closed:true. *)
+let corridor =
+  Room.path ~height ~material:stone
+    [ Vec.make 0. 0.; Vec.make 8. 0.; Vec.make 8. 3.; Vec.make 14. 3. ]
+
+(* A hexagonal room — or, at a small radius, a pillar standing in one. *)
+let hexagon =
+  Room.regular_polygon ~center:(Vec.make 0. 0.) ~radius:8. ~sides:6
+    ~rotation:0. ~height ~material:stone
+
+let post =
+  Room.regular_polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
+    ~rotation:0.4 ~height:2.6 ~material:oak
+]}
+
+Both return a wall list, so they concatenate with walls you wrote by hand.
+Nothing says a room's walls must form one loop: a pillar is four more walls in
+the same list. And each wall carries its own height, so a low wall drops below
+its neighbours and you see over it.
+
+{b Read next:} [demo/masonry.ml] puts a post in a square room.
+
+{1:doorways Step 5 — Two rooms and a doorway}
+
+{b Goal.} A second room you can see into and walk through.
+
+This is the engine's defining feature, so it is worth being slow about. A
+{!Camlcast.Room} is authored in {b its own coordinates} and knows nothing of
+where it sits. A {!Camlcast.World} names rooms and links their doorways, and a
+link is a rigid rotation and translation derived from the four endpoints — so two
+rooms may sit on top of each other numerically and still be separate places, and
+a corridor can return you somewhere it could not possibly go.
+
+{!Camlcast.Room.doorway} cuts a gap in the middle of the wall that would have run
+from [a] to [b], and hands back {b both} the two jambs left either side {b and}
+the threshold that fills the gap. Taking them together is what stops a boundary
+and its openings from drifting apart:
+
+{@ocaml[
+let height = 5.
+
+(* One room, built once. Used twice below. *)
+let chamber () =
+  let sw = Vec.make (-3.5) 0.
+  and se = Vec.make 3.5 0.
+  and ne = Vec.make 3.5 9.
+  and nw = Vec.make (-3.5) 9. in
+  let jambs, back =
+    Room.doorway ~name:"back" ~width:2.6 ~opening:3. ~height ~material:brick sw se
+  in
+  let wall a b = Room.wall ~height ~material:brick a b in
+  Room.make ~thresholds:[ back ]
+    ~floor:{ Room.plane = Plane.horizontal 0.; material = ground }
+    ~ceiling:
+      (Room.Roof { Room.plane = Plane.horizontal height; material = soffit })
+    (jambs @ [ wall se ne; wall ne nw; wall nw sw ])
+
+let world =
+  let corner k =
+    let angle = float_of_int k *. Float.pi /. 3. in
+    Vec.make (8. *. cos angle) (8. *. sin angle)
+  in
+  let gate k name =
+    Room.doorway ~name ~width:2.6 ~opening:3. ~height ~material:stone (corner k)
+      (corner ((k + 1) mod 6))
+  in
+  let right_jambs, right = gate 0 "right"
+  and left_jambs, left = gate 5 "left" in
+  let side k =
+    Room.wall ~height ~material:stone (corner k) (corner ((k + 1) mod 6))
+  in
+  let hub =
+    Room.make ~thresholds:[ right; left ]
+      ~floor:{ Room.plane = Plane.horizontal 0.; material = ground }
+      ~ceiling:
+        (Room.Roof { Room.plane = Plane.horizontal height; material = soffit })
+      (List.concat [ right_jambs; left_jambs; List.map side [ 1; 2; 3; 4 ] ])
+  in
+  World.make
+    ~rooms:[ ("hub", hub); ("east", chamber ()); ("west", chamber ()) ]
+    ~links:
+      [ (("hub", "right"), ("east", "back"));
+        (("hub", "left"), ("west", "back")) ]
+    ~atmosphere:air
+    ~spawn:("hub", Vec.make (-6.) 0.)
+]}
+
+{b Check it:} two doorways in a hexagonal hub, each with a room beyond. The two
+rooms beyond are {e the same room}, built once and used twice — what puts one off
+to the right and one off to the left, each turned to meet the wall it opens onto,
+is the doorway and nothing else.
+
+{2 Three arguments worth naming}
+
+[~width] is how wide the gap is, [~opening] is how tall, and [~height] is the
+height of the wall being cut — which becomes the threshold's {b lintel}, the
+strip of wall left standing above the opening. Without a lintel you would see
+over the top of a closed door.
+
+{2 What [World.make] refuses}
+
+All of these raise [Invalid_argument] with a message naming the offender:
+
+{ul
+{li an unknown room or doorway name;}
+{li two rooms with the same name, or two doorways with the same name in one
+    room;}
+{li a doorway linked twice, or a doorway nothing links to;}
+{li linked doorways that differ in length or in height;}
+{li linked doorways that disagree about a door — a leaf on one side and an
+    opening on the other would be a door you could see through from behind.}}
+
+What it does {e not} check is whether the two floors meet. That is the next step.
+
+{b Read next:} [demo/portals.ml].
+
+{1 Step 6 — Sloped floors and roofs}
+
+{b Goal.} A floor that is not flat, and a doorway with no step in it.
+
+A floor is a {!Camlcast.Plane}, [z = a*x + b*y + c], and so is a roof. Both tilt,
+independently of each other:
+
+{@ocaml[
+let hall_floor = Plane.make ~a:0.11 ~b:0. ~c:0.
+let hall_roof = Plane.make ~a:0.17 ~b:0. ~c:height
+]}
+
+The hall now climbs away from you and its roof climbs half again as fast, so the
+room opens up ahead as you walk into it.
+
+Each room has its own floor and nothing forces two of them to meet. Write two
+planes out separately with the numbers that look right and they will differ by a
+few thousandths where they meet, which reads as a step you walk into. Derive the
+second from the first instead, with {!Camlcast.Plane.through}:
+
+{@ocaml[
+(* The transform the link is about to be given, derived here so a floor can be
+   carried across the doorway before the world that joins the rooms exists. *)
+let across (a : Room.threshold) (b : Room.threshold) =
+  Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
+
+let onward = across hall_onward up_back
+let up_floor = Plane.through onward hall_floor
+let up_roof = Plane.through onward hall_roof
+]}
+
+The same surface, expressed in the other room's terms. Now
+{!Camlcast.World.seam_gap} is zero by construction rather than by care.
+
+{b Check it:} walk through. Nothing catches underfoot, and the ceiling carries on
+at the same angle.
+
+{b Read next:} [demo/slopes.ml].
+
+{1 Step 7 — Open sky}
+
+{b Goal.} A room with no roof.
+
+The ceiling is chosen per room, so one room may have a roof while its neighbour
+is open:
+
+{@ocaml[
+let noon =
+  { Sky.horizon = Color.rgb 176 196 222;
+    zenith = Color.rgb 40 62 126;
+    sun = Color.rgb 255 246 216;
+    sun_azimuth = -0.9;  (* radians: where the sun is around the compass *)
+    sun_height = 0.5;    (* 0 is on the horizon, 1 is overhead *)
+    sun_radius = 0.55;   (* how big and soft the glow is *)
+    gradient = 2.2       (* how fast horizon gives way to zenith *)
+  }
+
+let yard = Room.make ~ceiling:(Room.Open noon) (* … *)
+]}
+
+A sky is an {e infinitely far} backdrop: its colour depends only on the direction
+looked in, never on where you stand. So it does not slide past as you walk — it
+wheels as you turn and tilts as you look up.
+
+{b The sky lights nothing.} What lights the walls is the world's
+{!Camlcast.Atmosphere}, which is one per world. A room under a dusk sky is as
+brightly lit as one under noon unless you change the air too.
+
+{b Read next:} [demo/daylight.ml] puts two yards under two skies.
+
+{1 Step 8 — Pictures: decals and sprites}
+
+{b Goal.} Something to look at that is not a wall.
+
+An {!Camlcast.Image} is colour and alpha at whatever shape it was drawn — unlike
+a {!Camlcast.Texture}, which is square and tiles a world cell because it is part
+of a surface rather than a thing in its own right.
+
+{@ocaml[
+let poster =
+  Image.make 32 (fun ~u ~v ->
+      if u < 2 || u > 29 || v < 2 || v > 29 then (Color.rgb 22 22 26, 255)
+      else
+        let du = float_of_int u -. 16. and dv = float_of_int v -. 16. in
+        let d = Float.hypot du dv in
+        if d > 8. && d < 12. then (Color.rgb 232 200 60, 255)
+        else (Color.rgb 155 42 42, 255))
+]}
+
+{2 Decals — pictures fixed to a wall}
+
+A decal is drawn as part of the wall, in the same pass and the same light, so
+turn side-on to one and it foreshortens with the masonry it is painted over.
+
+{@ocaml[
+let hung =
+  Room.wall ~height ~material:panel se ne
+    ~decals:
+      [ Room.decal ~along:3. ~z:1.7 ~half_width:1. ~half_height:1. painting;
+        Room.decal ~along:6.5 ~z:1.7 ~half_width:0.8 ~half_height:1. poster ]
+]}
+
+[~along] is measured from the wall's {e first} endpoint and [~z] up from the
+floor, so a decal is placed in the wall's own terms and stays put if the room
+around it moves.
+
+Two optional arguments matter. [~facing] puts the decal on one face of the wall
+and not the other, which is what makes a chalk mark a mark rather than a hole.
+[~glow] is how much of its own light it makes, from paint at [0.] to undimmable
+at [1.] — that is what keeps a mark readable in a room whose light has failed,
+without the light having to be implemented in any particular way to spare it.
+
+{2 Sprites — pictures standing in the room}
+
+A billboard: a position on the floor and a size, always facing you, composited by
+depth after the walls are done — so it goes behind what is in front of it and in
+front of what is not.
+
+{@ocaml[
+Room.make
+  ~sprites:
+    [ Room.sprite ~size:1.8 ~image:figure (Vec.make 0. 1.8);
+      Room.sprite ~size:0.9 ~image:barrel (Vec.make (-2.) (-2.5));
+      (* ~base floats the foot above the floor — measured from the floor, so on
+         a slope it rides with the ground. A hanging lamp, or a mote of dust. *)
+      Room.sprite ~base:2.2 ~size:0.4 ~image:lamp (Vec.make 3. 3.) ]
+]}
+
+A sprite is as wide as its {e picture}, not as wide as it is tall, so a wide
+short image is drawn wide and short. Cut sprites out against
+{!Camlcast.Image.clear} so only the figure is drawn and not the box it came in.
+
+{b Read next:} [demo/gallery.ml] for both side by side, [demo/floating.ml] for
+[~base] and for choosing among frames made in advance, [demo/dust.ml] for a great
+many of them moved every frame.
+
+{1 Step 9 — See-through walls}
+
+{b Goal.} A grille you can see the next room through, and a window that tints it.
+
+A texture can carry a per-texel alpha. A material wearing one is not opaque, and
+the renderer defers it to the translucent pass:
+
+{@ocaml[
+let seen_through f = Material.make ~pattern:(Texture.generate_masked f)
+
+(* Solid bars, clear holes. *)
+let bars ~color ~u ~v =
+  if u mod 16 < 5 || v mod 16 < 5 then
+    (Color.level color (70 + (hash (u / 16) (v / 16) mod 30)), 255)
+  else (Color.rgb 0 0 0, 0)
+
+(* Solid lead, translucent panes: alpha 80 rather than 0 or 255. *)
+let glass ~lead ~pane ~u ~v =
+  let size = Texture.size in
+  let mullion =
+    u < 2 || u >= size - 2 || v < 2 || v >= size - 2
+    || abs (u - (size / 2)) < 2
+    || abs (v - (size / 2)) < 2
+  in
+  if mullion then (Color.level lead 150, 255) else (Color.level pane 235, 80)
+
+let grille = seen_through (bars ~color:(Color.rgb 105 108 120))
+]}
+
+Nothing else changes — hang the material on an ordinary wall.
+{!Camlcast.Material.opaque} is derived from the pattern's alpha, and that is what
+routes it. Sprites and see-through walls are sorted {e together} by depth, which
+is what lets a sprite cover a window in front of it and show through one behind
+it.
+
+{b Read next:} [demo/glass.ml].
+
+{1 Step 10 — Doors}
+
+{b Goal.} A doorway with a leaf in it that opens and shuts.
+
+A {!Camlcast.Door} has exactly two states. {b "Locked" is a game's word, not the
+engine's} — the engine knows only whether something is drawn across the opening.
+
+{@ocaml[
+let oak_door = Door.make oak  (* Closed unless told otherwise *)
+let standing_open = Door.make ~state:Door.Open oak
+
+let jambs, threshold =
+  Room.doorway ~name:"cellar" ~door:oak_door ~width:2.4 ~opening:3. ~height
+    ~material:stone a b
+]}
+
+[~door] is optional and takes a {!Camlcast.Door.t} directly, so a helper that
+threads "a door, or none" through several doorways forwards it as [?door] with
+an option — which is what [demo/doors.ml] does.
+
+A closed leaf is drawn and the step is refused; a door standing [Open] is neither
+drawn nor felt, so it behaves exactly as an opening with no door in it. Both
+sides of a link must agree about whether there is a door at all.
+
+Opening one is a world rebuild, from your own update function:
+
+{@ocaml[
+let toggled world (player : Player.t) threshold =
+  let current =
+    (World.room world player.Player.room).Room.thresholds.(threshold).Room.door
+  in
+  let next =
+    match Option.map Door.shut current with
+    | Some true -> Door.Open
+    | _ -> Door.Closed
+  in
+  World.set_door world ~room:player.Player.room ~threshold next
+]}
+
+{!Camlcast.World.set_door} sets it on {e both} sides of the link at once, which
+is what keeps the pair legal. A lock is then your own table of which doorways
+refuse to be toggled.
+
+{b Read next:} [demo/doors.ml], which has exactly that table.
+
+{1:files Step 11 — Art from files}
+
+{b Goal.} Textures and pictures read from PNG or JPEG instead of generated.
+
+{@ocaml[
+open Result_ext  (* for let* and let+ *)
+
+let pattern name =
+  let* path = Asset.path name in
+  Texture.load path
+
+let picture name =
+  let* path = Asset.path name in
+  Image.load path
+
+let build () =
+  let* tiles = pattern "assets/tiles.png" in
+  let* poster = picture "assets/poster.png" in
+  (* … build the world from them … *)
+  Ok (world tiles poster)
+]}
+
+A loaded texture and a generated one produce the same {!Camlcast.Texture.t}, and
+the renderer has no way to ask which it was given. {b A texture must be square};
+an image may be any rectangle. A file with no alpha of its own arrives solid.
+
+{2 Where the files have to be}
+
+{!Camlcast.Asset.path} searches {b relative to the executable}, never to the
+source tree — because a shipped game has no source tree. In order:
+
+{ol
+{li [../Resources] — inside a macOS [.app] bundle;}
+{li beside the executable — a tarball, or a Windows folder;}
+{li one directory above it — which under dune is [_build/default].}}
+
+So under dune, put your art in [assets/] at the project root and make sure dune
+copies it into [_build]. The root [dune] file in this repository shows how:
+
+{[
+(alias
+ (name default)
+ (deps
+  (alias_rec all)
+  (source_tree assets)))
+]}
+
+Setting the [CAMLCAST_ASSETS] environment variable replaces that list entirely —
+it looks there and nowhere else, and says so if it fails.
+
+{b Load once, not per frame.} Put loaded art behind [lazy], or load it before the
+world is built. Decoding a picture inside a frame is the thing the engine is
+arranged to make unnecessary.
+
+{b Read next:} [demo/loading.ml] puts a loaded pattern, decal and sprite beside
+their generated counterparts.
+
+{1 Step 12 — Your own game state}
+
+{b Goal.} Anything that is not just a world and a player walking it.
+
+Everything so far used {!Camlcast.Engine.run}, which holds the only state the
+engine can hold on its own. A game with phases, doors, a journal, a score or a
+random seed uses {!Camlcast.Engine.run_state}, which runs a state of {e whatever
+type you like} and asks six things of it:
+
+{ul
+{li [update] — the next state, given how long the frame lasted, the movement
+    asked for over it, and what the player is pressing and holding through it;}
+{li [view] — which world and which player to draw this frame from;}
+{li [overlay] — anything drawn over the finished picture (optional);}
+{li [pointing] — whether the mouse is working a cursor over something you have
+    drawn, rather than looking around (optional);}
+{li [finished] — asked after every update; [true] ends the run (optional);}
+{li [escape] — whether {b Esc} ends the run. {b Off unless asked for}, because
+    that key belongs to whoever opened the window: a game with screens in it
+    wants it for closing them.}}
+
+{@ocaml[
+open Camlcast
+open Result_ext
+
+type phase = Waiting | Burning | Done
+type t = { phase : phase; left : float; player : Player.t }
+
+let start = { phase = Waiting; left = fuse; player = Player.spawn world }
+
+let update state ~dt ~motion ~actions =
+  (* Engine.step turns, pitches and walks in the right order and resolves
+     collision. Nearly every game's update begins with this line. *)
+  let player = Engine.step world state.player motion in
+  match state.phase with
+  | Waiting ->
+      if Input.pressed actions (Input.Key Sdl.Scancode.space) then
+        { phase = Burning; left = fuse; player }
+      else { state with player }
+  | Burning ->
+      let left = state.left -. dt in
+      if left <= 0. then { phase = Done; left = 0.; player }
+      else { state with left; player }
+  | Done -> { state with player }
+
+(* The world handed to the renderer need not be the one collision uses, and need
+   not outlive the frame. Here the light fails as the fuse burns down. *)
+let view state =
+  let light =
+    match state.phase with
+    | Waiting -> 1.
+    | Burning -> state.left /. fuse
+    | Done -> 0.
+  in
+  ({ world with World.atmosphere = air ~light }, state.player)
+
+let () =
+  match
+    Engine.run_state ~escape:true ~update ~view
+      ~finished:(fun state -> state.phase = Done)
+      start
+  with
+  | Ok (_final, _ending) -> ()
+  | Error (`Msg m) ->
+      prerr_endline m;
+      exit 1
+]}
+
+{2 How a run ends}
+
+[run_state] hands back the state it reached and an {!Camlcast.Engine.ending}:
+[Closed] means the window was shut or the desktop asked the program to stop,
+[Left] means the run ended on its own terms — [finished] said so, or Escape was
+pressed by a run that asked for it. Only something that opens one window after
+another needs the difference; a launcher shows its menu again after [Left] and
+stops after [Closed]. {!Camlcast.Engine.enter} is [run_state] over a bare world,
+returning the same answer, and {!Camlcast.Engine.run} is [enter] with the answer
+thrown away.
+
+{2 Time and focus}
+
+Time passes only while the window has focus: an unfocused frame is handed
+[dt = 0.] and no motion, so a game left behind another window is not given the
+minutes it spent there when it comes back. A frame where [pointing] is true keeps
+its clock but drops the motion.
+
+{b Read next:} [demo/phases.ml].
+
+{1 Step 13 — Input}
+
+{b Goal.} Keys and mouse buttons that mean something in your game.
+
+{b Input arrives as controls, not as actions.} The engine knows only that
+something went down, came up, or has been held for so many seconds. What
+"interact" or "journal" mean is your own table from the one to the other.
+
+{@ocaml[
+open Tsdl  (* to name a scancode *)
+
+let interact = Input.Key Sdl.Scancode.e
+let journal = Input.Key Sdl.Scancode.tab
+let primary = Input.Button Input.Left
+
+let update state ~dt ~motion ~actions =
+  let player = Engine.step world state.player motion in
+  (* Four questions, over a key or a mouse button alike. *)
+  let _ = Input.down actions interact in        (* is it down now? *)
+  let _ = Input.pressed actions interact in     (* did it go down this frame? *)
+  let _ = Input.released actions interact in    (* did it come up this frame? *)
+  let held = Input.held_for actions interact in (* for how many seconds? *)
+  (* held_for keeps its value for the one frame released is true, so a release
+     can ask how long the hold was — a tap and a hold on one key. *)
+  if Input.released actions interact then
+    if held >= 0.4 then commit state player else tap state player
+  else { state with player }
+]}
+
+Movement is handled for you: [~motion] already carries the frame's forward,
+strafe, turn and pitch, with {b W}/{b A}/{b S}/{b D}, the arrow keys and the
+mouse wired in, and [Engine.step] applies it in the right order — turn and pitch
+before walking, so a frame that both turns and moves walks in the direction it
+ends up facing.
+
+{b Read next:} [demo/controls.ml].
+
+{1 Step 14 — Drawing over the world: HUD, text and a cursor}
+
+{b Goal.} A layer in front of everything.
+
+[overlay] runs on the finished framebuffer after the world and before it reaches
+the screen, so what it draws is in front of everything and clipped by nothing but
+the buffer's own edges.
+
+{b The coordinates are the framebuffer's, not the window's.} The buffer is a
+whole-number fraction of the window — see {!Camlcast.Renderer.internal_size},
+capped at {!Camlcast.Config.max_render_height} — and the GPU stretches the
+result. Measure everything from the buffer you are handed and the HUD keeps its
+proportions at any window size.
+
+{@ocaml[
+let overlay fb state =
+  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
+  let unit = Int.max 3 (height / 60) in
+  (* A band, blended so the world shows through it. *)
+  Paint.rect fb ~x:0 ~y:(height - (8 * unit)) ~w:width ~h:(4 * unit) ~r:10 ~g:12
+    ~b:20 ~alpha:110;
+  Paint.bar fb ~x:(2 * unit)
+    ~y:(height - (7 * unit))
+    ~w:(width - (4 * unit))
+    ~h:(2 * unit)
+    ~fraction:(state.fuel /. full) ~r:230 ~g:190 ~b:90;
+  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+]}
+
+{!Camlcast.Paint} has clipped rectangles, bars, lines, dots, outlines, whole
+images and sub-rectangles of them. Everything it draws is clipped against the
+buffer, which is why {!Camlcast.Framebuffer.set} and
+{!Camlcast.Framebuffer.blend} do not check where they are writing — the guards
+live in [Paint] instead.
+
+{2 Text}
+
+{!Camlcast.Font} is a bitmap font on a fixed grid: a glyph's place in the atlas
+is arithmetic on its code point and its advance is the cell width, so a font is a
+picture and four numbers, with no metrics table to author beside the PNG or to
+let drift out of step with it. Text is therefore monospaced.
+
+{@ocaml[
+let font =
+  lazy
+    (match
+       let* path = Asset.path "assets/font.png" in
+       let+ atlas = Image.load path in
+       Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
+     with
+    | Ok font -> font
+    | Error (`Msg m) -> failwith ("could not read the font: " ^ m))
+
+let overlay fb _state =
+  let font = Lazy.force font in
+  let column = (fb.Framebuffer.width * 2 / 3) - 12 in
+  let body = String.concat "\n" (Font.wrap font paragraph ~width:column) in
+  let tw, th = Font.measure font body in
+  Paint.rect fb ~x:6 ~y:6 ~w:(tw + 12) ~h:(th + 12) ~r:12 ~g:14 ~b:22 ~alpha:190;
+  Font.draw fb font body ~x:12 ~y:12 ~color:(Color.rgb 236 232 224)
+]}
+
+[measure] and [wrap] are pure functions of a string and the two cell dimensions,
+so a panel can be sized from its text rather than guessed at. The atlas is drawn
+white and multiplied by the colour [draw] is given — the same split
+{!Camlcast.Texture} and {!Camlcast.Material} make, so one typeface dresses every
+screen in the colour that screen wants. A line running off the edge is {e cut} by
+[Paint]'s clipping rather than truncated by anything that measured it first.
+
+{2 Letting go of the mouse}
+
+Answering [true] to [pointing] releases the mouse capture and puts a real cursor
+back on the screen. Its position arrives in [update] as [actions.Input.pointer],
+already in framebuffer coordinates — the ones [overlay] draws in, so no
+conversion is needed:
+
+{@ocaml[
+let overlay fb state =
+  if state.pointing then
+    let x, y = state.pointer in
+    Paint.rect fb ~x:(x - 2) ~y:(y - 2) ~w:4 ~h:4 ~r:250 ~g:250 ~b:250
+      ~alpha:255
+  else Paint.crosshair fb ~r:245 ~g:245 ~b:245
+]}
+
+{b Read next:} [demo/overlay.ml], [demo/text.ml], [demo/controls.ml].
+
+{1 Step 15 — What the crosshair is on}
+
+{b Goal.} Picking: knowing what the player is looking at, through doorways.
+
+{@ocaml[
+match Sight.cast world player with
+| Some { Sight.kind = Sight.Wall w; room; crossed; distance; _ }
+  when crossed = 0 && distance <= reach ->
+    (* w.index is which wall; w.along and w.z are where on it, in the wall's own
+       coordinates — exactly what Room.decal wants, so aiming and marking need
+       no conversion between them. *)
+    mark ~room ~wall:w.index ~along:w.along ~z:w.z ~facing:w.facing
+| Some { Sight.kind = Sight.Sprite s; room; _ } -> collect room s.index
+(* A doorway, something out of reach, or nothing at all. The guard above means
+   this catch-all has to be a wildcard rather than the Doorway case alone. *)
+| Some _ | None -> ()
+]}
+
+[crossed] is how many doorways the ray went through to get there, and [room] is
+which room the thing is in. Pass [~through] to look further; the default is one
+doorway. [pose] is the player expressed in the {e target's} room frame, which is
+what you project a HUD marker from.
+
+{b Read next:} [demo/targets.ml] highlights what is under the crosshair through a
+doorway; [demo/chalk.ml] turns a sighting straight into a decal.
+
+{1 Step 16 — Changing the world at run time}
+
+{b Goal.} Something that moves.
+
+A room is immutable, so a room that changes is a room that is built again. Three
+functions, in increasing order of how much they rebuild:
+
+{@ocaml[
+(* Only the sprite array is new — the walls, thresholds and both planes are the
+   ones that were already there. This is how something drifts across a room. *)
+let stirred room motes = Room.with_sprites room motes
+
+(* One wall's decal list is new. This is how a mark appears. *)
+let marked room =
+  Room.add_decal room ~wall:3
+    (Room.decal ~along:2. ~z:1.6 ~half_width:0.2 ~half_height:0.2 chalk)
+
+(* And this is how either of them reaches the renderer. *)
+let view state =
+  let room = stirred (World.room world 0) (motes state) in
+  (World.replace_room world ~room:0 ~replacement:room, state.player)
+]}
+
+{!Camlcast.World.replace_room} insists the thresholds are identical — same order,
+names, endpoints and heights — and lets everything else change: walls, decals,
+planes, sprites, doors. That is what keeps every index anything is holding
+meaningful.
+
+{b Build the changed world in [view], not in [update].} The world [view] hands
+back is drawn and dropped, so collision in [update] can go on using the world as
+authored and [update] stays a pure function of a clock and a pose. Rebuilding a
+room every frame is what this costs — cheap for one room with six walls in it,
+and a game with a hundred rooms rebuilds only the ones with something moving in
+them.
+
+{b The pictures must already exist.} Choosing among images made once at load is
+the whole of animating a sprite. There is no frame counter in the engine, because
+which frame it is at this moment is yours to decide.
+
+{b Read next:} [demo/changing.ml], [demo/dust.ml], [demo/chalk.ml].
+
+{1 Step 17 — Growing a world under the player}
+
+{b Goal.} A level that builds itself as it is walked into.
+
+A world can be {e grown} rather than authored. Three primitives, each of which
+appends and does nothing else — so every index anything is holding keeps meaning
+what it meant:
+
+{ul
+{li {!Camlcast.World.open_doorway} — cut a new doorway into an existing room;}
+{li {!Camlcast.World.add_room} — append a room, returning its index;}
+{li {!Camlcast.World.link} — join two doorways.}}
+
+Between cutting a doorway and linking it, the doorway leads nowhere: the renderer
+fills it with haze and collision treats it as solid. {b A half-built world is a
+playable one}, rather than a crash waiting for someone to walk towards it.
+
+The [grow] hook runs whenever the player goes {e through} a doorway — not every
+frame, so a generator may take its time — and returns the world to draw from now
+on:
+
+{@ocaml[
+let rec extend world ~room ~ahead =
+  if ahead <= 0 then world
+  else
+    match way_on (World.room world room) with
+    | Some index ->
+        let portal = Option.get (World.portals world room).(index) in
+        extend world ~room:portal.World.to_room ~ahead:(ahead - 1)
+    | None ->
+        let world =
+          World.open_doorway world ~room ~opened:(segment ~onward:true room)
+        in
+        let index = Array.length world.World.rooms in
+        let world, next =
+          World.add_room world ~name:(named index) (segment ~onward:false index)
+        in
+        let world = World.link world (room, "on") (next, "back") in
+        extend world ~room:next ~ahead:(ahead - 1)
+
+let grow world (player : Player.t) =
+  extend world ~room:player.Player.room ~ahead:Config.max_portal_depth
+
+let () = ignore (Engine.enter ~grow world)
+]}
+
+{b Build exactly {!Camlcast.Config.max_portal_depth} doorways ahead}, which is
+exactly how deep the renderer looks through them — build less and the player sees
+the edge, build more and you paid for rooms nobody will reach.
+
+{b Read next:} [demo/endless.ml].
+
+{1 Step 18 — Knowing where the player walked}
+
+{b Goal.} A record of the route, rather than a guess from the geometry.
+
+{!Camlcast.Engine.advance} is [step] that also hands back every doorway the frame
+went through:
+
+{@ocaml[
+let update state ~dt:_ ~motion ~actions:_ =
+  let moved = Engine.advance world state.player motion in
+  { player = moved.Player.player;
+    stack = List.fold_left record state.stack moved.Player.crossings }
+]}
+
+A single frame can go through more than one — round a jamb, out through an
+opening and back in through its twin, or all the way round a loop of rooms and
+back where it started. Comparing room indices calls all of those nothing
+happening; the crossing list does not.
+
+Each {!Camlcast.Player.crossing} names both sides: [from_room],
+[from_threshold], [to_room], [to_threshold], and the [onto] transform. Both sides
+matter, because a room can be reached through more than one of its doorways and
+only one of them is the way back.
+
+That exactness is worth more than it sounds. A link is derived from two doorways
+and from nothing else, so a corridor can return you somewhere it could not
+possibly go — and a route home built from the crossings still arrives, because it
+is a record of what was walked and not an inference from where the rooms are.
+
+{b Read next:} [demo/trail.ml] builds a return route from them.
+
+{1 Step 19 — Tuning}
+
+{!Camlcast.Config} holds every tunable constant in one place. The ones a game
+usually wants to think about:
+
+{ul
+{li [move_speed], [rot_speed] — how fast walking and turning are;}
+{li [look_sensitivity], [pitch_sensitivity], [max_pitch] — the mouse, and how
+    far up and down it can go;}
+{li [eye_height] — half a unit, which is what makes a wall of height 4 feel as
+    tall as it does;}
+{li [collision_padding] — how close to a wall the player may get;}
+{li [fov] — the horizontal field of view at [reference_aspect] (4:3);}
+{li [max_render_height] — the cap on the software buffer, and so the trade
+    between sharpness and frame rate;}
+{li [max_portal_depth] — how many doorways deep the renderer looks, and so how
+    far ahead a [grow] hook must build.}}
+
+{b Resizing is Hor+.} The vertical field of view is fixed, so dragging the window
+wider reveals more of the world to the sides rather than magnifying what was
+already on screen, and pixels stay square at every shape. No size is cached
+anywhere: each frame asks SDL for the current drawable size and builds a
+{!Camlcast.Viewport} from it, which covers HiDPI displays and the fullscreen
+transition without a resize event being handled at all.
+
+{1 Step 20 — Testing a game with no window}
+
+{b Goal.} Tests that run in CI.
+
+Nothing in the rendering path needs a window. {!Camlcast.Framebuffer.offscreen}
+builds a buffer with no streaming texture behind it — the texture was the only
+part that needed one — and {!Camlcast.Renderer.draw_frame} fills a buffer with no
+SDL call in it. So whole frames can be drawn and the pixels read back:
+
+{@ocaml[
+let fb = Framebuffer.offscreen ~width:320 ~height:240
+let () = Renderer.draw_frame fb world (Player.spawn world)
+let middle = Framebuffer.pixel fb ~x:160 ~y:120
+]}
+
+A trick worth stealing: to find where something landed, draw the frame twice —
+once with it and once without — and take it to be the pixels that differ. That
+says where it was drawn without claiming anything about the colour that fog and
+shading left in it.
+
+Worth checking about every level you author, which is what this repository's
+[test_demos] checks about every demo:
+
+{ul
+{li that the player can stand where the world spawns them;}
+{li that every room's walls enclose it;}
+{li that every room is reachable through the links;}
+{li that no floor steps across a doorway — {!Camlcast.World.seam_gap} is zero.}}
+
+{!Camlcast.World.check} runs the structural half of that for you.
+
+{1 Step 21 — Shipping}
+
+A game built on this engine is an ordinary OCaml executable, plus its art. What
+makes it awkward to distribute is SDL2 and the image codecs, which have to travel
+with it.
+
+The three scripts in [tools/] of this repository do exactly that for the demo
+executable, and are worth reading as a model: [bundle-macos.sh] walks
+[otool -L] into a [.app] and ad-hoc signs it, [bundle-linux.sh] walks [ldd] into
+a tarball with a launcher that sets [LD_LIBRARY_PATH], and [bundle-windows.sh]
+copies the mingw64 DLLs beside the executable.
+
+The one thing to get right is where the art goes, and {!Camlcast.Asset}'s search
+order is chosen for exactly those three shapes — see {{!files} Art from files}.
+
+{1 Where to read further}
+
+{ul
+{li {{!page-"building-the-engine"} Building the engine from scratch} — how the
+    picture is actually drawn, derived from first principles.}
+{li {!Camlcast.Ray}, {!Camlcast.Plane}, {!Camlcast.Viewport} and
+    {!Camlcast.Sky} carry the mathematical derivations in their docstrings.}
+{li {!Camlcast.World} carries the portal machinery and the rules a world grows
+    by.}
+{li The demos: [camlcast-demo] with no argument lists them and
+    [camlcast-demo <name>] runs one. Each is a single file with one feature in
+    it.}}
