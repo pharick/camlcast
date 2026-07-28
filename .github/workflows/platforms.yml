@@ -68,12 +68,10 @@ jobs:
 
       - run: opam exec -- dune runtest
 
-  # A spike, not yet a gate: it reports without blocking, because nobody has
-  # shown upstream tsdl building on native Windows. The known friction is a
-  # pkgconf/pkg-config naming mismatch in tsdl's build glue and SDL2main linkage;
-  # the one project that does ship OCaml SDL2 on Windows pins sanette's forks,
-  # which dlopen SDL2 instead of linking it. This job exists to find out which
-  # side of that we are on, on real CI, rather than by reading more.
+  # Still a spike, so still soft: it reports without blocking. Two of the three
+  # known obstacles are cleared — tsdl 1.3.0 itself installs, and tsdl-image is
+  # pinned past its -mwindows bug (see camlcast.opam.template). What is left is
+  # the sdl2.pc sanitising below.
   #
   # Expect `dune runtest` to fail in test_asset even if everything else works:
   # it asserts exact equality against POSIX paths, and Filename.concat joins with
@@ -99,7 +97,47 @@ jobs:
           # 2.0.18 tsdl asks for. MSYS2, preinstalled on the runner, has 2.32.
           windows-environment: msys2
 
+      # SDL2's own pkg-config file is unusable by an OCaml program, so install
+      # the depexts by hand — ahead of opam, which would otherwise install them
+      # itself and leave nothing to correct — and correct them before tsdl reads
+      # them.
+      #
+      # SDL2 puts `-lmingw32 -mwindows -lSDL2main` in sdl2.pc for C programs,
+      # whose main() it renames to SDL_main. tsdl does none of that: it calls
+      # SDL_SetMainReady instead, so SDL2main is dead weight. -lmingw32 is worse
+      # than dead. tsdl bakes the --libs-only-l output into tsdl.cmxa as -cclib,
+      # and ocamlopt puts a library's flags ahead of libasmrun.a, so ld reaches
+      # libmingw32.a while wmain is still undefined. OCaml links with -municode,
+      # so wmain is its entry point and its runtime is what should answer;
+      # instead libmingw32.a answers first with the GUI-subsystem shim
+      # ucrtexewin.o, which defines wmain and calls wWinMain. Nothing defines
+      # wWinMain, and libasmrun.a's main.o is never reached. Hence
+      # `undefined reference to wWinMain` from a program with no GUI entry point
+      # and no SDL_main.
+      #
+      # No link flag can undo this: -cclib arrives after the archive's own
+      # flags, and -mconsole only sets the subsystem, while the startup object
+      # is chosen by -municode. The flags have to be gone before tsdl is built.
+      - name: Install SDL2 and strip what tsdl must not link
+        run: |
+          C:\msys64\usr\bin\pacman.exe -Su --noconfirm `
+            mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image `
+            mingw-w64-x86_64-libffi mingw-w64-x86_64-pkgconf
+          $pc = 'C:\msys64\mingw64\lib\pkgconfig\sdl2.pc'
+          (Get-Content $pc) `
+            -replace '-lmingw32 ?', '' `
+            -replace '-mwindows ?', '' `
+            -replace '-lSDL2main ?', '' `
+            -replace '-Dmain=SDL_main ?', '' | Set-Content $pc
+          Select-String -Path $pc -Pattern '^(Libs|Cflags):'
+
       - run: opam install . --deps-only --with-test
+
+      # One command confirms or kills the diagnosis above: this should now read
+      # `-ltsdl_stubs -lSDL2`, with no -lmingw32 and no -lSDL2main. If they are
+      # still there, the sanitising ran too late and tsdl needs a reinstall.
+      - name: Show what tsdl baked into its archive
+        run: opam exec -- ocamlobjinfo _opam/lib/tsdl/tsdl.cmxa | Select-String 'Extra C'
 
       - run: opam exec -- dune build
 
