@@ -1,0 +1,172 @@
+# Build the bundles a player can actually run, for the four platforms the
+# engine is known to work on.
+#
+# Separate from platforms.yml, which answers "does it build" on every push and
+# has to stay fast. This answers "does it ship", which is slower and only worth
+# doing when there is something to ship — so it runs on a version tag, and on
+# request, and nothing else.
+#
+# The bundling itself lives in tools/bundle-*.sh rather than in this file. Each
+# one is a few dozen lines of otool, ldd and copying that is far easier to get
+# right when it can be run on a laptop, and the macOS one was written that way.
+#
+# The .app is signed ad-hoc, which is what lets it run at all on Apple silicon —
+# an unsigned binary is refused by the kernel there — but not what Gatekeeper
+# wants to see on a machine that downloaded it. Notarizing needs a paid Apple
+# developer account; until there is one, the README explains the one-time
+# approval in System Settings.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  # So the whole thing can be exercised without cutting a release.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: brew install sdl2 sdl2_image
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+          dune-cache: true
+
+      # See platforms.yml for why opam cannot see what brew just installed.
+      - run: opam install . --deps-only --no-depexts
+
+      - run: opam exec -- dune build
+
+      - run: ./tools/bundle-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: camlcast-demo-macos-${{ matrix.arch }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+          dune-cache: true
+
+      # On Linux opam resolves the SDL2 depexts through apt without help.
+      - run: opam install . --deps-only
+
+      - run: opam exec -- dune build
+
+      - run: ./tools/bundle-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: camlcast-demo-linux-x64
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+          dune-cache: true
+          windows-environment: msys2
+
+      # Same as platforms.yml: install the depexts first so there is something
+      # to correct, then take out the flags tsdl must not link. See the long
+      # note there for why -lmingw32 is fatal to an OCaml executable.
+      - name: Install SDL2 and strip what tsdl must not link
+        run: |
+          C:\msys64\usr\bin\pacman.exe -Su --noconfirm `
+            mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image `
+            mingw-w64-x86_64-libffi mingw-w64-x86_64-pkgconf
+          $pc = 'C:\msys64\mingw64\lib\pkgconfig\sdl2.pc'
+          (Get-Content $pc) `
+            -replace '-lmingw32 ?', '' `
+            -replace '-mwindows ?', '' `
+            -replace '-lSDL2main ?', '' `
+            -replace '-Dmain=SDL_main ?', '' | Set-Content $pc
+
+      - run: opam install . --deps-only
+
+      - run: opam exec -- dune build
+
+      # ldd only reads a PE file from inside MSYS2, so the bundler runs there.
+      - name: Bundle
+        shell: C:\msys64\usr\bin\bash.exe -leo pipefail {0}
+        env:
+          MSYSTEM: MINGW64
+          CHERE_INVOKING: "1"
+        run: tools/bundle-windows.sh
+
+      - name: Zip
+        run: Compress-Archive -Path dist\camlcast-demo -DestinationPath dist\camlcast-demo-windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: camlcast-demo-windows-x64
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: [macos, linux, windows]
+    # A dispatched run builds and uploads artifacts but publishes nothing;
+    # only a tag becomes a release.
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - run: ls -lh artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          body: |
+            Bundles for macOS (Apple silicon and Intel), Linux x64 and Windows x64.
+            Each one carries its own SDL2 and image codecs; nothing needs to be installed.
+
+            **macOS**: the app is signed ad-hoc but not notarized, so the first
+            launch is refused. Open System Settings → Privacy & Security and
+            choose "Open Anyway", or run
+            `xattr -dr com.apple.quarantine camlcast-demo.app`.

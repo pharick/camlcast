@@ -6,4 +6,33 @@
 (executable
  (public_name camlcast-demo)
  (name demo)
- (libraries raycaster camlcast_demo))
+ (libraries raycaster camlcast_demo)
+ (link_flags
+  (:include link_flags.sexp)))
+
+; A Mach-O header reserves only as much room as the paths it was linked with
+; need, and tools/bundle-macos.sh has to add an LC_RPATH and repoint every
+; library at the bundle. That does not fit, and install_name_tool cannot make
+; room after the fact — it says so and gives up. -headerpad_max_install_names
+; asks the linker for the slack up front. It costs a few hundred bytes of
+; padding and means nothing on any other platform, hence two rules rather than
+; one flag: the ordered set language link_flags speaks has no conditional, so
+; the choice is made by which rule is enabled.
+
+(rule
+ (target link_flags.sexp)
+ (enabled_if
+  (= %{ocaml-config:system} macosx))
+ (action
+  (with-stdout-to
+   %{target}
+   (echo "(-cclib -Wl,-headerpad_max_install_names)"))))
+
+(rule
+ (target link_flags.sexp)
+ (enabled_if
+  (<> %{ocaml-config:system} macosx))
+ (action
+  (with-stdout-to
+   %{target}
+   (echo "()"))))

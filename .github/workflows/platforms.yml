@@ -68,22 +68,13 @@ jobs:
 
       - run: opam exec -- dune runtest
 
-  # Still a spike, so still soft: it reports without blocking. Two of the three
-  # known obstacles are cleared — tsdl 1.3.0 itself installs, and tsdl-image is
-  # pinned past its -mwindows bug (see camlcast.opam.template). What is left is
-  # the sdl2.pc sanitising below.
-  #
-  # Expect `dune runtest` to fail in test_asset even if everything else works:
-  # it asserts exact equality against POSIX paths, and Filename.concat joins with
-  # a backslash on Windows. That is the test being POSIX-shaped, not the engine —
-  # lib/asset.ml goes through Filename throughout and branches on no OS anywhere.
-  #
-  # Once this has answered, drop continue-on-error and make it a real leg, or
-  # drop the job. A permanently soft-failing job is noise.
+  # A real gate, as of the run that turned every suite green. Getting here took
+  # three fixes, and each one is load-bearing: tsdl-image pinned past its
+  # -mwindows bug and past a system-string match that missed "mingw64" (both in
+  # camlcast.opam.template), and the sdl2.pc sanitising below.
   windows:
-    name: Windows x64 (spike)
+    name: Windows x64
     runs-on: windows-latest
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4

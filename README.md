@@ -25,6 +25,24 @@ The demos that read art from files find it relative to the executable, which
 under dune is `_build/default/assets/` — `dune build` puts it there. Set
 `CAMLCAST_ASSETS` to a directory to look there instead, and only there.
 
+## Bundles
+
+Pushing a `v*` tag builds a bundle per platform and attaches it to a GitHub
+release: a `.app` for macOS on Apple silicon and on Intel, a tarball for Linux
+x64, a folder for Windows x64. Each carries its own SDL2 and image codecs, so
+nothing has to be installed to run one. `tools/bundle-*.sh` build them, and can
+be run on a laptop against a `dune build` tree.
+
+The `.app` is signed ad-hoc — which is what lets it run at all on Apple silicon,
+where the kernel refuses an unsigned binary — but it is not notarized, so a Mac
+that downloaded it refuses the first launch. Open System Settings → Privacy &
+Security and choose "Open Anyway"; the Control-click trick that used to work was
+removed in macOS 15. Or, once:
+
+```sh
+xattr -dr com.apple.quarantine camlcast-demo.app
+```
+
 ## The demos
 
 One small world per engine feature, and one that has all of them at once. Each
