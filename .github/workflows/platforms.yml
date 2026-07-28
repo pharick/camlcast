@@ -1,0 +1,106 @@
+# Does camlcast build where a player would run it?
+#
+# ci.yml stays the fast Linux gate and owns @fmt and @doc; this is the slower
+# question of whether the SDL2 stack comes together on the other platforms. The
+# two are separate files rather than one matrix because almost every step here
+# would otherwise need an `if:` — macOS has to talk opam out of its depext check,
+# and Windows needs a different Unix environment underneath it.
+#
+# Nothing here opens a window. Sdl.init lives in Engine alone and no test touches
+# it, so the suites run headless on every runner. See test/dune.
+
+name: Platforms
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The Windows job below is a spike; being able to re-run it on demand, without
+  # pushing, is the point of having it.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      # One architecture failing is a result, not a reason to stop asking about
+      # the other.
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          # The last x86_64 image Actions offers. macos-13 was retired in
+          # December 2025, and this one goes in the autumn of 2027, so treat
+          # macOS x64 as a target with an expiry date rather than a permanent one.
+          - runner: macos-15-intel
+            arch: x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Homebrew's `sdl2` is an alias for the sdl2-compat formula, which puts
+      # SDL2's ABI over SDL3. That is fine to build against — the sdl2.pc it
+      # symlinks is what conf-sdl2 actually checks — but see --no-depexts below.
+      - run: brew install sdl2 sdl2_image
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+          dune-cache: true
+
+      # --no-depexts, because opam cannot see what brew just installed. It tests
+      # for a system package by name against `brew list --full-name`, which
+      # reports the formula, sdl2-compat; the depext conf-sdl2 asks for is spelled
+      # sdl2, which is only an alias and never appears in that list. So opam
+      # concludes the dependency is missing however many times you install it.
+      # The check that matters, `pkg-config sdl2`, does succeed — this skips a
+      # broken test, not a real one. Upstream: opam-repository#30337.
+      - run: opam install . --deps-only --with-test --no-depexts
+
+      - run: opam exec -- dune build
+
+      - run: opam exec -- dune runtest
+
+  # A spike, not yet a gate: it reports without blocking, because nobody has
+  # shown upstream tsdl building on native Windows. The known friction is a
+  # pkgconf/pkg-config naming mismatch in tsdl's build glue and SDL2main linkage;
+  # the one project that does ship OCaml SDL2 on Windows pins sanette's forks,
+  # which dlopen SDL2 instead of linking it. This job exists to find out which
+  # side of that we are on, on real CI, rather than by reading more.
+  #
+  # Expect `dune runtest` to fail in test_asset even if everything else works:
+  # it asserts exact equality against POSIX paths, and Filename.concat joins with
+  # a backslash on Windows. That is the test being POSIX-shaped, not the engine —
+  # lib/asset.ml goes through Filename throughout and branches on no OS anywhere.
+  #
+  # Once this has answered, drop continue-on-error and make it a real leg, or
+  # drop the job. A permanently soft-failing job is noise.
+  windows:
+    name: Windows x64 (spike)
+    runs-on: windows-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+          dune-cache: true
+          # Not the default. opam's own Cygwin resolves SDL2 to Cygwin's
+          # mingw64-x86_64-SDL2, which is 2.0.7 and dates from 2017 — below the
+          # 2.0.18 tsdl asks for. MSYS2, preinstalled on the runner, has 2.32.
+          windows-environment: msys2
+
+      - run: opam install . --deps-only --with-test
+
+      - run: opam exec -- dune build
+
+      - run: opam exec -- dune runtest
