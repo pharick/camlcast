@@ -7,7 +7,18 @@ open Tsdl
 type t = int
 
 let count = Sdl.Scancode.num_scancodes
-let of_scancode scancode = scancode
+
+(* Written as the negation of the passing condition, so that a scancode
+   arrived at by arithmetic that went wrong fails here rather than further in.
+   {!Input} counts keys and mouse buttons off into one flat range with the
+   buttons beginning at [count], so a key at [count] would not be an unnamed
+   key: it would be the left mouse button, and the rest of the frame would
+   agree with it. *)
+let of_scancode scancode =
+  if not (scancode >= 0 && scancode < count) then
+    invalid_arg "Key.of_scancode: no such place on the keyboard";
+  scancode
+
 let to_scancode key = key
 
 (** The layout-dependent name first, because it is the one printed on the key in

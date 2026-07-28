@@ -57,6 +57,12 @@ val leaf : t -> Material.t option
     renderer needs a live SDL surface; choosing what to draw needs nothing, and
     it is the choice rather than the pixels that a door's state decides.
 
-    It is also the whole of whether a door stops a step: what you cannot see
-    through is what you cannot walk through, which is why {!Room.shut} asks this
-    rather than asking the state a second time. *)
+    It is also the whole of whether a door stops a step: a leaf hanging there is
+    what you cannot walk through, which is why {!Room.shut} asks this rather
+    than asking the state a second time.
+
+    What it does {e not} decide is whether the room beyond is drawn. That is the
+    material's, exactly as it is for a wall: a leaf of something you can see
+    through is drawn over the neighbouring room rather than instead of it, and
+    is picked through by {!Sight} for the same reason — but it refuses the step
+    all the same, the way a grille wall does. *)

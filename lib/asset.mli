@@ -3,15 +3,21 @@
     A texture or a picture generated in code needs no path; one read off the
     disk does, and it has to be a path that still exists after the game has been
     copied to someone who has neither this source tree nor an opam switch. That
-    rules out asking the build system: [dune-site] resolves into the opam
-    prefix, and a player has no opam prefix.
+    rules out asking the build system: [dune-site] bakes in the prefix it was
+    built against, and a player has no prefix at all.
 
     So every root here is {e relative to the executable}, which is the one thing
     a program always knows about itself. That is not a compromise — it is the
-    shape both target layouts already have. A macOS [.app] puts the binary in
+    shape every target layout already has. A macOS [.app] puts the binary in
     [Contents/MacOS] and its files in [Contents/Resources]; an AppImage or a
-    plain tarball puts them beside the binary. Each is a root below, and the
-    same code finds them all.
+    plain tarball puts them beside the binary; an opam or system prefix puts the
+    binary in [bin/] and its files in [share/] under the binary's own name,
+    which is the bundle's shape once more. Each is a root below, and the same
+    code finds them all — the prefix included, without anything having had to be
+    told where it is. The share directory is named after the executable and not
+    after a package, for the same reason nothing else here names a directory: a
+    game called [foo] installs [foo] and reads [share/foo], and the engine does
+    not have to know either word.
 
     {!variable} is the way out of that for development, where the executable is
     somewhere in [_build] and the answer is wherever you happen to be working.

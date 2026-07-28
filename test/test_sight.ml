@@ -14,7 +14,15 @@ open Support
    works by accident of a shared frame. *)
 let figure pos = Room.sprite ~size:1.4 ~image:poster pos
 
-let rooms ?door ?(near = []) ?(far = []) () =
+let rooms ?door ?lintel ?(near = []) ?(far = []) () =
+  (* {!Room.doorway} gives the jambs and the strip of wall above the opening one
+     material, and a transom is precisely the case where those differ, so it is
+     put back afterwards rather than asked for. *)
+  let glaze (t : Room.threshold) =
+    match lintel with
+    | None -> t
+    | Some material -> { t with Room.lintel = Some { Room.top = 3.; material } }
+  in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
       ~material:pale (Vec.make 4. 0.) (Vec.make 4. 4.)
@@ -22,6 +30,7 @@ let rooms ?door ?(near = []) ?(far = []) () =
     Room.doorway ~name:"west" ?door ~width:1. ~opening:2. ~height:3.
       ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
+  let east = glaze east and west = glaze west in
   let first =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
       ~sprites:near
@@ -151,6 +160,36 @@ let a_shut_door_stops_it () =
   (* And opening it lets the eye through again. *)
   let opened = World.set_door closed ~room:0 ~threshold:0 Door.Open in
   is "sprite 0 of room 1" (Sight.cast opened (looking_east ()))
+
+(* A leaf of a material that carries an alpha stops the ray no more than a
+   see-through wall does — the renderer draws the room behind it, and what can
+   be picked is what can be seen. What it still does is refuse the step: the two
+   questions are different questions, and this is the case that says so. *)
+let a_see_through_leaf_does_not_stop_it () =
+  let barred =
+    rooms ~door:(Door.make mesh) ~far:[ figure (Vec.make 2. 2.) ] ()
+  in
+  is "sprite 0 of room 1" (Sight.cast barred (looking_east ()));
+  Alcotest.(check bool)
+    "and it is still a door to walk into" true
+    (Room.shut (World.room barred 0).Room.thresholds.(0))
+
+(* The same of a glazed transom. Looking over the opening, an opaque strip of
+   wall is what the ray meets; one you can see through is looked past, into the
+   far room and at something standing high enough in it to be up there.
+
+   The steepest pitch and the far side of the room, for the reason
+   {!looking_over_the_opening_meets_the_lintel} spells out. *)
+let a_see_through_lintel_does_not_stop_it () =
+  let over_the_door lintel =
+    Sight.cast
+      (rooms ?lintel
+         ~far:[ Room.sprite ~base:2.7 ~size:1. ~image:poster (Vec.make 1. 2.) ]
+         ())
+      (looking_east ~pitch:Config.max_pitch ~from:(Vec.make 1. 2.) ())
+  in
+  is "doorway 0 of room 0" (over_the_door None);
+  is "sprite 0 of room 1" (over_the_door (Some mesh))
 
 (* A nearer opaque thing wins, wherever it stands. *)
 let a_nearer_thing_occludes () =
@@ -446,6 +485,10 @@ let () =
         [
           case "through an open doorway" through_an_open_doorway;
           case "a shut door stops it" a_shut_door_stops_it;
+          case "a see-through leaf does not stop it"
+            a_see_through_leaf_does_not_stop_it;
+          case "a see-through lintel does not stop it"
+            a_see_through_lintel_does_not_stop_it;
           case "looking over the opening meets the lintel"
             looking_over_the_opening_meets_the_lintel;
           case "it looks as far as it is told to"

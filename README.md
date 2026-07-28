@@ -34,8 +34,11 @@ room. Named a demo, it runs that one and nothing else — Escape then ends the
 program, because there is nothing to come back to.
 
 The demos that read art from files find it relative to the executable, which
-under dune is `_build/default/assets/` — `dune build` puts it there. Set
-`CAMLCAST_ASSETS` to a directory to look there instead, and only there.
+under dune is `_build/default/assets/` — `dune build` puts it there. Installed,
+it is `share/camlcast-demo/assets/` under the same prefix as the binary: the
+share directory is named after the executable, so a game called `wanderer` reads
+`share/wanderer`. Set `CAMLCAST_ASSETS` to a directory to look there instead,
+and only there.
 
 ## The demos
 
@@ -59,6 +62,7 @@ is about.
 | `chalk`    | marking a wall where the crosshair is, on the face you see       |
 | `endless`  | the `grow` hook: a corridor built as you walk it                 |
 | `doors`    | doors that open and shut, on both sides of the link at once      |
+| `barred`   | a door and a transom you can see through, and cannot walk past   |
 | `targets`  | what the crosshair is on, through the doorway in front of you    |
 | `trail`    | traversal traces: a return route built from the doorways         |
 | `phases`   | `run_state`: a phase, a clock, and a light going out             |
@@ -90,6 +94,11 @@ it lives outside the library it is content for. It stays in this repository
 because between them the demos exercise every corner of the engine — decals,
 see-through walls, sloped floors, the open sky, growth, overlays and input — so a
 change that breaks any of them breaks something you can walk through here.
+
+They are two opam packages for the same reason. `camlcast` is the engine: a
+library that reads no file and puts nothing in a prefix's `share`. `camlcast-demo`
+is `bin/demo.ml` and the pictures it needs, which a program that reads its art
+off the disk has to carry wherever it is installed.
 
 ## Using the engine
 

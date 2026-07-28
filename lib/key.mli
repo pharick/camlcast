@@ -20,7 +20,13 @@ val count : int
 val of_scancode : int -> t
 (** The key at an SDL scancode. For one this module does not name: every key
     worth binding is below, but the list is a judgement about what games want
-    and not a complete keyboard. *)
+    and not a complete keyboard.
+
+    The scancode has to be a place a keyboard has — at least zero and less than
+    {!count} — and this refuses one that is not rather than handing back a key
+    that is quietly something else. {!Input} lays keys and mouse buttons out in
+    one flat range with the buttons starting where the keyboard ends, so the key
+    at {!count} would be the left mouse button and would be believed. *)
 
 val to_scancode : t -> int
 

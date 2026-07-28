@@ -59,6 +59,32 @@ let a_dune_build_looks_one_directory_up () =
        (resolve ~exe:"/repo/_build/default/bin/demo.exe" [ above ]
           "assets/wall.png"))
 
+(* An opam or system prefix, which is what `opam install camlcast-demo`
+   produces: the binary in bin/ and the art the root dune installs in share/
+   beside it. The same up-and-across shape as the bundle, which is why a prefix
+   needs no dune-site and nothing had to be told where it is. *)
+let a_prefix_looks_in_its_share_directory () =
+  let installed =
+    "/usr/local" / "share" / "camlcast-demo" / "assets/font.png"
+  in
+  Alcotest.(check string)
+    "share, under the binary's own name" installed
+    (found
+       (resolve ~exe:"/usr/local/bin/camlcast-demo" [ installed ]
+          "assets/font.png"))
+
+(* The share directory is the executable's name and not this project's, so a
+   game built on the engine finds its own — and on Windows the [.exe] comes off
+   first, or an installer would have to spell the directory "foo.exe". *)
+let the_share_directory_is_named_after_the_binary () =
+  let theirs = "/usr" / "share" / "wanderer" / "art/wall.png" in
+  Alcotest.(check string)
+    "a game called wanderer reads share/wanderer" theirs
+    (found (resolve ~exe:"/usr/bin/wanderer" [ theirs ] "art/wall.png"));
+  Alcotest.(check string)
+    "and the same one from wanderer.exe" theirs
+    (found (resolve ~exe:"/usr/bin/wanderer.exe" [ theirs ] "art/wall.png"))
+
 (* The roots are tried in order, so a bundle's own copy wins over anything that
    happens to be lying beside or above the binary. *)
 let the_first_root_that_has_it_wins () =
@@ -110,8 +136,13 @@ let nothing_found_names_every_root () =
 
 let roots_are_ordered_and_distinct () =
   Alcotest.(check (list string))
-    "bundle, beside, above"
-    [ "/opt/game" / "Resources"; "/opt/game/bin"; "/opt/game" ]
+    "bundle, beside, above, share"
+    [
+      "/opt/game" / "Resources";
+      "/opt/game/bin";
+      "/opt/game";
+      "/opt/game" / "share" / "demo";
+    ]
     (Asset.roots ~exe:"/opt/game/bin/demo" ~override:None);
   Alcotest.(check (list string))
     "and an override replaces the lot" [ "/scratch" ]
@@ -127,6 +158,10 @@ let () =
           case "files may sit beside the binary" files_may_sit_beside_the_binary;
           case "a dune build looks one directory up"
             a_dune_build_looks_one_directory_up;
+          case "a prefix looks in its share directory"
+            a_prefix_looks_in_its_share_directory;
+          case "the share directory is named after the binary"
+            the_share_directory_is_named_after_the_binary;
           case "the first root that has it wins" the_first_root_that_has_it_wins;
           case "roots are ordered and distinct" roots_are_ordered_and_distinct;
         ] );

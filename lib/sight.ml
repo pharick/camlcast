@@ -40,9 +40,13 @@
       out against {!Image.clear} and mostly empty, so this is asked of the texel
       and not of the bounding box: the crosshair between a figure's arm and its
       side is looking at what is behind it.
-    - A {b shut door} ({!Room.shut}), a doorway that {b leads nowhere yet}, and
-      the {b lintel} over any opening — a ray meeting a doorway above its head
-      meets the wall standing over it.
+    - An {b opaque leaf} across a doorway, a doorway that {b leads nowhere yet},
+      and an {b opaque lintel} over an opening — a ray meeting a doorway above
+      its head meets the wall standing over it. A leaf or a lintel of a
+      see-through material stops the ray no more than a see-through wall does:
+      the renderer draws the neighbouring room behind both, so the ray goes on
+      into it, and the leaf still refuses the step it always did. What can be
+      picked is what can be seen, not what can be walked through.
     - Running out of {b doorways to look through}.
 
     {1 Depth and distance}
@@ -225,22 +229,11 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
         let threshold = here.Room.thresholds.(index) in
         let foot = floor_at (point_at d) in
         let z = z_at d in
-        if z > foot +. threshold.Room.height then
-          (* Over the top of the opening. What is there is the strip of wall
-             left standing above it — so this stops, but only if there is one:
-             an opening with no lintel runs the full height of the wall it was
-             cut into and there is nothing up there to meet. *)
-          if Option.is_some threshold.Room.lintel then
-            found d (Doorway { index })
-          else first rest
-        else if z < foot then
-          (* Under it, which is to say into the floor. Not something this picks;
-             the ray carries on and finds nothing, which is the honest answer. *)
-          first rest
-        else if Room.shut threshold then found d (Doorway { index })
-        else
-          let portal = (World.portals world room).(index) in
-          match portal with
+        (* On through the doorway, which is where the renderer has drawn the
+           neighbour — whether the opening is bare or wearing something the eye
+           goes through. With nowhere to go the doorway itself is the answer. *)
+        let onwards () =
+          match (World.portals world room).(index) with
           | Some portal when budget > 0 ->
               look world ~room:portal.World.to_room
                 ~pose:
@@ -248,7 +241,31 @@ let rec look world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
                      pose)
                 ~rise ~eye_z ~crossed:(crossed + 1) ~budget:(budget - 1)
                 ~entered:(Some portal.World.twin)
-          | Some _ | None -> found d (Doorway { index }))
+          | Some _ | None -> found d (Doorway { index })
+        in
+        if z > foot +. threshold.Room.height then
+          (* Over the top of the opening. What is there is the strip of wall
+             left standing above it — so this stops, but only if there is one
+             and it is solid: an opening with no lintel runs the full height of
+             the wall it was cut into and there is nothing up there to meet, and
+             a glazed transom is looked through rather than at. *)
+          match threshold.Room.lintel with
+          | Some l when Material.opaque l.Room.material ->
+              found d (Doorway { index })
+          | Some _ -> onwards ()
+          | None -> first rest
+        else if z < foot then
+          (* Under it, which is to say into the floor. Not something this picks;
+             the ray carries on and finds nothing, which is the honest answer. *)
+          first rest
+        else
+          (* The same rule the wall above follows: what is opaque stops the ray,
+             and what you can see through does not. {!Room.shut} is not asked,
+             because it is about the step and this is about the eye. *)
+          match Room.leaf threshold with
+          | Some material when Material.opaque material ->
+              found d (Doorway { index })
+          | Some _ | None -> onwards ())
   in
   first candidates
 

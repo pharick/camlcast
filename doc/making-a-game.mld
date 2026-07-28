@@ -591,6 +591,14 @@ A closed leaf is drawn and the step is refused; a door standing [Open] is neithe
 drawn nor felt, so it behaves exactly as an opening with no door in it. Both
 sides of a link must agree about whether there is a door at all.
 
+What the leaf is made of decides the rest, exactly as it does for a wall. A
+material you can see through — {!Camlcast.Texture.generate_masked}, as in step 8
+— makes a door the room beyond is drawn behind rather than instead of, and one
+{!Camlcast.Sight} looks through; it still refuses the step, because being able to
+see through a thing is not being able to walk through it. The same goes for the
+lintel, the strip of wall left standing over an opening, which is how you get a
+transom. {b Read next:} [demo/barred.ml] has one of each.
+
 Opening one is a world rebuild, from your own update function:
 
 {@ocaml[

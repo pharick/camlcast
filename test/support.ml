@@ -135,8 +135,18 @@ let world =
     makes it possible to test that collision consults the neighbour at all.
 
     [door] hangs a leaf in the opening. It goes to both sides at once because
-    {!World.make} refuses a link whose two thresholds disagree about one. *)
-let joined_rooms ?door () =
+    {!World.make} refuses a link whose two thresholds disagree about one.
+
+    [lintel] is what the strip of wall over the opening is made of, for the
+    suites that need a transom you can see through. {!Room.doorway} gives the
+    jambs and the lintel one material, which is exactly what a transom is not,
+    so it is put back afterwards rather than asked for. *)
+let joined_rooms ?door ?lintel () =
+  let glaze (t : Room.threshold) =
+    match lintel with
+    | None -> t
+    | Some material -> { t with Room.lintel = Some { Room.top = 3.; material } }
+  in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
       ~material:pale (Vec.make 4. 0.) (Vec.make 4. 4.)
@@ -144,6 +154,7 @@ let joined_rooms ?door () =
     Room.doorway ~name:"west" ?door ~width:1. ~opening:2. ~height:3.
       ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
+  let east = glaze east and west = glaze west in
   let first =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
       (first_jambs
@@ -183,6 +194,11 @@ let two_rooms_with_a_door state = joined_rooms ~door:(Door.make ~state dim) ()
     the fixture that puts anything down the door path of {!World.can_step} or
     the renderer. *)
 let two_rooms_closed = two_rooms_with_a_door Door.Closed
+
+(** The same pair again, with a leaf of {!mesh} shut across the opening: a door
+    you cannot walk through and can see through, which is the pair of claims the
+    renderer and {!Camlcast.Sight} have to keep apart. *)
+let two_rooms_barred = joined_rooms ~door:(Door.make mesh) ()
 
 (** The portal behind a threshold that is certainly linked. A world may hold
     doorways that lead nowhere yet, so [World.portals] hands back options; the

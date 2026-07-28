@@ -53,13 +53,21 @@
     are painted first and get covered, and walls nearer are painted after and
     cover it.
 
-    A threshold the eye cannot pass draws as a wall of its leaf's texture; which
-    those are is {!Room.leaf}'s to say, and it says a closed door and nothing
-    else. One the eye can pass recurses: the neighbouring room is drawn in the
-    same column, with the camera and the ray carried into its frame by the
-    link's {!Transform} and the row clip narrowed to the opening. Above either,
-    the {!Room.type-lintel} fills the strip of wall left standing over the gap —
-    without it you would see over the top of a closed door.
+    A threshold with a leaf across it draws as a wall of that leaf's texture;
+    which those are is {!Room.leaf}'s to say, and it says a closed door and
+    nothing else. One with nothing across it recurses: the neighbouring room is
+    drawn in the same column, with the camera and the ray carried into its frame
+    by the link's {!Transform} and the row clip narrowed to the opening. Above
+    either, the {!Room.type-lintel} fills the strip of wall left standing over
+    the gap — without it you would see over the top of a closed door.
+
+    Opacity decides the rest, exactly as it does for a wall. A leaf or a lintel
+    you can see through is {e both}: the neighbour is drawn behind it first and
+    the leaf composited over it in the translucent pass, which is what makes a
+    barred door a door you can look through. Being able to see through it says
+    nothing about being able to walk through it — {!Room.shut} asks whether a
+    leaf hangs there and not what it is made of, so a grille stops the step the
+    same way a grille wall does.
 
     The rigid transform is horizontal, so eye height, projection and horizon are
     unchanged inside a portal and the {!Viewport} is not rebuilt; and because it
@@ -409,6 +417,13 @@ and fragment_kind =
     the neighbour's frame, with the clip narrowed to the rows the opening covers
     in this column.
 
+    A leaf or a lintel you can see through recurses {e as well as} drawing: the
+    neighbour fills those rows first and the translucent pass blends the leaf
+    over it. That is what [behind] below is for — the recursion is reached from
+    three places rather than one, and a threshold wearing see-through glass both
+    above and across it pays for it twice in a column, which is the price of the
+    two being separate surfaces.
+
     The {!Viewport} is deliberately not rebuilt for the nested room. A rigid
     motion is horizontal, so eye height, projection and horizon all carry over
     unchanged, and — because it also preserves distance — a distance measured
@@ -490,64 +505,83 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
           in
           let head = Int.max top (row (floor_z +. threshold.height))
           and foot = Int.min bottom (row floor_z) in
+          (* Out of budget, or a doorway onto a room that has not been built
+             yet: either way there is nothing behind it to draw, so those rows
+             take the colour the distance fog already fades into. *)
+          let nothing_behind ~first ~last =
+            let h = air.Atmosphere.haze in
+            for y = first to last do
+              Framebuffer.set fb ~x:column ~y ~r:h.Color.r ~g:h.Color.g
+                ~b:h.Color.b
+            done
+          in
+          (* The neighbour, in the rows this much of the opening covers. Reached
+             from three places: a threshold with nothing across it, and a leaf
+             or a lintel you can see through, which have to have something drawn
+             behind them or their clear texels show this room's own floor. *)
+          let behind ~first ~last =
+            match portals.(opening.Ray.index) with
+            | Some portal when budget > 0 ->
+                let nested =
+                  Player.through portal.World.onto ~room:portal.World.to_room
+                    pose
+                in
+                let mask = Within { column; first; last } in
+                Array.iter
+                  (fun sprite ->
+                    let distance =
+                      Vec.dot
+                        (Vec.sub sprite.Room.pos nested.Player.pos)
+                        nested.Player.dir
+                    in
+                    if distance > 0.1 then
+                      translucent :=
+                        {
+                          distance;
+                          pose = nested;
+                          room = portal.World.to_room;
+                          mask;
+                          what = Sprite sprite;
+                        }
+                        :: !translucent)
+                  (World.room world portal.World.to_room).Room.sprites;
+                draw_room_column fb viewport world ~room:portal.World.to_room
+                  ~pose:nested ~column
+                  ~dir:(Transform.direction portal.World.onto dir)
+                  ~clip:(first, last) ~budget:(budget - 1)
+                  ~entered:(Some portal.World.twin) ~translucent
+            | Some _ | None -> nothing_behind ~first ~last
+          in
           (* The wall above the opening. Without it the gap runs the full height
-             of the wall it was cut into and you see over the door. *)
+             of the wall it was cut into and you see over the door. A band with
+             no rows in it is skipped rather than handed on: [paint] would draw
+             nothing anyway, but [behind] would cast a whole ray to do it. *)
           Option.iter
             (fun (l : Room.lintel) ->
-              paint ~first:top
-                ~last:(Int.min bottom (head - 1))
-                (as_wall threshold ~index:opening.Ray.index ~height:l.Room.top
-                   ~material:l.Room.material ~distance ~along:opening.Ray.along))
+              let last = Int.min bottom (head - 1) in
+              if top <= last then begin
+                if not (Material.opaque l.Room.material) then
+                  behind ~first:top ~last;
+                paint ~first:top ~last
+                  (as_wall threshold ~index:opening.Ray.index ~height:l.Room.top
+                     ~material:l.Room.material ~distance
+                     ~along:opening.Ray.along)
+              end)
             threshold.lintel;
           if head <= foot then
-            (* Out of budget, or a doorway onto a room that has not been built
-               yet: either way there is nothing behind it to draw, so it takes
-               the colour the distance fog already fades into. *)
-            let nothing_behind () =
-              let h = air.Atmosphere.haze in
-              for y = head to foot do
-                Framebuffer.set fb ~x:column ~y ~r:h.Color.r ~g:h.Color.g
-                  ~b:h.Color.b
-              done
-            in
             match Room.leaf threshold with
             | Some material ->
+                (* A leaf you can see through is a wall you can see through: the
+                   room beyond has to be there for its clear texels to show, and
+                   [paint] holds the leaf itself back for the translucent pass,
+                   which blends it over what this just drew. *)
+                if not (Material.opaque material) then
+                  behind ~first:head ~last:foot;
                 paint ~first:head ~last:foot
                   (as_wall threshold ~index:opening.Ray.index
                      ~height:threshold.height ~material ~distance
                      ~along:opening.Ray.along)
-            | None -> (
-                match portals.(opening.Ray.index) with
-                | Some portal when budget > 0 ->
-                    let nested =
-                      Player.through portal.World.onto
-                        ~room:portal.World.to_room pose
-                    in
-                    let mask = Within { column; first = head; last = foot } in
-                    Array.iter
-                      (fun sprite ->
-                        let distance =
-                          Vec.dot
-                            (Vec.sub sprite.Room.pos nested.Player.pos)
-                            nested.Player.dir
-                        in
-                        if distance > 0.1 then
-                          translucent :=
-                            {
-                              distance;
-                              pose = nested;
-                              room = portal.World.to_room;
-                              mask;
-                              what = Sprite sprite;
-                            }
-                            :: !translucent)
-                      (World.room world portal.World.to_room).Room.sprites;
-                    draw_room_column fb viewport world
-                      ~room:portal.World.to_room ~pose:nested ~column
-                      ~dir:(Transform.direction portal.World.onto dir)
-                      ~clip:(head, foot) ~budget:(budget - 1)
-                      ~entered:(Some portal.World.twin) ~translucent
-                | Some _ | None -> nothing_behind ())))
+            | None -> behind ~first:head ~last:foot))
     (Ray.merge
        (Ray.cast current ~origin:pose.Player.pos ~direction:dir)
        (Ray.openings current ~origin:pose.Player.pos ~direction:dir))

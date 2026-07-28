@@ -274,6 +274,65 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
     true
     (unclipped > float_of_int (!last - !first + 1))
 
+(* {1 Doorways you can see through}
+
+   A leaf or a lintel of a material that carries an alpha is a wall you can see
+   through, and the room beyond has to be drawn behind it or its clear texels
+   show this room's own floor. Both cases below are the same claim from two
+   directions: something that is only in the far room reaches the screen when
+   what stands between is see-through, and reaches nothing when it is solid. *)
+
+(* Through the bars of a shut grille door, a sprite standing in the next room.
+   Behind a solid leaf the same sprite is not drawn at all — the recursion never
+   happens, which is the whole of why a closed door is cheap. *)
+let a_see_through_leaf_shows_the_room_behind () =
+  let looking = Player.create ~room:0 ~pos:centre ~angle:0. in
+  let sprite = Room.sprite ~size:2.5 ~image:square (Vec.make 2. 2.) in
+  let peopled world =
+    World.replace_room world ~room:1
+      ~replacement:(Room.with_sprites (World.room world 1) [ sprite ])
+  in
+  let reaches world = drawn ~with_it:(peopled world) ~without:world looking in
+  Alcotest.(check bool)
+    "through the bars, the sprite is drawn" true
+    (reaches two_rooms_barred <> None);
+  Alcotest.(check bool)
+    "behind a solid leaf, none of it is" true
+    (reaches two_rooms_closed = None)
+
+(* The strip of wall over an opening, the same way. The door below is solid and
+   shut, so the opening itself shows nothing of the far room; the only way in is
+   the transom. What is varied is that room's roof and nothing else, so a pixel
+   that differs between the two frames is a pixel that came from inside it. *)
+let a_see_through_lintel_shows_the_room_behind () =
+  (* Pitched up, because the eye is half a cell off the floor and the opening is
+     two cells tall: from a level view at this range the strip above it is off
+     the top of the window entirely, and there is nothing to look through. *)
+  let looking =
+    Player.pitch_by
+      (Player.create ~room:0 ~pos:centre ~angle:0.)
+      ~delta:Config.max_pitch
+  in
+  let roofed world material =
+    let before = World.room world 1 in
+    World.replace_room world ~room:1
+      ~replacement:
+        (Room.make
+           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~floor:before.Room.floor
+           ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
+           (Array.to_list before.Room.walls))
+  in
+  let reaches world =
+    drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
+  in
+  Alcotest.(check bool)
+    "through the glass over the door, the far room's roof is drawn" true
+    (reaches (joined_rooms ~door:(Door.make dim) ~lintel:mesh ()) <> None);
+  Alcotest.(check bool)
+    "under a solid lintel, none of it is" true
+    (reaches (joined_rooms ~door:(Door.make dim) ()) = None)
+
 (* A sprite stands on the floor wherever the floor has got to. Over a plane that
    climbs east, the same sprite at the same place is drawn higher than it is
    over a level one, by what the plane says the ground has risen. *)
@@ -644,6 +703,13 @@ let () =
             a_sprite_behind_the_player_is_not_drawn;
           case "a sprite through a doorway is trimmed to the opening"
             a_sprite_through_a_doorway_is_trimmed_to_the_opening;
+        ] );
+      ( "doorways you can see through",
+        [
+          case "a see-through leaf shows the room behind"
+            a_see_through_leaf_shows_the_room_behind;
+          case "a see-through lintel shows the room behind"
+            a_see_through_lintel_shows_the_room_behind;
         ] );
       ( "light on a wall",
         [

@@ -156,6 +156,24 @@ let the_way_out_and_back_is_the_identity () =
         (Key.of_scancode (Key.to_scancode key) = key))
     named
 
+(* The other half of the escape hatch: it is the only way an arbitrary integer
+   can become a key, so it is the only place a scancode off the end of the
+   keyboard can be caught. [Key.count] is the one that matters — a key there
+   would index into the mouse's part of [Input]'s arrays and be believed, where
+   anything past the whole flat range would at least raise. *)
+let a_place_no_keyboard_has_is_refused () =
+  let refused what scancode =
+    Alcotest.check_raises what
+      (Invalid_argument "Key.of_scancode: no such place on the keyboard")
+      (fun () -> ignore (Key.of_scancode scancode))
+  in
+  Alcotest.(check bool)
+    "the last place is a place" true
+    (Key.to_scancode (Key.of_scancode (Key.count - 1)) = Key.count - 1);
+  refused "one before the first" (-1);
+  refused "where the mouse begins" Key.count;
+  refused "past the end of everything" (Key.count + 1)
+
 (* [name] feeds help text, so the one thing it must never do is hand back the
    empty string: a gap in the middle of a line reads as a bug rather than as a
    key nobody could name. *)
@@ -181,6 +199,8 @@ let () =
             every_key_fits_the_keyboard_block;
           case "the way out and back is the identity"
             the_way_out_and_back_is_the_identity;
+          case "a place no keyboard has is refused"
+            a_place_no_keyboard_has_is_refused;
           case "every key can be printed" every_key_can_be_printed;
         ] );
     ]

@@ -107,6 +107,12 @@ let demos =
       run = Doors.run;
     };
     {
+      name = "barred";
+      blurb = "a door and a transom you can see through, and cannot walk past";
+      world = lazy Barred.world;
+      run = Barred.run;
+    };
+    {
       name = "targets";
       blurb = "what the crosshair is on, through the doorway in front of you";
       world = lazy Targets.world;

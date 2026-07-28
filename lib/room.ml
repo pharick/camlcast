@@ -253,9 +253,10 @@ type threshold = {
     {!Transform.between}'s docstring carries the argument in full.
 
     An open threshold is a portal — the neighbour is drawn through it, and the
-    player walks through. A closed leaf takes its place: the neighbour is not
-    drawn, and the step is refused. A door standing [Open] is neither drawn nor
-    felt, so it behaves exactly as an opening with no door in it. *)
+    player walks through. A closed leaf takes its place and the step is refused;
+    whether the neighbour is still drawn behind it is its material's to say, the
+    same question the renderer asks of a wall. A door standing [Open] is neither
+    drawn nor felt, so it behaves exactly as an opening with no door in it. *)
 
 (** What is drawn across this opening, if anything — {!Door.leaf} of whatever
     hangs in it, and nothing at all where nothing does. *)

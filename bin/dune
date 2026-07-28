@@ -2,9 +2,15 @@
 ; exercises every corner of the engine at once — decals, see-through walls,
 ; sloped floors and the open sky. The game built on this engine lives in its
 ; own repo and ships its own executable.
+;
+; The public name is what `dune exec camlcast-demo` resolves, and it also puts
+; this in @install — so it belongs to the camlcast-demo package rather than to
+; camlcast, and takes assets/ with it. Installing an engine should not install
+; pictures; installing a program that reads pictures has to.
 
 (executable
  (public_name camlcast-demo)
+ (package camlcast-demo)
  (name demo)
  (libraries camlcast camlcast_demo)
  (link_flags

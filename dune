@@ -1,18 +1,29 @@
-; What a bare `dune build` builds.
+; What a bare `dune build` builds, and what an install carries.
 ;
 ; Left implicit, the root's default alias is every installable target, which
-; reaches the libraries, the executable and the test suites but not assets/ —
-; there is nothing to install there, deliberately: an opam prefix is not a
-; layout Asset knows how to search, and packaging the pictures into a .app or
-; an AppImage is E13's job.
-;
+; reaches the libraries, the executable and the test suites but not assets/.
 ; The pictures still have to reach _build, because that is where Asset finds
 ; them: one directory above the executable, which under dune is _build/default.
 ; So the alias is spelled out, and `dune build` is the whole repository rather
 ; than only the parts of it opam would carry.
+;
+; The pictures belong to the camlcast-demo package and not to camlcast: the
+; engine reads no file and has nothing to put in a prefix, and the program that
+; does read files has to carry them. Under the prefix that is
+; share/camlcast-demo/assets, one directory above bin/ and across — the same
+; shape as a macOS bundle, which is why Asset finds it without being told. It is
+; the source pictures that go, not a copy of the build: they are what
+; tools/bundle-*.sh carry into a .app or an AppImage as well.
 
 (alias
  (name default)
  (deps
   (alias_rec all)
   (source_tree assets)))
+
+(install
+ (package camlcast-demo)
+ (section share)
+ (files
+  (glob_files
+   (assets/*.png with_prefix assets))))
