@@ -46,14 +46,20 @@ x-maintenance-intent: ["(latest)"]
 # Upstream fixed it in January 2026 by dropping the configurator entirely and
 # loading SDL2_image at runtime, and shipped the same fix for tsdl-ttf as 0.7 —
 # but never re-cut tsdl-image, so opam still offers 0.6 from 2023. Hence a commit
-# rather than a version, and a commit rather than the branch, which is still
-# being experimented on. Drop this once 0.6.1 or later reaches opam.
+# rather than a version. Drop this once 0.6.1 or later reaches opam.
+#
+# The commit is February's rather than January's because the January one picks
+# the library to load by matching on dune's %{system} against "win32" | "win64"
+# | "cygwin" | "mingw" — and OCaml calls 64-bit mingw "mingw64", which is none
+# of those. It fell through to the Linux branch, hunted for a .so, found
+# nothing, and left every IMG_* symbol unresolved at runtime. February matches
+# on Sys.os_type instead, so "Win32" catches it whatever the system string says.
 #
 # Not a version constraint in dune-project: 0.6.1 does not exist in opam, so
 # constraining it there would make camlcast unresolvable for everyone else.
 pin-depends: [
   [
     "tsdl-image.0.6.1"
-    "git+https://github.com/sanette/tsdl-image.git#5c81f6cde4abccd44f95b4f7f50b5e0d62015466"
+    "git+https://github.com/sanette/tsdl-image.git#3aad0371503268a08c229d7cc34185212d3dd713"
   ]
 ]
