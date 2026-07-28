@@ -29,7 +29,12 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 out=${1:-$root/dist}
 prefix=$(brew --prefix)
+
+# uname says x86_64; the runner labels, the job names and the Windows bundle all
+# say x64. One spelling, so the release assets line up and the workflow can name
+# the file it is about to upload.
 arch=$(uname -m)
+case $arch in x86_64) arch=x64 ;; esac
 
 app=$out/camlcast-demo.app
 macos=$app/Contents/MacOS

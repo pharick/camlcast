@@ -25,7 +25,9 @@ set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 out=${1:-$root/dist}
+# See bundle-macos.sh: uname's x86_64 is spelled x64 everywhere else.
 arch=$(uname -m)
+case $arch in x86_64) arch=x64 ;; esac
 
 stage=$out/camlcast-demo
 libs=$stage/lib

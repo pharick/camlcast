@@ -43,7 +43,7 @@ jobs:
             arch: x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Homebrew's `sdl2` is an alias for the sdl2-compat formula, which puts
       # SDL2's ABI over SDL3. That is fine to build against — the sdl2.pc it
@@ -77,7 +77,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ocaml/setup-ocaml@v3
         with:

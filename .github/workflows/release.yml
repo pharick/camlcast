@@ -49,7 +49,7 @@ jobs:
             arch: x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - run: brew install sdl2 sdl2_image
 
@@ -65,10 +65,17 @@ jobs:
 
       - run: ./tools/bundle-macos.sh
 
-      - uses: actions/upload-artifact@v4
+      # archive: false uploads the file itself instead of a zip containing it.
+      # Every bundler already produces the archive a player downloads, and the
+      # default would wrap that in a second one — noise in the Actions UI, and
+      # for the .app actively wrong, since an artifact zip does not preserve the
+      # executable bit on the launcher script or the layout ditto was chosen to
+      # keep. It takes a single file, hence the exact name rather than a glob,
+      # and the artifact is named after that file.
+      - uses: actions/upload-artifact@v7
         with:
-          name: camlcast-demo-macos-${{ matrix.arch }}
-          path: dist/*.zip
+          path: dist/camlcast-demo-macos-${{ matrix.arch }}.zip
+          archive: false
           if-no-files-found: error
 
   linux:
@@ -76,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ocaml/setup-ocaml@v3
         with:
@@ -90,10 +97,10 @@ jobs:
 
       - run: ./tools/bundle-linux.sh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: camlcast-demo-linux-x64
-          path: dist/*.tar.gz
+          path: dist/camlcast-demo-linux-x64.tar.gz
+          archive: false
           if-no-files-found: error
 
   windows:
@@ -101,7 +108,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ocaml/setup-ocaml@v3
         with:
@@ -139,10 +146,10 @@ jobs:
       - name: Zip
         run: Compress-Archive -Path dist\camlcast-demo -DestinationPath dist\camlcast-demo-windows-x64.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: camlcast-demo-windows-x64
-          path: dist/*.zip
+          path: dist/camlcast-demo-windows-x64.zip
+          archive: false
           if-no-files-found: error
 
   release:
@@ -157,14 +164,18 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      # skip-decompress is the other half of archive: false above. Without it the
+      # action would see a zip and helpfully unpack it, and the release would be
+      # offered a camlcast-demo.app directory instead of the file to attach.
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
+          skip-decompress: true
 
       - run: ls -lh artifacts
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: artifacts/*
           fail_on_unmatched_files: true
