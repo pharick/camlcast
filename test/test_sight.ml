@@ -3,7 +3,7 @@
     {!Viewport.centre_rise}, which is a function of pitch alone — so all of it
     tests headlessly. *)
 
-open Raycaster
+open Camlcast
 open Support
 
 (* Two rooms, joined, with something to look at in each. The near room's is off

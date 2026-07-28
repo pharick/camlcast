@@ -1,7 +1,7 @@
 (** {b Replacing a room.} A room is immutable, so a room that changes is a room
     that is built again.
 
-    {!Raycaster.World.replace_room} puts a new version of a room where the old
+    {!Camlcast.World.replace_room} puts a new version of a room where the old
     one was. It insists the openings are untouched — same thresholds, same
     order, same names, endpoints and heights, because those are what every
     portal in the world was derived from or indexes into — and lets everything
@@ -25,7 +25,7 @@
     one room, six walls — and a game with a hundred rooms would replace only the
     ones with something moving in them. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 let height = 4.

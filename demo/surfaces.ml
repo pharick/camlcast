@@ -1,7 +1,7 @@
 (** The showcase level's materials, sky and air.
 
     These were once a table indexed by an integer id, and reading them as names
-    is the whole argument for {!Raycaster.Material}: [~material:Surfaces.brick]
+    is the whole argument for {!Camlcast.Material}: [~material:Surfaces.brick]
     says what the wall is, where [~texture:1] said only where to look it up.
 
     A pattern carries its own colours, so a material here is a {!Patterns}
@@ -13,7 +13,7 @@
     in exchange is {!brick}, whose mortar is a colour of its own rather than a
     paler red. *)
 
-open Raycaster
+open Camlcast
 
 (** A material from a pattern function with its colours already given. The two
     differ only in which generator they reach for, and so in whether the result

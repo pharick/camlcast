@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 (* A sky is a value now, so the suite brings its own rather than reaching for

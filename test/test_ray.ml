@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 let cast direction = nearest_hit room ~origin:centre ~direction

@@ -9,4 +9,4 @@
 (library
  (name camlcast_demo)
  (public_name camlcast.demo)
- (libraries raycaster tsdl))
+ (libraries camlcast tsdl))

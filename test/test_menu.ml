@@ -1,12 +1,12 @@
 (** The launcher's list, driven without a window.
 
     {!Camlcast_demo.Menu.update} is a pure function of the state and one frame's
-    input, in the same way {!Raycaster.Input.advance} is, so everything about
+    input, in the same way {!Camlcast.Input.advance} is, so everything about
     choosing — where the cursor goes, what wraps, what Enter settles on, and
     what the arrow keys leave alone — can be checked here. Only the drawing
     needs a window, and the drawing is the part with nothing to decide. *)
 
-open Raycaster
+open Camlcast
 open Camlcast_demo
 open Tsdl
 open Support

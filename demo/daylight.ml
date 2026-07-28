@@ -1,4 +1,4 @@
-(** {b The open sky.} A room with no roof shows a {!Raycaster.Sky} instead: a
+(** {b The open sky.} A room with no roof shows a {!Camlcast.Sky} instead: a
     gradient from a horizon colour to a zenith colour, with a sun somewhere in
     it.
 
@@ -8,11 +8,11 @@
     behind you and drops to the horizon, and the gradient tightens into it.
 
     Nothing about the sky lights the walls, though. What lights those is the
-    world's {!Raycaster.Atmosphere}, which is one per world and is the subject
-    of the {!Haze} demo instead. That is why the ground in the second yard is as
+    world's {!Camlcast.Atmosphere}, which is one per world and is the subject of
+    the {!Haze} demo instead. That is why the ground in the second yard is as
     bright as in the first, however low its sun has got. *)
 
-open Raycaster
+open Camlcast
 
 (* Low walls and a wide yard, so that most of what you can see is sky. *)
 let height = 2.4

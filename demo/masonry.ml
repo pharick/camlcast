@@ -12,7 +12,7 @@
     The patterns themselves are pure functions of a texel coordinate, in
     {!Patterns}; the materials that fill their colours in are in {!Surfaces}. *)
 
-open Raycaster
+open Camlcast
 
 let height = 4.
 

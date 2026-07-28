@@ -1,11 +1,11 @@
 (** The showcase level's wall patterns: masonry, joinery, tile and glazing.
 
     Each is a pure function of [u] and [v] — which is what makes every one of
-    them testable — handed to {!Raycaster.Texture.generate}. That is one of the
+    them testable — handed to {!Camlcast.Texture.generate}. That is one of the
     two ways in: the {!Loading} demo reads its patterns from files with
-    {!Raycaster.Texture.load} instead. Two of them, {!bars} and {!glass}, go
-    through {!Raycaster.Texture.generate_masked} and so carry an alpha; a
-    {!Raycaster.Material} wearing either is see-through, which is the whole
+    {!Camlcast.Texture.load} instead. Two of them, {!bars} and {!glass}, go
+    through {!Camlcast.Texture.generate_masked} and so carry an alpha; a
+    {!Camlcast.Material} wearing either is see-through, which is the whole
     mechanism behind the renderer's translucent pass.
 
     {1 Colour is an argument}
@@ -21,11 +21,10 @@
     not tinted glass. Those are the patterns that a texture carrying only a
     brightness could not have drawn, however it was dressed afterwards — the
     mortar would have been pale red between red bricks. Everywhere else a single
-    colour through {!Raycaster.Color.level} is the honest answer, because a
-    bevel and a plank shadow really are the same material with less light on
-    them. *)
+    colour through {!Camlcast.Color.level} is the honest answer, because a bevel
+    and a plank shadow really are the same material with less light on them. *)
 
-open Raycaster
+open Camlcast
 
 let hash = Texture.hash
 

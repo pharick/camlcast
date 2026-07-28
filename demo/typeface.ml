@@ -9,7 +9,7 @@
     fallback is what puts something visible in the place of a character the grid
     does not reach. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 (** Read the atlas and build the font, reporting failure rather than raising.

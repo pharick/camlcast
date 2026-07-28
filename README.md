@@ -95,10 +95,10 @@ The engine holds no content — not one colour, pattern, picture or room. What i
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-| directory | library              | what it is                                                     |
-| --------- | -------------------- | -------------------------------------------------------------- |
-| `lib/`    | `camlcast.raycaster` | the engine: geometry, ray casting, rendering, SDL              |
-| `demo/`   | `camlcast.demo`      | the demos and the art they are made of, run by `camlcast-demo` |
+| directory | library         | what it is                                                     |
+| --------- | --------------- | -------------------------------------------------------------- |
+| `lib/`    | `camlcast`      | the engine: geometry, ray casting, rendering, SDL              |
+| `demo/`   | `camlcast.demo` | the demos and the art they are made of, run by `camlcast-demo` |
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
 it lives outside the library it is content for. It stays in this repo because
@@ -161,7 +161,7 @@ To depend on the engine from another project, pin it:
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ```
 
-then `(libraries camlcast.raycaster)` in your `dune`.
+then `(libraries camlcast)` in your `dune`.
 
 ## Controls
 

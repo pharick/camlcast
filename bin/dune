@@ -6,7 +6,7 @@
 (executable
  (public_name camlcast-demo)
  (name demo)
- (libraries raycaster camlcast_demo)
+ (libraries camlcast camlcast_demo)
  (link_flags
   (:include link_flags.sexp)))
 

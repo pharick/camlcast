@@ -2,19 +2,19 @@
     rendered into the framebuffer and before the buffer reaches the screen, so
     what it draws is in front of everything and clipped by nothing.
 
-    Three things are drawn here, all in {!Raycaster.Paint}: a crosshair in the
+    Three things are drawn here, all in {!Camlcast.Paint}: a crosshair in the
     middle, a meter along the bottom that fills over ten seconds and starts
     again, and a translucent panel behind the meter. The panel is drawn with
-    {!Raycaster.Framebuffer.blend} rather than {!Raycaster.Framebuffer.set} —
-    walk up to a wall and it tints the wall rather than replacing it.
+    {!Camlcast.Framebuffer.blend} rather than {!Camlcast.Framebuffer.set} — walk
+    up to a wall and it tints the wall rather than replacing it.
 
     Note what the coordinates are. The overlay draws into the framebuffer, which
     is a whole-number fraction of the window (see
-    {!Raycaster.Renderer.internal_size}), not into the window itself. Resize the
+    {!Camlcast.Renderer.internal_size}), not into the window itself. Resize the
     window and the crosshair stays in the middle and the meter stays the width
     of the screen, because both are measured from the buffer it is handed. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 let height = 4.

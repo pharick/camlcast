@@ -7,7 +7,7 @@
     only thing {!Asset.path} adds is the three real answers, and it has nowhere
     to hide a mistake. *)
 
-open Raycaster
+open Camlcast
 open Support
 
 (** Joined the way {!Asset} joins, which is not the way a POSIX machine spells

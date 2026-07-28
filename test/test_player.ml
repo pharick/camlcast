@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 let facing_east ?(pos = centre) () = Player.create ~room:0 ~pos ~angle:0.

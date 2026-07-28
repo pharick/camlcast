@@ -33,14 +33,14 @@
     frame, and no picture is made while it does: {!Pictures.motes} is twelve
     images built once when that module loaded, and each frame picks one by
     index. What is rebuilt is the sprite array alone —
-    {!Raycaster.Room.with_sprites} hands back this room with the walls, the
+    {!Camlcast.Room.with_sprites} hands back this room with the walls, the
     thresholds and both planes it already had — and
-    {!Raycaster.World.replace_room} puts it in place. Compare {!Changing}, which
+    {!Camlcast.World.replace_room} puts it in place. Compare {!Changing}, which
     rebuilds a room from its parts every frame because everything in it is
     moving, and {!Dust}, which is this one sprite turned into seventy and is
     where the cost of doing it is worth reading. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 let height = 4.5
@@ -48,7 +48,7 @@ let period = 7.
 
 type t = { elapsed : float; player : Player.t }
 
-(* The transform the link will be given, exactly as {!Raycaster.World.make} is
+(* The transform the link will be given, exactly as {!Camlcast.World.make} is
    about to derive it, so the annex's floor can be carried across the doorway
    rather than restated — the seam argument is {!Slopes}'. *)
 let across (a : Room.threshold) (b : Room.threshold) =

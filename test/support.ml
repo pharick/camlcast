@@ -1,6 +1,6 @@
 (** Testables and fixtures shared by the per-module suites. *)
 
-open Raycaster
+open Camlcast
 
 let case name body = Alcotest.test_case name `Quick body
 

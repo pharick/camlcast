@@ -56,7 +56,7 @@ needs the system `SDL2` library installed too, e.g. via your OS package manager
 or Homebrew).
 
 ```
-raycaster/
+camlcast/
 ├── dune-project
 ├── lib/          # the engine, one module per file
 │   └── dune
@@ -70,19 +70,19 @@ raycaster/
 
 ```dune
 (lang dune 3.21)
-(package (name raycaster) (depends ocaml tsdl (alcotest :with-test)))
+(package (name camlcast) (depends ocaml tsdl (alcotest :with-test)))
 ```
 
 `lib/dune` — a **public name** matters later so `odoc` will document it:
 
 ```dune
-(library (name raycaster) (public_name raycaster) (libraries tsdl))
+(library (name camlcast) (public_name camlcast) (libraries tsdl))
 ```
 
 `bin/dune`:
 
 ```dune
-(executable (name main) (libraries raycaster))
+(executable (name main) (libraries camlcast))
 ```
 
 ### Step 0.2 — The `Result` monad
@@ -109,7 +109,7 @@ Put every tunable number in `lib/config.ml` so the rest of the code reads as
 logic, not magic numbers. We will fill it as we go; start with:
 
 ```ocaml
-let window_title = "Raycaster"
+let window_title = "CamlCast"
 let initial_width = 1024 and initial_height = 768
 let fov = Float.pi /. 3.          (* 60°, the classic Wolfenstein value *)
 let reference_aspect = 4. /. 3.   (* the shape fov is quoted for *)

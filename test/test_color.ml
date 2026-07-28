@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 let base = Color.rgb 200 100 50

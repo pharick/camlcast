@@ -1,22 +1,22 @@
-{0 camlcast}
+{0 CamlCast}
 
 A first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
 
 It began as a Wolfenstein-style grid raycaster and grew past it. A
-{!Raycaster.World} is a graph of independently-authored {!Raycaster.Room}s, each
+{!Camlcast.World} is a graph of independently-authored {!Camlcast.Room}s, each
 in its own coordinates, joined at named doorways that you both see and walk
 through: an open one is a portal, drawn recursively into the opening, and a
-{!Raycaster.Transform} carries the camera and the ray across. Rooms are built
+{!Camlcast.Transform} carries the camera and the ray across. Rooms are built
 from wall {e segments} at any angle, not cells of a grid; the floor is an
-inclined {!Raycaster.Plane} and the ceiling — per room — is an inclined plane or
-open {!Raycaster.Sky}; walls carry their own heights and {!Raycaster.Material}s,
-can be see-through, and can be hung with decals; {!Raycaster.Image} sprites stand
+inclined {!Camlcast.Plane} and the ceiling — per room — is an inclined plane or
+open {!Camlcast.Sky}; walls carry their own heights and {!Camlcast.Material}s,
+can be see-through, and can be hung with decals; {!Camlcast.Image} sprites stand
 in the world facing the player; and there is mouse look with pitch. Each frame is
 drawn into a CPU pixel buffer: the floor, ceiling and sky are cast per pixel, the
 opaque walls (with their decals) are painted over them, then the sprites, then
 the see-through walls last so the room behind shows through. Surfaces take their
-patterns from a procedural {!Raycaster.Texture} and their colour from their
-material, dimmed by the world's {!Raycaster.Atmosphere}. The buffer is then
+patterns from a procedural {!Camlcast.Texture} and their colour from their
+material, dimmed by the world's {!Camlcast.Atmosphere}. The buffer is then
 scaled to the window by the GPU.
 
 {1 Two libraries}
@@ -25,7 +25,7 @@ The engine holds no content: not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-- {b [camlcast.raycaster]} — the engine. Geometry, ray casting, rendering, SDL.
+- {b [camlcast]} — the engine. Geometry, ray casting, rendering, SDL.
 - {b [camlcast.demo]} — the demos and the art they are made of, run by
   [camlcast-demo]. One small world per engine feature, plus the five-room
   showcase that has all of them at once. It is content, and it lives outside the
@@ -34,7 +34,7 @@ and two games can share an engine without sharing a look.
 
 {1 Building a game on it}
 
-{!Raycaster.Engine.run_state} runs a state of whatever type the game likes, and
+{!Camlcast.Engine.run_state} runs a state of whatever type the game likes, and
 asks five things of it: [update], given the frame's length, the movement asked
 for over it and what the player is pressing and holding through it; [view],
 which world and which player to draw this frame from; [overlay], anything drawn
@@ -45,77 +45,77 @@ journal, a random seed, what it has already built — stays on the game's side o
 the line and the engine stays a pure function of what it is handed. Time passes
 only while the window has focus.
 
-Input arrives as controls and not as actions — {!Raycaster.Input.pressed},
-{!Raycaster.Input.released}, {!Raycaster.Input.val-down} and
-{!Raycaster.Input.held_for} over a key or a mouse button. What "interact" or
+Input arrives as controls and not as actions — {!Camlcast.Input.pressed},
+{!Camlcast.Input.released}, {!Camlcast.Input.val-down} and
+{!Camlcast.Input.held_for} over a key or a mouse button. What "interact" or
 "journal" mean is a game's own table from the one to the other.
 
-{!Raycaster.Engine.run} is that loop over the only state the engine used to be
-able to hold: a {!Raycaster.World} and the player walking it, plus an optional
+{!Camlcast.Engine.run} is that loop over the only state the engine used to be
+able to hold: a {!Camlcast.World} and the player walking it, plus an optional
 [grow : World.t -> Player.t -> World.t], which it calls whenever the player
 crosses into another room.
 
 A game that builds its world as the player explores it uses [grow] to stay far
-enough ahead that the edge is never in shot: {!Raycaster.Config.max_portal_depth}
+enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
 doorways, which is exactly as deep as the renderer looks through them.
 {!Camlcast_demo.Endless} does this in miniature.
 
 {1 Where to start}
 
-{!Raycaster.Ray} carries the ray-versus-segment derivation and why the distance
-it reports is free of fish-eye. {!Raycaster.Plane} carries the one-line equation
-that casts the sloped floor and ceiling per pixel. {!Raycaster.Viewport} ties
+{!Camlcast.Ray} carries the ray-versus-segment derivation and why the distance
+it reports is free of fish-eye. {!Camlcast.Plane} carries the one-line equation
+that casts the sloped floor and ceiling per pixel. {!Camlcast.Viewport} ties
 them to the screen: the projection, the eye height, the pitch shear, and — since
 the window is resizable and can go fullscreen at any frame — the rules that
-decide what a resize does. {!Raycaster.Renderer} puts it all together.
-{!Raycaster.World} carries both the portal machinery and the three primitives a
+decide what a resize does. {!Camlcast.Renderer} puts it all together.
+{!Camlcast.World} carries both the portal machinery and the three primitives a
 world grows by.
 
 {1 The engine}
 
 Each depends only on the ones above it.
 
-- {!Raycaster.Config} — every tunable constant, in one place
-- {!Raycaster.Result_ext} — [let*] and a short-circuiting range loop, for
+- {!Camlcast.Config} — every tunable constant, in one place
+- {!Camlcast.Result_ext} — [let*] and a short-circuiting range loop, for
   chaining fallible SDL calls
-- {!Raycaster.Vec} — immutable 2-D vectors, with the dot and cross products the
+- {!Camlcast.Vec} — immutable 2-D vectors, with the dot and cross products the
   geometry needs
-- {!Raycaster.Transform} — rigid motions between room-local coordinate frames
-- {!Raycaster.Plane} — an inclined floor/ceiling plane and its casting equation
-- {!Raycaster.Color} — 8-bit RGB, shading and blending
-- {!Raycaster.Surface} — decoding a PNG or JPEG into plain bytes: the one place
+- {!Camlcast.Transform} — rigid motions between room-local coordinate frames
+- {!Camlcast.Plane} — an inclined floor/ceiling plane and its casting equation
+- {!Camlcast.Color} — 8-bit RGB, shading and blending
+- {!Camlcast.Surface} — decoding a PNG or JPEG into plain bytes: the one place
   pixel formats appear
-- {!Raycaster.Asset} — where a file is, searched relative to the executable
+- {!Camlcast.Asset} — where a file is, searched relative to the executable
   rather than to a source tree
-- {!Raycaster.Texture} — colour surface patterns, generated or loaded, and
+- {!Camlcast.Texture} — colour surface patterns, generated or loaded, and
   the wrapping value noise the generated ones are built from
-- {!Raycaster.Material} — what a surface is made of: its pattern
-- {!Raycaster.Door} — a leaf hung in a doorway: open or closed, and what of
-- {!Raycaster.Atmosphere} — the air a world is seen through: its fog, its haze,
+- {!Camlcast.Material} — what a surface is made of: its pattern
+- {!Camlcast.Door} — a leaf hung in a doorway: open or closed, and what of
+- {!Camlcast.Atmosphere} — the air a world is seen through: its fog, its haze,
   and where its light comes from
-- {!Raycaster.Sky} — the open sky where a room has no roof
-- {!Raycaster.Image} — full-colour images with alpha, for decals and sprites
-- {!Raycaster.Paint} — clipped rectangles, lines and pictures over a finished
+- {!Camlcast.Sky} — the open sky where a room has no roof
+- {!Camlcast.Image} — full-colour images with alpha, for decals and sprites
+- {!Camlcast.Paint} — clipped rectangles, lines and pictures over a finished
   frame
-- {!Raycaster.Font} — a bitmap font on a fixed grid: layout, wrapping and
+- {!Camlcast.Font} — a bitmap font on a fixed grid: layout, wrapping and
   drawing
-- {!Raycaster.Room} — one room's walls, thresholds, surfaces, sprites and
+- {!Camlcast.Room} — one room's walls, thresholds, surfaces, sprites and
   collision
-- {!Raycaster.World} — named rooms, linked portals, the world's air and spawn,
+- {!Camlcast.World} — named rooms, linked portals, the world's air and spawn,
   and how a world grows
-- {!Raycaster.Ray} — ray-versus-segment intersection: every wall the ray
+- {!Camlcast.Ray} — ray-versus-segment intersection: every wall the ray
   crosses, farthest first
-- {!Raycaster.Player} — the camera, as position + unit [dir] + unit [right],
+- {!Camlcast.Player} — the camera, as position + unit [dir] + unit [right],
   plus the pitch it looks up and down by
-- {!Raycaster.Viewport} — window size to camera geometry; the eye height, the
+- {!Camlcast.Viewport} — window size to camera geometry; the eye height, the
   pitch shear and the resize rules
-- {!Raycaster.Sight} — what the crosshair is on, traced through doorways
-- {!Raycaster.Input} — SDL keyboard and mouse-look, as engine intent
-- {!Raycaster.Framebuffer} — a CPU pixel buffer and the streaming texture it
+- {!Camlcast.Sight} — what the crosshair is on, traced through doorways
+- {!Camlcast.Input} — SDL keyboard and mouse-look, as engine intent
+- {!Camlcast.Framebuffer} — a CPU pixel buffer and the streaming texture it
   uploads through
-- {!Raycaster.Renderer} — the software renderer: casts the planes, paints the
+- {!Camlcast.Renderer} — the software renderer: casts the planes, paints the
   walls, per pixel
-- {!Raycaster.Engine} — window lifetime, fullscreen state, and the game loop
+- {!Camlcast.Engine} — window lifetime, fullscreen state, and the game loop
 
 {1 The demos}
 

@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 let flat c = Texture.generate (fun ~u:_ ~v:_ -> c)

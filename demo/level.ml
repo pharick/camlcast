@@ -1,6 +1,6 @@
 (** A demonstration world of five rooms, built to exercise the whole engine at
     once — every kind of wall, both kinds of threshold, and both a roof and the
-    open {!Raycaster.Sky}:
+    open {!Camlcast.Sky}:
 
     - {b plaza}, open to the sky: a twelve-sided ring of tall walls around the
       spawn, six pillars of differing heights and materials, a gallery wall hung
@@ -19,11 +19,11 @@
       through the hall's door.
 
     Every room's floor is the same gently tilted surface seen from its own
-    frame, derived with {!Raycaster.Plane.through} so that
-    {!Raycaster.World.seam_gap} is zero at every doorway by construction rather
+    frame, derived with {!Camlcast.Plane.through} so that
+    {!Camlcast.World.seam_gap} is zero at every doorway by construction rather
     than by arithmetic luck. *)
 
-open Raycaster
+open Camlcast
 
 (** A floor or ceiling of the level's usual materials. *)
 let ground plane = { Room.plane; material = Surfaces.ground }
@@ -36,7 +36,7 @@ let roof plane = Room.Roof { Room.plane; material = Surfaces.soffit }
 let cellar_door = Door.make ~state:Door.Open Surfaces.oak
 
 let default =
-  (* Doorways are cut with {!Raycaster.Room.doorway}, which splits the wall and
+  (* Doorways are cut with {!Camlcast.Room.doorway}, which splits the wall and
      returns the jambs alongside the threshold, so an opening and the wall it is
      cut into can never drift apart. *)
   let plaza_corner k =
@@ -74,7 +74,7 @@ let default =
     Room.doorway ~name:"up" ~door:cellar_door ~width:1.6 ~opening:2.2
       ~height:2.8 ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.))
   in
-  (* The transform of a link, exactly as {!Raycaster.World.make} will derive it,
+  (* The transform of a link, exactly as {!Camlcast.World.make} will derive it,
      so a neighbour's floor can be built to meet this one across the doorway. *)
   let link (a : Room.threshold) (b : Room.threshold) =
     Transform.between ~a1:a.a ~a2:a.b ~b1:b.a ~b2:b.b

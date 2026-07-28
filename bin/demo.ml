@@ -24,8 +24,8 @@ let rec browse () =
   | Ok (Some (demo : Catalogue.t)) -> (
       match demo.Catalogue.run () with
       | Error _ as error -> error
-      | Ok Raycaster.Engine.Closed -> Ok ()
-      | Ok Raycaster.Engine.Left -> browse ())
+      | Ok Camlcast.Engine.Closed -> Ok ()
+      | Ok Camlcast.Engine.Left -> browse ())
 
 let () =
   match Sys.argv with

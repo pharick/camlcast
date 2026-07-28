@@ -9,22 +9,20 @@
 
     - {b Hold E.} The meter fills. Let go before it is full and the {b blue}
       lamp lights; let go after and the {b green} one does. That is the whole of
-      press-versus-hold: {!Raycaster.Input.held_for} counts from the frame after
-      the press and keeps its value for the one frame
-      {!Raycaster.Input.released} is true, so the release itself can ask how
-      long the hold lasted.
+      press-versus-hold: {!Camlcast.Input.held_for} counts from the frame after
+      the press and keeps its value for the one frame {!Camlcast.Input.released}
+      is true, so the release itself can ask how long the hold lasted.
     - {b Click.} The amber lamp lights. A mouse button is a control like a key.
     - {b Tab.} Releases the mouse. The cursor comes back, a white square follows
       it, and the camera stops turning with it — that is [pointing] on
-      {!Raycaster.Engine.run_state}, which is how a game that opens a screen
-      over its world hands the mouse to it. Press it again to take the mouse
-      back.
+      {!Camlcast.Engine.run_state}, which is how a game that opens a screen over
+      its world hands the mouse to it. Press it again to take the mouse back.
 
     The cursor arrives in [update] already in the framebuffer's coordinates,
     which are the ones the overlay draws in, so the square lands under the
     pointer at any window size. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 open Tsdl
 

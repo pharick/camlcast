@@ -7,7 +7,7 @@
     demo to that list is also adding it to this suite. The showcase level has
     its own suite besides this one, for the things only it does. *)
 
-open Raycaster
+open Camlcast
 open Camlcast_demo
 open Support
 

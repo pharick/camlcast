@@ -3,7 +3,7 @@
 
     A wall is see-through when the pattern its material wears carries an alpha —
     {!Patterns.bars} and {!Patterns.glass} are built with
-    {!Raycaster.Texture.generate_masked}, and nothing else here is. The renderer
+    {!Camlcast.Texture.generate_masked}, and nothing else here is. The renderer
     draws the opaque walls first and then composites the translucent ones back
     to front along with the sprites, which is why the figure behind the grille
     is seen through it and the barrel in front of it is not.
@@ -12,7 +12,7 @@
     is doing both at once. Then walk through the gap between the two halves and
     look back through them from the other side. *)
 
-open Raycaster
+open Camlcast
 
 let height = 4.
 

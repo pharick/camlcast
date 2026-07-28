@@ -11,7 +11,7 @@
     the position, so every way of getting a pixel wrong produces a different
     wrong answer. *)
 
-open Raycaster
+open Camlcast
 open Support
 
 let read path =

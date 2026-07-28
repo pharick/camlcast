@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 let a_wall_precomputes_its_geometry () =

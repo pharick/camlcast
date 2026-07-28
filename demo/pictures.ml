@@ -1,13 +1,13 @@
 (** The showcase level's pictures: two decals to hang on walls, two sprites to
     stand in the world, and a strip of frames for one that drifts.
 
-    Unlike a {!Raycaster.Texture}, which is square and tiles a world cell
-    because it is part of a surface, an {!Raycaster.Image} is drawn once at
-    whatever shape it was authored in. The decals are opaque within their frame;
-    the sprites are cut out against {!Raycaster.Image.clear} so only the object
+    Unlike a {!Camlcast.Texture}, which is square and tiles a world cell because
+    it is part of a surface, an {!Camlcast.Image} is drawn once at whatever
+    shape it was authored in. The decals are opaque within their frame; the
+    sprites are cut out against {!Camlcast.Image.clear} so only the object
     itself is drawn. *)
 
-open Raycaster
+open Camlcast
 
 (** {1 Decals} *)
 
@@ -58,7 +58,7 @@ let mote_height = 48
     swinging up and down out of step with one another.
 
     The only picture here that is not square, and deliberately. A sprite is as
-    wide as its own image says — {!Raycaster.Room.sprite_half_width} — so this
+    wide as its own image says — {!Camlcast.Room.sprite_half_width} — so this
     one is drawn as a wide, thin drift rather than stretched across a box.
 
     Where each speck sits comes from its index and nothing else, so the same
@@ -111,7 +111,7 @@ let mote ~frame =
 
 (** Every frame of it, built once when this module is loaded.
 
-    This is what {!Raycaster.Room.with_sprites} means by precomputed: all twelve
+    This is what {!Camlcast.Room.with_sprites} means by precomputed: all twelve
     pictures exist before the first frame is drawn, and animating the cloud is
     choosing one of them by index. Nothing generates an image while the world is
     being rendered — see {!Floating}, which does the choosing. *)

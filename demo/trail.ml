@@ -1,11 +1,11 @@
 (** {b Traversal traces.} Every doorway a step went through, in the order it
     went through them.
 
-    {!Raycaster.Player.traverse} returns where the player ended up {e and} a
-    list of crossings, each naming the room and threshold it left by, the room
-    and threshold it arrived at, and the transform applied on the way.
-    {!Raycaster.Engine.advance} is the same thing for a whole frame, with the
-    turn applied first; {!Raycaster.Engine.step} is that with the list dropped,
+    {!Camlcast.Player.traverse} returns where the player ended up {e and} a list
+    of crossings, each naming the room and threshold it left by, the room and
+    threshold it arrived at, and the transform applied on the way.
+    {!Camlcast.Engine.advance} is the same thing for a whole frame, with the
+    turn applied first; {!Camlcast.Engine.step} is that with the list dropped,
     which is what every other demo here uses.
 
     A frame can cross more than one doorway. Movement resolves its two axes one
@@ -26,7 +26,7 @@
     arrives, because it is a record of what was walked and not a guess from the
     geometry. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 let height = 4.

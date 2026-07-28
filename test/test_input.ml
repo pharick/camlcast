@@ -3,7 +3,7 @@
     of the previous frame, what is held now and how long the frame lasted — so
     these drive it with scripted keys and never open a window. *)
 
-open Raycaster
+open Camlcast
 open Tsdl
 open Support
 

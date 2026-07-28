@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Camlcast_demo
 open Support
 

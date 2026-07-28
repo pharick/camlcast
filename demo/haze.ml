@@ -2,7 +2,7 @@
     it: two numbers for the fade and three for the shading.
 
     A long colonnade, deliberately longer than you can see the end of. The
-    {!Raycaster.Atmosphere} here has a short [fog_distance], so the far pillars
+    {!Camlcast.Atmosphere} here has a short [fog_distance], so the far pillars
     are lost in the haze colour while the near ones are not, and a low
     [min_brightness], so the fade goes nearly the whole way down. The pillars
     are hexagonal, which means each presents six faces at six angles to the
@@ -12,7 +12,7 @@
     Walk the length of it. The pillar that was a silhouette resolves into six
     lit faces as you reach it, and the one behind takes its place. *)
 
-open Raycaster
+open Camlcast
 
 let height = 6.
 let length = 90.

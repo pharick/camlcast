@@ -1,4 +1,4 @@
-open Raycaster
+open Camlcast
 open Support
 
 (* Two throwaway patterns: one whose value can be read off by eye, one that

@@ -1,4 +1,4 @@
-(** {b Inclined floors and ceilings.} A floor is a {!Raycaster.Plane} — an
+(** {b Inclined floors and ceilings.} A floor is a {!Camlcast.Plane} — an
     elevation [z = ax + by + c] over the room — and so is a roof, so both tilt,
     and independently of each other.
 
@@ -7,19 +7,19 @@
     into it. The room beyond is authored in its own coordinate frame, as every
     room is, and its floor is not written out by hand: it is the hall's floor
     put through the transform of the doorway between them, with
-    {!Raycaster.Plane.through}. The same surface, in the other room's terms.
+    {!Camlcast.Plane.through}. The same surface, in the other room's terms.
 
     That is what makes the threshold seamless. Two planes written out separately
     with the numbers that look right differ by a few thousandths where they
     meet, which reads as a step you walk into; derive the second from the first
-    and {!Raycaster.World.seam_gap} is zero by construction. There is a test
-    that says so, for this world and for {!Level}'s. *)
+    and {!Camlcast.World.seam_gap} is zero by construction. There is a test that
+    says so, for this world and for {!Level}'s. *)
 
-open Raycaster
+open Camlcast
 
 let height = 5.
 
-(* The transform a link will be given, exactly as {!Raycaster.World.make} is
+(* The transform a link will be given, exactly as {!Camlcast.World.make} is
    about to derive it, so a floor can be carried across a doorway before the
    world that joins the two rooms exists. *)
 let across (a : Room.threshold) (b : Room.threshold) =

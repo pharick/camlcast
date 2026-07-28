@@ -1,7 +1,7 @@
-(** {b A game state.} {!Raycaster.Engine.run_state} runs a state of whatever
-    type you like, and asks four things of it: what it becomes after a frame,
-    what world and player to draw it from, what to put over the top, and whether
-    it is over.
+(** {b A game state.} {!Camlcast.Engine.run_state} runs a state of whatever type
+    you like, and asks four things of it: what it becomes after a frame, what
+    world and player to draw it from, what to put over the top, and whether it
+    is over.
 
     The state here is a phase, a clock and a player. Nothing happens until you
     press {b space}; then the light begins to go, and when it has gone the run
@@ -9,7 +9,7 @@
     anywhere in the engine — [update] keeps them, [finished] reads them, and the
     engine only ever hands the value back.
 
-    [view] is where the light goes. The world's {!Raycaster.Atmosphere} is a
+    [view] is where the light goes. The world's {!Camlcast.Atmosphere} is a
     plain immutable field, so a frame can be drawn from
     [{ world with atmosphere }] without the world it was made from changing at
     all. Every frame here is drawn from a world that has never been stored
@@ -18,7 +18,7 @@
     Time only passes while the window has focus. Click on another window on the
     way down and the light stops where it was. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 open Tsdl
 

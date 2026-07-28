@@ -1,6 +1,6 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Raycaster.Engine.run} takes a [grow] callback and calls it whenever the
+    {!Camlcast.Engine.run} takes a [grow] callback and calls it whenever the
     player crosses from one room into another, with the world and where they now
     are; whatever it returns is the world drawn from then on. It runs on a room
     change and not per frame, so a generator may take its time.
@@ -8,13 +8,12 @@
     What it does here is build ahead of the player, using the three primitives a
     world grows by and nothing else:
 
-    - {!Raycaster.World.open_doorway} replaces a room with one that has one more
+    - {!Camlcast.World.open_doorway} replaces a room with one that has one more
       threshold than it had, the ones it already had unmoved. That check is the
       whole safety of this: a room cannot move a doorway that something else is
       already linked through.
-    - {!Raycaster.World.add_room} appends a room whose doorways lead nowhere
-      yet.
-    - {!Raycaster.World.link} joins two doorways that both exist and neither of
+    - {!Camlcast.World.add_room} appends a room whose doorways lead nowhere yet.
+    - {!Camlcast.World.link} joins two doorways that both exist and neither of
       which leads anywhere.
 
     Each appends and nothing else, so every index anything is holding stays
@@ -22,12 +21,12 @@
     stopped halfway would leave you facing a wall rather than an exception in
     the middle of a frame.
 
-    It builds {!Raycaster.Config.max_portal_depth} segments ahead, which is
+    It builds {!Camlcast.Config.max_portal_depth} segments ahead, which is
     exactly as deep as the renderer looks through doorways, so the end of the
     corridor is never in shot. Segments alternate brick and stone so you can
     count how far you have gone. *)
 
-open Raycaster
+open Camlcast
 
 let height = 4.
 let width = 2.5

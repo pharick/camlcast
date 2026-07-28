@@ -1,7 +1,7 @@
 (** {b Looking through a doorway.} What the crosshair is on, named — including
     when it is in the room next door.
 
-    {!Raycaster.Sight.cast} traces the middle of the view through one open
+    {!Camlcast.Sight.cast} traces the middle of the view through one open
     doorway, carries it into the next room's frame, and reports what it meets
     first: which room, and which wall, sprite or threshold of it. Everything
     that stops the eye stops it — a nearer sprite, an opaque wall, a shut door,
@@ -18,15 +18,15 @@
     Press {b E} on a green one and it is recorded: a tick appears along the
     bottom, and that barrel cannot be recorded twice. Walk into the far room and
     the barrels turn amber — they are in {e your} room now, and this demo will
-    not take them. That rule is the demo's, not the engine's: {!Raycaster.Sight}
+    not take them. That rule is the demo's, not the engine's: {!Camlcast.Sight}
     reports how many doorways it looked through and {!collectable} is where the
     "at least one" is written down. The engine has no notion of a thing worth
     collecting, only of the sprite that happens to be one.
 
     Whatever is targeted is {b ringed}, from the same numbers the renderer drew
     it with — so the ring lands on it exactly, even through the doorway and in
-    the far room's own coordinates. {!Raycaster.Sight.t} carries the pose to
-    work that out from.
+    the far room's own coordinates. {!Camlcast.Sight.t} carries the pose to work
+    that out from.
 
     There is a {b picture hung on the far wall} too. Aim at it and the crosshair
     says so: a wall hit reports which of its decals is under the crosshair, by
@@ -45,7 +45,7 @@
     because a sprite is a cut-out and the pick is asked of the texel rather than
     the box. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 open Tsdl
 
@@ -169,12 +169,12 @@ let update state ~dt:_ ~motion ~actions =
     sighting, so a thing in the room next door is placed in {e that} room's
     coordinates and still lands where it was drawn.
 
-    A {b sprite} is square to the view, so {!Raycaster.Viewport.sprite_box}
-    gives it outright and the ring is a rectangle. A {b decal} is flat on a
-    wall, so it is not: a wall recedes, and the far edge of a picture on it is
-    smaller than the near one. What holds is that its four corners project to
-    four points and the straight edges between them stay straight, so the ring
-    is the trapezoid through those. *)
+    A {b sprite} is square to the view, so {!Camlcast.Viewport.sprite_box} gives
+    it outright and the ring is a rectangle. A {b decal} is flat on a wall, so
+    it is not: a wall recedes, and the far edge of a picture on it is smaller
+    than the near one. What holds is that its four corners project to four
+    points and the straight edges between them stay straight, so the ring is the
+    trapezoid through those. *)
 let ringed fb (state : t) (seen : Sight.t option) =
   let here = World.room world state.player.Player.room in
   let viewport =

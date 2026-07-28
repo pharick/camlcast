@@ -3,7 +3,7 @@
     wants it: a chamber with dust drifting down through the whole of it, every
     mote of it somewhere else than it was last frame.
 
-    Nothing here is new. Every mote is a {!Raycaster.Room.type-sprite} with a
+    Nothing here is new. Every mote is a {!Camlcast.Room.type-sprite} with a
     [base], the same field {!Floating} lifts one barrel with; what makes it a
     fall rather than a hover is that the base is a function of the clock, and
     what makes it {e cheap} is what is not rebuilt with it.
@@ -11,9 +11,9 @@
     {1 What one frame costs}
 
     Seventy sprite records, one array to hold them, and the two records
-    {!Raycaster.Room.with_sprites} and {!Raycaster.World.replace_room} put
-    around them. That is the whole of it — about five microseconds, measured.
-    The walls, the floor plane and the ceiling plane are the ones this room was
+    {!Camlcast.Room.with_sprites} and {!Camlcast.World.replace_room} put around
+    them. That is the whole of it — about five microseconds, measured. The
+    walls, the floor plane and the ceiling plane are the ones this room was
     built with and are shared, not copied, so a room's geometry is never touched
     by anything moving through it however much of it is moving. Drawing the dust
     costs more than moving it does, by a factor of a few hundred: at a 640 x 400
@@ -43,7 +43,7 @@
     rather than dropping in lines. Walk into it — sprites are not solid, and
     nothing here stops a step. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 (* A close chamber rather than a hall. Dust is only dust at a distance you can

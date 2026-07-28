@@ -1,4 +1,4 @@
-let window_title = "OCaml Raycaster"
+let window_title = "CamlCast"
 let initial_width = 1024
 let initial_height = 768
 let fov = Float.pi /. 3.

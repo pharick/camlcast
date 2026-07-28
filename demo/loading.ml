@@ -3,7 +3,7 @@
     disk; on the right, the generated ones every other demo uses.
 
     They are the same types and go down the same code paths — a
-    {!Raycaster.Texture} loaded from a PNG is a [Texture.t] like any other, and
+    {!Camlcast.Texture} loaded from a PNG is a [Texture.t] like any other, and
     the renderer has no way to ask where one came from. Generating art in code
     is still fully supported and is still what the rest of this library does.
     This is a second way in, not a replacement.
@@ -18,24 +18,24 @@
 
     The two screens standing in front of the walls are see-through because the
     patterns they wear carry an alpha, and the loaded one was not told that: the
-    alpha came out of the file, and {!Raycaster.Material.opaque} read it and
-    sent the wall down the translucent pass on its own.
+    alpha came out of the file, and {!Camlcast.Material.opaque} read it and sent
+    the wall down the translucent pass on its own.
 
     The loaded poster is 96 x 64 and hangs in a 2.4 x 1.6 space, undistorted,
     because a decal keeps its two extents apart all the way through —
-    {!Raycaster.Room.decal_column} indexes the image by its width and
-    {!Raycaster.Room.decal_row} by its height. The figure beside it keeps its
+    {!Camlcast.Room.decal_column} indexes the image by its width and
+    {!Camlcast.Room.decal_row} by its height. The figure beside it keeps its
     shape for the same reason and a sprite's own one:
-    {!Raycaster.Room.sprite_half_width} takes a billboard's width from its
+    {!Camlcast.Room.sprite_half_width} takes a billboard's width from its
     picture, so what a sprite is drawn in is the shape the file was authored in.
     {!Floating} is where that is worth looking at, with a cloud of dust three
     times as wide as it is tall.
 
-    Where the files are found is {!Raycaster.Asset}'s answer, and it is relative
+    Where the files are found is {!Camlcast.Asset}'s answer, and it is relative
     to the executable rather than to this source tree. Set [CAMLCAST_ASSETS] to
     make it look somewhere else. *)
 
-open Raycaster
+open Camlcast
 open Result_ext
 
 let height = 4.

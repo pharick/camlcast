@@ -2,7 +2,7 @@
     the arithmetic it paces itself by. The rest of the module owns the window
     and cannot run headless. *)
 
-open Raycaster
+open Camlcast
 open Support
 
 let player () = Player.create ~room:0 ~pos:centre ~angle:0.

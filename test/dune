@@ -55,4 +55,4 @@
   test_level
   test_demos
   test_menu)
- (libraries raycaster camlcast_demo alcotest tsdl))
+ (libraries camlcast camlcast_demo alcotest tsdl))

@@ -9,7 +9,7 @@
     it, so the test suite can check every one of them without opening a window.
 *)
 
-open Raycaster
+open Camlcast
 
 type t = {
   name : string;  (** what you type after [camlcast-demo] *)
