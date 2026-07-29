@@ -56,4 +56,4 @@ let world =
     ~links:[] ~atmosphere:fog
     ~spawn:("colonnade", Vec.make 2. 0.)
 
-let run () = Engine.run_world world
+let run window = Engine.run_world window world

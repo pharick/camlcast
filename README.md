@@ -120,7 +120,8 @@ opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ```
 
 then `(libraries camlcast)` in your `dune`. A level is OCaml code rather than a
-file in some format, so the smallest complete game is one room and a call:
+file in some format, so the smallest complete game is one room, a window and a
+call:
 
 ```ocaml
 open Camlcast
@@ -155,18 +156,26 @@ let world =
   World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
     ~spawn:("room", Vec.make (-4.5) 0.)
 
-let () = ignore (Engine.run_world world)
+let () = ignore (Engine.with_window (fun window -> Engine.run_world window world))
 ```
 
-`Engine.run_world` is the loop over the only state the engine holds by itself: a
-world and the player walking it, plus an optional `extend : World.t -> Player.t
--> World.t` called whenever the player goes through a doorway. A game that keeps
-anything else — phases, doors, a journal, a score, a random seed — uses
-`Engine.run` instead, which runs a state of whatever type it likes and asks six
-things of it: `update`, `view`, `overlay`, `pointing`, `finished` and `bindings`
-— the last being what the player's controls are for, since the engine holds no
-keys any more than it holds colours. Everything else stays on the game's side of
-the line, and the engine stays a pure function of what it is handed.
+`Engine.with_window` opens the window and closes it again when the function it
+is given is done with it. `Engine.run_world` is the loop over the only state the
+engine holds by itself: a world and the player walking it, plus an optional
+`extend : World.t -> Player.t -> World.t` called whenever the player goes
+through a doorway. A game that keeps anything else — phases, doors, a journal, a
+score, a random seed — uses `Engine.run` instead, which runs a state of whatever
+type it likes and asks six things of it: `update`, `view`, `overlay`,
+`pointing`, `finished` and `bindings` — the last being what the player's
+controls are for, since the engine holds no keys any more than it holds colours.
+Everything else stays on the game's side of the line, and the engine stays a
+pure function of what it is handed.
+
+A window and a run are two lifetimes and not one, which is why they are two
+calls. A game with a single world to show never notices the difference. A
+launcher does: it opens one window and plays run after run on it, so that
+returning to its menu is the picture changing rather than the window vanishing
+and coming back at the size it first had.
 
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
 walks through all of that a feature at a time, with the demo that isolates each
@@ -275,7 +284,7 @@ Each module is self-contained and depends only on the ones above it.
 | `Binding`     | what those controls are for — the game's table, and the one pure function that turns a frame of them into a movement       |
 | `Framebuffer` | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
 | `Renderer`    | the software renderer: floor/ceiling/sky, opaque walls with decals, then sprites and see-through walls composited by depth |
-| `Engine`      | window lifetime, fullscreen state, and the game loop                                                                       |
+| `Engine`      | window lifetime, fullscreen state, and the game loop played on one                                                        |
 | `Clock`       | the pacing arithmetic the loop measures its frames by, apart from any window                                               |
 
 ## Documentation

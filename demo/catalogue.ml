@@ -20,10 +20,10 @@ type t = {
           Behind a [lazy] because [loading] builds its world out of files, which
           can fail. Eager, one missing picture would stop [--list] from listing
           anything; deferred, it stops only the demo that needed it. *)
-  run : unit -> (Engine.ending, [ `Msg of string ]) result;
-      (** opens a window, and says how the player left it — {!Menu} shows itself
-          again after a demo that was [Left] and stops after one that was
-          [Closed] *)
+  run : Engine.window -> (Engine.ending, [ `Msg of string ]) result;
+      (** plays it on the launcher's window, and says how the player left it —
+          {!Menu} shows itself again on that same window after a demo that was
+          [Left], and stops after one that was [Closed] *)
 }
 
 let demos =

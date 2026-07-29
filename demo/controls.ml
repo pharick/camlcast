@@ -206,9 +206,9 @@ let overlay fb state =
   end
   else Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings ~update
+    Engine.run window ~bindings ~update
       ~view:(fun state -> (world, state.player))
       ~overlay
       ~pointing:(fun state -> state.pointing)

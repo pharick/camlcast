@@ -165,8 +165,8 @@ let view state =
       ~replacement:(Room.with_sprites hall (drifting :: still)),
     state.player )
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update ~view start
+    Engine.run window ~bindings:Bindings.escapable ~update ~view start
   in
   ending

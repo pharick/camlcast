@@ -470,8 +470,8 @@ let overlay fb state =
   in
   Paint.crosshair fb ~r ~g ~b
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update ~view ~overlay start
+    Engine.run window ~bindings:Bindings.escapable ~update ~view ~overlay start
   in
   ending

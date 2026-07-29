@@ -63,4 +63,4 @@ let world =
     ~links:[] ~atmosphere:Surfaces.air
     ~spawn:("room", Vec.make (-5.) 0.)
 
-let run () = Engine.run_world world
+let run window = Engine.run_world window world

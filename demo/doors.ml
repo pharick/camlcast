@@ -202,9 +202,9 @@ let overlay fb state =
         ~b:(if refusing then 70 else if shut then 90 else 130));
   Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update
+    Engine.run window ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (state.world, state.player))
       ~overlay start
   in

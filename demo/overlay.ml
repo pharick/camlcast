@@ -65,9 +65,9 @@ let overlay fb state =
     ~h:bar_h ~fraction:(state.elapsed /. period) ~r:230 ~g:190 ~b:90;
   Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update
+    Engine.run window ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (world, state.player))
       ~overlay start
   in

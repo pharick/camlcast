@@ -9,8 +9,8 @@
     write its own line here rather than this one.
 
     This is also all a game has to do to rebind anything: state a table once and
-    pass it wherever it opens a window. {!Camlcast_demo.Controls} does the
-    larger version, with the walking keys moved. *)
+    pass it wherever it starts a run. {!Camlcast_demo.Controls} does the larger
+    version, with the walking keys moved. *)
 
 open Camlcast
 

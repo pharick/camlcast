@@ -251,9 +251,9 @@ let overlay fb state =
         ~w:(2 * unit) ~h:(3 * unit) ~r:120 ~g:230 ~b:130 ~alpha:255)
     state.collected
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update
+    Engine.run window ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (world, state.player))
       ~overlay start
   in

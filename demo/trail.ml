@@ -129,9 +129,9 @@ let overlay fb state =
       ~w:(2 * unit) ~h:(3 * unit) ~r:70 ~g:80 ~b:95 ~alpha:255;
   Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update
+    Engine.run window ~bindings:Bindings.escapable ~update
       ~view:(fun state -> (world, state.player))
       ~overlay start
   in

@@ -400,8 +400,8 @@ let overlay fb state =
     ~x:(width - hw - pad)
     ~y:pad ~color:(Color.rgb 140 146 160)
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update ~view ~overlay start
+    Engine.run window ~bindings:Bindings.escapable ~update ~view ~overlay start
   in
   ending

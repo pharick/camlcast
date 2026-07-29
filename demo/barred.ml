@@ -119,4 +119,4 @@ let world =
     ~atmosphere:Surfaces.air
     ~spawn:("hall", Vec.make (-7.) 0.)
 
-let run () = Engine.run_world world
+let run window = Engine.run_world window world

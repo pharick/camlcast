@@ -2,20 +2,41 @@
     module is written inside the [Result] monad and the first error aborts the
     frame — and with it the program.
 
-    {!run} is the loop. {!run_world} is that loop over the only state the engine
-    can hold on a game's behalf — a world and the player walking it — and is
-    what a game reaches for until it keeps something else. *)
+    {!with_window} opens a window. {!run} is the loop, played on one.
+    {!run_world} is that loop over the only state the engine can hold on a
+    game's behalf — a world and the player walking it — and is what a game
+    reaches for until it keeps something else.
+
+    A window and a run are two lifetimes and not one. A game with a single world
+    to show opens a window, plays its run on it and closes it again, all in a
+    line. A launcher plays run after run on the {e same} window, so that
+    returning to its menu is a change of what is drawn and not a window that
+    disappears and comes back at another size. *)
+
+type window
+(** A window, and everything behind it: SDL itself, the renderer, and the buffer
+    a frame is drawn into. Made by {!with_window} and passed to every run played
+    on it.
+
+    It holds what SDL will not answer for. Fullscreen and relative mouse mode
+    can be set but never asked about, so this is where what they are is written
+    down — and because the window outlives the run, that is what carries them
+    from one to the next. A player who goes fullscreen in a launcher's menu is
+    still fullscreen in the demo they pick. *)
 
 (** How a run came to an end.
 
-    Only something that opens one window after another has any use for the
+    Only something that plays one run after another has any use for the
     difference, which is why it took until there was a launcher to write it
     down. The demo browser shows its menu again when a demo is [Left] and stops
     altogether when one is [Closed], so that shutting the window — or Cmd-Q,
     which reaches SDL by the same road — ends the program instead of bouncing
     back to the list. *)
 type ending =
-  | Closed  (** the window was shut, or the desktop asked the program to stop *)
+  | Closed
+      (** the window was shut, or the desktop asked the program to stop. The
+          window itself is still open until {!with_window} returns; what has
+          ended is the run, and what the player asked for is the program. *)
   | Left
       (** the run ended on its own terms: [finished] said so, or the player
           pressed something the game's {!Binding.t} listed as leaving it *)
@@ -46,7 +67,23 @@ type 'a game = {
     answer to whether it is over, and the table its controls are read through.
 *)
 
+val with_window :
+  (window -> ('a, [ `Msg of string ]) result) -> ('a, [ `Msg of string ]) result
+(** Open a window, hand it to the given function, and close it again when that
+    function is done with it — however it is done, error or exception included.
+
+    Everything a frame needs is acquired here and released in reverse: SDL, the
+    window, the renderer, relative mouse mode, and the buffer frames are drawn
+    into. Nothing inside is exposed, because nothing outside has any business
+    freeing them; a caller holds the {!window} and plays runs on it.
+
+    The result is the function's own, passed through untouched. The error is
+    [`Msg] carrying SDL's own message, from whichever call failed first —
+    starting SDL, opening the window, making the renderer, or making the buffer.
+*)
+
 val run :
+  window ->
   update:('a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a) ->
   view:('a -> World.t * Player.t) ->
   ?overlay:(Framebuffer.t -> 'a -> unit) ->
@@ -55,8 +92,8 @@ val run :
   ?bindings:Binding.t ->
   'a ->
   ('a * ending, [ `Msg of string ]) result
-(** Open a window and run a state through the loop, returning what it has become
-    when the game says it is finished or the player quits.
+(** Run a state through the loop on a window, returning what it has become when
+    the game says it is finished or the player quits.
 
     The engine knows nothing about the state but these callbacks. [update] is
     given the frame's length, the movement asked for over it and the one-off
@@ -77,20 +114,31 @@ val run :
     for the one place it does. Omitting both [finished] and a leaving key is a
     window the player can only close.
 
+    The window may have been played on already, so a run does not assume it
+    arrives at a fresh one. It takes the mouse as this game wants it, from
+    [pointing] rather than by supposing it was left captured; it drops the mouse
+    movement that piled up while no run was reading it, which would otherwise
+    swing the camera on the first frame; and it starts from the controls as they
+    physically are, so a key the player is still holding from whatever chose
+    this game is held rather than newly pressed. What it does {e not} do is
+    empty the event queue: a window shut during the handover still ends the
+    program.
+
     Returns the state the game reached and how it got there; see {!ending}. The
-    error is [`Msg] carrying SDL's own message, from whichever call failed first
-    — opening the window, making the renderer, or a frame.
+    error is [`Msg] carrying SDL's own message, from whichever frame failed —
+    the window's own making having been {!with_window}'s to report.
 
     Time passes only while the window has focus; see {!simulate}. *)
 
 val run_world :
+  window ->
   ?extend:(World.t -> Player.t -> World.t) ->
   ?bindings:Binding.t ->
   World.t ->
   (ending, [ `Msg of string ]) result
-(** Open a window on a world and run it until the player quits. The player
-    starts where the world says — {!Player.spawn}, which is the [~spawn] given
-    to {!World.make} — since a bare world has nobody in it yet.
+(** Run a world on a window until the player quits. The player starts where the
+    world says — {!Player.spawn}, which is the [~spawn] given to {!World.make} —
+    since a bare world has nobody in it yet.
 
     [extend] is called whenever the player goes through a doorway, with the
     world and the player's new position, and returns the world to draw from now

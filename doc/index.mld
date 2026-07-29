@@ -42,6 +42,12 @@ and two games can share an engine without sharing a look.
 
 {1 Building a game on it}
 
+{!Camlcast.Engine.with_window} opens a window and closes it again when the
+function it is handed to is done with it. {!Camlcast.Engine.run} plays a run on
+one, and a program that has several to play — a launcher and its menu — opens
+the window once and plays them all on it, so that going from one to the next is
+the picture changing and not the window going away.
+
 {!Camlcast.Engine.run} runs a state of whatever type the game likes, and
 asks six things of it: [update], given the frame's length, the movement asked
 for over it and what the player is pressing and holding through it; [view],
@@ -55,7 +61,7 @@ pure function of what it is handed. Time passes only while the window has focus.
 
 It reports how the run ended, as an {!Camlcast.Engine.ending}: [Closed] for a
 window that was shut, [Left] for a run that finished on its own terms. Only
-something that opens one window after another needs the difference.
+something that plays one run after another needs the difference.
 
 Input arrives as controls and not as actions — {!Camlcast.Input.pressed},
 {!Camlcast.Input.released}, {!Camlcast.Input.val-down} and

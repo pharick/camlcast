@@ -93,9 +93,9 @@ let view state =
   in
   ({ world with World.atmosphere = air ~light }, state.player)
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update ~view
+    Engine.run window ~bindings:Bindings.escapable ~update ~view
       ~finished:(fun state -> state.phase = Done)
       start
   in

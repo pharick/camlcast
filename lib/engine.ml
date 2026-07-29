@@ -14,18 +14,26 @@ type 'a game = {
   bindings : Binding.t;
 }
 
-type 'a context = {
+type window = {
+  handle : Sdl.window;
   renderer : Sdl.renderer;
-  window : Sdl.window;
   event : Sdl.event;
   framebuffer : Framebuffer.t ref;
-  game : 'a game;
+  mutable fullscreen : bool;
+  mutable relative : bool;
 }
-(* The things a frame needs that never change during one. Two are deliberately
-    not among them. The window size can change at any moment, so {!Renderer}
-    asks for it per frame and resizes the framebuffer to match. And the game
-    state changes every frame by definition, so the loop threads it beside the
-    context rather than holding it fixed here. *)
+(* The things a frame needs that do not change during one, and that no longer
+    change between runs either. SDL only offers "set" for fullscreen and
+    relative mouse mode — never "toggle", and never an answer — so what they are
+    is written down here, beside the window they are true of. Mutable, because
+    they outlive the loop that changes them: a run started on this window has to
+    be told what the last one left, or it would turn the cursor loose and never
+    notice.
+
+    Two things are deliberately not in here. The window size can change at any
+    moment, so {!Renderer} asks for it per frame and resizes the framebuffer to
+    match. And the game is per run rather than per window, so the loop takes it
+    alongside rather than holding it fixed here. *)
 
 let move world player (motion : Input.motion) =
   player
@@ -36,8 +44,8 @@ let move world player (motion : Input.motion) =
 let step world player (motion : Input.motion) =
   (move world player motion).Player.player
 
-(* SDL only offers "set", not "toggle", so the loop carries the current state
-    and returns the new one.
+(* SDL only offers "set", not "toggle", so the window carries the current state
+    and this hands back the new one to write there.
 
     [fullscreen_desktop] stretches the window over the desktop instead of
     changing the display mode: switching is instant, other windows keep their
@@ -83,8 +91,8 @@ let in_framebuffer window framebuffer (x, y) =
     ( x * framebuffer.Framebuffer.width / width,
       y * framebuffer.Framebuffer.height / height )
 
-let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
-  if Input.quit_requested ctx.event then Ok (state, Closed)
+let rec loop window game ~state ~actions ~previous =
+  if Input.quit_requested window.event then Ok (state, Closed)
   else
     let now = Clock.now () in
     let dt = Clock.frame_time ~previous ~now in
@@ -93,7 +101,7 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
        idle spell to the frame that resumes. An unfocused frame reads it and
        throws it away, which is what {!Input.freeze} does with it. *)
     let mouse = Input.mouse_delta () in
-    let focused = has_focus ctx.window in
+    let focused = has_focus window.handle in
     (* Read as state while the window has focus, and frozen while it has not:
        the hold timer runs on this [dt] and not on the one {!simulate} zeroes,
        so a frame nobody was there for has to be kept out of it here. The cursor
@@ -105,47 +113,52 @@ let rec loop ctx ~state ~actions ~fullscreen ~relative ~previous =
         {
           sampled with
           Input.pointer =
-            in_framebuffer ctx.window !(ctx.framebuffer) sampled.Input.pointer;
+            in_framebuffer window.handle !(window.framebuffer)
+              sampled.Input.pointer;
         }
       else Input.freeze actions
     in
     (* Walking and looking are read out of the same frame of controls as
        everything else, through the game's table. The engine's part in it is a
        default table and no key of its own. *)
-    let bindings = ctx.game.bindings in
+    let bindings = game.bindings in
     let motion = Binding.motion bindings actions ~dt in
-    let* fullscreen =
+    let* () =
       if Binding.taken bindings.Binding.fullscreen actions then
-        set_fullscreen ctx.window (not fullscreen)
-      else Ok fullscreen
+        let+ enabled = set_fullscreen window.handle (not window.fullscreen) in
+        window.fullscreen <- enabled
+      else Ok ()
     in
     let state =
-      simulate ctx.game state ~focused ~pointing:(ctx.game.pointing state) ~dt
-        ~motion ~actions
+      simulate game state ~focused ~pointing:(game.pointing state) ~dt ~motion
+        ~actions
     in
-    if ctx.game.finished state then Ok (state, Left)
+    if game.finished state then Ok (state, Left)
     else if Binding.taken bindings.Binding.leave actions then Ok (state, Left)
     else
       (* Which of the two things the mouse is for is the game's to say and the
          engine's to carry out, and the state it has just become is the one that
          says it — a screen opened this frame wants its cursor this frame. *)
-      let* relative =
-        set_relative_mouse ~current:relative (not (ctx.game.pointing state))
-      in
-      let world, player = ctx.game.view state in
       let* () =
-        Renderer.render ctx.renderer ctx.framebuffer
-          ~overlay:(fun fb -> ctx.game.overlay fb state)
+        let+ enabled =
+          set_relative_mouse ~current:window.relative
+            (not (game.pointing state))
+        in
+        window.relative <- enabled
+      in
+      let world, player = game.view state in
+      let* () =
+        Renderer.render window.renderer window.framebuffer
+          ~overlay:(fun fb -> game.overlay fb state)
           world player
       in
       let idle = Clock.idle_time ~spent:(Clock.now () -. now) in
       Sdl.delay (Int32.of_float (idle *. 1000.));
       (* Frames are timed start to start, so the sleep above counts towards the
          next one's length rather than falling outside every frame. *)
-      loop ctx ~state ~actions ~fullscreen ~relative ~previous:now
+      loop window game ~state ~actions ~previous:now
 
-let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
-    ?(finished = fun _ -> false) ?(bindings = Binding.default) state =
+let with_window use =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
@@ -156,8 +169,8 @@ let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
         ~h:Config.initial_height
         Sdl.Window.(shown + resizable))
     Sdl.destroy_window
-  @@ fun window ->
-  with_resource (fun () -> Sdl.create_renderer window) Sdl.destroy_renderer
+  @@ fun handle ->
+  with_resource (fun () -> Sdl.create_renderer handle) Sdl.destroy_renderer
   @@ fun renderer ->
   (* Relative mouse mode hides and pins the cursor and hands us bare motion
      deltas — what a first person camera wants from the mouse. *)
@@ -171,7 +184,9 @@ let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
      reads typed characters — the keyboard is scancode state — so say so. *)
   Sdl.stop_text_input ();
   (* The framebuffer is resized to the window as it changes, so [ensure] may
-     replace the one in the ref; the finaliser frees whichever is current. *)
+     replace the one in the ref; the finaliser frees whichever is current. It
+     nests inside the renderer's release above because the texture behind it
+     belongs to that renderer and must go first. *)
   let width, height =
     Renderer.internal_size ~width:Config.initial_width
       ~height:Config.initial_height
@@ -181,18 +196,46 @@ let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
   Fun.protect
     ~finally:(fun () -> Framebuffer.destroy !framebuffer)
     (fun () ->
-      loop
+      use
         {
+          handle;
           renderer;
-          window;
           event = Sdl.Event.create ();
           framebuffer;
-          game = { update; view; overlay; pointing; finished; bindings };
-        }
-        ~state ~actions:Input.untouched ~fullscreen:false ~relative:true
-        ~previous:(Clock.now ()))
+          fullscreen = false;
+          relative = true;
+        })
 
-let run_world ?(extend = fun world _ -> world)
+let run window ~update ~view ?(overlay = fun _ _ -> ())
+    ?(pointing = fun _ -> false) ?(finished = fun _ -> false)
+    ?(bindings = Binding.default) state =
+  (* What was held when the last run ended is not a press in this one. Starting
+     from {!Input.untouched} would state every key as newly down, so a player
+     still holding the one that chose this game would have it read as pressed on
+     its first frame; {!Input.freeze} states [down] and [was_down] alike, and no
+     edge fires. *)
+  let actions =
+    Input.freeze (Input.sample Input.untouched ~mouse:(0., 0.) ~dt:0.)
+  in
+  (* The window arrives however the last run left it, and only the game about to
+     be played knows what it wants the mouse for. *)
+  let* () =
+    let+ enabled =
+      set_relative_mouse ~current:window.relative (not (pointing state))
+    in
+    window.relative <- enabled
+  in
+  (* SDL keeps adding up the relative delta until somebody reads it, and between
+     two runs nobody was. Read it here and drop it, or every inch of desk
+     crossed on the way in would swing the camera on the first frame. After the
+     line above and not before it: taking the mouse warps the cursor, and that
+     warp is itself a delta waiting to be read. *)
+  ignore (Input.mouse_delta ());
+  loop window
+    { update; view; overlay; pointing; finished; bindings }
+    ~state ~actions ~previous:(Clock.now ())
+
+let run_world window ?(extend = fun world _ -> world)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) world =
   let update (world, player) ~dt:_ ~motion ~actions:_ =
     let moved = move world player motion in
@@ -202,6 +245,6 @@ let run_world ?(extend = fun world _ -> world)
     ((if Player.crossed moved then extend world player else world), player)
   in
   let+ _, ending =
-    run ~update ~view:Fun.id ~bindings (world, Player.spawn world)
+    run window ~update ~view:Fun.id ~bindings (world, Player.spawn world)
   in
   ending

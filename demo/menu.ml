@@ -129,12 +129,12 @@ let overlay font fb state =
     ~y:(height - margin - font.Font.height)
     ~color:dim
 
-(** Show the list and wait. [None] means the player wants no demo at all —
-    Escape, or the window shut — and either way the launcher stops. *)
-let choose () =
+(** Show the list on [window] and wait. [None] means the player wants no demo at
+    all — Escape, or the window shut — and either way the launcher stops. *)
+let choose window =
   let* font = Typeface.load () in
   let+ state, ending =
-    Engine.run ~update ~view ~overlay:(overlay font)
+    Engine.run window ~update ~view ~overlay:(overlay font)
       ~finished:(fun state -> state.chosen <> None)
       ~bindings:Bindings.escapable start
   in

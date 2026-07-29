@@ -45,8 +45,8 @@ Which one you get says what kind of mistake it was.
 
 {ul
 {li {b Things that can fail at run time return a result} —
-    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.run_world},
-    {!Camlcast.Engine.run},
+    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.with_window},
+    {!Camlcast.Engine.run_world}, {!Camlcast.Engine.run},
     {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
     {!Camlcast.Framebuffer.create}. A missing file is one of these.}
 {li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
@@ -163,8 +163,10 @@ let world =
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 let () =
-  match Engine.run_world world with
-  (* How the run ended matters only to a program that opens a second window.
+  (* [with_window] opens the window, hands it over, and closes it again when
+     this is done with it — on the way out of an error just the same. *)
+  match Engine.with_window (fun window -> Engine.run_world window world) with
+  (* How the run ended matters only to a program that plays a second one.
      This one has the single room above and nothing to go back to. *)
   | Ok _ending -> ()
   | Error (`Msg m) ->
@@ -195,8 +197,10 @@ fullscreen, {b Esc} quits.
     {!Camlcast.Room.type-ceiling}.}
 {li {!Camlcast.World.make} names the rooms, links their doorways (none yet),
     gives the world its air, and says where the player starts.}
-{li {!Camlcast.Engine.run_world} opens the window and runs the loop until the
-    player quits.}}
+{li {!Camlcast.Engine.with_window} opens the window, and closes it again when
+    what it hands the window to has finished with it.}
+{li {!Camlcast.Engine.run_world} runs the loop on that window until the player
+    quits.}}
 
 {b If the room is black from the inside}, the walls are wound clockwise. Reverse
 them.
@@ -763,7 +767,8 @@ let view state =
 
 let () =
   match
-    Engine.run ~update ~view
+    Engine.with_window @@ fun window ->
+    Engine.run window ~update ~view
       ~bindings:(Binding.make ~leave:[ Input.Key Key.escape ] ())
       ~finished:(fun state -> state.phase = Done)
       start
@@ -780,8 +785,10 @@ let () =
 [Closed] means the window was shut or the desktop asked the program to stop,
 [Left] means the run ended on its own terms — [finished] said so, or the player
 pressed something the binding table lists under [~leave]. Only something that
-opens one window after another needs the difference; a launcher shows its menu
-again after [Left] and stops after [Closed]. {!Camlcast.Engine.run_world} is
+plays one run after another needs the difference; a launcher shows its menu
+again after [Left] and stops after [Closed] — on the same window throughout,
+which is what {!Camlcast.Engine.with_window} being a separate call buys it.
+{!Camlcast.Engine.run_world} is
 [run] over a bare world, returning the same answer; a program with only one
 world to show has no use for it and can [ignore] it.
 
@@ -1098,7 +1105,8 @@ let rec build world ~room ~ahead =
 let extend world (player : Player.t) =
   build world ~room:player.Player.room ~ahead:Config.max_portal_depth
 
-let () = ignore (Engine.run_world ~extend world)
+let () =
+  ignore (Engine.with_window (fun window -> Engine.run_world window ~extend world))
 ]}
 
 {b Build exactly {!Camlcast.Config.max_portal_depth} doorways ahead}, which is

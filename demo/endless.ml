@@ -124,4 +124,4 @@ let world =
 let extend world (player : Player.t) =
   build world ~room:player.Player.room ~ahead:Config.max_portal_depth
 
-let run () = Engine.run_world ~extend world
+let run window = Engine.run_world window ~extend world

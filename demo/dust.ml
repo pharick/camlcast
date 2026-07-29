@@ -137,8 +137,8 @@ let view state =
         (Room.with_sprites (World.room world 0) (motes ~t:state.elapsed)),
     state.player )
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable ~update ~view start
+    Engine.run window ~bindings:Bindings.escapable ~update ~view start
   in
   ending

@@ -16,21 +16,25 @@ let listing () =
 (* Menu, demo, menu again, for as long as the player keeps coming back.
    Escape ends a demo and returns here; shutting the window ends the program.
    Telling those two apart is the whole reason {!Engine.run} reports an
-   ending, and the only reason the launcher is a loop rather than a line. *)
-let rec browse () =
-  match Menu.choose () with
+   ending, and the only reason the launcher is a loop rather than a line.
+
+   One window for the whole of it. The list and the demo it opens are two runs
+   and not two windows, so coming back to the list is the picture changing
+   rather than the window going away and returning at the size it first had. *)
+let rec browse window =
+  match Menu.choose window with
   | Error _ as error -> error
   | Ok None -> Ok ()
   | Ok (Some (demo : Catalogue.t)) -> (
-      match demo.Catalogue.run () with
+      match demo.Catalogue.run window with
       | Error _ as error -> error
       | Ok Camlcast.Engine.Closed -> Ok ()
-      | Ok Camlcast.Engine.Left -> browse ())
+      | Ok Camlcast.Engine.Left -> browse window)
 
 let () =
   match Sys.argv with
   | [| _ |] -> (
-      match browse () with
+      match Camlcast.Engine.with_window browse with
       | Ok () -> ()
       | Error (`Msg message) ->
           (* A window is what was asked for, so say why there is none and then
@@ -48,7 +52,7 @@ let () =
       | Some demo -> (
           (* Named on the command line, a demo is the whole program: however it
              ends, there is nothing to come back to. *)
-          match demo.Catalogue.run () with
+          match Camlcast.Engine.with_window demo.Catalogue.run with
           | Ok _ -> ()
           | Error (`Msg message) ->
               prerr_endline ("SDL error: " ^ message);

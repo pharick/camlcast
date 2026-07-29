@@ -125,9 +125,9 @@ let overlay fb (_ : Player.t) =
   Font.draw fb font note ~x:(width - nw - pad) ~y:(height - nh - pad) ~color:dim;
   Paint.crosshair fb ~r:245 ~g:245 ~b:245
 
-let run () =
+let run window =
   let+ _, ending =
-    Engine.run ~bindings:Bindings.escapable
+    Engine.run window ~bindings:Bindings.escapable
       ~update:(fun player ~dt:_ ~motion ~actions:_ ->
         Engine.step world player motion)
       ~view:(fun player -> (world, player))

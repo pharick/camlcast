@@ -1463,7 +1463,20 @@ is a rectangle rather than the doorway's shape}, the mask is not per column.
 Nest [with_resource] so SDL init, the window, the renderer, relative mouse mode
 and the framebuffer are all released in reverse order even on error. The loop
 carries the immutable [player], the [fullscreen] flag and the time the previous
-frame started between frames. Pace the loop by measuring, not by assuming: sleep
+frame started between frames.
+
+{b What the shipped engine does instead.} The nesting is the same, but it ends
+in a {!Camlcast.Engine.window} handed to a function rather than in the loop
+itself — {!Camlcast.Engine.with_window}, with the loop a separate call played on
+what it opens. That is what lets a launcher show a menu, run a demo and show the
+menu again without the window disappearing twice on the way. The bracket is the
+point and survives the split: a window is still acquired, used and released in
+one expression, and still released on an error or an exception. What changes is
+that the flags the loop carried — [fullscreen], and whether the mouse is
+captured — move onto the window, because they now outlive any one run and SDL
+will not answer for either of them.
+
+Pace the loop by measuring, not by assuming: sleep
 only what is {e left} of [Config.frame_budget], and feed the real frame length to
 [Input.motion] as [dt]. Sleep a flat 16 ms after a 10 ms frame and you get 38 FPS
 and a player who walks two thirds as fast as intended:
@@ -1505,7 +1518,7 @@ in the shipped engine they live apart from one, as {!Camlcast.Clock} —
 [frame_time] and [idle_time] under those names, and [seconds] as
 {!Camlcast.Clock.now}. That is the whole of what a test can pin about pacing, and
 splitting it out is what lets {!Camlcast.Engine} keep an interface with nothing
-in it but the loop and the two ways in.
+in it but a window to play on and the two ways into the loop.
 
 {b Checkpoint — Milestone 8, the whole engine.} Everything runs together.
 
@@ -1566,7 +1579,7 @@ Input        (keyboard + mouse as they are: controls, edges, holds, analog)
 Binding      (what those controls are for — the game's table, read purely)
 Framebuffer  (CPU pixels + alpha blend + per-pixel depth + streaming texture)
 Renderer     (floor/ceiling/sky, opaque walls + decals, then sprites + windows by depth)
-Engine       (window lifetime, fullscreen, the loop)
+Engine       (window lifetime, fullscreen, the loop played on one)
 ]}
 
 The shipped engine adds six more that this tutorial does not build, because none
