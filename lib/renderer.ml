@@ -20,9 +20,30 @@ let clampi n v = Int.max 0 (Int.min (n - 1) v)
     casts the relevant plane with {!Plane.view_distance} (one division), then
     shows its texture in world space, tinted by its colour and traded away for
     the haze as it recedes; sky pixels come from {!Sky} and depend only on the
-    direction looked in. *)
-let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
-    ~last =
+    direction looked in.
+
+    [near] is the doorway this room is being drawn through, and a plane cast
+    nearer than it is not this room's to show. The case that needs it is the
+    strip above an opening: a transom you can see through recurses for the rows
+    over the doorway's head, and up there the neighbour's {e ceiling} runs back
+    towards the eye and stands nearer than the doorway long before the top of
+    the window. Without the clip its roof — or, over a room open to one, its sky
+    — is painted overhead in the room the player is standing in. The floor wants
+    the same rule for a narrower reason: inside the opening it is already beyond
+    [near] wherever the two rooms' floors meet at the seam, so it only bites
+    where they disagree, which is what {!World.seam_gap} measures.
+
+    A pixel whose planes are all clipped away is left as it is rather than
+    hazed: inside a portal the room in front has already painted every row of
+    this band. The haze is for the pixel where neither plane is in view at all,
+    which is a fact about the geometry and not about the doorway.
+
+    At the top level [near] is zero and the floor is never clipped, the eye
+    standing {!Config.eye_height} above it. A ceiling {e below} the eye would be:
+    it casts to a negative distance, drawn today and left alone now. That takes a
+    roof under half a cell, which {!Plane.above} cannot make. *)
+let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
+    ~first ~last =
   let open Viewport in
   let height = fb.Framebuffer.height in
   let eye_z = viewport.eye_z in
@@ -55,6 +76,10 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
       ~g:(mix c.Color.g haze.Color.g)
       ~b:(mix c.Color.b haze.Color.b)
   in
+  (* In front of the doorway this room is being drawn through, and so out of
+     the picture: taken out before the two planes are compared, so that a floor
+     clipped away still lets the ceiling behind it be drawn. *)
+  let beyond d = if d > near then d else infinity in
   match room.Room.ceiling with
   | Room.Roof ceiling ->
       let ceil_base = Plane.elevation ceiling.Room.plane player.Player.pos in
@@ -63,16 +88,17 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
         let r = row_factor viewport ~row:y in
         (* A plane is only in view on its side of the horizon, so at most one of
            these is a positive distance for this pixel. *)
-        let df =
+        let cast_f =
           let dn = r +. gf in
           if dn > 1e-9 then (eye_z -. floor_base) /. dn else infinity
-        and dc =
+        and cast_c =
           let dn = r +. gc in
           if dn < -1e-9 then (eye_z -. ceil_base) /. dn else infinity
         in
+        let df = beyond cast_f and dc = beyond cast_c in
         if Float.is_finite df && df <= dc then surface y df floor.Room.material
         else if Float.is_finite dc then surface y dc ceiling.Room.material
-        else
+        else if not (Float.is_finite cast_f || Float.is_finite cast_c) then
           (* Neither plane is in view here, so there is no surface to keep any
              of: the band is the haze at full strength, which is where the two
              fades either side of it are heading. *)
@@ -81,13 +107,16 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
       done
   | Room.Open sky ->
       (* No roof: below the horizon is floor, above it is sky. The sky depends
-         only on the column's azimuth and the pixel's elevation. *)
+         only on the column's azimuth and the pixel's elevation. It needs no
+         clip of its own, being infinitely far and so beyond every doorway. *)
       let azimuth = Float.atan2 dy dx in
       for y = Int.max 0 first to Int.min (height - 1) last do
         let r = row_factor viewport ~row:y in
         let dn = r +. gf in
-        if dn > 1e-9 then
-          surface y ((eye_z -. floor_base) /. dn) floor.Room.material
+        if dn > 1e-9 then begin
+          let d = (eye_z -. floor_base) /. dn in
+          if d > near then surface y d floor.Room.material
+        end
         else
           let s = Sky.color sky ~azimuth ~up:(-.r) in
           Framebuffer.set fb ~x:column ~y ~r:s.Color.r ~g:s.Color.g ~b:s.Color.b
@@ -390,12 +419,35 @@ and fragment_kind =
     three rooms deep is directly comparable with everything already in the
     shared depth buffer. Only [pos], [dir] and [right] move.
 
+    [near] is how far away the doorway this room is being drawn through was met,
+    and nothing at or nearer than it is drawn: not a wall, not another opening,
+    not a sprite. It is not an approximation of the doorway but the whole of it.
+    Along one ray, which side of the threshold's line a point falls on is affine
+    in the distance and changes sign exactly where the ray crosses it — and the
+    recursion is only reached when the ray crossed the opening itself — so past
+    [near] is precisely what is beyond the doorway, and the wedge between the
+    jambs collapses, per column, to one number.
+
+    Which matters because the camera arrives {e behind} the neighbour's copy of
+    the opening. Everything that room has standing on the near side of its own
+    doorway is therefore in front of the ray, and in the room the player is
+    actually in rather than in the picture the doorway shows. A convex room never
+    has anything there; one that folds back on itself does, and without this
+    drawing it would cover the room it was supposed to be a window onto.
+
+    Nothing accumulates. A rigid motion preserves distance, so every room is on
+    one scale — the same fact the shared depth buffer above rests on — and each
+    recursion's [near] is an opening that already passed the previous one, so it
+    only ever grows.
+
     [entered] is the threshold this room was reached through, which must be
     ignored. Stepping through a doorway lands the camera {e behind} the
     neighbour's own copy of it — that is what standing in a doorway looking in
     means — so the ray meets that opening again immediately, and without this
     the recursion would bounce straight back where it came from and spend its
-    whole budget going nowhere.
+    whole budget going nowhere. Kept as well as [near], which stands at exactly
+    that threshold's distance: taking it out that way would rest on an equality
+    between two floats that have been through a transform.
 
     Rooms may form a cycle, so it is [budget] and nothing else that ends the
     recursion; when it runs out the opening is filled with the world's
@@ -403,11 +455,12 @@ and fragment_kind =
     onto a room that has not been built yet takes the same fill, so a world
     still being grown renders rather than raising. *)
 let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
-    ~clip:(top, bottom) ~budget ~entered ~translucent =
+    ~clip:(top, bottom) ~near ~budget ~entered ~translucent =
   let current = World.room world room in
   let portals = World.portals world room in
   let air = world.World.atmosphere in
-  draw_planes fb viewport ~air current pose ~column ~dir ~first:top ~last:bottom;
+  draw_planes fb viewport ~air current pose ~column ~dir ~near ~first:top
+    ~last:bottom;
   (* One wall strip: painted straight over the column if it is opaque, held back
      for the translucent pass if you can see through it. *)
   let paint ~first ~last (hit : Ray.hit) =
@@ -449,9 +502,18 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
   List.iter
     (fun step ->
       match step with
+      (* In front of the doorway this room is being drawn through, and so not in
+         this room's picture at all. Guarded rather than filtered out of the
+         stream: it is ordered farthest first, so these are its tail, and a
+         [List.filter] would allocate a copy of it every column. *)
+      | Ray.Wall hit when hit.Ray.distance <= near -> ()
       | Ray.Wall hit -> paint ~first:top ~last:bottom hit
       (* The doorway we are already looking through. *)
       | Ray.Opening opening when entered = Some opening.Ray.index -> ()
+      (* An opening in front of the doorway goes the same way, and the whole arm
+         of it: no lintel, no leaf, no recursion — and no [nothing_behind]
+         either, which would blank rows that belong to the room in front. *)
+      | Ray.Opening opening when opening.Ray.distance <= near -> ()
       | Ray.Opening opening -> (
           let threshold = current.Room.thresholds.(opening.Ray.index) in
           let distance = opening.Ray.distance in
@@ -489,15 +551,22 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                 let mask = Within { column; first; last } in
                 Array.iter
                   (fun sprite ->
-                    let distance =
+                    (* Named apart from [distance], which is this doorway's, and
+                       is what a sprite of the far room standing in front of it
+                       has to clear. The two are the same measurement: the ray's
+                       direction is [dir + right * k] with [right] across the
+                       view, so its parameter is already the distance along
+                       [dir] that this dot product is. *)
+                    let depth_s =
                       Vec.dot
                         (Vec.sub sprite.Room.pos nested.Player.pos)
                         nested.Player.dir
                     in
-                    if distance > Config.sprite_near_clip then
+                    if depth_s > Config.sprite_near_clip && depth_s > distance
+                    then
                       translucent :=
                         {
-                          distance;
+                          distance = depth_s;
                           pose = nested;
                           room = portal.World.to_room;
                           mask;
@@ -508,7 +577,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                 draw_room_column fb viewport world ~room:portal.World.to_room
                   ~pose:nested ~column
                   ~dir:(Transform.direction portal.World.onto dir)
-                  ~clip:(first, last) ~budget:(budget - 1)
+                  ~clip:(first, last) ~near:distance ~budget:(budget - 1)
                   ~entered:(Some portal.World.twin) ~translucent
             | Some _ | None -> nothing_behind ~first ~last
           in
@@ -605,7 +674,7 @@ let draw_frame fb world (player : Player.t) =
     draw_room_column fb viewport world ~room:player.room ~pose:player ~column
       ~dir
       ~clip:(0, height - 1)
-      ~budget:Config.max_portal_depth ~entered:None ~translucent
+      ~near:0. ~budget:Config.max_portal_depth ~entered:None ~translucent
   done;
   draw_translucent fb viewport world !translucent
 

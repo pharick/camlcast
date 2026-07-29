@@ -68,7 +68,18 @@
     rooms deep is already measured from the eye, and directly comparable with
     one measured here. The renderer's shared depth buffer works for the same
     reason. Height carries across the same way, which does assume the two floors
-    meet at the doorway; {!World.seam_gap} is what says they do. *)
+    meet at the doorway; {!World.seam_gap} is what says they do.
+
+    The same fact is what makes the near edge of a doorway a single number.
+    Through an opening the ray reports only what stands beyond that opening's
+    own distance — nearer than it, along that ray, is the room the player is
+    standing in, whichever room the geometry there belongs to. That matters
+    because a world may fold back on itself: a neighbour whose doorway is set at
+    the back of a recess has walls of its own, in its own coordinates, in front
+    of it, and those are no more pickable through the doorway than the wall
+    behind you is. It is the same rule and the same number the renderer clips
+    its portals with, which is how "what can be picked is what can be seen"
+    survives a room that folds. *)
 
 (** What the ray met. Concrete because matching on it is the whole point — see
     the recipe in {{!page-"making-a-game"} Making a game}, and the [chalk] and

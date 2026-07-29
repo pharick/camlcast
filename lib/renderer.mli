@@ -86,6 +86,15 @@
     recursion — out of budget, the opening is filled with the world's
     {!Atmosphere.haze}.
 
+    Everything drawn inside a doorway is clipped to that doorway's own distance,
+    which is the same one measure the whole picture is already in. The camera
+    arrives behind the neighbour's copy of the opening, so a room that folds
+    back on itself — one whose doorway is set at the back of a recess — has
+    walls of its own in front of it, standing in space the player is really in;
+    without the clip they would be painted over the room the doorway was a
+    window onto. {!Sight} clips its ray at the same distance by the same rule,
+    which is what keeps what can be picked and what is drawn the same thing.
+
     The sky belongs to the room. A room open to the sky takes its azimuth from
     the {e nested} direction, so it has its own sun: with per-room local
     coordinates there is no world compass to appeal to.

@@ -65,6 +65,30 @@ let a_step_into_the_neighbour_is_refused () =
     (World.passable two_rooms ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.))
 
+(* The mirror image of that, and the half a convex neighbour cannot pose. The
+   room next door folds back on itself, so it has a wall of its own standing —
+   in its own coordinates — on this side of its own doorway, which is to say in
+   the space the player is walking through. A step towards the opening never
+   reaches the room that wall belongs to, so that wall is not the neighbour's to
+   refuse it with. What is beyond the opening still is: the low wall inside the
+   second room stops the angled step exactly as {!two_rooms}' does. *)
+let the_neighbours_own_exterior_does_not_block () =
+  let world = recessed () in
+  (* Straight at the middle of the opening, stopping in it. Half a cell clear of
+     either jamb, and — once the step is cut where it crosses the threshold —
+     0.35 clear of the slot's back wall, which is more than the padding. *)
+  let from = Vec.make 3.6 2. and dest = Vec.make 4. 2. in
+  Alcotest.(check bool)
+    "this room sees nothing in the way" true
+    (Room.passable (World.room world 0) ~from ~dest);
+  Alcotest.(check bool)
+    "and neither does the room it is walking towards" true
+    (World.passable world ~room:0 ~from ~dest);
+  Alcotest.(check bool)
+    "what is genuinely beyond the opening still refuses" false
+    (World.passable world ~room:0 ~from:(Vec.make 3.7 2.2)
+       ~dest:(Vec.make 4.3 2.35))
+
 (* A leaf standing open changes none of that: it is a door swung aside, so the
    opening behaves as a bare one, and it is still the room behind it — as real
    as the room behind any opening — that refuses the step. *)
@@ -735,6 +759,8 @@ let () =
           case "crossing changes frame" crossing_changes_frame;
           case "a step into the neighbour is refused"
             a_step_into_the_neighbour_is_refused;
+          case "the neighbour's own exterior does not block"
+            the_neighbours_own_exterior_does_not_block;
           case "a step through a door is refused by the neighbour"
             a_step_through_a_door_is_refused_by_the_neighbour;
           case "invalid worlds are refused" invalid_worlds_are_refused;

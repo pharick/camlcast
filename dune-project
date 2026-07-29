@@ -19,7 +19,9 @@
  (description
   "A first-person raycaster with arbitrary-angle wall segments, an inclined floor and either an inclined ceiling or an open sky, per-wall heights, textures generated in code or read from PNG and JPEG, see-through walls, wall decals, billboarded sprites, distance fog, mouse look with pitch, and a resizable/fullscreen window, built on the tsdl bindings.")
  (depends
-  ; Array.find_index, which World uses to resolve a name to an index.
+  ; Array.find_index, which World uses to resolve a name to an index. CI builds
+  ; and tests at 5.1 as well as at the version development happens on, so this
+  ; is a floor that is checked rather than one that is merely asserted.
   (ocaml (>= 5.1))
   tsdl
   ; PNG and JPEG decoding for Surface, Image.load and Texture.load. It brings

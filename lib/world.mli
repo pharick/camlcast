@@ -250,6 +250,23 @@ val passable : t -> room:int -> from:Vec.t -> dest:Vec.t -> bool
     does catch is the wall or fitting standing just beyond an opening, which is
     otherwise as invisible to collision as it is to the eye.
 
+    Not the whole step, though: only the part of it that reaches the neighbour.
+    A room's walls answer for the space that room encloses and for no other, and
+    a room that folds back on itself has walls standing — in its own coordinates
+    — on {e this} side of its own doorway, which is to say in the room you are
+    walking through. Handed the whole step, such a wall refuses a clear stride
+    towards an open doorway from across the room. So the step is cut where it
+    crosses the threshold's plane before it is carried over, with
+    {!Config.collision_padding} of slack: the player is a disc, and a disc whose
+    centre is still this side of an opening can already be touching something
+    through it.
+
+    That leaves one honest gap. Both halves of the question are swept-{e disc}
+    measurements, so a neighbour wall standing within twice the padding of the
+    opening, on the wrong side of it, still answers for a step that never gets
+    there. Closing it would take a test for whether a point is inside a room,
+    and there is deliberately no such thing here — see {!Room.passable} for why.
+
     Three things make an opening solid, and they are the same three that stop
     the renderer looking through it. A {b closed} leaf ({!Room.shut}): walking
     into a shut door is how you find out it is shut. A doorway that

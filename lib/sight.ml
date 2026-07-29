@@ -69,7 +69,7 @@ let decal_at (wall : Room.wall) ~seen_from ~along ~above =
 
 type candidate = Met of Ray.step | Billboard of int
 
-let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
+let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
   let here = World.room world room in
   let origin = pose.Player.pos and direction = pose.Player.dir in
   let floor_at point = Plane.elevation here.Room.floor.Room.plane point in
@@ -101,8 +101,19 @@ let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
         else None)
       (List.init (Array.length here.Room.sprites) Fun.id)
   in
+  (* Everything nearer than the doorway this room is being looked at through is
+     dropped before any of it is considered. Along one ray the side of that
+     doorway's plane a point is on is affine in the distance and changes sign
+     exactly where the ray crosses it, so [near] is not an approximation of the
+     opening but the whole of it: past that distance is precisely what is beyond
+     the doorway. A room that folds back on itself has walls of its own standing
+     on this side of it, in space the player is really in, and those are what
+     this takes out. One filter for all three kinds — walls, doorways and
+     sprites alike — which is the reason it belongs here and not in {!Ray}. *)
   let candidates =
-    List.sort (fun (a, _) (b, _) -> Float.compare a b) (met @ billboards)
+    List.sort
+      (fun (a, _) (b, _) -> Float.compare a b)
+      (List.filter (fun (d, _) -> d > near) (met @ billboards))
   in
   let rec first = function
     | [] -> None
@@ -140,7 +151,10 @@ let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
         else first rest
     | (_, Met (Ray.Opening opening)) :: rest
       when entered = Some opening.Ray.index ->
-        (* The doorway we are already looking through, met again from behind. *)
+        (* The doorway we are already looking through, met again from behind.
+           Kept as well as [near], which stands at exactly this distance and so
+           would only take it out by an equality between two floats that went
+           through a transform on their way here. *)
         first rest
     | (d, Met (Ray.Opening opening)) :: rest -> (
         let index = opening.Ray.index in
@@ -157,7 +171,7 @@ let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
                 ~pose:
                   (Player.through portal.World.onto ~room:portal.World.to_room
                      pose)
-                ~rise ~eye_z ~crossed:(crossed + 1) ~budget:(budget - 1)
+                ~rise ~eye_z ~near:d ~crossed:(crossed + 1) ~budget:(budget - 1)
                 ~entered:(Some portal.World.twin)
           | Some _ | None -> found d (Doorway { index })
         in
@@ -198,4 +212,4 @@ let look ?(through = 1) world (player : Player.t) =
   in
   trace world ~room:player.Player.room ~pose:player
     ~rise:(Viewport.centre_rise ~pitch:player.Player.pitch)
-    ~eye_z ~crossed:0 ~budget:through ~entered:None
+    ~eye_z ~near:0. ~crossed:0 ~budget:through ~entered:None

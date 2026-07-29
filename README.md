@@ -266,6 +266,14 @@ macOS. `bundle-macos.sh` reads the answer back out of the finished bundle and
 records it as `LSMinimumSystemVersion`, so the exact version is in the `.app`'s
 `Info.plist` and in the build log, rather than being promised here.
 
+The Linux tarball has the same question and answers it the other way, by
+choosing. It carries SDL2 and the image codecs but deliberately not glibc or the
+dynamic loader — a binary has to use the loader it was built against — so the
+runner's glibc is the floor for everyone who downloads it. The release job is
+therefore pinned to a runner image rather than tracking the newest one, and the
+tarball needs **glibc 2.39 or newer** (Ubuntu 24.04, Debian 13, Fedora 40). That
+floor moves only when the pin in `.github/workflows/release.yml` does.
+
 The `.app` is signed ad-hoc — which is what lets it run at all on Apple silicon,
 where the kernel refuses an unsigned binary — but it is not notarized, so a Mac
 that downloaded it refuses the first launch. Open System Settings → Privacy &

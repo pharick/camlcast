@@ -1,6 +1,13 @@
 # Build, test and check the formatting of every push and pull request, and
 # publish the API docs to GitHub Pages from main.
 #
+# Two build jobs, and the split is between a version and a promise. `build` is
+# the full gate at the version the project is developed on, and owns @fmt and
+# @doc along with it; `floor` only builds and tests, at the oldest compiler
+# dune-project says the packages support. Separate jobs rather than a matrix on
+# one, because `pages` needs `build` and a matrix would make the deploy wait on
+# both legs and upload its artifact twice under one name.
+#
 # Ubuntu only, deliberately. tsdl and tsdl-image need SDL2 and SDL2_image, and
 # on Linux opam resolves those depexts to libsdl2-dev and libsdl2-image-dev
 # through apt without help. Homebrew ships sdl2-compat, which opam cannot
@@ -83,6 +90,34 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: _site
+
+  # The floor dune-project names. Both packages declare (ocaml (>= 5.1)) —
+  # Array.find_index, which World uses to resolve a name to an index, is the
+  # newest thing in the tree and arrived in 5.1 — and a floor nothing ever
+  # builds at is a claim rather than a fact.
+  #
+  # Build and test only. @fmt and @doc are properties of the tree rather than of
+  # the compiler, they are already checked above, and asking for them here would
+  # drag the pinned ocamlformat and odoc in to answer a question that is not
+  # being asked. If this ever fails on a dependency rather than on this code,
+  # that is a reason to raise the floor in dune-project, not to pin around it.
+  floor:
+    name: OCaml 5.1
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.1"
+          dune-cache: true
+
+      - run: opam install . --deps-only --with-test
+
+      - run: opam exec -- dune build
+
+      - run: opam exec -- dune runtest
 
   # Publishing is its own job because it is the only thing in this workflow that
   # writes anything: the build job stays read-only while this one asks for

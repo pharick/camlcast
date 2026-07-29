@@ -300,6 +300,20 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
    directions: something that is only in the far room reaches the screen when
    what stands between is see-through, and reaches nothing when it is solid. *)
 
+(* {!Support.joined_rooms}' second room with a roof of a given material over it
+   instead of the sky it is authored with. The roof is the one thing varied
+   between the two frames of every case below that asks about the far room's
+   ceiling, so a pixel that differs is a pixel that came from inside it. *)
+let roofed world material =
+  let before = World.room world 1 in
+  World.replace_room world ~room:1
+    ~replacement:
+      (Room.make
+         ~thresholds:(Array.to_list before.Room.thresholds)
+         ~floor:before.Room.floor
+         ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
+         (Array.to_list before.Room.walls))
+
 (* Through the bars of a shut grille door, a sprite standing in the next room.
    Behind a solid leaf the same sprite is not drawn at all — the recursion never
    happens, which is the whole of why a closed door is cheap. *)
@@ -331,16 +345,6 @@ let a_see_through_lintel_shows_the_room_behind () =
       (Player.create ~room:0 ~pos:centre ~angle:0.)
       ~radians:Config.max_pitch
   in
-  let roofed world material =
-    let before = World.room world 1 in
-    World.replace_room world ~room:1
-      ~replacement:
-        (Room.make
-           ~thresholds:(Array.to_list before.Room.thresholds)
-           ~floor:before.Room.floor
-           ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
-           (Array.to_list before.Room.walls))
-  in
   let reaches world =
     drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
   in
@@ -364,22 +368,75 @@ let a_bare_opening_does_not_show_the_room_above_it () =
       (Player.create ~room:0 ~pos:centre ~angle:0.)
       ~radians:Config.max_pitch
   in
-  let roofed world material =
-    let before = World.room world 1 in
-    World.replace_room world ~room:1
-      ~replacement:
-        (Room.make
-           ~thresholds:(Array.to_list before.Room.thresholds)
-           ~floor:before.Room.floor
-           ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
-           (Array.to_list before.Room.walls))
-  in
   let reaches world =
     drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
   in
   Alcotest.(check bool)
     "over a lintel-less opening, the far room's roof is not drawn" true
     (reaches (joined_rooms ~door:(Door.make dim) ~bare:true ()) = None)
+
+(* And where it {e is} drawn, it does not begin at the top of the window. The
+   camera carried into the far room sits behind that room's copy of the opening,
+   so its roof runs back from there towards the eye and stands, in the rows near
+   the top of the strip, nearer than the doorway itself. Those rows are this
+   room's own ceiling: the ray meets it long before it gets to the wall the
+   transom is set in.
+
+   Standing further back than the case above, which is the reason that one does
+   not already catch this: from the middle of the room every row of the strip
+   that is on the screen at all already looks past the doorway, and there is
+   nothing left for the clip to take. *)
+let the_far_rooms_ceiling_begins_where_the_doorway_does () =
+  let looking =
+    Player.pitch_by
+      (Player.create ~room:0 ~pos:(Vec.make 0.3 2.) ~angle:0.)
+      ~radians:Config.max_pitch
+  in
+  let world = joined_rooms ~door:(Door.make dim) ~lintel:mesh () in
+  let _, top, _, _ =
+    box ~with_it:(roofed world pale) ~without:(roofed world dim) looking
+  in
+  (* The doorway is at [x = 4] and the eye at [x = 0.3], so every column meets
+     it at the same perpendicular distance; the roof is three cells up. Read off
+     {!Viewport} rather than written down, so that a change to the field of view
+     moves the expectation with the picture. *)
+  let edge =
+    Viewport.project_height
+      (Viewport.create ~pitch:Config.max_pitch ~eye_z:Config.eye_height ~width
+         ~height)
+      ~z:3. ~distance:3.7
+  in
+  Alcotest.(check bool)
+    (Printf.sprintf "the far roof reaches row %d, and not above row %.0f" top
+       edge)
+    true
+    (float_of_int top >= edge -. 1.)
+
+(* {1 What a doorway does not show}
+
+   The recursion is entered with the camera carried into the neighbour's frame,
+   which puts it behind that room's own copy of the opening — so a ray cast there
+   passes through whatever the neighbour has standing on {e this} side of its own
+   doorway before it reaches the doorway at all. In a convex room there is never
+   anything there. In one that folds back on itself there is, and it is space the
+   player is standing in rather than anything the doorway can show. *)
+
+(* {!Support.recessed} sets the second room's doorway in the back of a blind
+   slot, and [blind:false] takes that slot's back wall away and changes nothing
+   else. Along every ray through the opening that wall stands a cell and a half
+   off, half a cell nearer than the doorway — so the two worlds have to be drawn
+   identically, pixel for pixel.
+
+   Which is a stronger claim than any box: not that the wall is hidden, or
+   trimmed, or drawn dim, but that it is not in this picture at all. Untrimmed it
+   fills the whole of the doorway's columns, being the first thing every one of
+   those rays meets. *)
+let what_stands_in_front_of_a_doorway_is_not_drawn_through_it () =
+  let looking = Player.create ~room:0 ~pos:centre ~angle:0. in
+  Alcotest.(check bool)
+    "the wall in front of the doorway reaches no pixel" true
+    (drawn ~with_it:(recessed ()) ~without:(recessed ~blind:false ()) looking
+    = None)
 
 (* A sprite stands on the floor wherever the floor has got to. Over a plane that
    climbs east, the same sprite at the same place is drawn higher than it is
@@ -991,6 +1048,13 @@ let () =
             a_see_through_lintel_shows_the_room_behind;
           case "a bare opening does not show the room above it"
             a_bare_opening_does_not_show_the_room_above_it;
+          case "the far room's ceiling begins where the doorway does"
+            the_far_rooms_ceiling_begins_where_the_doorway_does;
+        ] );
+      ( "what a doorway does not show",
+        [
+          case "what stands in front of a doorway is not drawn through it"
+            what_stands_in_front_of_a_doorway_is_not_drawn_through_it;
         ] );
       ( "light on a wall",
         [

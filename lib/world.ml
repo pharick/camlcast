@@ -365,16 +365,53 @@ let passable t ~room:index ~from ~dest =
     Room.distance_between_segments from dest threshold.Room.a threshold.Room.b
     < Config.collision_padding
   in
+  (* How far a point stands on this room's side of a threshold. The normal is
+     unit and points into the room that owns the threshold, so this is a signed
+     distance: positive inside, negative out through the opening. *)
+  let depth (threshold : Room.threshold) p =
+    Vec.dot (Vec.sub p threshold.Room.a) threshold.Room.normal
+  in
+  (* The part of the step that is the neighbour's business: what is left of it
+     once it is cut where it crosses the threshold's plane. The cut is [limit]
+     short of the plane rather than on it, because the player is a disc and a
+     disc whose centre is still this side of an opening can already be touching
+     something through it — and a link reverses the two thresholds, so a point
+     [limit] this side of one is [limit] the far side of the other, which is
+     exactly the reach {!Room.passable} then measures with.
+
+     [depth] is affine along the step, so what survives is one sub-interval and
+     never two. Both ends within it keep the step whole, which is also the
+     parallel case; both beyond leave nothing to ask about, which is what a step
+     running past a doorway without reaching it should cost. Only the two mixed
+     arms divide, and there one end is above [limit] and the other is not, so the
+     denominator cannot be zero and [u] lands in [0..1] without clamping — a
+     clamp here would hide a sign error rather than guard against one. A [nan]
+     coordinate falls through every ordered comparison into the last arm and
+     comes back passable, which is what the whole function did with one before. *)
+  let across (threshold : Room.threshold) =
+    let limit = Config.collision_padding in
+    let d0 = depth threshold from and d1 = depth threshold dest in
+    let at u = Vec.add from (Vec.scale (Vec.sub dest from) u) in
+    if d0 <= limit && d1 <= limit then Some (from, dest)
+    else if d0 > limit && d1 > limit then None
+    else
+      let u = (d0 -. limit) /. (d0 -. d1) in
+      if d0 > limit then Some (at u, dest) else Some (from, at u)
+  in
+  let beyond (portal : portal) threshold =
+    match across threshold with
+    | None -> true
+    | Some (a, b) ->
+        Room.passable t.rooms.(portal.to_room)
+          ~from:(Transform.point portal.onto a)
+          ~dest:(Transform.point portal.onto b)
+  in
   let clear j (threshold : Room.threshold) =
     if Room.shut threshold then not (near threshold)
     else
       match t.portals.(index).(j) with
       | None -> not (near threshold)
-      | Some portal ->
-          (not (near threshold))
-          || Room.passable t.rooms.(portal.to_room)
-               ~from:(Transform.point portal.onto from)
-               ~dest:(Transform.point portal.onto dest)
+      | Some portal -> (not (near threshold)) || beyond portal threshold
   in
   let rec every j =
     j >= Array.length here.Room.thresholds

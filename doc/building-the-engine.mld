@@ -1404,11 +1404,29 @@ same farthest-first sorted stream. When one comes up:
 
 {ol
 {li carry the ray's origin and direction through [portal.onto] into the
-    neighbour's frame;}
+    neighbour's frame, keeping the distance the doorway was met at;}
 {li work out which rows of this column the opening covers, and pass them down as
     a mask;}
-{li recurse, drawing that room into those rows only;}
+{li recurse, drawing that room into those rows only, and drawing nothing nearer
+    than that distance;}
 {li stop at [Config.max_portal_depth] and fill whatever is left with haze.}}
+
+The distance carried in the first step is the one thing here that is easy to
+leave out and hard to see the need for. The transform lands the camera {e behind}
+the neighbour's own copy of the opening, so a ray cast from there meets anything
+that room has standing on the near side of its own doorway {e before} it reaches
+the doorway at all. In a convex room there is never anything there. In one that
+folds back on itself — a doorway set at the back of a recess — there is, and it
+is in the space the player is really standing in rather than in the picture the
+doorway shows; drawn, it covers the room it was supposed to be a window onto.
+
+A single number is enough, and is exact rather than approximate: along one ray,
+which side of the threshold's line a point falls on varies linearly with the
+distance and changes sign exactly where the ray crosses it. Nothing accumulates
+either, since a rigid motion preserves distance and each recursion's cut-off is
+an opening that already cleared the last one. {!Camlcast.Sight} cuts its ray at
+the same distance by the same rule, which is what keeps what the crosshair can
+pick the same as what the frame draws.
 
 The depth cap is what makes a {e cyclic} room graph terminate — and rooms may
 absolutely be cyclic, since nothing checks that the geometry is consistent. Join
@@ -1431,6 +1449,14 @@ through the far side's wall while straddling the opening. So [passable] moves up
 from [Room] to [World], and [Player.slide] and [Player.walk] take a world from
 here on. [Room.passable] stays, as the single-room question [World.passable] asks
 twice.
+
+Only the part of the step that reaches the neighbour, though — cut where it
+crosses the threshold's plane, with the collision padding of slack because the
+player is a disc. This is the same trap as the distance in Step 7.4, wearing
+different clothes: a room's walls answer for the space that room encloses and no
+other, and a room that folds back on itself has walls of its own on {e this} side
+of its own doorway. Handed the whole step, one of them refuses a clear stride
+towards an open door from right across the room.
 
 Once a step can report the doorways it went through, [Player.walk] has a choice
 to make about them, and the shipped engine resolves it by not having a [walk] at

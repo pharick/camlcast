@@ -208,6 +208,78 @@ let two_rooms_closed = two_rooms_with_a_door Door.Closed
     renderer and {!Camlcast.Sight} have to keep apart. *)
 let two_rooms_barred = joined_rooms ~door:(Door.make mesh) ()
 
+(** Two rooms joined the same way, but with the second room's doorway set in the
+    back of a blind recess — a room that folds back on itself.
+
+    The first room is the 4 x 4 square of {!joined_rooms}, its east wall cut at
+    [y = 1.5 .. 2.5]. The second is a 4 x 4 square with a slot
+    [x = 1.5 .. 2, y = 1 .. 3] standing blind in the middle of it, and the
+    doorway is cut into the slot's far side, the segment [(2, 3) .. (2, 1)]. The
+    transform between the two is the translation [(-2, 0)], chosen so that every
+    distance a test wants is checkable on paper.
+
+    That puts the slot's back wall at [x = 1.5] of the second room's frame,
+    which the link carries to [x = 3.5] of the first — half a cell
+    {e inside the room the player is standing in}. Which is legal, and is the
+    whole of what {!Camlcast.World} means by two rooms occupying the same
+    coordinates and still being separate places. It is also the one wall of the
+    second room that must never reach the first: not down a ray through the
+    doorway, where it stands nearer than the doorway itself, and not down a step
+    towards it, which never goes far enough to reach the room it belongs to. A
+    convex neighbour cannot produce it, which is why the rest of the fixtures
+    here do not.
+
+    [blind:false] takes that one wall away and changes nothing else, so a test
+    can assert the two worlds are drawn identically — the strongest form of "not
+    seen through the doorway" there is.
+
+    The low wall at [(2.2, 2.45) .. (3.2, 2.45)] is the other direction: it
+    stands genuinely beyond the doorway, in the room's own body, and has to go
+    on stopping a step the way {!joined_rooms}' does. *)
+let recessed ?(blind = true) () =
+  let first_jambs, east =
+    Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 4. 0.) (Vec.make 4. 4.)
+  and slot_jambs, west =
+    Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
+      (Vec.make 2. 3.) (Vec.make 2. 1.)
+  in
+  (* The slot's sides and, if it has one, its back. Wound so that every normal
+     points out of the slot and into the room around it. *)
+  let slot =
+    [
+      Room.wall ~height:3. ~material:dim (Vec.make 1.5 3.) (Vec.make 2. 3.);
+      Room.wall ~height:3. ~material:dim (Vec.make 2. 1.) (Vec.make 1.5 1.);
+    ]
+    @
+    if blind then
+      [ Room.wall ~height:3. ~material:dim (Vec.make 1.5 1.) (Vec.make 1.5 3.) ]
+    else []
+  in
+  let first =
+    Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (first_jambs
+      @ [
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 4.) (Vec.make 0. 0.);
+        ])
+  and second =
+    Room.make ~thresholds:[ west ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (slot_jambs @ slot
+      @ Room.path ~closed:true ~height:3. ~material:dim
+          [ Vec.make 0. 0.; Vec.make 4. 0.; Vec.make 4. 4.; Vec.make 0. 4. ]
+      @ [
+          Room.wall ~height:1. ~material:dim (Vec.make 2.2 2.45)
+            (Vec.make 3.2 2.45);
+        ])
+  in
+  World.make
+    ~rooms:[ ("first", first); ("second", second) ]
+    ~links:[ (("first", "east"), ("second", "west")) ]
+    ~atmosphere:air
+    ~spawn:("first", Vec.make 2. 2.)
+
 (** The portal behind a threshold that is certainly linked. A world may hold
     doorways that lead nowhere yet, so [World.portals] hands back options; the
     fixtures here are all finished worlds. *)

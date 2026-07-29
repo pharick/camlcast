@@ -175,6 +175,28 @@ let through_an_open_doorway () =
       Alcotest.check close "distance adds up across the doorway" 4.
         s.Sight.distance
 
+(* The same look, into a neighbour that folds back on itself. {!Support.recessed}
+   sets the second room's doorway in the back of a blind slot, so along this ray
+   that slot's back wall stands a cell and a half away — nearer than the doorway
+   itself. Nearer, and so behind the player's own east wall rather than beyond
+   it: in the first room's coordinates it is half a cell {e this} side of the
+   opening, in space the player is standing in. Not something the crosshair can
+   be on, however much of the second room it belongs to.
+
+   What it can be on is the far side of the room the doorway opens into, two
+   cells past it. Asserted by distance rather than by which wall, so that
+   reordering the fixture's walls does not fail this. *)
+let what_stands_in_front_of_a_doorway_is_not_seen_through_it () =
+  match Sight.look (recessed ()) (looking_east ()) with
+  | None -> Alcotest.fail "expected to see the far wall"
+  | Some s ->
+      Alcotest.(check int) "one doorway away" 1 s.Sight.crossed;
+      Alcotest.(check int) "and in the room beyond it" 1 s.Sight.room;
+      (* Two cells to the doorway, two more to the far wall. The slot's back
+         wall, were it picked, would answer 1.5. *)
+      Alcotest.check close "the far wall and not the near one" 4.
+        s.Sight.distance
+
 (* A shut door stops the ray where an open one passed it, and says which
    doorway it was — which is what a game needs to open it. *)
 let a_shut_door_stops_it () =
@@ -525,6 +547,8 @@ let () =
       ( "through a doorway",
         [
           case "through an open doorway" through_an_open_doorway;
+          case "what stands in front of a doorway is not seen through it"
+            what_stands_in_front_of_a_doorway_is_not_seen_through_it;
           case "a shut door stops it" a_shut_door_stops_it;
           case "a see-through leaf does not stop it"
             a_see_through_leaf_does_not_stop_it;

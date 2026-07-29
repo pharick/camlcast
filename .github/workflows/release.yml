@@ -87,7 +87,23 @@ jobs:
 
   linux:
     name: Linux x64
-    runs-on: ubuntu-latest
+    # Pinned rather than floating, and it is the tarball that makes the
+    # difference. bundle-linux.sh deliberately leaves glibc and the dynamic
+    # loader out of it — a binary must use the loader it was built against — so
+    # the bundle uses the host's, and the runner's glibc is the floor for
+    # everyone who downloads it. ubuntu-latest would carry that floor upwards
+    # with every image roll, on a release that was not meant to drop anyone:
+    # 22.04 is glibc 2.35, 24.04 is 2.39, and 26.04 is higher again.
+    #
+    # 24.04 is what ubuntu-latest resolves to today, so this changes nothing
+    # about who can run the current artifacts; what it changes is that raising
+    # the floor becomes a commit rather than something that happens by itself.
+    # A floor with an expiry date, like macos-15-intel in platforms.yml: raise
+    # it deliberately when the image retires, and say so in the release notes.
+    #
+    # ci.yml and the release job below stay on ubuntu-latest. Neither produces
+    # anything a player runs.
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v7
