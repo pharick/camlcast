@@ -1,10 +1,10 @@
 # Build the bundles a player can actually run, for the four platforms the
 # engine is known to work on.
 #
-# Separate from platforms.yml, which answers "does it build" on every push and
-# has to stay fast. This answers "does it ship", which is slower and only worth
-# doing when there is something to ship — so it runs on a version tag, and on
-# request, and nothing else.
+# Separate from platforms.yml, which answers "does it build, and do the suites
+# pass" when asked. This answers "does it ship", which is only worth doing when
+# there is something to ship — so it runs on a version tag, and on request, and
+# nothing else.
 #
 # The bundling itself lives in tools/bundle-*.sh rather than in this file. Each
 # one is a few dozen lines of otool, ldd and copying that is far easier to get

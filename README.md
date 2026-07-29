@@ -1,7 +1,6 @@
 # CamlCast — a raycasting engine
 
 [![CI](https://github.com/pharick/camlcast/actions/workflows/ci.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/ci.yml)
-[![Platforms](https://github.com/pharick/camlcast/actions/workflows/platforms.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/platforms.yml)
 [![Release](https://github.com/pharick/camlcast/actions/workflows/release.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/release.yml)
 [![Docs](https://img.shields.io/badge/docs-pharick.github.io%2Fcamlcast-blue)](https://pharick.github.io/camlcast/)
 [![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.1-ec6813)](https://ocaml.org)

@@ -11,12 +11,11 @@
 
 name: Platforms
 
+# On request only. The answer turns on the dependency set rather than on the
+# code — when this breaks it is because opam or MSYS2 moved, not because a
+# commit did — so three slow runners re-confirming it on every push buys
+# nothing. Ask before cutting a tag, and after an upgrade.
 on:
-  push:
-    branches: [main]
-  pull_request:
-  # The Windows job below is a spike; being able to re-run it on demand, without
-  # pushing, is the point of having it.
   workflow_dispatch:
 
 concurrency:
