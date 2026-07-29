@@ -635,7 +635,7 @@ let rgb r g b = { r; g; b }
 let clamp_channel v = Int.max 0 (Int.min 255 v)
 let shade c f = let a v = clamp_channel (int_of_float (float_of_int v *. f)) in
   { r = a c.r; g = a c.g; b = a c.b }
-let lerp a b t =                          (* used by the sky later *)
+let lerp a b t =                          (* the distance fade below, and the sky later *)
   let m x y = clamp_channel (int_of_float ((float_of_int x *. (1.-.t)) +. (float_of_int y *. t))) in
   { r = m a.r b.r; g = m a.g b.g; b = m a.b b.b }
 
@@ -662,10 +662,15 @@ it fades with distance, and where its light comes from. That is
 Two dimmers make a flat world read as solid:
 
 {ul
-{li {b Distance fog}: full colour up close, fading to [min_brightness] at
-    [fog_distance]. Cheap, but it gives strong depth.}
+{li {b Distance fog}: full colour up close, blending towards [haze] as it
+    recedes, until at [fog_distance] only [min_brightness] of the surface is
+    left. {b Blending and not dimming}: what a surface loses to distance goes to
+    the colour of the air, not to black. Cheap, but it gives strong depth — and
+    it is what makes the haze a property worth having at all.}
 {li {b Orientation shading}: dim a wall by how squarely its [normal] faces the
-    light, in a band so nothing goes black. This is what makes corners visible.}}
+    light, in a band so nothing goes black. This one {e is} a multiply, because
+    a wall turned away from the light goes dark rather than hazy. This is what
+    makes corners visible.}}
 
 {@ocaml[
 type t = {
@@ -692,8 +697,12 @@ ambient and every wall is lit the same, all directional and a wall facing away
 goes black. Those six numbers are most of what tells one place from another, and
 a world carries exactly one of them.
 
-Tint the wall strip with [Color.shade colour (face_shading air normal *. fog air d)]
-— where [colour] comes from the wall itself, which is the next step.
+Tint the wall strip with
+[Color.lerp (Color.shade colour (face_shading air normal)) air.haze (1. -. fog air d)]
+— where [colour] comes from the wall itself, which is the next step. Note which
+factor goes where: the orientation multiplies the wall's own colour, and the fog
+is the {e amount} of the blend towards the haze. Putting the fog inside the
+[shade] as well would apply it twice.
 
 {2 Step 3.2 — Wall textures}
 
@@ -771,11 +780,14 @@ looks at and take the fractional cell:
 let z = viewport.eye_z -. ((float_of_int y -. viewport.horizon) *. d /. viewport.projection) in
 let tile = let h = z -. floor_z in h -. Float.floor h in       (* 0 at cell bottom .. 1 at top *)
 let v = int_of_float ((1. -. tile) *. float_of_int (Texture.size - 1)) in
-(* The texel is already the colour. All that is left is the light on it:
-   how squarely this wall faces the lamp, times how far away it is. *)
+(* The texel is already the colour. All that is left is the light on it: how
+   squarely this wall faces the lamp multiplies it, and how far away it is
+   blends it towards the colour of the air. *)
 let texel = Texture.sample wall.Room.material.Material.pattern ~u ~v in
-let lit = Color.shade texel (Atmosphere.face_shading air wall.Room.normal
-                             *. Atmosphere.fog air d) in
+let lit = Color.lerp
+    (Color.shade texel (Atmosphere.face_shading air wall.Room.normal))
+    air.Atmosphere.haze
+    (1. -. Atmosphere.fog air d) in
 Framebuffer.set fb ~x:column ~y ~r:lit.Color.r ~g:lit.Color.g ~b:lit.Color.b
 ]}
 
@@ -783,7 +795,9 @@ Tiling per cell means a tall wall repeats its pattern instead of stretching it.
 
 {b Checkpoint — Milestone 3.2.} Textured, coloured, fogged walls, with the
 mortar a colour of its own rather than a paler brick. Stand close to a course
-line and check that.
+line and check that. Then set [~haze] to something vivid — a strong blue — and
+walk away from a wall: it should turn {e blue}, not black. If it darkens
+instead, the fog is still a multiply.
 
 {{image:images/masonry.png}A tiled green wall and an oak post, one pattern
 function wearing two different colours}
@@ -887,7 +901,9 @@ let draw_planes fb viewport room air (player : Player.t) ~column ~dir =
          world rather than on the screen: its features foreshorten with
          distance and its rows tilt with the surface. *)
       let texel = Material.plane_texel room.floor.material ~x:wx ~y:wy in
-      let lit = Color.shade texel (Atmosphere.fog air d) in
+      (* The same rule as the walls, without the orientation: a plane's normal
+         is the same everywhere, so only the distance is left. *)
+      let lit = Color.lerp texel air.Atmosphere.haze (1. -. Atmosphere.fog air d) in
       Framebuffer.set fb ~x:column ~y ~r:lit.Color.r ~g:lit.Color.g ~b:lit.Color.b
     end else (* above the horizon: ceiling (or sky, Step 4.4) *) ...
   done
@@ -911,7 +927,8 @@ let top_z = match room.ceiling with
 {2 Step 4.3 — Texturing the planes}
 
 Sample the surface's [Texture] at the {b world point} the pixel casts to, tiling
-every world unit, and fog it — exactly the walls' recipe. Anchoring the pattern
+every world unit, and blend it towards the haze by its distance — exactly the
+walls' recipe, less the orientation. Anchoring the pattern
 in world space is what makes the tilt read: its features foreshorten and their
 rows tilt with the surface. This belongs on [Material], beside the wall lookup:
 
@@ -1209,7 +1226,9 @@ let foot = floor_z +. s.base in
 let y_base = project_height viewport ~z:foot ~distance:depth_s in
 let y_top  = project_height viewport ~z:(foot +. s.size) ~distance:depth_s in
 (* loop cols in [center-half, center+half], rows in [y_top, y_base]; blend where
-   depth_s < depth.((y*width)+col) and the image alpha > 0, faded by fog depth_s *)
+   depth_s < depth.((y*width)+col) and the image alpha > 0, each texel carried
+   towards the haze by fog depth_s — one distance for the whole billboard, so
+   that blend's constant half is worked out once outside the loops *)
 ]}
 
 {2 Step 6.5 — Compositing order}

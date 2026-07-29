@@ -83,7 +83,11 @@ let simulate game state ~focused ~pointing ~dt ~motion ~actions =
 (* Where the cursor is in the coordinates the overlay draws in. SDL reports it
     in window coordinates, and the framebuffer is a fraction of that size (see
     {!Renderer.internal_size}), so a game that wants to know what its own
-    drawing the player is pointing at has to be told in the buffer's terms. *)
+    drawing the player is pointing at has to be told in the buffer's terms.
+
+    The buffer this is measured against has already been fitted to the window
+    this frame — see the call in {!loop} — so the two sides of the ratio are the
+    same window's. *)
 let in_framebuffer window framebuffer (x, y) =
   let width, height = Sdl.get_window_size window in
   if width <= 0 || height <= 0 then (x, y)
@@ -102,6 +106,19 @@ let rec loop window game ~state ~actions ~previous =
        throws it away, which is what {!Input.freeze} does with it. *)
     let mouse = Input.mouse_delta () in
     let focused = has_focus window.handle in
+    (* The window can have changed shape since the last frame, so the buffer is
+       fitted to it here and not left to {!Renderer.render} at the end. The
+       cursor is put into the buffer's coordinates a few lines below, and a
+       buffer resized after that would be a buffer the pointer was never
+       measured against: for one frame a game would hit-test the old layout
+       while the new one was on the screen. [render] fits again, which is then a
+       comparison of two equal sizes and nothing else.
+
+       The fullscreen toggle further down stays where it is, after the read,
+       because it is that read that triggers it. So the frame the key is pressed
+       on reports the cursor in the layout it was pressed in, which is the
+       layout the player was pointing at. *)
+    let* () = Renderer.fit window.renderer window.framebuffer in
     (* Read as state while the window has focus, and frozen while it has not:
        the hold timer runs on this [dt] and not on the one {!simulate} zeroes,
        so a frame nobody was there for has to be kept out of it here. The cursor

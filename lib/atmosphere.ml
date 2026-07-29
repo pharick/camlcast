@@ -10,9 +10,18 @@ type t = {
 (* The field is documented as a unit vector and {!face_shading} takes its cosine
    without normalising, so the normalisation below is the only thing holding
    that up — and a zero light is exactly what {!Vec.normalize} passes through
-   unchanged. Negated, so a [nan] is refused with it. *)
+   unchanged.
+
+   The length is the one number worth checking, because [Float.hypot] folds
+   every bad component into it: a [nan] coordinate gives a [nan] length, and an
+   infinite one gives an infinite length whose reciprocal is [0.], so
+   {!Vec.normalize} would scale by zero and hand back [nan]s that way instead.
+   Both are refused here — the finiteness explicitly, the [nan] by the guard
+   being written as the negation of what would pass rather than as an assertion
+   of what would fail. *)
 let make ~haze ~fog_distance ~min_brightness ~light ~ambient ~directional =
-  if not (Vec.length light > 0.) then
+  let l = Vec.length light in
+  if not (Float.is_finite l && l > 0.) then
     invalid_arg "Atmosphere.make: the light has no direction";
   {
     haze;

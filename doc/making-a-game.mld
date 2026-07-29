@@ -278,8 +278,8 @@ ambient and every wall is equally lit, all directional and a wall facing away is
 black. [fog_distance] is the scale over which things fade into [haze], so a small
 number is a fogbound cellar and a large one a clear day.
 
-{b Check it:} set [~fog_distance:4.] and walk backwards. The far wall
-disappears.
+{b Check it:} set [~fog_distance:4.] and walk backwards. The far wall turns into
+the haze colour — set [~haze] to something lurid and you can watch it happen.
 
 {b Read next:} [demo/haze.ml].
 

@@ -18,8 +18,9 @@ let clampi n v = Int.max 0 (Int.min (n - 1) v)
 (* Fill one column's background: the floor below, and either a ceiling or the
     open {!Sky} above, depending on whether the level is roofed. Each pixel
     casts the relevant plane with {!Plane.view_distance} (one division), then
-    shows its texture in world space, tinted and fogged; sky pixels come from
-    {!Sky} and depend only on the direction looked in. *)
+    shows its texture in world space, tinted by its colour and traded away for
+    the haze as it recedes; sky pixels come from {!Sky} and depend only on the
+    direction looked in. *)
 let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
     ~last =
   let open Viewport in
@@ -28,18 +29,31 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
   let px = player.Player.pos.Vec.x and py = player.Player.pos.Vec.y in
   let dx = dir.Vec.x and dy = dir.Vec.y in
   let floor = room.Room.floor in
+  let haze = air.Atmosphere.haze in
   let floor_base = Plane.elevation floor.Room.plane player.Player.pos in
   let gf = Plane.gradient floor.Room.plane dir in
   (* Paint one floor/ceiling pixel: the surface's material at the world point it
-     casts to, tinted by its colour and faded by fog. *)
+     casts to, tinted by its colour, and with distance traded for the haze the
+     air is full of — {!Atmosphere.fog} of the surface plus what is left of the
+     haze, rather than the surface dimmed towards black.
+
+     Written out rather than handed to {!Color.lerp} for the same reason the
+     multiply before it was: this is the one fog site where the distance changes
+     with every pixel, so there is nothing to hoist out of the loop, and a
+     colour record per pixel of the background is a record the frame does not
+     need. *)
   let surface y d (m : Material.t) =
     let wx = px +. (d *. dx) and wy = py +. (d *. dy) in
     let c = Material.plane_texel m ~x:wx ~y:wy in
     let f = Atmosphere.fog air d in
+    let veil = 1. -. f in
+    let mix v h =
+      clamp8 (int_of_float ((float_of_int v *. f) +. (float_of_int h *. veil)))
+    in
     Framebuffer.set fb ~x:column ~y
-      ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. f)))
-      ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. f)))
-      ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. f)))
+      ~r:(mix c.Color.r haze.Color.r)
+      ~g:(mix c.Color.g haze.Color.g)
+      ~b:(mix c.Color.b haze.Color.b)
   in
   match room.Room.ceiling with
   | Room.Roof ceiling ->
@@ -59,8 +73,11 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~first
         if Float.is_finite df && df <= dc then surface y df floor.Room.material
         else if Float.is_finite dc then surface y dc ceiling.Room.material
         else
-          let h = air.Atmosphere.haze in
-          Framebuffer.set fb ~x:column ~y ~r:h.Color.r ~g:h.Color.g ~b:h.Color.b
+          (* Neither plane is in view here, so there is no surface to keep any
+             of: the band is the haze at full strength, which is where the two
+             fades either side of it are heading. *)
+          Framebuffer.set fb ~x:column ~y ~r:haze.Color.r ~g:haze.Color.g
+            ~b:haze.Color.b
       done
   | Room.Open sky ->
       (* No roof: below the horizon is floor, above it is sky. The sky depends
@@ -122,14 +139,25 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     (* One light factor — orientation and fog — dims both the wall and its
        decals, so a decal sits in the same light as the wall it is on unless it
        says otherwise; {!Room.decal_light} is where a decal that makes its own
-       light lifts itself off this. *)
-    let light =
-      Atmosphere.face_shading air w.Room.normal *. Atmosphere.fog air d
-    in
-    (* The same factor as a level out of 255. One light holds all the way down a
-       column, so the conversion out of floating point belongs out here with it
-       and the per-pixel arithmetic below stays in integers. *)
+       light lifts itself off this.
+
+       The two halves of it are combined differently, and have to be.
+       Orientation is a multiply, because a wall turned away from the light goes
+       {e dark}. Distance is a blend towards {!Atmosphere.haze}, because a wall
+       far away goes the colour of the air in front of it. So the haze arrives
+       at [1. -. fog] — the fog alone, with no orientation in it. Folding the
+       shading in there as well would make a wall facing away from the light
+       fade into the distance faster than the wall beside it, and in air
+       brighter than the wall it would come out {e brighter} for facing away. *)
+    let fog = Atmosphere.fog air d in
+    let light = Atmosphere.face_shading air w.Room.normal *. fog in
+    (* Written out, the pixel is [texel * face_shading * fog + haze * (1 - fog)]
+       — so the factor on the texel is exactly [light], and the rest is one
+       colour that holds all the way down the column. Which is what keeps this
+       loop in integers: the conversion out of floating point still belongs out
+       here, and the whole of the haze is one addition per channel. *)
     let level = clamp8 (int_of_float (light *. 255.)) in
+    let veil = Color.shade air.Atmosphere.haze (1. -. fog) in
     let pattern = w.Room.material.Material.pattern in
     let rows = pattern.Texture.size in
     let u =
@@ -146,7 +174,22 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
       List.filter_map
         (fun (dec : Room.decal) ->
           Option.map
-            (fun ui -> (dec, ui, Room.decal_light dec ~light))
+            (fun ui ->
+              (* {!Room.decal_light} is a fraction raised towards [1.] by the
+                 decal's [glow], and the fog factor is such a fraction — the
+                 part of a surface the haze does not replace — so the same lift
+                 gives the decal its own fog. That is what makes glow carry a
+                 mark out of the haze as well as out of the dark: at [glow = 1.]
+                 its own fog is [1.], the haze's share of it is nothing, and the
+                 mark is drawn in the colours it was painted in however far down
+                 the room it hangs. Lifting only the light would leave it at
+                 full brightness under a coat of haze, which at the far end of a
+                 long room is the haze and not the mark. *)
+              let own_fog = Room.decal_light dec ~light:fog in
+              ( dec,
+                ui,
+                Room.decal_light dec ~light,
+                Color.shade air.Atmosphere.haze (1. -. own_fog) ))
             (Room.decal_column dec ~seen_from ~along:hit.Ray.along))
         w.Room.decals
     in
@@ -171,9 +214,13 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
         in
         let texel = Texture.sample pattern ~u ~v in
         let a = Texture.alpha pattern ~u ~v in
-        let cr = texel.Color.r * level / 255
-        and cg = texel.Color.g * level / 255
-        and cb = texel.Color.b * level / 255 in
+        (* Clamped, which the multiply alone did not need to be: [level] and a
+           texel are both at most 255, so their product was too. An atmosphere
+           whose [ambient] and [directional] add to more than one can saturate
+           that and still have haze to lay over it. *)
+        let cr = clamp8 ((texel.Color.r * level / 255) + veil.Color.r)
+        and cg = clamp8 ((texel.Color.g * level / 255) + veil.Color.g)
+        and cb = clamp8 ((texel.Color.b * level / 255) + veil.Color.b) in
         if a = 255 then begin
           Framebuffer.set fb ~x:column ~y ~r:cr ~g:cg ~b:cb;
           if occlude then depth.(index) <- d
@@ -181,7 +228,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
         else if a > 0 then
           Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~a;
         List.iter
-          (fun ((dec : Room.decal), ui, lit) ->
+          (fun ((dec : Room.decal), ui, lit, veil) ->
             (* A decal hangs a height above the {e floor} under the wall, not at
                an absolute elevation, so it is placed against [above_foot] — on
                a sloped floor it then rides with the wall instead of tilting
@@ -195,9 +242,18 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
                 if da > 0 then
                   let c = img.Image.pixels.(idx) in
                   Framebuffer.blend fb ~x:column ~y
-                    ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. lit)))
-                    ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. lit)))
-                    ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. lit)))
+                    ~r:
+                      (clamp8
+                         (int_of_float (float_of_int c.Color.r *. lit)
+                         + veil.Color.r))
+                    ~g:
+                      (clamp8
+                         (int_of_float (float_of_int c.Color.g *. lit)
+                         + veil.Color.g))
+                    ~b:
+                      (clamp8
+                         (int_of_float (float_of_int c.Color.b *. lit)
+                         + veil.Color.b))
                     ~a:da)
           decals
       end
@@ -241,6 +297,10 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let img = s.Room.image in
   let nu = img.Image.width and nv = img.Image.height in
   let f = Atmosphere.fog air depth_s in
+  (* A billboard stands at one distance, so the air in front of it is one colour
+     for the whole picture: the haze's share of it, worked out here and added to
+     what is left of each texel below. *)
+  let veil = Color.shade air.Atmosphere.haze (1. -. f) in
   let col0 = Int.max 0 (int_of_float (Float.round left)) in
   let col1 = Int.min (width - 1) (int_of_float (Float.round rightx)) in
   let row0 = Int.max 0 (int_of_float (Float.round y_top)) in
@@ -275,9 +335,15 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
         if a > 0 then
           let c = img.Image.pixels.(idx) in
           Framebuffer.blend fb ~x:col ~y
-            ~r:(clamp8 (int_of_float (float_of_int c.Color.r *. f)))
-            ~g:(clamp8 (int_of_float (float_of_int c.Color.g *. f)))
-            ~b:(clamp8 (int_of_float (float_of_int c.Color.b *. f)))
+            ~r:
+              (clamp8
+                 (int_of_float (float_of_int c.Color.r *. f) + veil.Color.r))
+            ~g:
+              (clamp8
+                 (int_of_float (float_of_int c.Color.g *. f) + veil.Color.g))
+            ~b:
+              (clamp8
+                 (int_of_float (float_of_int c.Color.b *. f) + veil.Color.b))
             ~a
       end
     done
@@ -551,10 +617,17 @@ let ensure sdl fb_ref ~width ~height =
     Framebuffer.destroy current;
     fb_ref := next
 
-let render sdl fb_ref ?(overlay = fun _ -> ()) world player =
+let fit sdl fb_ref =
   let* out_w, out_h = Sdl.get_renderer_output_size sdl in
   let width, height = internal_size ~width:out_w ~height:out_h in
-  let* () = ensure sdl fb_ref ~width ~height in
+  ensure sdl fb_ref ~width ~height
+
+let render sdl fb_ref ?(overlay = fun _ -> ()) world player =
+  let* () = fit sdl fb_ref in
+  (* Asked again rather than threaded out of {!fit}, which has no use for it:
+     this is the destination rectangle and not the buffer's size, and one more
+     query of a size SDL already has costs nothing beside a frame. *)
+  let* out_w, out_h = Sdl.get_renderer_output_size sdl in
   draw_frame !fb_ref world player;
   overlay !fb_ref;
   let+ () =

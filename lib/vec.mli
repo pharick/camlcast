@@ -39,7 +39,15 @@ val cross : t -> t -> float
 
 val normalize : t -> t
 (** The same vector scaled to unit length; a zero vector is returned unchanged
-    rather than turned into [nan]s. *)
+    rather than turned into [nan]s.
+
+    That guard is for the zero vector and nothing else. A coordinate that is
+    [nan] or infinite still comes back as [nan]s — the infinite one because its
+    length is infinite too, and scaling by that reciprocal is [x *. 0.]. This
+    module is plain arithmetic with no constructor to check anything in, so the
+    refusing is done where a direction is first promised to be one:
+    {!Atmosphere.make} and {!Transform.between} both reject a length that is not
+    finite and positive before it reaches here. *)
 
 val of_angle : float -> t
 (** [of_angle radians] is the unit vector pointing that way: [0.] is the +x

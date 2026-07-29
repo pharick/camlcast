@@ -54,16 +54,37 @@ val make :
     setting and not a degenerate case, which is the whole reason for refusing
     the other spelling of it.
 
-    @raise Invalid_argument if [light] is the zero vector. *)
+    @raise Invalid_argument
+      if [light] has no finite positive length — the zero vector, or one whose
+      coordinates are [nan] or infinite. All of them come to the same thing:
+      {!Vec.normalize} cannot get a direction out of them, so the field would be
+      left claiming to be a unit vector when it is not. *)
 
 val fog : t -> float -> float
 (** [fog air distance] is how much of a surface's own colour survives at that
     many cells away: [1.] up close, falling linearly to [min_brightness] at
-    [fog_distance] and staying there beyond it. Multiply a colour by it — that
-    is what {!Color.shade} is for — and what is lost goes to [haze].
+    [fog_distance] and staying there beyond it.
+
+    What is lost is not lost to black but to [haze], so this is the {e amount}
+    of a blend and not a factor to multiply by. What reaches the eye is
+    [Color.lerp surface air.haze (1. -. fog air d)]. Multiplying instead fades
+    everything towards black however the air is coloured, which is only right in
+    a world whose haze happens to be black — and the haze is a value here
+    precisely so that it need not be.
+
+    Orientation is the other half of the light and it {e does} multiply, because
+    a wall turned away from the light goes dark rather than hazy. Together the
+    two are [surface * face_shading * fog + haze * (1 - fog)]: {!face_shading}
+    scales the surface's own colour, and this says how much of that colour is
+    there to be seen at all. Note that the haze arrives at [1. -. fog] with no
+    orientation in it — folding the shading in there as well would make a wall
+    facing away fade into the distance faster than the wall beside it.
 
     On the floor and ceiling it doubles as a horizon haze, fading the planes out
-    into the distance instead of letting them run to a hard edge. *)
+    into the distance instead of letting them run to a hard edge — and into the
+    same [haze] that fills the band where the eye looks past both planes, and
+    the doorway the portal recursion could not reach, so that the three meet
+    without a seam. *)
 
 val face_shading : t -> Vec.t -> float
 (** [face_shading air normal] is how brightly a surface facing that way catches

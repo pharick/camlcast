@@ -394,6 +394,171 @@ let a_sprite_behind_the_player_is_not_drawn () =
     "no pixel differs" true
     (drawn ~with_it ~without (looking_east ()) = None)
 
+(* {1 What distance fades into}
+
+   Fog is a blend towards the air's own {!Atmosphere.haze} and not a multiply
+   towards black, and in every fixture above the two are indistinguishable
+   because the haze is nearly black already. The air below is deliberately not:
+   its haze is brighter than anything in the room and a different hue, so the
+   direction of the fade is unambiguous. Under a multiply a receding surface can
+   only lose on every channel; under the blend it moves towards the haze, which
+   here means {e gaining} on two of them. The first three below fail against a
+   multiply, one for each of the three fog sites.
+
+   The fourth is here for the opposite mistake, and is the only test that
+   catches it: fog blends and orientation multiplies, and folding the
+   orientation into the blend as well passes all three of the others. *)
+
+let vivid =
+  Atmosphere.make ~haze:(Color.rgb 40 220 255) ~fog_distance:12.
+    ~min_brightness:0.05 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
+    ~directional:0.4
+
+(** The hall again, under air you can see the colour of. *)
+let hazy ?floor ?extra sprites =
+  World.make
+    ~rooms:[ ("hall", hall ?floor ?extra sprites) ]
+    ~links:[] ~atmosphere:vivid
+    ~spawn:("hall", Vec.make 0. 0.)
+
+let shot world player =
+  let fb = Framebuffer.offscreen ~width ~height in
+  Renderer.draw_frame fb world player;
+  fb
+
+(** How far a colour is from the haze, summed over the three channels: [0] is
+    the haze itself, and 765 is as far from it as an 8-bit colour gets. One
+    number, because the claim being made is about a direction and not about any
+    one channel. *)
+let from_the_haze (c : Color.t) =
+  let h = vivid.Atmosphere.haze in
+  abs (c.Color.r - h.Color.r)
+  + abs (c.Color.g - h.Color.g)
+  + abs (c.Color.b - h.Color.b)
+
+(* A wall far away is not a dark wall. It is a wall with a lot of air in front
+   of it, and what it moves towards as it recedes is the colour of that air — so
+   at the reach of the fade there is almost nothing of the wall left in the
+   pixel. Multiplying towards black gets the {e brightness} of this right in a
+   world whose haze is nearly black, and the colour wrong in every other one. *)
+let a_distant_wall_fades_into_the_haze_and_not_into_the_dark () =
+  let world = hazy [] in
+  let at away =
+    Framebuffer.pixel
+      (shot world (looking_east ~pos:(Vec.make (12. -. away) 0.) ()))
+      ~x:(width / 2) ~y:(height / 2)
+  in
+  let near = at 2. and far = at 12. in
+  Alcotest.(check bool)
+    (Printf.sprintf "the far wall is nearer the haze: %d against %d"
+       (from_the_haze far) (from_the_haze near))
+    true
+    (from_the_haze far < from_the_haze near);
+  Alcotest.(check bool)
+    (Printf.sprintf "and at the reach of the fade it is nearly the haze: %d"
+       (from_the_haze far))
+    true
+    (from_the_haze far < 30);
+  (* And the direction of it, on one channel: this air is bluer than the wall,
+     so the far wall's blue is {e higher} than the near one's. No factor
+     multiplying a channel can raise it. *)
+  Alcotest.(check bool)
+    (Printf.sprintf "its blue rose with distance: %d against %d" far.Color.b
+       near.Color.b)
+    true
+    (far.Color.b > near.Color.b)
+
+(* The same claim over a distance that changes with every row. A column of floor
+   is the whole fade in one strip — a cell away at the bottom of the screen and
+   most of the room away near the horizon — so the fade has to arrive at the
+   haze there too. It is the same haze that fills the band {e at} the horizon,
+   where the eye looks past both planes, and a floor fading to black instead
+   would meet that band at a seam. *)
+let the_floor_fades_into_the_haze_towards_the_horizon () =
+  let fb = shot (hazy []) (looking_east ()) in
+  let at y = Framebuffer.pixel fb ~x:(width / 2) ~y in
+  (* Both rows are below the east wall's foot, which at twelve cells lands a few
+     rows under the horizon: row 60 is floor several cells out, row 95 is floor
+     at your feet. *)
+  let far = at 60 and near = at 95 in
+  Alcotest.(check bool)
+    (Printf.sprintf "floor near the horizon is nearer the haze: %d against %d"
+       (from_the_haze far) (from_the_haze near))
+    true
+    (from_the_haze far < from_the_haze near);
+  Alcotest.(check bool)
+    (Printf.sprintf "and its blue rose with distance: %d against %d" far.Color.b
+       near.Color.b)
+    true
+    (far.Color.b > near.Color.b)
+
+(* A sprite is a billboard at one distance, so the air in front of it is one
+   colour and the whole picture moves towards the haze together. The same grey
+   picture twice, near and far, read through its middle. *)
+let a_distant_sprite_fades_into_the_haze () =
+  let grey = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255)) in
+  let at away =
+    let s = Room.sprite ~size:1.6 ~image:grey (Vec.make away 0.) in
+    Framebuffer.pixel
+      (shot (hazy [ s ]) (looking_east ()))
+      ~x:(width / 2) ~y:(height / 2)
+  in
+  let near = at 2. and far = at 11. in
+  Alcotest.(check bool)
+    (Printf.sprintf "the far sprite is nearer the haze: %d against %d"
+       (from_the_haze far) (from_the_haze near))
+    true
+    (from_the_haze far < from_the_haze near);
+  Alcotest.(check bool)
+    (Printf.sprintf "and its blue rose with distance: %d against %d" far.Color.b
+       near.Color.b)
+    true
+    (far.Color.b > near.Color.b)
+
+(* The other half of the rule, and the half a fade towards the haze makes it
+   easy to get wrong: orientation is a multiply and distance is a blend, and the
+   two have to stay apart. A wall turned away from the light has to go
+   {e dark}. Fold the shading into the blend instead and it goes {e hazy} — and
+   with air brighter than the wall, that means the face turned away from the
+   light coming out brighter than the face turned into it, which is the shading
+   inverted.
+
+   {!Support.room} is a square with the eye at its centre, so all four walls are
+   the same material at the same distance and differ only in which way they
+   face. Two of them, on every channel. *)
+let orientation_dims_a_wall_rather_than_fogging_it () =
+  let square_room =
+    World.make
+      ~rooms:[ ("room", room) ]
+      ~links:[] ~atmosphere:vivid ~spawn:("room", centre)
+  in
+  let facing angle =
+    Framebuffer.pixel
+      (shot square_room (Player.create ~room:0 ~pos:centre ~angle))
+      ~x:(width / 2) ~y:(height / 2)
+  in
+  (* South is nearly square-on to the light, east nearly edge-on to it. *)
+  let into = facing (-.Float.pi /. 2.) and away = facing 0. in
+  Alcotest.(check bool)
+    (Printf.sprintf
+       "square-on to the light is brighter on every channel: #%02x%02x%02x \
+        against #%02x%02x%02x"
+       into.Color.r into.Color.g into.Color.b away.Color.r away.Color.g
+       away.Color.b)
+    true
+    (into.Color.r > away.Color.r
+    && into.Color.g > away.Color.g
+    && into.Color.b > away.Color.b);
+  (* And brighter by the same amount on all three, which is the sharp form of
+     it: the two walls stand at one distance, so the air's share of them is one
+     colour and cancels, and the whole of the difference is the multiply. *)
+  let dr = into.Color.r - away.Color.r
+  and dg = into.Color.g - away.Color.g
+  and db = into.Color.b - away.Color.b in
+  Alcotest.(check (pair int int))
+    (Printf.sprintf "and by the same amount on each: %d, %d, %d" dr dg db)
+    (dr, dr) (dg, db)
+
 (* {1 Decals}
 
    A mark is on one face of a wall. Everything below is that claim, on the
@@ -486,7 +651,10 @@ let a_mark_lands_under_the_crosshair () =
    two tests below would go on passing, because they are about decals.
 
    The same wall at two distances, head on both times, so the face shading is
-   identical and cancels; what is left is the ratio of the two fog factors. *)
+   identical and cancels. What is left is the ratio of the two fog factors —
+   once the air's own colour is taken back out of both readings, because fog
+   fades a surface {e towards the haze} and not towards black, so a far reading
+   is part surface and part air. *)
 let a_wall_is_lit_by_the_air_it_is_seen_through () =
   let world = fst (alone []) in
   let lit away =
@@ -503,28 +671,43 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
     (Printf.sprintf "a wall near is brighter than far: %d against %d" near far)
     true (near > far);
   Alcotest.(check bool) "and neither is black" true (far > 0);
+  (* Not a plain ratio any more: each reading is part surface and part air. Take
+     the air back out — it is a known colour — and the ratio is there exactly. A
+     reading is [texel * face_shading * fog + haze * (1 - fog)], so subtracting
+     the haze leaves [fog * (texel * face_shading - haze)], and that bracket is
+     the same wall at both distances. *)
+  let haze = air.Atmosphere.haze.Color.r in
   let expected = Atmosphere.fog air 2. /. Atmosphere.fog air 6. in
-  let got = float_of_int near /. float_of_int far in
+  let got = float_of_int (near - haze) /. float_of_int (far - haze) in
   Alcotest.(check bool)
-    (Printf.sprintf "by the fog factor: %.3f against %.3f" got expected)
+    (Printf.sprintf
+       "by the fog factor, with the air taken out: %.3f against %.3f" got
+       expected)
     true
     (Float.abs (got -. expected) < 0.05);
   (* And the scale of it, which no ratio can reach: a light that was uniformly
      wrong would keep every ratio in the game intact and darken all of it. The
-     wall is a flat pattern, so the one texel it has, under the light Atmosphere
-     reports for this face at this distance, is the whole prediction. *)
+     wall is a flat pattern, so the one texel it has — shaded by how squarely
+     this face meets the light, then carried towards the haze by how far away it
+     is — is the whole prediction.
+
+     Note where the fog is and is not. It is the {e amount} of the blend and not
+     part of the shade: [Color.shade texel (face_shading *. fog)] followed by a
+     blend would apply it twice. *)
   let wall = (World.room world 0).Room.walls.(1) in
-  let texel =
-    (Texture.sample wall.Room.material.Material.pattern ~u:0 ~v:0).Color.r
+  let texel = Texture.sample wall.Room.material.Material.pattern ~u:0 ~v:0 in
+  let predicted =
+    (Color.lerp
+       (Color.shade texel (Atmosphere.face_shading air wall.Room.normal))
+       air.Atmosphere.haze
+       (1. -. Atmosphere.fog air 2.))
+      .Color.r
   in
-  let light =
-    Atmosphere.face_shading air wall.Room.normal *. Atmosphere.fog air 2.
-  in
-  let predicted = int_of_float (float_of_int texel *. light) in
   Alcotest.(check bool)
     (Printf.sprintf
-       "and the near reading is that texel under that light: %d against %d" near
-       predicted)
+       "and the near reading is that texel under that light, through that much \
+        air: %d against %d"
+       near predicted)
     true
     (abs (near - predicted) <= 2)
 
@@ -534,8 +717,9 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
    half that does.
 
    A white picture at two distances, in air that fades over twelve cells. The
-   face shading is the same for both (same wall, same normal), so it cancels and
-   what is left is the ratio of the two fog factors, exactly. *)
+   face shading is the same for both (same wall, same normal), so it cancels,
+   and what is left is the ratio of the two fog factors — once the air's own
+   colour is taken back out of both readings, exactly as for the wall above. *)
 let a_decal_is_fogged_like_the_wall_it_is_on () =
   let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
   let world = fst (alone []) in
@@ -559,10 +743,13 @@ let a_decal_is_fogged_like_the_wall_it_is_on () =
     (Printf.sprintf "a decal near is brighter than far: %d against %d" near far)
     true (near > far);
   Alcotest.(check bool) "and neither is black" true (far > 0);
+  let haze = air.Atmosphere.haze.Color.r in
   let expected = Atmosphere.fog air 4. /. Atmosphere.fog air 12. in
-  let got = float_of_int near /. float_of_int far in
+  let got = float_of_int (near - haze) /. float_of_int (far - haze) in
   Alcotest.(check bool)
-    (Printf.sprintf "by the fog factor: %.3f against %.3f" got expected)
+    (Printf.sprintf
+       "by the fog factor, with the air taken out: %.3f against %.3f" got
+       expected)
     true
     (Float.abs (got -. expected) < 0.05)
 
@@ -678,6 +865,48 @@ let a_glowing_decal_keeps_its_own_light () =
     "and glow never darkens" true
     (lit ~glow:0.3 ~fog_distance:40. >= paint_lit)
 
+(* Glow lifts a mark out of the haze as well as out of the dark, and it has to
+   be both: a mark that made all of its own light and still had the air's colour
+   laid over it would not be its own colour at all — at the far end of a long
+   room it would be the haze. {!Room.decal_light} is a fraction raised towards
+   [1.] by [glow], and the renderer asks it for the fog factor as well as for
+   the light, so a fully glowing mark takes none of the air.
+
+   The picture is a saturated red, and deliberately not the white the test above
+   uses: white plus haze saturates back to white, so a white mark cannot tell a
+   mark that took no haze from one that took some and clipped. *)
+let a_glowing_decal_takes_none_of_the_haze () =
+  let red = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 200 0 0, 255)) in
+  let lit ~glow =
+    let world = hazy [] in
+    let marked =
+      World.replace_room world ~room:0
+        ~replacement:
+          (Room.add_decal (World.room world 0) ~wall:1
+             (Room.decal ~glow ~along:4. ~z:Config.eye_height ~half_width:1.
+                ~half_height:1. red))
+    in
+    Framebuffer.pixel
+      (shot marked (looking_east ()))
+      ~x:(width / 2) ~y:(height / 2)
+  in
+  let glowing = lit ~glow:1. in
+  (* On the blue, because the picture has none: any of this air that reached it
+     would show there, and the red only says it was not dimmed on the way. *)
+  Alcotest.(check int)
+    "a fully glowing mark takes none of the air's colour" 0 glowing.Color.b;
+  Alcotest.(check bool)
+    (Printf.sprintf "and is the red it was painted: %d" glowing.Color.r)
+    true (glowing.Color.r >= 199);
+  (* And paint at the same place is most of the way into that air, so the claim
+     above is not that the air is doing nothing here. *)
+  let paint = lit ~glow:0. in
+  Alcotest.(check bool)
+    (Printf.sprintf "where paint at the same place is %d from the haze"
+       (from_the_haze paint))
+    true
+    (from_the_haze paint < 40)
+
 let () =
   Alcotest.run "Renderer"
     [
@@ -716,6 +945,17 @@ let () =
           case "a wall is lit by the air it is seen through"
             a_wall_is_lit_by_the_air_it_is_seen_through;
         ] );
+      ( "what distance fades into",
+        [
+          case "a distant wall fades into the haze and not into the dark"
+            a_distant_wall_fades_into_the_haze_and_not_into_the_dark;
+          case "the floor fades into the haze towards the horizon"
+            the_floor_fades_into_the_haze_towards_the_horizon;
+          case "a distant sprite fades into the haze"
+            a_distant_sprite_fades_into_the_haze;
+          case "orientation dims a wall rather than fogging it"
+            orientation_dims_a_wall_rather_than_fogging_it;
+        ] );
       ( "marks on walls",
         [
           case "a decal is drawn on the face it is on"
@@ -730,5 +970,7 @@ let () =
             a_decal_ignores_what_the_wall_is_made_of;
           case "a glowing decal keeps its own light"
             a_glowing_decal_keeps_its_own_light;
+          case "a glowing decal takes none of the haze"
+            a_glowing_decal_takes_none_of_the_haze;
         ] );
     ]

@@ -99,7 +99,13 @@ let make_normalises_the_light () =
    vector, and a zero light is exactly what [Vec.normalize] passes through
    unchanged. A world with no direction to its light is written with
    [~directional:0.] instead — see above, where that is tested as the setting it
-   is. *)
+   is.
+
+   Three spellings of the same failure, and the third is the one that looks
+   least like it: an infinite coordinate has a length that passes any [> 0.]
+   test on its own, and then normalising scales by its reciprocal — [x *. 0.],
+   which is [nan]. So the guard is on the length being {e finite} and positive,
+   and all three arrive at the same message. *)
 let a_light_that_points_nowhere_is_refused () =
   let refused what light =
     Alcotest.check_raises what
@@ -110,7 +116,8 @@ let a_light_that_points_nowhere_is_refused () =
              ~min_brightness:0.1 ~light ~ambient:0.5 ~directional:0.5))
   in
   refused "the zero vector" (Vec.make 0. 0.);
-  refused "one that is nan" (Vec.make Float.nan 1.)
+  refused "one that is nan" (Vec.make Float.nan 1.);
+  refused "one that is infinite" (Vec.make Float.infinity 1.)
 
 let () =
   Alcotest.run "Atmosphere"

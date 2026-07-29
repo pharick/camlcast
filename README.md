@@ -22,12 +22,12 @@ This repository is the engine and the demos it is written against.
 
 ## What it looks like
 
-|                                                                         |                                                                             |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| ![An open evening sky over a low wall](doc/images/daylight.png)          | ![A tiled floor climbing to a raised doorway](doc/images/slopes.png)         |
-| ![Two doorways showing one room](doc/images/portals.png)                 | ![Pictures hung on a wall, figures standing in front of them](doc/images/gallery.png) |
-| ![The next room seen through a grille and a tinted window](doc/images/glass.png) | ![A corridor of pillars fading into its own haze](doc/images/haze.png)       |
-| ![A chamber of falling dust motes](doc/images/dust.png)                  | ![A page of wrapped and clipped text over a room](doc/images/text.png)       |
+|                                                                                  |                                                                                       |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| ![An open evening sky over a low wall](doc/images/daylight.png)                  | ![A tiled floor climbing to a raised doorway](doc/images/slopes.png)                  |
+| ![Two doorways showing one room](doc/images/portals.png)                         | ![Pictures hung on a wall, figures standing in front of them](doc/images/gallery.png) |
+| ![The next room seen through a grille and a tinted window](doc/images/glass.png) | ![A corridor of pillars fading into its own haze](doc/images/haze.png)                |
+| ![A chamber of falling dust motes](doc/images/dust.png)                          | ![A page of wrapped and clipped text over a room](doc/images/text.png)                |
 
 ## Running
 
@@ -58,30 +58,30 @@ a single file under `demo/`, short enough to read in a sitting, with the feature
 it demonstrates as the only thing in it — and each spawns you facing the thing it
 is about.
 
-| demo       | what it shows                                                    |
-| ---------- | ---------------------------------------------------------------- |
-| `masonry`  | materials: one pattern function, applied at several colours      |
-| `gallery`  | decals on the walls, sprites standing in the room                |
-| `glass`    | see-through walls and the translucent pass                       |
-| `slopes`   | inclined floors and roofs, and a seamless threshold              |
-| `daylight` | the open sky, and two rooms under different ones                 |
-| `haze`     | atmosphere: the fade into fog and where the light falls          |
-| `portals`  | doorways: the same room, joined in two places                    |
-| `changing` | replacing a room: a sign that moves, rebuilt every frame         |
-| `floating` | sprites off the floor, and frames chosen rather than made        |
-| `dust`     | a chamber of falling dust: every mote moved every frame          |
-| `chalk`    | marking a wall where the crosshair is, on the face you see       |
-| `endless`  | the `extend` hook: a corridor built as you walk it                 |
-| `doors`    | doors that open and shut, on both sides of the link at once      |
-| `barred`   | a door and a transom you can see through, and cannot walk past   |
-| `targets`  | what the crosshair is on, through the doorway in front of you    |
-| `trail`    | traversal traces: a return route built from the doorways         |
-| `phases`   | `Engine.run`: a phase, a clock, and a light going out             |
-| `overlay`  | drawing over the finished world                                  |
-| `controls` | binding keys, press versus hold, and letting go of the mouse     |
-| `text`     | a bitmap font: wrapping, measuring, clipping and colour          |
-| `loading`  | art read from files, beside the generated kind                   |
-| `showcase` | the five-room level, with all of the above at once               |
+| demo       | what it shows                                                  |
+| ---------- | -------------------------------------------------------------- |
+| `masonry`  | materials: one pattern function, applied at several colours    |
+| `gallery`  | decals on the walls, sprites standing in the room              |
+| `glass`    | see-through walls and the translucent pass                     |
+| `slopes`   | inclined floors and roofs, and a seamless threshold            |
+| `daylight` | the open sky, and two rooms under different ones               |
+| `haze`     | atmosphere: the fade into fog and where the light falls        |
+| `portals`  | doorways: the same room, joined in two places                  |
+| `changing` | replacing a room: a sign that moves, rebuilt every frame       |
+| `floating` | sprites off the floor, and frames chosen rather than made      |
+| `dust`     | a chamber of falling dust: every mote moved every frame        |
+| `chalk`    | marking a wall where the crosshair is, on the face you see     |
+| `endless`  | the `extend` hook: a corridor built as you walk it             |
+| `doors`    | doors that open and shut, on both sides of the link at once    |
+| `barred`   | a door and a transom you can see through, and cannot walk past |
+| `targets`  | what the crosshair is on, through the doorway in front of you  |
+| `trail`    | traversal traces: a return route built from the doorways       |
+| `phases`   | `Engine.run`: a phase, a clock, and a light going out          |
+| `overlay`  | drawing over the finished world                                |
+| `controls` | binding keys, press versus hold, and letting go of the mouse   |
+| `text`     | a bitmap font: wrapping, measuring, clipping and colour        |
+| `loading`  | art read from files, beside the generated kind                 |
+| `showcase` | the five-room level, with all of the above at once             |
 
 `demo/catalogue.ml` is the list itself, and `showcase` is `demo/level.ml`. Every
 one of these worlds is checked by `test_demos`: that you can stand where it
@@ -187,15 +187,15 @@ The engine names no key of its own. Walking, looking, fullscreen and leaving the
 run all come out of a `Binding.t` the game hands to `Engine.run`;
 `Binding.default` is what the demos walk on, and it is a default and not a rule.
 
-| key / device | action                                |
-| ------------ | ------------------------------------- |
-| `W` / `S`    | walk forward / back                   |
-| `A` / `D`    | strafe left / right                   |
-| mouse        | look around (yaw and pitch)           |
-| `←` / `→`    | turn left / right (keyboard fallback) |
-| `↑` / `↓`    | look up / down (keyboard fallback)    |
-| `F11`        | toggle fullscreen                     |
-| `Esc`        | leave the run (asked for, not default)|
+| key / device | action                                 |
+| ------------ | -------------------------------------- |
+| `W` / `S`    | walk forward / back                    |
+| `A` / `D`    | strafe left / right                    |
+| mouse        | look around (yaw and pitch)            |
+| `←` / `→`    | turn left / right (keyboard fallback)  |
+| `↑` / `↓`    | look up / down (keyboard fallback)     |
+| `F11`        | toggle fullscreen                      |
+| `Esc`        | leave the run (asked for, not default) |
 
 Rebinding is a value:
 
@@ -214,7 +214,7 @@ clamped, and paid out at the axis's speed over the frame. The mouse is a
 stands rather than scaled by the frame again. That distinction is the seam a
 gamepad would arrive through.
 
-That last row is the one the engine will not assume. `Binding.default` binds *no*
+That last row is the one the engine will not assume. `Binding.default` binds _no_
 key that ends a run, because a game with screens in it wants `Esc` for closing
 them; `Engine.run_world` asks for it, since a bare world has nothing else to end it
 with. Three demos add keys of their own — `phases` starts on `space`, `chalk`
@@ -258,7 +258,7 @@ Each module is self-contained and depends only on the ones above it.
 | module        | responsibility                                                                                                             |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `Config`      | all tunable constants                                                                                                      |
-| `Result_ext`  | `let*` / `let+` for chaining fallible SDL calls, and acquire/use/release                                                    |
+| `Result_ext`  | `let*` / `let+` for chaining fallible SDL calls, and acquire/use/release                                                   |
 | `Key`         | the keyboard, named by the engine: a binding is a place on the board, not a letter                                         |
 | `Vec`         | immutable 2-D vectors, with the dot and cross products the geometry needs                                                  |
 | `Transform`   | rigid rotations and translations between room-local coordinate frames                                                      |
@@ -280,11 +280,11 @@ Each module is self-contained and depends only on the ones above it.
 | `Player`      | camera pose: `pos` + unit `dir` + unit `right` + `pitch`; movement with wall sliding                                       |
 | `Viewport`    | window size → camera geometry, projection, eye height and the pitch shear; the resize rules                                |
 | `Sight`       | what the crosshair is on, traced through doorways and named by index                                                       |
-| `Input`       | the keyboard and the mouse as they are: controls, their edges and holds, and what the analog sources read                   |
+| `Input`       | the keyboard and the mouse as they are: controls, their edges and holds, and what the analog sources read                  |
 | `Binding`     | what those controls are for — the game's table, and the one pure function that turns a frame of them into a movement       |
 | `Framebuffer` | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
 | `Renderer`    | the software renderer: floor/ceiling/sky, opaque walls with decals, then sprites and see-through walls composited by depth |
-| `Engine`      | window lifetime, fullscreen state, and the game loop played on one                                                        |
+| `Engine`      | window lifetime, fullscreen state, and the game loop played on one                                                         |
 | `Clock`       | the pacing arithmetic the loop measures its frames by, apart from any window                                               |
 
 ## Documentation

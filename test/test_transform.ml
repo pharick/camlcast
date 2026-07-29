@@ -101,7 +101,14 @@ let a_segment_with_no_length_is_refused () =
   refused "a coordinate that is nan"
     "Transform.between: a1 and a2 are the same point" here
     (Vec.make Float.nan Float.nan)
-    here there
+    here there;
+  (* And an infinite one, which is the case that gets past a bare [> 0.]: the
+     length between the two ends is infinite, which is positive, and normalising
+     then scales by its reciprocal — [x *. 0.], which is [nan]. Refused for the
+     length not being finite. *)
+  refused "a coordinate that is infinite"
+    "Transform.between: b1 and b2 are the same point" here there here
+    (Vec.make Float.infinity 2.)
 
 let () =
   Alcotest.run "Transform"

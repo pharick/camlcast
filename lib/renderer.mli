@@ -111,6 +111,20 @@ val internal_size : width:int -> height:int -> int * int
     A game needs this only to know what coordinates its overlay is drawing in,
     which are the buffer's and not the window's. *)
 
+val fit :
+  Tsdl.Sdl.renderer -> Framebuffer.t ref -> (unit, [ `Msg of string ]) result
+(** Size the buffer to the window it will be shown in, at {!internal_size} of
+    it: a new buffer when the window has changed shape, and the one that is
+    already there when it has not.
+
+    {!render} does this itself, so a loop that only draws never needs to call
+    it. It is here for a loop that needs the buffer's size {e settled} before it
+    draws — which means a loop that puts a pointer into the buffer's
+    coordinates, because the cursor is reported in the window's. Fit at the top
+    of the frame and the buffer converted against is the buffer drawn into;
+    leave it to {!render} at the end and the first frame after a resize measures
+    the cursor by the old layout and draws the new one. *)
+
 val render :
   Tsdl.Sdl.renderer ->
   Framebuffer.t ref ->

@@ -108,7 +108,17 @@ val decal_light : decal -> light:float -> float
     wall's colour, but that is a different-looking dark and not every game wants
     it. So which of the two a decal is subject to becomes the decal's own to
     say: keep [glow] at zero and it is paint, raise it and it is phosphorescent,
-    and a game can raise it as its light dies. *)
+    and a game can raise it as its light dies.
+
+    {b It is asked twice.} The renderer applies this to the wall's light, and
+    again to the wall's {e fog} — because a fog factor is a fraction of a
+    surface's own colour as well, the fraction the haze does not replace (see
+    {!Atmosphere.fog}). Lifting both is what makes a mark at [glow = 1.] the
+    colours it was painted in at any distance: lifting only the light would
+    leave it at full brightness under a coat of haze, which at the far end of a
+    long room is the haze and not the mark. Both are "a fraction, raised towards
+    [1.] by [glow]", which is all this function is; the argument is named for
+    the commoner of the two. *)
 
 val decal_column : decal -> seen_from:side -> along:float -> int option
 (** Where along a decal's width a point [along] the wall falls, as a column of

@@ -115,4 +115,8 @@ val between : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> t
     [R a2 + offset = |a2 - a1| w + b2 = b1], is exactly the equal-length
     condition.
 
-    @raise Invalid_argument if either segment's two ends are the same point. *)
+    @raise Invalid_argument
+      if either segment's two ends are the same point, or are far enough apart —
+      or non-finite enough — that the length between them is not a finite
+      positive number. Both are the same failure: there is no direction to lay
+      onto anything. *)
