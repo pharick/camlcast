@@ -406,6 +406,47 @@ let a_doorway_that_could_not_be_cut_is_refused () =
     "Room.doorway: wider than the wall it is cut into: gate"
     (cut ~width:5. (Vec.make 0. 0.) (Vec.make 4. 0.))
 
+(* The same argument as the doorway above, one type down. A decal of no width
+   and a sprite of no size both survive being written and both fail later,
+   inside a frame: {!Room.decal_column} divides by twice the half width,
+   {!Room.sprite_half_width} divides by the picture's height, and
+   {!Viewport.sprite_box} divides by the size. Every one of those answers [nan],
+   and [nan] is refused by nothing downstream — so it is refused here. Each test
+   is the negation of the passing condition, which is what catches the [nan]
+   that was handed in rather than derived. *)
+let a_decal_or_sprite_of_no_size_is_refused () =
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let poster = Image.make 4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255)) in
+  let mark ?glow ~half_width ~half_height () =
+   fun () ->
+    ignore (Room.decal ?glow ~along:1. ~z:1. ~half_width ~half_height poster)
+  in
+  raises "a decal with no width" "Room.decal: a decal has to have a width"
+    (mark ~half_width:0. ~half_height:1. ());
+  raises "a decal with a nan width" "Room.decal: a decal has to have a width"
+    (mark ~half_width:Float.nan ~half_height:1. ());
+  raises "a decal with no height" "Room.decal: a decal has to have a height"
+    (mark ~half_width:1. ~half_height:(-1.) ());
+  raises "glow over one" "Room.decal: glow is a fraction from 0 to 1"
+    (mark ~glow:1.5 ~half_width:1. ~half_height:1. ());
+  raises "glow under zero" "Room.decal: glow is a fraction from 0 to 1"
+    (mark ~glow:(-0.5) ~half_width:1. ~half_height:1. ());
+  (* Both ends of the range are in it, since paint and phosphorescence are the
+     two decals anyone writes down on purpose. *)
+  List.iter
+    (fun glow ->
+      ignore
+        (Room.decal ~glow ~along:1. ~z:1. ~half_width:1. ~half_height:1. poster))
+    [ 0.; 1. ];
+  List.iter
+    (fun size ->
+      raises (Printf.sprintf "a sprite of size %f" size)
+        "Room.sprite: a sprite has to have a size" (fun () ->
+          ignore (Room.sprite ~size ~image:poster (Vec.make 0. 0.))))
+    [ 0.; -1.; Float.nan ]
+
 let opening ?door () =
   snd
     (Room.doorway ~name:"a" ?door ~width:1. ~opening:2. ~height:3.
@@ -471,6 +512,8 @@ let () =
             a_base_lifts_a_sprite_off_the_floor_it_is_given;
           case "replacing the sprites keeps the rest"
             replacing_the_sprites_keeps_the_rest;
+          case "a decal or sprite of no size is refused"
+            a_decal_or_sprite_of_no_size_is_refused;
         ] );
       ( "collision",
         [

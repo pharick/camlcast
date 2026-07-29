@@ -86,6 +86,8 @@ let clamp v = Int.min 255 (Int.max 0 v)
     than trusted, because a pattern is usually arithmetic about a base value and
     the ends of its range are exactly where that arithmetic leaves 0 .. 255. *)
 let generate ?(size = size) f =
+  if size <= 0 then
+    invalid_arg "Texture.generate: a pattern must have a positive size";
   {
     size;
     texels =
@@ -98,6 +100,8 @@ let generate ?(size = size) f =
 (** A pattern that can see through itself: [f] returns a colour {e and} an alpha
     for each texel, so a wall wearing it unveils whatever is behind. *)
 let generate_masked ?(size = size) f =
+  if size <= 0 then
+    invalid_arg "Texture.generate_masked: a pattern must have a positive size";
   let n = size * size in
   let texels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
   let opaque = ref true in
@@ -129,6 +133,8 @@ let load path =
       (`Msg
          (Printf.sprintf "%s: a pattern must be square, and this one is %dx%d"
             path w h))
+  else if w <= 0 then
+    Error (`Msg (Printf.sprintf "%s: a pattern must have a positive size" path))
   else begin
     let n = w * w in
     let texels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
@@ -171,6 +177,8 @@ let hash a b =
 
     [cell] must divide [size], or the lattice would not close on itself. *)
 let noise ~size ~seed ~cell ~u ~v =
+  if size <= 0 then
+    invalid_arg "Texture.noise: a pattern must have a positive size";
   if cell <= 0 || size mod cell <> 0 then
     invalid_arg "Texture.noise: cell must divide the pattern size";
   let cells = size / cell in

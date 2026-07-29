@@ -174,6 +174,51 @@ let a_sub_rectangle_takes_what_it_was_asked_for () =
   Alcotest.check color "and nothing past it" black
     (Framebuffer.pixel fb ~x:2 ~y:0)
 
+(* A rectangle that starts before the picture does. The far edge has always
+   stopped at the picture; the near one has to as well, and for a worse reason
+   than running off the end: a negative [sx] makes [u] negative, and a negative
+   [u] is only out of bounds on the first row. On every row after it,
+   [v * width + u] is a perfectly good index into the row above — so what a
+   missing near-edge clip costs is not a crash but a picture quietly wound one
+   row back. *)
+let a_sub_rectangle_before_the_picture_is_clipped_too () =
+  (* Column in the red channel and row in the green, both off by one so that
+     the first of either is not black and cannot be mistaken for a pixel that
+     was never drawn. *)
+  let img =
+    Image.make ~height:4 8 (fun ~u ~v ->
+        (Color.rgb ((u + 1) * 10) ((v + 1) * 10) 0, 255))
+  in
+  let fb = buffer () in
+  Paint.sub fb img ~x:0 ~y:0 ~sx:(-2) ~sy:0 ~sw:4 ~sh:2;
+  Alcotest.check color "the two columns before the picture are left alone" black
+    (Framebuffer.pixel fb ~x:0 ~y:0);
+  Alcotest.check color "and so is the second" black
+    (Framebuffer.pixel fb ~x:1 ~y:0);
+  Alcotest.check color "the picture starts at its own first column"
+    (Color.rgb 10 10 0)
+    (Framebuffer.pixel fb ~x:2 ~y:0);
+  Alcotest.check color "and goes on from there" (Color.rgb 20 10 0)
+    (Framebuffer.pixel fb ~x:3 ~y:0);
+  Alcotest.check color "and stops where the rectangle asked for stops" black
+    (Framebuffer.pixel fb ~x:4 ~y:0);
+  (* The same upwards, which is the case that wrapped rather than raised. *)
+  let fb = buffer () in
+  Paint.sub fb img ~x:0 ~y:0 ~sx:0 ~sy:(-1) ~sw:2 ~sh:3;
+  Alcotest.check color "the row before the picture is left alone" black
+    (Framebuffer.pixel fb ~x:0 ~y:0);
+  Alcotest.check color "the picture starts at its own first row"
+    (Color.rgb 10 10 0)
+    (Framebuffer.pixel fb ~x:0 ~y:1);
+  Alcotest.check color "and the row below it is the second, not the first"
+    (Color.rgb 10 20 0)
+    (Framebuffer.pixel fb ~x:0 ~y:2);
+  (* And one wholly before the picture draws nothing, exactly as one wholly
+     past it does, rather than raising. *)
+  let fb = buffer () in
+  Paint.sub fb img ~x:0 ~y:0 ~sx:(-20) ~sy:(-20) ~sw:4 ~sh:4;
+  Alcotest.check color "nothing at all" black (Framebuffer.pixel fb ~x:0 ~y:0)
+
 let a_tint_multiplies_the_picture () =
   let fb = buffer () in
   let img = Image.make 2 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
@@ -223,6 +268,8 @@ let () =
             an_image_keeps_its_own_transparency;
           case "a sub rectangle takes what it was asked for"
             a_sub_rectangle_takes_what_it_was_asked_for;
+          case "a sub rectangle before the picture is clipped too"
+            a_sub_rectangle_before_the_picture_is_clipped_too;
           case "a tint multiplies the picture" a_tint_multiplies_the_picture;
         ] );
     ]

@@ -15,8 +15,13 @@ let rect fb ~x ~y ~w ~h ~r ~g ~b ~alpha =
 
 let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w:sw ~h:sh in
-  (* And no further into the picture than the picture goes. *)
-  let x1 = Int.min x1 (x + img.Image.width - sx)
+  (* And no further into the picture than the picture goes, at either edge. The
+     near one matters as much as the far: [u] is [sx + px - x], so a negative
+     [sx] would read before the row and land in the one above it rather than
+     stopping. *)
+  let x0 = Int.max x0 (x - sx)
+  and y0 = Int.max y0 (y - sy)
+  and x1 = Int.min x1 (x + img.Image.width - sx)
   and y1 = Int.min y1 (y + img.Image.height - sy) in
   for py = y0 to y1 - 1 do
     let v = sy + py - y in

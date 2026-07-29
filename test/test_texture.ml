@@ -98,6 +98,27 @@ let generate_masked_flags_transparency () =
     "a masked pattern with no holes is still opaque" true
     solid_but_masked.Texture.opaque
 
+(* A pattern of no size is refused at the generator, because [size] is what
+   every reader of one divides and clamps by: {!Texture.column_of_offset} would
+   clamp to [-1] and {!Texture.sample} index an array that is not there, once
+   per wall pixel, some frames later. *)
+let a_pattern_of_no_size_is_refused () =
+  List.iter
+    (fun size ->
+      Alcotest.check_raises (Printf.sprintf "generate ~size:%d" size)
+        (Invalid_argument
+           "Texture.generate: a pattern must have a positive size") (fun () ->
+          ignore (Texture.generate ~size (fun ~u:_ ~v:_ -> grey)));
+      Alcotest.check_raises (Printf.sprintf "generate_masked ~size:%d" size)
+        (Invalid_argument
+           "Texture.generate_masked: a pattern must have a positive size")
+        (fun () ->
+          ignore (Texture.generate_masked ~size (fun ~u:_ ~v:_ -> (grey, 255))));
+      Alcotest.check_raises (Printf.sprintf "noise ~size:%d" size)
+        (Invalid_argument "Texture.noise: a pattern must have a positive size")
+        (fun () -> ignore (Texture.noise ~size ~seed:0 ~cell:4 ~u:0 ~v:0)))
+    [ 0; -8 ]
+
 let noise_stays_in_band () =
   let low = ref 255 and high = ref 0 in
   for v = 0 to Texture.size - 1 do
@@ -270,6 +291,7 @@ let () =
           case "patterns carry their own size" patterns_carry_their_own_size;
           case "generate_masked flags transparency"
             generate_masked_flags_transparency;
+          case "a pattern of no size is refused" a_pattern_of_no_size_is_refused;
         ] );
       ( "noise",
         [

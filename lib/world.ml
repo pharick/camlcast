@@ -308,7 +308,8 @@ let set_door t ~room ~threshold state =
           { x with Room.door = Some (Door.set_state door state) };
         (* Through {!replace_room}, so that a door changed here is held to the
            same invariants as a room rebuilt for any other reason. *)
-        replace_room world ~room ~replacement:{ before with Room.thresholds }
+        replace_room world ~room
+          ~replacement:(Room.with_thresholds before thresholds)
   in
   let after = hang t ~room ~threshold in
   match t.portals.(room).(threshold) with

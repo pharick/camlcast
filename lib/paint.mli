@@ -51,8 +51,11 @@ val sub :
 
     The clipping is done on the {e destination} and then read back into the
     source, so a picture half off the left edge draws its right half rather than
-    the whole thing squashed or nothing at all. It is clipped to the picture
-    too, so an [sw] or [sh] running past its edge stops there.
+    the whole thing squashed or nothing at all. It is clipped to the picture at
+    both edges too: an [sw] or [sh] running past the far one stops there, and a
+    negative [sx] or [sy] starts at the picture's own corner instead of before
+    it, leaving that much of the destination untouched. A rectangle wholly
+    outside the picture draws nothing.
 
     [tint] multiplies the picture's own colour channel by channel if it is
     given, which is what {!Font} uses to draw one white atlas in any colour a

@@ -117,6 +117,24 @@ let disc_is_a_circle () =
 let clear_is_invisible () =
   Alcotest.(check int) "nothing shows through it" 0 (snd Image.clear)
 
+(* A picture of no size is refused where it is written down rather than where it
+   is drawn. Nothing about an empty image is wrong until something divides by
+   its height — {!Room.sprite_half_width} does — or clamps into an array that is
+   not there, and by then the mistake is a frame in the renderer and not a line
+   in the level. *)
+let an_image_of_no_size_is_refused () =
+  List.iter
+    (fun (w, h) ->
+      Alcotest.check_raises (Printf.sprintf "%dx%d" w h)
+        (Invalid_argument "Image.make: an image must have a positive size")
+        (fun () ->
+          ignore (Image.make ~height:h w (fun ~u:_ ~v:_ -> Image.clear))))
+    [ (0, 4); (4, 0); (0, 0); (-1, 4); (4, -1) ];
+  (* The default height is the width, so one argument refuses both. *)
+  Alcotest.check_raises "a square of no size"
+    (Invalid_argument "Image.make: an image must have a positive size")
+    (fun () -> ignore (Image.make 0 (fun ~u:_ ~v:_ -> Image.clear)))
+
 let () =
   Alcotest.run "Image"
     [
@@ -126,6 +144,7 @@ let () =
           case "make builds a rectangle" make_builds_a_rectangle;
           case "index agrees with sample" index_agrees_with_sample;
           case "images carry their own size" images_carry_their_own_size;
+          case "an image of no size is refused" an_image_of_no_size_is_refused;
         ] );
       ( "loading",
         [
