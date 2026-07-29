@@ -140,12 +140,20 @@ let world =
     [lintel] is what the strip of wall over the opening is made of, for the
     suites that need a transom you can see through. {!Room.doorway} gives the
     jambs and the lintel one material, which is exactly what a transom is not,
-    so it is put back afterwards rather than asked for. *)
-let joined_rooms ?door ?lintel () =
-  let glaze (t : Room.threshold) =
-    match lintel with
-    | None -> t
-    | Some material -> { t with Room.lintel = Some { Room.top = 3.; material } }
+    so it is put back afterwards rather than asked for.
+
+    [bare] takes the strip away instead of re-materialling it, leaving a
+    threshold with no {!Room.type-lintel} at all — the shape {!Room.doorway}
+    never produces and only a hand-built one has. It overrides [lintel], a
+    transom being a lintel like any other. *)
+let joined_rooms ?door ?lintel ?(bare = false) () =
+  let over (t : Room.threshold) =
+    if bare then { t with Room.lintel = None }
+    else
+      match lintel with
+      | None -> t
+      | Some material ->
+          { t with Room.lintel = Some { Room.top = 3.; material } }
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
@@ -154,7 +162,7 @@ let joined_rooms ?door ?lintel () =
     Room.doorway ~name:"west" ?door ~width:1. ~opening:2. ~height:3.
       ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
-  let east = glaze east and west = glaze west in
+  let east = over east and west = over west in
   let first =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
       (first_jambs

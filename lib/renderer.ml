@@ -512,10 +512,13 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                   ~entered:(Some portal.World.twin) ~translucent
             | Some _ | None -> nothing_behind ~first ~last
           in
-          (* The wall above the opening. Without it the gap runs the full height
-             of the wall it was cut into and you see over the door. A band with
-             no rows in it is skipped rather than handed on: [paint] would draw
-             nothing anyway, but [behind] would cast a whole ray to do it. *)
+          (* The wall above the opening — the strip that is what you meet over
+             the top of a closed door. No lintel means no strip: the gap already
+             runs the full height of the wall it was cut into, so there is
+             nothing here to draw and the rows above it keep the ceiling
+             [draw_planes] has already put there. A band with no rows in it is
+             skipped rather than handed on: [paint] would draw nothing anyway,
+             but [behind] would cast a whole ray to do it. *)
           Option.iter
             (fun (l : Room.lintel) ->
               let last = Int.min bottom (head - 1) in

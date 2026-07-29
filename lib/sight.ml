@@ -164,9 +164,12 @@ let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
         if z > foot +. threshold.Room.height then
           (* Over the top of the opening. What is there is the strip of wall
              left standing above it — so this stops, but only if there is one
-             and it is solid: an opening with no lintel runs the full height of
-             the wall it was cut into and there is nothing up there to meet, and
-             a glazed transom is looked through rather than at. *)
+             and it is solid; a glazed transom is looked through rather than at.
+             With no lintel the opening already runs the full height of the wall
+             it was cut into, so there is no strip: what is up there is this
+             room's own ceiling, which is not something to pick and not a way
+             through either, so the ray carries on and finds nothing. That is
+             the answer the renderer draws. *)
           match threshold.Room.lintel with
           | Some l when Material.opaque l.Room.material ->
               found d (Doorway { index })

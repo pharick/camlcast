@@ -50,7 +50,10 @@
       see-through material stops the ray no more than a see-through wall does:
       the renderer draws the neighbouring room behind both, so the ray goes on
       into it, and the leaf still refuses the step it always did. What can be
-      picked is what can be seen, not what can be walked through.
+      picked is what can be seen, not what can be walked through. An opening
+      with {b no lintel} has no wall standing over it, and is no way through
+      either — above its head is this room's own ceiling — so a ray up there
+      meets nothing at all.
     - Running out of {b doorways to look through}.
 
     {1 Depth and distance}

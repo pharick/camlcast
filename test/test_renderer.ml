@@ -351,6 +351,36 @@ let a_see_through_lintel_shows_the_room_behind () =
     "under a solid lintel, none of it is" true
     (reaches (joined_rooms ~door:(Door.make dim) ()) = None)
 
+(* And with no lintel at all, still none of it. Omitting one says the opening
+   already reaches the top of the wall it was cut into, not that the gap runs on
+   above it: the rows over the head of a two-cell opening in a three-cell room
+   are that room's own ceiling, exactly as they are over a wall that stops short
+   of it — {!Renderer} caps a wall at the ceiling and paints the ceiling above.
+   Recursing through them instead would put the neighbour's roof, or its sky,
+   overhead in this room. *)
+let a_bare_opening_does_not_show_the_room_above_it () =
+  let looking =
+    Player.pitch_by
+      (Player.create ~room:0 ~pos:centre ~angle:0.)
+      ~radians:Config.max_pitch
+  in
+  let roofed world material =
+    let before = World.room world 1 in
+    World.replace_room world ~room:1
+      ~replacement:
+        (Room.make
+           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~floor:before.Room.floor
+           ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
+           (Array.to_list before.Room.walls))
+  in
+  let reaches world =
+    drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
+  in
+  Alcotest.(check bool)
+    "over a lintel-less opening, the far room's roof is not drawn" true
+    (reaches (joined_rooms ~door:(Door.make dim) ~bare:true ()) = None)
+
 (* A sprite stands on the floor wherever the floor has got to. Over a plane that
    climbs east, the same sprite at the same place is drawn higher than it is
    over a level one, by what the plane says the ground has risen. *)
@@ -959,6 +989,8 @@ let () =
             a_see_through_leaf_shows_the_room_behind;
           case "a see-through lintel shows the room behind"
             a_see_through_lintel_shows_the_room_behind;
+          case "a bare opening does not show the room above it"
+            a_bare_opening_does_not_show_the_room_above_it;
         ] );
       ( "light on a wall",
         [

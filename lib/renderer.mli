@@ -64,7 +64,11 @@
     drawn in the same column, with the camera and the ray carried into its frame
     by the link's {!Transform} and the row clip narrowed to the opening. Above
     either, the {!Room.type-lintel} fills the strip of wall left standing over
-    the gap — without it you would see over the top of a closed door.
+    the gap — which is why an opening lower than the wall around it wants one:
+    the strip is what is drawn over the top of a closed door. An opening with no
+    lintel is one that reaches the wall's own top, so there is no strip and
+    nothing is drawn; the rows above it are the room's own ceiling, the same
+    thing that stands over a wall which stops below one.
 
     Opacity decides the rest, exactly as it does for a wall. A leaf or a lintel
     you can see through is {e both}: the neighbour is drawn behind it first and

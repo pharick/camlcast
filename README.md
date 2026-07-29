@@ -350,6 +350,19 @@ across beneath it.
 
 The pictures the guides and this file are illustrated with live in `doc/images/`.
 
+`@doc` prints a warning for every `@raise` tag naming a standard-library
+exception — `Invalid_argument` wherever one is refused, and
+`Fun.Finally_raised` in `Result_ext`. odoc reads a `@raise` argument as a
+reference, and the classic
+`@doc` alias puts only this project's packages and their direct dependencies on
+its resolution path, so nothing in `Stdlib` can resolve there; writing
+`Stdlib.Invalid_argument` does not help, and `[Invalid_argument]` silences it
+only by demoting the tag to a code span and losing the raise contract with it.
+The site builds and every link inside it resolves. **That set of warnings is the
+expected output** — anything else in it is a real reference that has gone stale.
+`@doc-new`, the odoc 3 driver alias that would put `Stdlib` in scope, does not
+build in this tree.
+
 ## Tests
 
 [Alcotest](https://github.com/mirage/alcotest), one executable per module in

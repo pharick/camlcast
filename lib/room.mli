@@ -261,8 +261,17 @@ val sprite_row : sprite -> floor_z:float -> z:float -> int option
 type lintel = { top : float; material : Material.t }
 (** The wall a doorway is cut into, so the renderer can fill the strip left
     above the opening: [top] is how far that wall rises above the floor and
-    [material] is what it is made of. Without one the opening runs the full
-    height of whatever it is cut into and there is nothing above it to draw.
+    [material] is what it is made of.
+
+    Leaving it out is a claim rather than a shrug. It says the opening already
+    reaches the top of the wall it was cut into, so nothing is left standing
+    over it and there is nothing above it to draw. Say it of an opening that
+    stops short of that and the rows over its head fall to the room's own
+    ceiling, exactly as they do over a wall that stops below one — {!Renderer}
+    caps a wall at the ceiling and paints the ceiling above it, and an opening
+    with no lintel is no different. What it is not is a hole through to the
+    neighbour. {!doorway} takes the wall's own height for its lintel and so
+    never leaves the question open; only a threshold written by hand can.
 
     Open, like a {!type-surface} and for the same reason: two independent fields
     written as a literal wherever one is wanted. *)

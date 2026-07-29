@@ -14,14 +14,18 @@ open Support
    works by accident of a shared frame. *)
 let figure pos = Room.sprite ~size:1.4 ~image:poster pos
 
-let rooms ?door ?lintel ?(near = []) ?(far = []) () =
+let rooms ?door ?lintel ?(bare = false) ?(near = []) ?(far = []) () =
   (* {!Room.doorway} gives the jambs and the strip of wall above the opening one
      material, and a transom is precisely the case where those differ, so it is
-     put back afterwards rather than asked for. *)
-  let glaze (t : Room.threshold) =
-    match lintel with
-    | None -> t
-    | Some material -> { t with Room.lintel = Some { Room.top = 3.; material } }
+     put back afterwards rather than asked for. [bare] takes the strip away
+     altogether, which {!Room.doorway} has no way to ask for at all. *)
+  let over (t : Room.threshold) =
+    if bare then { t with Room.lintel = None }
+    else
+      match lintel with
+      | None -> t
+      | Some material ->
+          { t with Room.lintel = Some { Room.top = 3.; material } }
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
@@ -30,7 +34,7 @@ let rooms ?door ?lintel ?(near = []) ?(far = []) () =
     Room.doorway ~name:"west" ?door ~width:1. ~opening:2. ~height:3.
       ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
-  let east = glaze east and west = glaze west in
+  let east = over east and west = over west in
   let first =
     Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
       ~sprites:near
@@ -304,6 +308,22 @@ let looking_over_the_opening_meets_the_lintel () =
   (* Level from the same spot, it goes straight through. *)
   is "sprite 0 of room 1" (Sight.look world (looking_east ~from:far_side ()))
 
+(* With no lintel at all it meets nothing instead, which is the same answer read
+   from the other side. Omitting one says the opening already reaches the top of
+   the wall it was cut into, so above its head there is no strip of wall left to
+   stop the ray — and no way through either, since what is up there is this
+   room's own ceiling, which {!Sight} does not pick. The far room's sprite
+   stands high enough to be seen if the ray did carry on, and it is not. *)
+let a_bare_opening_has_nothing_over_it () =
+  let world =
+    rooms ~bare:true
+      ~far:[ Room.sprite ~base:2.7 ~size:1. ~image:poster (Vec.make 1. 2.) ]
+      ()
+  in
+  is "nothing"
+    (Sight.look world
+       (looking_east ~pitch:Config.max_pitch ~from:(Vec.make 1. 2.) ()))
+
 (* One doorway by default, because that is what the design asks for. Asking for
    none is asking about the room you are standing in. *)
 let it_looks_as_far_as_it_is_told_to () =
@@ -512,6 +532,8 @@ let () =
             a_see_through_lintel_does_not_stop_it;
           case "looking over the opening meets the lintel"
             looking_over_the_opening_meets_the_lintel;
+          case "a bare opening has nothing over it"
+            a_bare_opening_has_nothing_over_it;
           case "it looks as far as it is told to"
             it_looks_as_far_as_it_is_told_to;
         ] );
