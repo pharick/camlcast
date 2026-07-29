@@ -51,6 +51,14 @@ val make : ?height:int -> int -> (u:int -> v:int -> Color.t * int) -> t
     a generated picture is usually square and saying so twice reads worse than
     not saying it.
 
+    Both are clamped into 0 .. 255 rather than trusted, the same way
+    {!Texture.generate_masked} clamps what a pattern hands it: a picture is
+    usually arithmetic about a base value, and the ends of its range are exactly
+    where that arithmetic leaves the byte. It is what makes the [alpha] range
+    above true of every picture rather than of every carefully written one —
+    {!Renderer} passes that alpha to {!Framebuffer.blend} unchecked, and one
+    above 255 there weighs the destination negatively and wraps.
+
     @raise Invalid_argument
       if [width] or [height] is not positive. A picture of no size is an
       authoring mistake and not a condition to handle: nothing can be drawn from

@@ -9,6 +9,8 @@ type t = {
   alpha : int array;
 }
 
+let clamp v = Int.min 255 (Int.max 0 v)
+
 let make ?height width f =
   let height = Option.value height ~default:width in
   if width <= 0 || height <= 0 then
@@ -19,8 +21,8 @@ let make ?height width f =
     for u = 0 to width - 1 do
       let color, a = f ~u ~v in
       let i = (v * width) + u in
-      pixels.(i) <- color;
-      alpha.(i) <- a
+      pixels.(i) <- Color.clamp color;
+      alpha.(i) <- clamp a
     done
   done;
   { width; height; pixels; alpha }

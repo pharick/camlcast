@@ -45,6 +45,32 @@ let index_agrees_with_sample () =
         a img.Image.alpha.(i))
     [ (0, 0); (7, 0); (0, 4); (3, 3); (7, 4) ]
 
+(* Colour goes into a byte of a framebuffer pixel and alpha into the weight
+   Framebuffer.blend mixes with, so anything outside 0..255 wraps rather than
+   saturating: an alpha of 300 makes [255 - a] negative, which weighs the
+   destination the wrong way and then keeps the low eight bits of the result.
+   The private type says the range; make is what has to hold it, the same way
+   Texture.generate_masked does. *)
+let a_generator_that_overshoots_is_clamped () =
+  let wild =
+    Image.make ~height:2 2 (fun ~u ~v ->
+        (* (0, 0) is under the floor in every channel and (1, 1) over the
+           ceiling, so one image catches both ends. *)
+        let f x = if x = 0 then -400 else 600 in
+        (Color.rgb (f u) (f v) (f u), f v))
+  in
+  Alcotest.check color "a colour below the floor clamps up" (Color.rgb 0 0 0)
+    (fst (Image.sample wild ~u:0 ~v:0));
+  Alcotest.check color "and one above the ceiling clamps down"
+    (Color.rgb 255 255 255)
+    (fst (Image.sample wild ~u:1 ~v:1));
+  Alcotest.(check int)
+    "an alpha below the floor clamps up" 0
+    (snd (Image.sample wild ~u:0 ~v:0));
+  Alcotest.(check int)
+    "and one above the ceiling clamps down" 255
+    (snd (Image.sample wild ~u:1 ~v:1))
+
 let images_carry_their_own_size () =
   List.iter
     (fun (w, h) ->
@@ -143,6 +169,8 @@ let () =
           case "make builds a square" make_builds_a_square;
           case "make builds a rectangle" make_builds_a_rectangle;
           case "index agrees with sample" index_agrees_with_sample;
+          case "a generator that overshoots is clamped"
+            a_generator_that_overshoots_is_clamped;
           case "images carry their own size" images_carry_their_own_size;
           case "an image of no size is refused" an_image_of_no_size_is_refused;
         ] );

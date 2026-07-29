@@ -42,7 +42,7 @@ val name : t -> string
 (** What to print on screen for this key, under the layout in use: {!a} is ["A"]
     on a QWERTY board and ["Q"] on an AZERTY one, because that is what the
     player sees printed on it. For a line of help text that says which key does
-    what — see {!Camlcast_demo.Controls}.
+    what — see the [controls] demo.
 
     Falls back to the layout-independent name for a key the current layout does
     not reach, and to ["?"] for one it cannot name at all: an empty string in

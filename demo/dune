@@ -7,7 +7,19 @@
 ; a Camlcast.Key and never reaches past the engine for it, the same way a game
 ; does.
 
+; The public name is the package name, so this installs as lib/camlcast-demo/
+; and camlcast.install carries none of it. It was camlcast.demo, whose first
+; component names the package a public name belongs to — which put a findlib
+; subpackage, and every .ml in this directory, into the engine's own install
+; file: the content shipped with the library it is content for, and the demos
+; missing from the package that is the demos.
+;
+; The executable in bin/ has this same public name and does not collide with it:
+; one is a binary in bin/, the other a findlib package in lib/. The module name
+; is untouched — it comes from (name) — so every `open Camlcast_demo` and every
+; (libraries camlcast_demo) still reads the same.
+
 (library
  (name camlcast_demo)
- (public_name camlcast.demo)
+ (public_name camlcast-demo)
  (libraries camlcast))

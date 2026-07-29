@@ -1,0 +1,8 @@
+; The demos' landing page, and its own directory because it belongs to the
+; other package. A .mld page can only name what its package's libraries and
+; their dependencies bring in scope, so {!Camlcast_demo.Masonry} resolves from
+; here and cannot from doc/index.mld, which is camlcast's — the engine does not
+; depend on the demos, which is the whole point of the split.
+
+(documentation
+ (package camlcast-demo))

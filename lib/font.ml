@@ -41,18 +41,24 @@ type t = {
     is worth it wherever the text is not entirely the game's own — a
     player-authored journal entry with something unexpected in it should show a
     box saying so rather than a gap that reads as a bug in the layout. Without
-    one, such a character takes its space and draws nothing. *)
+    one, such a character takes its space and draws nothing.
+
+    @raise Invalid_argument
+      if the cell has no positive size, or if it is larger than the atlas in
+      either direction. A grid of one cell is a font; a grid of none is a
+      description that disagrees with its picture, and disagreeing quietly is
+      the worst of the options: too wide and every glyph is the clipped left
+      edge of the atlas, too tall and {!capacity} is zero, so every character
+      draws nothing at all. Both look like a bug in the text rather than in the
+      font it was asked for. *)
 let make ?fallback ~atlas ~width ~height ~first () =
   if width <= 0 || height <= 0 then
     invalid_arg "Font.make: a cell must have a positive size";
-  {
-    atlas;
-    width;
-    height;
-    columns = Int.max 1 (atlas.Image.width / width);
-    first;
-    fallback;
-  }
+  if width > atlas.Image.width || height > atlas.Image.height then
+    invalid_arg "Font.make: a cell must fit in the atlas";
+  (* No [Int.max 1] here: the check above is what makes the division at least
+     one, and so what keeps [cell]'s [mod columns] from dividing by zero. *)
+  { atlas; width; height; columns = atlas.Image.width / width; first; fallback }
 
 (** How many cells the atlas actually holds. *)
 let capacity t = t.columns * (t.atlas.Image.height / t.height)

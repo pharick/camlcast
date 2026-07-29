@@ -34,7 +34,7 @@ has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
 - {b [camlcast]} — the engine. Geometry, ray casting, rendering, SDL.
-- {b [camlcast.demo]} — the demos and the art they are made of, run by
+- {b [camlcast-demo]} — the demos and the art they are made of, run by
   [camlcast-demo]. One small world per engine feature, plus the five-room
   showcase that has all of them at once. It is content, and it lives outside the
   library it is content for; it stays here because between them the demos
@@ -85,8 +85,8 @@ only one world to show has no use for the ending and can [ignore] it.
 
 A game that builds its world as the player explores it uses [extend] to stay far
 enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
-doorways, which is exactly as deep as the renderer looks through them.
-{!Camlcast_demo.Endless} does this in miniature.
+doorways, which is exactly as deep as the renderer looks through them. The
+[endless] demo does this in miniature.
 
 {1 Where to start}
 
@@ -156,36 +156,5 @@ Each depends only on the ones above it.
 
 [camlcast-demo] with no argument lists them; [camlcast-demo <name>] runs one.
 Each is a single file with the feature it demonstrates as the only thing in it.
-
-- {!Camlcast_demo.Catalogue} — every demo there is, and what each one is for
-- {!Camlcast_demo.Masonry} — materials: one pattern function, applied at several colours
-- {!Camlcast_demo.Gallery} — decals on the walls, sprites standing in the room
-- {!Camlcast_demo.Glass} — see-through walls and the translucent pass
-- {!Camlcast_demo.Slopes} — inclined floors and roofs, and a seamless threshold
-- {!Camlcast_demo.Daylight} — the open sky, and two rooms under different ones
-- {!Camlcast_demo.Haze} — atmosphere: the fade into the distance and the light
-- {!Camlcast_demo.Portals} — doorways: the same room, joined in two places
-- {!Camlcast_demo.Changing} — replacing a room: a sign that moves, rebuilt
-  every frame
-- {!Camlcast_demo.Floating} — sprites off the floor, and frames chosen rather
-  than made
-- {!Camlcast_demo.Dust} — a chamber of falling dust: every mote moved every
-  frame
-- {!Camlcast_demo.Chalk} — marking a wall where the crosshair is, on the face
-  you see
-- {!Camlcast_demo.Doors} — doors that open and shut, on both sides of the link
-  at once
-- {!Camlcast_demo.Targets} — what the crosshair is on, through a doorway
-- {!Camlcast_demo.Trail} — traversal traces, as a return route
-- {!Camlcast_demo.Endless} — the [extend] hook: a corridor built as you walk it
-- {!Camlcast_demo.Phases} — [run]: a phase, a clock and a light going out
-- {!Camlcast_demo.Overlay} — drawing over the finished world
-- {!Camlcast_demo.Controls} — a table of its own, press versus hold, and letting
-  go of the cursor
-- {!Camlcast_demo.Loading} — art read from files, beside the generated kind
-- {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping, colour
-- {!Camlcast_demo.Level} — [showcase]: the five-room level, with all of the
-  above at once
-- {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
-- {!Camlcast_demo.Pictures} — two decals and two sprites
-- {!Camlcast_demo.Surfaces} — the demos' materials, daylight sky and air
+They are the other package, so their pages are its own:
+{{:../camlcast-demo/index.html} the demos}.

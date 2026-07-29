@@ -98,7 +98,7 @@ and two games can share an engine without sharing a look.
 | directory | library         | what it is                                                     |
 | --------- | --------------- | -------------------------------------------------------------- |
 | `lib/`    | `camlcast`      | the engine: geometry, ray casting, rendering, SDL              |
-| `demo/`   | `camlcast.demo` | the demos and the art they are made of, run by `camlcast-demo` |
+| `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo` |
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
 it lives outside the library it is content for. It stays in this repository
@@ -118,6 +118,10 @@ Pin it, since it is not on opam:
 ```sh
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ```
+
+The demos are the second package and depend on the first, so a copy of them
+wants both pinned — `opam install .` from a checkout does that in one step,
+which is also what makes `camlcast-demo` resolve `camlcast` at all.
 
 then `(libraries camlcast)` in your `dune`. A level is OCaml code rather than a
 file in some format, so the smallest complete game is one room, a window and a
@@ -315,18 +319,27 @@ through `@doc`. Opening `_build/default/_doc/_html/index.html` directly still
 works, with every picture in it broken.
 
 `doc/index.mld` is the landing page and the two guides are `.mld` pages beside
-it; both libraries have a public name under the `camlcast` package, which is what
-makes `@doc` pick their modules up (odoc skips private libraries).
+it; `doc/demo/index.mld` is the demos' own, in its own directory because it
+belongs to the other package — a `.mld` page can only name what its package's
+libraries bring in scope, and the engine does not depend on the demos. Both
+libraries have a public name, which is what makes `@doc` pick their modules up
+(odoc skips private libraries), so odoc writes one directory per package and
+`tools/pages-site.py` roots the site at `camlcast` and carries `camlcast-demo`
+across beneath it.
 
 The pictures the guides and this file are illustrated with live in `doc/images/`.
 
 ## Tests
 
 [Alcotest](https://github.com/mirage/alcotest), one executable per module in
-`test/`, covering both libraries. They share `test/support.ml`, which holds a
-hand-checkable 4x4 square room, a pair of rooms joined through a doorway, and the
-custom testables — a failing `Vec` check prints `(3, 2.5)` rather than a bare
-`false`.
+`test/`, covering both libraries. They share `Support`, a small library of its
+own in the same directory, which holds a hand-checkable 4x4 square room, a pair
+of rooms joined through a doorway, and the custom testables — a failing `Vec`
+check prints `(3, 2.5)` rather than a bare `false`.
+
+The suites are two stanzas, one per package, so that each package's tests build
+from that package alone: `dune runtest` runs all of them, and the `-p` build
+opam does runs only the ones belonging to the package it is building.
 
 ```sh
 dune exec test/test_player.exe -- --verbose   # one suite

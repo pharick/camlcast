@@ -59,14 +59,16 @@ jobs:
       # with a diff of what `dune fmt` would have written.
       - run: opam exec -- dune build @fmt
 
-      # Both libraries have a public name under the camlcast package, which is
-      # what makes odoc pick their modules up.
+      # Both libraries have a public name, which is what makes odoc pick their
+      # modules up — it skips private ones. They are public under different
+      # packages, so odoc writes a directory for each.
       - run: opam exec -- dune build @doc
 
       # odoc namespaces its output by package and a project site is rooted at
       # the repository name, so publishing _html as it stands would put the docs
-      # at /camlcast/camlcast/. This moves the package directory up to be the
-      # site root and repairs the few links that pointed out of it. It runs on
+      # at /camlcast/camlcast/. This moves the engine's package directory up to
+      # be the site root, carries the demos' across beneath it, and repairs the
+      # links that pointed between the two. It runs on
       # pull requests too, unpublished: it resolves every local link afterwards,
       # which makes it the check that an odoc upgrade has not quietly reshaped
       # the tree underneath us.

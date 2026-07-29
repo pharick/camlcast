@@ -54,6 +54,9 @@
   "A launcher for twenty-odd demos, one per engine feature, plus a five-room showcase level with all of them at once. Each is a single file under demo/, short enough to read in a sitting. Installed, it carries the art the two demos that read from disk need; the way to a copy that runs on a machine with neither OCaml nor SDL is tools/bundle-*.sh.")
  (depends
   (ocaml (>= 5.1))
-  (camlcast (= :version))))
+  (camlcast (= :version))
+  ; The demos' own suites are in test/ and belong to this package, so
+  ; `-p camlcast-demo @runtest` needs the framework they are written in.
+  (alcotest :with-test)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html

@@ -64,9 +64,8 @@
     meet at the doorway; {!World.seam_gap} is what says they do. *)
 
 (** What the ray met. Concrete because matching on it is the whole point — see
-    the recipe in {{!page-"making-a-game"} Making a game}, and
-    {!Camlcast_demo.Chalk} and {!Camlcast_demo.Targets} for the two shapes it
-    takes in practice. *)
+    the recipe in {{!page-"making-a-game"} Making a game}, and the [chalk] and
+    [targets] demos for the two shapes it takes in practice. *)
 type kind =
   | Wall of {
       index : int;

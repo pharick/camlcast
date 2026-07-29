@@ -81,6 +81,33 @@ let a_cell_must_have_a_size () =
         (fun () -> ignore (Font.make ~atlas ~width:w ~height:h ~first:32 ())))
     [ (0, 10); (6, 0); (-6, 10) ]
 
+(* A grid whose cell is bigger than the picture it is a grid of describes no
+   font at all, and the two ways of getting there fail differently and both
+   quietly: too wide and every cell starts at the atlas's left edge, so Paint
+   clips each glyph into the same partial column; too tall and capacity is
+   zero, so every character is off the grid and the text draws nothing. Neither
+   reads as a font that was described wrongly. *)
+let a_cell_must_fit_the_atlas () =
+  List.iter
+    (fun (w, h) ->
+      Alcotest.check_raises (Printf.sprintf "%dx%d" w h)
+        (Invalid_argument "Font.make: a cell must fit in the atlas") (fun () ->
+          ignore (Font.make ~atlas ~width:w ~height:h ~first:32 ())))
+    (* The atlas is 96x60: one over in each direction, then far over in each. *)
+    [ (97, cell_h); (cell_w, 61); (200, 10); (6, 100) ]
+
+(* The cell that exactly fills the atlas is the boundary case on the other side
+   of that check, and it is a real font: one glyph, one column, one row. *)
+let a_cell_the_size_of_the_atlas_is_one_glyph () =
+  let single = Font.make ~atlas ~width:96 ~height:60 ~first:32 () in
+  Alcotest.(check int) "one cell in the grid" 1 (Font.capacity single);
+  Alcotest.(check (option (pair int int)))
+    "and it is the first code point"
+    (Some (0, 0))
+    (Font.cell single ' ');
+  Alcotest.(check (option (pair int int)))
+    "with nothing after it" None (Font.cell single '!')
+
 let measuring () =
   let w, h = Font.measure font "" in
   Alcotest.(check int) "empty text is nothing wide" 0 w;
@@ -219,6 +246,9 @@ let () =
           case "a fallback stands in for what is missing"
             a_fallback_stands_in_for_what_is_missing;
           case "a cell must have a size" a_cell_must_have_a_size;
+          case "a cell must fit the atlas" a_cell_must_fit_the_atlas;
+          case "a cell the size of the atlas is one glyph"
+            a_cell_the_size_of_the_atlas_is_one_glyph;
         ] );
       ( "layout",
         [

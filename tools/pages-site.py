@@ -5,25 +5,44 @@ The docs then live at pharick.github.io/camlcast/ rather than one level down at
 pharick.github.io/camlcast/camlcast/.
 
 The doubling is structural, not a mistake: a project site is rooted at the
-repository name and odoc namespaces its output by package name, and here both
-are "camlcast". Neither dune nor odoc can be told to drop the package directory
--- @doc-new does the opposite and buries it under docs/local/ beside the stdlib
--- so the tree gets rearranged after the fact.
+repository name and odoc namespaces its output by package name, and here the
+repository and the engine's package are both "camlcast". Neither dune nor odoc
+can be told to drop the package directory -- @doc-new does the opposite and
+buries it under docs/local/ beside the stdlib -- so the tree gets rearranged
+after the fact.
 
-What that takes is small and fully enumerable. odoc writes relative links, so
-everything inside camlcast/ still resolves once the whole directory moves up: a
-sibling reference like ../Vec/index.html is as true at the root as it was one
-level down. Exactly two kinds of link point *out* of the package directory, and
-both land on _html itself:
+There are two packages. camlcast is the one the site is named for and the one
+that moves up; camlcast-demo keeps its directory and its depth, one level under
+the root, exactly where odoc put it. Each needs a rewrite, and they are not the
+same rewrite, because only one of them moved.
 
-    (../)^depth odoc.support/...    the stylesheet and the highlighter
-    (../)^depth index.html          the "Up"/"Index" nav, to the package list
+odoc writes relative links, so everything inside camlcast/ still resolves once
+the whole directory moves up: a sibling reference like ../Vec/index.html is as
+true at the root as it was one level down. Exactly three kinds of link point
+*out* of that directory, and all three land on _html itself:
 
-Both sit at full depth by construction -- that is what makes them findable, and
-what keeps a shallower intra-package link at the same depth (../index.html from
-Camlcast/, meaning the package index) from matching. Rewriting the full-depth
-ones to a level shallower is the whole job. The package list itself is dropped:
-with one package in it, it said nothing the new root page does not.
+    (../)^(depth+1) odoc.support/...    the stylesheet and the highlighter
+    (../)^(depth+1) index.html          the "Up"/"Index" nav, to the package list
+    (../)^(depth+1) camlcast-demo/...   doc/index.mld's pointer at the demos
+
+All three sit at full depth by construction -- that is what makes them findable,
+and what keeps a shallower intra-package link at the same depth (../index.html
+from Camlcast/, meaning the package index) from matching. Rewriting them a level
+shallower is the whole job on that side.
+
+The demo pages did not move, so their own links -- stylesheet, nav, siblings --
+are as true in _site as they were in _html and are left alone. What did move is
+what they point *at*: a demo module documents the engine types it uses, and odoc
+resolves those across the package boundary as
+
+    (../)^depth camlcast/Camlcast/Room/index.html
+
+which was a sibling package directory under _html and is the site root here. So
+that one prefix loses its package directory rather than a level. The trailing
+slash is what keeps camlcast/ from also matching camlcast-demo/.
+
+The package list at the old root is dropped. It listed the two packages, and the
+new root page is one of them and points at the other.
 
 Verified rather than assumed. check_links resolves every local href and src in
 the finished tree and fails on the first that does not exist or that climbs out
@@ -39,6 +58,7 @@ import sys
 from pathlib import Path
 
 PACKAGE = "camlcast"
+DEMO = "camlcast-demo"
 SUPPORT = "odoc.support"
 IMAGES = "images"
 
@@ -65,8 +85,12 @@ NAV = re.compile(r'<nav class="odoc-nav">.*?</nav>', re.DOTALL)
 
 def build(html: Path, out: Path) -> None:
     """Move the package directory up to the root, with its support files."""
-    if not (html / PACKAGE).is_dir():
-        sys.exit(f"pages-site: no odoc output at {html}; run 'dune build @doc' first")
+    for package in (PACKAGE, DEMO):
+        if not (html / package).is_dir():
+            sys.exit(
+                f"pages-site: no odoc output for {package} at {html}; "
+                "run 'dune build @doc' first"
+            )
 
     images = ROOT / "doc" / IMAGES
     if not images.is_dir():
@@ -78,6 +102,9 @@ def build(html: Path, out: Path) -> None:
         shutil.rmtree(out)
     # dune leaves its output read-only and the rewrite below writes in place.
     shutil.copytree(html / PACKAGE, out)
+    # The other package keeps its directory and its depth, so it is carried
+    # across as it stands -- see the note about that in the module docstring.
+    shutil.copytree(html / DEMO, out / DEMO)
     shutil.copytree(html / SUPPORT, out / SUPPORT)
     # The pictures the two guides are illustrated with. dune's @doc does not
     # carry them and says so -- "Dune does not yet support building
@@ -93,13 +120,20 @@ def build(html: Path, out: Path) -> None:
         css.write(IMAGE_CSS)
 
     for page in sorted(out.rglob("*.html")):
-        # The prefix that escaped the package directory was one ../ longer than
-        # the page's own depth, so it loses one.
         depth = len(page.relative_to(out).parts) - 1
         escaped, inside = "../" * (depth + 1), "../" * depth
         text = page.read_text(encoding="utf-8")
-        text = text.replace(f'"{escaped}{SUPPORT}/', f'"{inside}{SUPPORT}/')
-        text = text.replace(f'"{escaped}index.html"', f'"{inside}index.html"')
+        if page.is_relative_to(out / DEMO):
+            # This page stayed put; what it points at moved up. A reference
+            # into the engine's package directory is now a reference to the
+            # root, so it drops the directory and keeps its depth.
+            text = text.replace(f'"{inside}{PACKAGE}/', f'"{inside}')
+        else:
+            # The prefix that escaped the package directory was one ../ longer
+            # than the page's own depth, so it loses one.
+            text = text.replace(f'"{escaped}{SUPPORT}/', f'"{inside}{SUPPORT}/')
+            text = text.replace(f'"{escaped}index.html"', f'"{inside}index.html"')
+            text = text.replace(f'"{escaped}{DEMO}/', f'"{inside}{DEMO}/')
         page.write_text(text, encoding="utf-8")
 
     # The root page kept the nav it had as a subdirectory, which now offers "Up"
