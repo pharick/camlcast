@@ -34,6 +34,24 @@ let selection =
   [
     case "opens on the first demo" (fun () ->
         Alcotest.(check int) "selected" 0 Menu.start.Menu.selected);
+    case "with nothing played yet, opens at the top" (fun () ->
+        Alcotest.(check int) "selected" 0 (Menu.start_on None).Menu.selected);
+    case "coming back from a demo opens on it" (fun () ->
+        (* The launcher plays a demo and shows the list again, and the list has
+           to come back where the player left it. The run that held the cursor
+           has ended by then, so the demo itself is what comes back. *)
+        List.iteri
+          (fun i (demo : Catalogue.t) ->
+            Alcotest.(check int)
+              ("selected for " ^ demo.Catalogue.name)
+              i (Menu.start_on (Some demo)).Menu.selected)
+          Catalogue.demos);
+    case "coming back chooses nothing by itself" (fun () ->
+        (* [chosen] is what [finished] reads, so a list that opened with one
+           already set would end the moment it was drawn. *)
+        let last = List.nth Catalogue.demos (count - 1) in
+        Alcotest.(check (option int))
+          "chosen" None (Menu.start_on (Some last)).Menu.chosen);
     case "down moves to the next" (fun () ->
         Alcotest.(check int)
           "selected" 1 (after [ down ] Menu.start).Menu.selected);

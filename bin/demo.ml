@@ -20,21 +20,25 @@ let listing () =
 
    One window for the whole of it. The list and the demo it opens are two runs
    and not two windows, so coming back to the list is the picture changing
-   rather than the window going away and returning at the size it first had. *)
-let rec browse window =
-  match Menu.choose window with
+   rather than the window going away and returning at the size it first had.
+
+   The list comes back open on the demo just left, too. It is a fresh run and
+   the state that remembers the cursor went with the last one, so what is passed
+   forward is the demo itself and the list finds its own row again. *)
+let rec browse ?from window =
+  match Menu.choose ?from window with
   | Error _ as error -> error
   | Ok None -> Ok ()
   | Ok (Some (demo : Catalogue.t)) -> (
       match demo.Catalogue.run window with
       | Error _ as error -> error
       | Ok Camlcast.Engine.Closed -> Ok ()
-      | Ok Camlcast.Engine.Left -> browse window)
+      | Ok Camlcast.Engine.Left -> browse ~from:demo window)
 
 let () =
   match Sys.argv with
   | [| _ |] -> (
-      match Camlcast.Engine.with_window browse with
+      match Camlcast.Engine.with_window (fun window -> browse window) with
       | Ok () -> ()
       | Error (`Msg message) ->
           (* A window is what was asked for, so say why there is none and then

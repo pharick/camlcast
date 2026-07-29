@@ -55,6 +55,25 @@ let turn_rate = 0.25
 
 let start = { selected = 0; chosen = None; player = Player.spawn backdrop }
 
+(** Where the list opens. [None] is the top, which is where a launcher starts.
+    [Some demo] is that demo's own row, so that coming back from one lands on
+    what was just played rather than sending the player down the list again to
+    find their place.
+
+    A demo the catalogue does not name opens at the top. Nothing can hand one
+    over that it did not first take from {!Camlcast_demo.Catalogue.demos}, so
+    this is a total function rather than a case anybody has to think about. *)
+let start_on = function
+  | None -> start
+  | Some (demo : Catalogue.t) ->
+      let rec find i =
+        if i >= Array.length demos then start
+        else if demos.(i).Catalogue.name = demo.Catalogue.name then
+          { start with selected = i }
+        else find (i + 1)
+      in
+      find 0
+
 let update state ~dt ~motion:_ ~actions =
   let count = Array.length demos in
   let moved =
@@ -130,13 +149,16 @@ let overlay font fb state =
     ~color:dim
 
 (** Show the list on [window] and wait. [None] means the player wants no demo at
-    all — Escape, or the window shut — and either way the launcher stops. *)
-let choose window =
+    all — Escape, or the window shut — and either way the launcher stops.
+
+    [from] is the demo just played, if there was one: the list opens on it. See
+    {!start_on}. *)
+let choose ?from window =
   let* font = Typeface.load () in
   let+ state, ending =
     Engine.run window ~update ~view ~overlay:(overlay font)
       ~finished:(fun state -> state.chosen <> None)
-      ~bindings:Bindings.escapable start
+      ~bindings:Bindings.escapable (start_on from)
   in
   match ending with
   | Engine.Closed -> None
