@@ -165,6 +165,11 @@ let run ~update ~view ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
     (fun () -> Sdl.set_relative_mouse_mode true)
     (fun () -> ignore (Sdl.set_relative_mouse_mode false))
   @@ fun () ->
+  (* SDL switches text input on when video starts, which leaves the window an
+     active text client. On macOS that is what makes press and hold open the
+     accent picker over the game instead of repeating the key. Nothing here
+     reads typed characters — the keyboard is scancode state — so say so. *)
+  Sdl.stop_text_input ();
   (* The framebuffer is resized to the window as it changes, so [ensure] may
      replace the one in the ref; the finaliser frees whichever is current. *)
   let width, height =

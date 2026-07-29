@@ -1026,7 +1026,12 @@ let motion ~dt =
 ]}
 
 Enable relative mouse mode once at startup ([Sdl.set_relative_mouse_mode true])
-so the cursor is hidden, pinned, and never hits a screen edge. The engine [step]
+so the cursor is hidden, pinned, and never hits a screen edge. Turn text input
+off in the same breath ([Sdl.stop_text_input ()]): SDL switches it on for you
+when video starts, on the assumption that a program wanting characters should
+not have to ask twice. A window left as a live text client is one where macOS
+answers a held key with a menu of accented letters instead of repeating it —
+which is not what a game holding [w] to walk forward wants. The engine [step]
 applies the deltas in order — turn, pitch, then walk:
 
 {@ocaml[
