@@ -12,6 +12,7 @@ let pitch_sensitivity = 0.0025
 let pitch_speed = 1.2
 let max_pitch = 0.75
 let max_render_height = 480
+let sprite_near_clip = 0.1
 let max_portal_depth = 3
 let max_crossings_per_step = 8
 let frame_budget = 1. /. 60.

@@ -39,7 +39,11 @@
     - A {b sprite}, where its image is not transparent there. Sprites are cut
       out against {!Image.clear} and mostly empty, so this is asked of the texel
       and not of the bounding box: the crosshair between a figure's arm and its
-      side is looking at what is behind it.
+      side is looking at what is behind it. One nearer than
+      {!Config.sprite_near_clip} is not reported at all — that is the distance
+      the renderer stops drawing them at, read from the same place so that the
+      two cannot drift apart, and a sprite the frame does not show is not
+      something the crosshair should claim to be looking at.
     - An {b opaque leaf} across a doorway, a doorway that {b leads nowhere yet},
       and an {b opaque lintel} over an opening — a ray meeting a doorway above
       its head meets the wall standing over it. A leaf or a lintel of a

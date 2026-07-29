@@ -67,9 +67,41 @@ let line fb ~x0 ~y0 ~x1 ~y1 ~r ~g ~b =
           (Float.round
              (float_of_int i /. float_of_int steps *. float_of_int (to_ - from)))
     in
-    for i = 0 to steps do
-      dot fb ~x:(step x0 x1 i) ~y:(step y0 y1 i) ~r ~g ~b
-    done
+    (* Which of the [steps + 1] positions could land on the buffer at all.
+       [steps] and [step] are untouched, so every pixel that was drawn is still
+       drawn at the same place; what goes is the ones [dot] would have clipped
+       away one at a time. The difference is not a nicety: these coordinates
+       come from projecting the world, which divides by distance, so a ring
+       round something close to the eye is a few pixels of line on a segment
+       millions of pixels long.
+
+       An axis constrains [i] to where [from + i * d / steps] stays on the
+       buffer. Solved a whole pixel wide of each edge, which is more than the
+       half-pixel [step]'s rounding can move a point, so no position that would
+       have drawn is cut. An axis that does not move constrains nothing, or
+       rules out the line entirely. *)
+    let range from to_ limit =
+      let d = to_ - from in
+      if d = 0 then if from < 0 || from >= limit then None else Some (0, steps)
+      else
+        let at bound =
+          float_of_int steps *. float_of_int (bound - from) /. float_of_int d
+        in
+        let lo, hi =
+          if d > 0 then (at (-1), at limit) else (at limit, at (-1))
+        in
+        Some
+          ( Int.max 0 (int_of_float (Float.floor lo)),
+            Int.min steps (int_of_float (Float.ceil hi)) )
+    in
+    match
+      (range x0 x1 fb.Framebuffer.width, range y0 y1 fb.Framebuffer.height)
+    with
+    | Some (lo, hi), Some (lo', hi') ->
+        for i = Int.max lo lo' to Int.min hi hi' do
+          dot fb ~x:(step x0 x1 i) ~y:(step y0 y1 i) ~r ~g ~b
+        done
+    | _ -> ()
 
 let ring fb corners ~r ~g ~b =
   let corners = Array.of_list corners in

@@ -101,7 +101,14 @@ val line :
   unit
 (** A line from [(x0, y0)] to [(x1, y1)], both ends included, walked in whole
     pixels. Two identical endpoints draw the single pixel there. Good enough to
-    draw round something with; it is not what draws the something. *)
+    draw round something with; it is not what draws the something.
+
+    Costs the part of the segment that is on the buffer, not the segment: the
+    walk is narrowed to the range that could land before it starts, rather than
+    clipping pixel by pixel along the whole of it. Endpoints far outside are
+    therefore ordinary rather than ruinous, which is what a caller passing
+    projected coordinates needs — those divide by distance, and something close
+    to the eye projects to a shape millions of pixels across. *)
 
 val ring : Framebuffer.t -> (int * int) list -> r:int -> g:int -> b:int -> unit
 (** The outline of a shape given as its corners in order, each an [(x, y)],

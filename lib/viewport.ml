@@ -112,7 +112,7 @@ let row_factor t ~row = (float_of_int row -. t.horizon) /. t.projection
 let project_point t (pose : Player.t) ~point ~z =
   let rel = Vec.sub point pose.Player.pos in
   let distance = Vec.dot rel pose.Player.dir in
-  if distance <= 1e-4 then None
+  if distance <= Ray.min_distance then None
   else
     let lateral = Vec.dot rel pose.Player.right in
     let camera_x = lateral /. (distance *. t.half_width) in

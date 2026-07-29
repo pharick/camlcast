@@ -62,6 +62,12 @@ DEMO = "camlcast-demo"
 SUPPORT = "odoc.support"
 IMAGES = "images"
 
+# Dropped into the output directory, and looked for again before the next run
+# deletes it. The site is built by wiping and recopying -- copytree wants a
+# destination that does not exist -- so the output path is the one argument that
+# is destroyed rather than read, and a mistyped one is not recoverable.
+SENTINEL = ".pages-site"
+
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_HTML = ROOT / "_build" / "default" / "_doc" / "_html"
 DEFAULT_OUT = ROOT / "_site"
@@ -81,6 +87,34 @@ IMAGE_CSS = """
 # href="..." or src="...", the only two ways an odoc page names another file.
 LINK = re.compile(r'(?:href|src)="([^"]+)"')
 NAV = re.compile(r'<nav class="odoc-nav">.*?</nav>', re.DOTALL)
+
+
+def target(out: Path) -> Path:
+    """The directory build() will wipe. Refuses one it did not make.
+
+    The bundle scripts beside this one never delete the output directory they
+    are given -- they delete a subpath they built the name of themselves -- and
+    that is the safe shape. copytree rules it out here, so the check has to be
+    the other way round: the site marks itself with SENTINEL when it is made,
+    and nothing without that mark is deleted.
+    """
+    out = out.resolve()
+
+    if out.parent == out:
+        sys.exit(f"pages-site: {out} is a filesystem root; refusing to delete it")
+    if out == ROOT or out in ROOT.parents:
+        sys.exit(f"pages-site: {out} holds this checkout; refusing to delete it")
+
+    if out.exists():
+        if not out.is_dir():
+            sys.exit(f"pages-site: {out} is not a directory")
+        if not (out / SENTINEL).is_file():
+            sys.exit(
+                f"pages-site: {out} was not built by pages-site -- no {SENTINEL} "
+                "in it; delete it yourself if that is really what you meant"
+            )
+
+    return out
 
 
 def build(html: Path, out: Path) -> None:
@@ -113,6 +147,9 @@ def build(html: Path, out: Path) -> None:
     # the site root, so images/ is their sibling and "images/x.png" resolves.
     # check_links below then proves it, the same as for every other link.
     shutil.copytree(images, out / IMAGES)
+    # What target() above looks for. Written here rather than at the end so that
+    # a run interrupted midway still leaves a directory the next one may wipe.
+    (out / SENTINEL).write_text("", encoding="utf-8")
     for path in out.rglob("*"):
         path.chmod(path.stat().st_mode | 0o200)
 
@@ -166,10 +203,21 @@ def check_links(out: Path) -> int:
     return broken
 
 
+USAGE = "usage: tools/pages-site.py [html directory] [output directory]"
+
+
 def main() -> None:
     argv = sys.argv[1:]
+    if argv[:1] in (["-h"], ["--help"]):
+        print(USAGE)
+        return
+    # The second argument is deleted rather than read, so an extra one is a
+    # misunderstanding worth stopping for and not a word to ignore.
+    if len(argv) > 2:
+        sys.exit(f"pages-site: too many arguments\n{USAGE}")
+
     html = Path(argv[0]) if len(argv) > 0 else DEFAULT_HTML
-    out = Path(argv[1]) if len(argv) > 1 else DEFAULT_OUT
+    out = target(Path(argv[1]) if len(argv) > 1 else DEFAULT_OUT)
 
     build(html, out)
 

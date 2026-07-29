@@ -494,7 +494,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                         (Vec.sub sprite.Room.pos nested.Player.pos)
                         nested.Player.dir
                     in
-                    if distance > 0.1 then
+                    if distance > Config.sprite_near_clip then
                       translucent :=
                         {
                           distance;
@@ -586,7 +586,7 @@ let draw_frame fb world (player : Player.t) =
   Array.iter
     (fun sprite ->
       let distance = Vec.dot (Vec.sub sprite.Room.pos player.pos) player.dir in
-      if distance > 0.1 then
+      if distance > Config.sprite_near_clip then
         translucent :=
           {
             distance;

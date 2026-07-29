@@ -42,8 +42,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Pinned rather than floating, because on macOS the runner decides who
+        # can run the result. Homebrew builds its bottles for the runner's own
+        # macOS, the bundle inherits the highest of them as its minimum, and
+        # bundle-macos.sh reads that back into LSMinimumSystemVersion — so
+        # macos-latest rolling forward would quietly cut off everyone below the
+        # new OS. These are the oldest labels GitHub still offers per
+        # architecture; raise them only when a release is meant to drop support.
         include:
-          - runner: macos-latest
+          - runner: macos-14
             arch: arm64
           - runner: macos-15-intel
             arch: x64

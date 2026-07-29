@@ -243,6 +243,45 @@ let a_line_is_clipped_too () =
   Alcotest.check color "and nothing wrapped to the row below" black
     (Framebuffer.pixel fb ~x:0 ~y:1)
 
+(* And clipped before it is walked, not while. A ring round something close to
+   the eye is placed by dividing by its distance, so an endpoint can be millions
+   of pixels off the buffer for a line whose visible part is a few pixels long.
+   Walking the whole of that and throwing away each pixel in turn is correct and
+   unusable; the range that could land is worked out first.
+
+   The assertion is the same pixels as above — the narrowing must not move them
+   — and, in the completing at all, that the walk is the length of what is on
+   screen. Without that it is a thousand million iterations. *)
+let a_line_from_far_off_the_buffer_is_still_cheap () =
+  let fb = buffer () in
+  Paint.line fb ~x0:0 ~y0:0 ~x1:1_000_000_000 ~y1:0 ~r:255 ~g:255 ~b:255;
+  Alcotest.check color "the start" white (Framebuffer.pixel fb ~x:0 ~y:0);
+  Alcotest.check color "the last pixel on the buffer" white
+    (Framebuffer.pixel fb ~x:9 ~y:0);
+  Alcotest.check color "and nothing wrapped to the row below" black
+    (Framebuffer.pixel fb ~x:0 ~y:1)
+
+(* Both ends outside, on opposite sides, and the part crossing the buffer is
+   drawn: the narrowing has to keep the middle of a segment whose ends it
+   rejected. A diagonal, so neither axis alone decides it. *)
+let a_line_passing_across_the_buffer_draws_the_crossing () =
+  let fb = buffer () in
+  Paint.line fb ~x0:(-1000) ~y0:(-1000) ~x1:1000 ~y1:1000 ~r:255 ~g:255 ~b:255;
+  Alcotest.check color "the corner it enters at" white
+    (Framebuffer.pixel fb ~x:0 ~y:0);
+  Alcotest.check color "and on down the diagonal" white
+    (Framebuffer.pixel fb ~x:7 ~y:7);
+  Alcotest.check color "but not beside it" black
+    (Framebuffer.pixel fb ~x:0 ~y:7)
+
+(* A line that never touches the buffer draws nothing, and says so by not
+   raising: the range the two axes leave is empty rather than reversed. *)
+let a_line_entirely_off_the_buffer_draws_nothing () =
+  let fb = buffer () in
+  Paint.line fb ~x0:100 ~y0:0 ~x1:200 ~y1:0 ~r:255 ~g:255 ~b:255;
+  Paint.line fb ~x0:0 ~y0:50 ~x1:9 ~y1:50 ~r:255 ~g:255 ~b:255;
+  Alcotest.check color "nothing arrived" black (Framebuffer.pixel fb ~x:0 ~y:0)
+
 let () =
   Alcotest.run "Paint"
     [
@@ -259,6 +298,12 @@ let () =
           case "a rectangle entirely off the buffer draws nothing"
             a_rectangle_entirely_off_the_buffer_draws_nothing;
           case "a line is clipped too" a_line_is_clipped_too;
+          case "a line from far off the buffer is still cheap"
+            a_line_from_far_off_the_buffer_is_still_cheap;
+          case "a line passing across the buffer draws the crossing"
+            a_line_passing_across_the_buffer_draws_the_crossing;
+          case "a line entirely off the buffer draws nothing"
+            a_line_entirely_off_the_buffer_draws_nothing;
         ] );
       ( "pictures",
         [

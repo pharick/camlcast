@@ -98,6 +98,24 @@ let looking_east ?(pos = Vec.make 0. 0.) () =
 let viewport ~floor_z =
   Viewport.create ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
 
+(* The drawing half of the cutoff {!Sight} reads. A billboard is scaled by one
+   over its distance, so near enough there is nothing left worth placing and the
+   renderer stops; nearer than {!Config.sprite_near_clip} it reaches no pixel at
+   all. Neither module has a near cutoff of its own, and this is the pair of
+   cases on this side that says so — a sprite the crosshair could pick but the
+   frame does not show is a target the player cannot see. *)
+let a_sprite_nearer_than_the_clip_is_not_drawn () =
+  let at d = alone [ Room.sprite ~size:1.6 ~image:square (Vec.make d 0.) ] in
+  let clip = Config.sprite_near_clip in
+  (* Just beyond it: [box] is what fails if nothing was drawn. *)
+  let with_it, without = at (clip +. 0.01) in
+  ignore (box ~with_it ~without (looking_east ()));
+  (* Just inside it, and the two frames are the same frame. *)
+  let with_it, without = at (clip -. 0.01) in
+  Alcotest.(check bool)
+    "one nearer than the clip changes no pixel" true
+    (drawn ~with_it ~without (looking_east ()) = None)
+
 (* A sprite standing on the floor is where it always was: on the rectangle
    Viewport.sprite_box gives, and — its picture being square — as wide as it is
    tall. This is the case every other demo and every other suite already
@@ -921,6 +939,8 @@ let () =
           case "a wide picture makes a wide billboard"
             a_wide_picture_makes_a_wide_billboard;
           case "a sloped floor carries it" a_sloped_floor_carries_it;
+          case "a sprite nearer than the clip is not drawn"
+            a_sprite_nearer_than_the_clip_is_not_drawn;
         ] );
       ( "what hides it",
         [

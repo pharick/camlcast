@@ -260,6 +260,12 @@ A bundle opens on the list of demos, since a window that was double-clicked has
 no command line behind it — that is the whole reason the list is drawn as well as
 printed.
 
+How old a Mac the `.app` runs on is decided by the machine that built it, not
+chosen: the bundled libraries are Homebrew bottles, built for the runner's own
+macOS. `bundle-macos.sh` reads the answer back out of the finished bundle and
+records it as `LSMinimumSystemVersion`, so the exact version is in the `.app`'s
+`Info.plist` and in the build log, rather than being promised here.
+
 The `.app` is signed ad-hoc — which is what lets it run at all on Apple silicon,
 where the kernel refuses an unsigned binary — but it is not notarized, so a Mac
 that downloaded it refuses the first launch. Open System Settings → Privacy &

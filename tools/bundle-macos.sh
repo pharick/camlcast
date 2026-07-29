@@ -140,7 +140,27 @@ exec "$here/camlcast-demo-bin" "$@"
 EOF
 chmod +x "$macos/camlcast-demo"
 
-cat >"$app/Contents/Info.plist" <<'EOF'
+# Every Mach-O file records the OS version it was built against, and the bundle
+# cannot run below the highest of them. That number is not ours to choose: the
+# libraries came from Homebrew, which builds its bottles for the runner's own
+# macOS, and MACOSX_DEPLOYMENT_TARGET would reach our object files and none of
+# theirs. So the plist is told what is true of the bundle rather than what would
+# be nice -- read back out of the bundle itself, after everything is in it.
+floor=$(
+  otool -l "$macos/camlcast-demo-bin" "$frameworks"/*.dylib |
+    awk '$1 == "minos" { print $2 }' |
+    sort -t. -k1,1n -k2,2n |
+    tail -1
+)
+case $floor in
+  [0-9]*.[0-9]*) ;;
+  *)
+    echo "bundle-macos: no minos in the bundle; cannot say what it runs on" >&2
+    exit 1
+    ;;
+esac
+
+cat >"$app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -151,7 +171,7 @@ cat >"$app/Contents/Info.plist" <<'EOF'
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>LSMinimumSystemVersion</key><string>$floor</string>
 </dict>
 </plist>
 EOF
@@ -184,4 +204,5 @@ ditto -c -k --keepParent "$app" "$out/camlcast-demo-macos-$arch.zip"
 
 echo "bundle-macos: $app"
 echo "bundle-macos: $(find "$frameworks" -name '*.dylib' | wc -l | tr -d ' ') libraries bundled"
+echo "bundle-macos: runs on macOS $floor and later"
 echo "bundle-macos: $out/camlcast-demo-macos-$arch.zip"

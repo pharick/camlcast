@@ -97,7 +97,8 @@ let rec trace world ~room ~pose ~rise ~eye_z ~crossed ~budget ~entered =
     List.filter_map
       (fun i ->
         let away = ahead pose here.Room.sprites.(i) in
-        if away > Ray.min_distance then Some (away, Billboard i) else None)
+        if away > Config.sprite_near_clip then Some (away, Billboard i)
+        else None)
       (List.init (Array.length here.Room.sprites) Fun.id)
   in
   let candidates =

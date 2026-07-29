@@ -107,6 +107,27 @@ let a_sprite_is_read_across_by_its_width () =
     true
     (past <> "sprite 0 of room 0")
 
+(* Close enough and a sprite stops being a target, because close enough it stops
+   being drawn. {!Renderer} will not draw one nearer than
+   {!Config.sprite_near_clip} — a billboard is scaled by one over its distance,
+   so past that there is nothing left worth placing — and sprites are not
+   collision geometry, so the player may walk into one and arrive there. Both
+   sides read the one constant; this is the pair of cases that says so, and that
+   fails if either side is given a cutoff of its own again. *)
+let a_sprite_nearer_than_the_clip_is_not_picked () =
+  let ahead d = rooms ~near:[ figure (Vec.make (2. +. d) 2.) ] () in
+  let clip = Config.sprite_near_clip in
+  (* Just beyond it, dead ahead: the middle of the poster, which is solid. *)
+  is "sprite 0 of room 0" (Sight.look (ahead (clip +. 0.01)) (looking_east ()));
+  (* Just inside it, and the ray carries on as though the sprite were not there.
+     What it finds instead is the far room's business — all this asserts is that
+     the sprite is not it. *)
+  let inside = describe (Sight.look (ahead (clip -. 0.01)) (looking_east ())) in
+  Alcotest.(check bool)
+    (Printf.sprintf "one nearer than the clip is not picked (found %s)" inside)
+    true
+    (inside <> "sprite 0 of room 0")
+
 (* A sprite that floats is picked where it floats. The crosshair here is level,
    so it runs along eye height — under a sprite lifted clear of it, and through
    the middle of the same sprite standing on the floor. What the ray finds
@@ -505,6 +526,8 @@ let () =
             a_sprite_is_read_across_by_its_width;
           case "a lifted sprite is looked at where it floats"
             a_lifted_sprite_is_looked_at_where_it_floats;
+          case "a sprite nearer than the clip is not picked"
+            a_sprite_nearer_than_the_clip_is_not_picked;
           case "the wrong angle misses" the_wrong_angle_misses;
           case "asking twice gives the same answer"
             asking_twice_gives_the_same_answer;

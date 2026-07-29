@@ -45,6 +45,11 @@
     has to cover it while a sprite behind one has to show through it, so sprites
     and see-through walls are sorted {e together} by depth.
 
+    A sprite nearer than {!Config.sprite_near_clip} is not drawn, in this room
+    or through a doorway. Its box is one over its distance, so close up there is
+    nothing useful left to draw — and {!Sight} reads the same constant, so what
+    the crosshair can pick stays what the frame actually shows.
+
     {1 Portals}
 
     What makes a doorway fit the painter's algorithm above is that

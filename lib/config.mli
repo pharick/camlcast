@@ -75,6 +75,25 @@ val max_render_height : int
     capped to this many rows and the result is scaled up to the window by the
     GPU, which keeps the frame rate steady no matter how large the window is. *)
 
+val sprite_near_clip : float
+(** How near a sprite may come to the eye and still exist, in cells, measured
+    along the view the same way its depth is.
+
+    A sprite is a billboard scaled by one over its distance, so as that distance
+    approaches zero its box grows without bound: there is a point past which it
+    covers the screen, then one past which it is millions of pixels across and
+    the arithmetic placing it is worth nothing. Sprites are not collision
+    geometry — nothing in {!Player} knows about them — so the player may walk
+    into one and reach that point, and this is where the engine stops trying.
+
+    Read by {!Renderer}, which will not draw a sprite nearer than this, and by
+    {!Sight}, which will not report one. It is one number rather than two on
+    purpose: a sprite the crosshair could pick but the frame does not show is a
+    target the player cannot see, and a ring drawn round nothing. Well above
+    {!Ray.min_distance}, which is the floor for walls — a wall fills its column
+    however close it is, so it needs no more than a guard against dividing by
+    zero, and {!collision_padding} keeps the player off it besides. *)
+
 val max_portal_depth : int
 (** How many rooms deep the {!Renderer} will look through a line of open
     doorways. Rooms are free to form a cycle — two facing each other is enough —
