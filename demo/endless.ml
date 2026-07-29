@@ -88,7 +88,7 @@ let rec build world ~room ~ahead =
   else
     match way_on (World.room world room) with
     | Some index ->
-        let portal = Option.get (World.portals world room).(index) in
+        let portal = Option.get (World.portal world ~room ~threshold:index) in
         build world ~room:portal.World.to_room ~ahead:(ahead - 1)
     | None ->
         (* This room was built as a dead end. Give it a way on — the doorway it
@@ -98,7 +98,7 @@ let rec build world ~room ~ahead =
           World.open_doorway world ~room
             ~opened:(segment ~index:room ~back:true ~onward:true)
         in
-        let index = Array.length world.World.rooms in
+        let index = World.rooms world in
         let world, next =
           World.add_room world ~name:(named index)
             (segment ~index ~back:true ~onward:false)

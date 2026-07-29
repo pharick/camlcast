@@ -78,31 +78,31 @@ val reads : analog -> reading
     reports how hard it is being pushed, and the two are not the same kind of
     number however alike they look. *)
 
-type actions = {
-  down : bool array;  (** what is held now *)
-  was_down : bool array;  (** what was held when the previous frame asked *)
-  held : float array;  (** seconds each control has been held for *)
-  mouse : float * float;
-      (** how far the mouse moved during this frame, in pixels: what {!Mouse_x}
-          and {!Mouse_y} report *)
-  pointer : int * int;
-      (** where the cursor is. Meaningful only while the game has asked for a
-          free cursor — under mouse look it is pinned and says nothing. *)
-}
+type actions
 (** What the player is holding, what they have just done, and what the analog
     sources read. Read it through {!val-down}, {!pressed}, {!released},
-    {!held_for} and {!value} rather than through the three arrays: how they are
-    indexed is this module's own affair and is not stated here.
+    {!held_for}, {!value} and {!val-pointer}.
 
-    Concrete rather than private because {!Engine} rewrites [pointer] into
-    framebuffer coordinates before a game sees it, which is a functional update
-    of an otherwise finished value. *)
+    Abstract, and of everything here that is the one worth arguing for. Inside
+    are three arrays indexed by control, and neither how they are indexed nor
+    that they exist is a caller's business — but the reason is sharper than
+    that. The frame handed to a game {e is} the frame the next one is built
+    from: {!advance} makes the new frame's [was_down] the previous frame's
+    [down], the same array and not a copy, and {!untouched} is one value the
+    whole process starts every run from. Were those arrays reachable, a single
+    write from a game's [update] would rewrite the edges of the frame after it,
+    and a write that reached [untouched] would outlive the run that made it.
+    None of that is a rule a caller could be asked to keep, so the type does not
+    ask.
+
+    What that costs is one function, {!with_pointer}, for the one update from
+    outside this module that a frame of input legitimately has. *)
 
 val untouched : actions
-(** Nothing held, nothing pressed, nothing moved, the cursor at the origin. The
-    arrays in it are never written to — {!advance} builds new ones every frame —
-    so sharing this one value between runs is safe. Where a run starts, and what
-    a test starts from. *)
+(** Nothing held, nothing pressed, nothing moved, the cursor at the origin.
+    Nothing outside this module can write to what is in it and {!advance} builds
+    new arrays every frame, so sharing this one value between runs is safe.
+    Where a run starts, and what a test starts from. *)
 
 val down : actions -> control -> bool
 (** Whether [control] is held down right now. The state, not the edge — reach
@@ -129,6 +129,24 @@ val held_for : actions -> control -> float
 val value : actions -> analog -> float
 (** What an analog source read over this frame, in its own units — pixels, for
     both of the two that exist. *)
+
+val pointer : actions -> int * int
+(** Where the cursor is, in the framebuffer's coordinates. Meaningful only while
+    the game has asked for a free cursor — under mouse look it is pinned and
+    says nothing. *)
+
+val with_pointer : actions -> int * int -> actions
+(** The same frame with the cursor said to be somewhere else. Everything about
+    what is held, what has just been pressed and how long it has been held is
+    the frame's own and comes through untouched.
+
+    {!Engine} is what this is for, and its one use of it. {!sample} reports the
+    cursor where SDL does, in the window's coordinates; the framebuffer is a
+    fraction of that size, so the loop puts the cursor into the buffer's
+    coordinates before a game is handed the frame — which is the one thing about
+    a frame of input that somebody other than this module knows better. The only
+    function here that builds an [actions] out of another one without rolling a
+    frame forward. *)
 
 val advance :
   actions ->
@@ -175,8 +193,8 @@ val sample : actions -> mouse:float * float -> dt:float -> actions
 
     The keyboard array SDL hands back is its own and it changes underneath us,
     so {!advance} copies out of it rather than keeping it. The cursor comes out
-    in window coordinates; {!Engine} scales it into the framebuffer's, being the
-    one that knows how the two compare.
+    in window coordinates; {!Engine} scales it into the framebuffer's with
+    {!with_pointer}, being the one that knows how the two compare.
 
     The loop's seam, and the one thing here that needs SDL running. *)
 

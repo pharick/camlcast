@@ -153,6 +153,38 @@ let coming_back_reads_the_change_as_an_edge () =
   Alcotest.(check bool)
     "and one pressed while away goes down now" true (Input.pressed pressed c)
 
+(* {1 The cursor}
+
+   The one thing about a frame of input that somebody outside [Input] knows
+   better: SDL reports the cursor in the window's coordinates and the
+   framebuffer is a fraction of that size, so [Engine] rewrites it before a game
+   is handed the frame. Everything else about the frame has to come through
+   that rewrite untouched. *)
+let the_cursor_can_be_rewritten_and_nothing_else_moves () =
+  let held = frames [ e ] 30 Input.untouched in
+  let moved = Input.with_pointer held (7, 9) in
+  Alcotest.(check (pair int int))
+    "the cursor is where it was put" (7, 9) (Input.pointer moved);
+  Alcotest.(check bool) "what was down is still down" true (Input.down moved e);
+  Alcotest.(check bool)
+    "an edge is neither made nor lost" (Input.pressed held e)
+    (Input.pressed moved e);
+  Alcotest.check close "and the hold is the one it had" (Input.held_for held e)
+    (Input.held_for moved e)
+
+(* [freeze] carries the previous frame's cursor rather than reading a new one,
+   because that one has been scaled already and this frame has nothing to scale
+   with. The engine's loop relies on it: an unfocused frame reports the cursor
+   in the layout it was last measured against. *)
+let a_frozen_frame_keeps_the_cursor_it_had () =
+  let placed = Input.with_pointer (frame [ e ] Input.untouched) (13, 21) in
+  Alcotest.(check (pair int int))
+    "frozen, the cursor stays put" (13, 21)
+    (Input.pointer (Input.freeze placed));
+  Alcotest.(check (pair int int))
+    "and stays put over a long absence" (13, 21)
+    (Input.pointer (frames_frozen 600 placed))
+
 let () =
   Alcotest.run "Input"
     [
@@ -183,5 +215,12 @@ let () =
             an_unfocused_frame_costs_nothing;
           case "coming back reads the change as an edge"
             coming_back_reads_the_change_as_an_edge;
+        ] );
+      ( "the cursor",
+        [
+          case "the cursor can be rewritten and nothing else moves"
+            the_cursor_can_be_rewritten_and_nothing_else_moves;
+          case "a frozen frame keeps the cursor it had"
+            a_frozen_frame_keeps_the_cursor_it_had;
         ] );
     ]

@@ -91,7 +91,7 @@ let view state =
     | Burning -> state.left /. fuse
     | Done -> 0.
   in
-  ({ world with World.atmosphere = air ~light }, state.player)
+  (World.with_atmosphere world (air ~light), state.player)
 
 let run window =
   let+ _, ending =

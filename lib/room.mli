@@ -422,10 +422,18 @@ val with_thresholds : t -> threshold array -> t
 
     An engine seam rather than a game's: {!World.set_door} hangs a new state on
     one threshold and needs the room back with that one replaced. An array
-    rather than a list, unlike {!with_sprites}, because its caller is already
-    holding the copy it made — and the array is taken as given, so it must be
-    the same length and the same order as the one it replaces. A {!World}'s
-    portals run parallel to it, and nothing here can check that. *)
+    rather than a list, unlike {!with_sprites}, because its caller has one in
+    hand already. It must be the same length and the same order as the array it
+    replaces: a {!World}'s portals run parallel to it, and nothing here can
+    check that.
+
+    The array is copied and not adopted. A room outlives the call that made it
+    and the caller's array does not have to, so a room that kept it would be a
+    room somebody else could still write into — and a threshold moved after the
+    fact would slip past {!World.replace_room}, which matches a doorway by where
+    it is. Being private stops a room being {e built} by hand; it cannot stop a
+    constructor keeping what it was handed, so this one does not. One copy per
+    door opening, and none per frame. *)
 
 val add_decal : t -> wall:int -> decal -> t
 (** The same room with one more {!type-decal} on one of its walls.

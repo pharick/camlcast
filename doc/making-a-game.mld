@@ -763,7 +763,7 @@ let view state =
     | Burning -> state.left /. fuse
     | Done -> 0.
   in
-  ({ world with World.atmosphere = air ~light }, state.player)
+  (World.with_atmosphere world (air ~light), state.player)
 
 let () =
   match
@@ -968,7 +968,7 @@ screen in the colour that screen wants. A line running off the edge is {e cut} b
 {2 Letting go of the mouse}
 
 Answering [true] to [pointing] releases the mouse capture and puts a real cursor
-back on the screen. Its position arrives in [update] as [actions.Input.pointer],
+back on the screen. Its position arrives in [update] as [Input.pointer actions],
 already in framebuffer coordinates — the ones [overlay] draws in, so no
 conversion is needed:
 
@@ -1089,13 +1089,13 @@ let rec build world ~room ~ahead =
   else
     match way_on (World.room world room) with
     | Some index ->
-        let portal = Option.get (World.portals world room).(index) in
+        let portal = Option.get (World.portal world ~room ~threshold:index) in
         build world ~room:portal.World.to_room ~ahead:(ahead - 1)
     | None ->
         let world =
           World.open_doorway world ~room ~opened:(segment ~onward:true room)
         in
-        let index = Array.length world.World.rooms in
+        let index = World.rooms world in
         let world, next =
           World.add_room world ~name:(named index) (segment ~onward:false index)
         in

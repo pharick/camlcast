@@ -23,7 +23,14 @@ type t = {
 }
 
 let room t index = t.rooms.(index)
-let portals t index = t.portals.(index)
+let rooms t = Array.length t.rooms
+let name t index = t.names.(index)
+let named t name = Array.find_index (String.equal name) t.names
+let doorways t index = Array.length t.portals.(index)
+let portal t ~room ~threshold = t.portals.(room).(threshold)
+let atmosphere t = t.atmosphere
+let with_atmosphere t atmosphere = { t with atmosphere }
+let spawn t = t.spawn
 
 (* Tolerance for the checks below. Lengths and heights are either written by
     hand or built from the same constants, so they should agree exactly; this

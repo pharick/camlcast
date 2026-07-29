@@ -59,33 +59,71 @@ type location = { room : int; pos : Vec.t }
 (** A point in a named room. Only meaningful together — the same [pos] in
     another room is somewhere else entirely. *)
 
-type t = {
-  rooms : Room.t array;
-  names : string array;  (** [names.(i)] is what [rooms.(i)] was authored as *)
-  portals : portal option array array;
-      (** [portals.(i)] runs parallel to [rooms.(i).thresholds], so a ray that
-          reports a threshold index can look up its portal directly. [None] is a
-          doorway that leads nowhere yet — see {!open_doorway}. *)
-  atmosphere : Atmosphere.t;  (** the air every room of it is seen through *)
-  spawn : location;
-}
+type t
 (** A world: its rooms, what each was authored as, how they are joined, the air
     they are seen through, and where the player starts.
 
-    Concrete because a game reshapes one — [{ world with atmosphere = … }] is
-    how a level changes its light without rebuilding its geometry — and because
-    the renderer walks [rooms] and [portals] per column. Build one with {!make}
-    and change it with the functions below rather than by hand: the invariants
-    between [portals] and each room's own thresholds are what they exist for. *)
+    Abstract, where a {!Room.t} is merely private, and the difference between
+    them is what each is for. A room is {e walked}: {!Renderer} runs down its
+    walls and its thresholds once per screen column, so those have to stay field
+    reads. A world is {e asked}: three lookups per column and one per doorway,
+    and every one of them is named below.
+
+    What being abstract buys is that the arrays underneath cannot leave. They
+    must not: {!open_doorway}, {!link} and {!replace_room} copy one level and
+    share the rest, so a write into a row a caller had been handed would reach
+    not only this world but the world it was grown from and every world grown
+    beside it. A game holding two generations of a level at once — and
+    [demo/endless.ml] holds several — would find the older ones changing under
+    it. The invariant that [portals] runs parallel to each room's own thresholds
+    is the one this exists to keep.
+
+    Build one with {!make} and change it with the functions below. *)
 
 val room : t -> int -> Room.t
 (** [room world i] is the room at that index. Indices come back from
-    {!Sight.look}, from a {!portal}'s [to_room], and from {!add_room}. *)
+    {!Sight.look}, from a {!type-portal}'s [to_room], and from {!add_room}. *)
 
-val portals : t -> int -> portal option array
-(** [portals world i] runs parallel to [(room world i).thresholds], so a
-    threshold index looks its link up directly. [None] is a doorway that leads
-    nowhere yet — see {!open_doorway}. *)
+val rooms : t -> int
+(** How many rooms there are; the indices run [0] to [rooms world - 1].
+    {!add_room} appends and never inserts, so an index a frame is holding stays
+    the room it named. *)
+
+val name : t -> int -> string
+(** What the room at that index was authored as — the name it was given in
+    {!make}'s [rooms], or in {!add_room}. *)
+
+val named : t -> string -> int option
+(** The room of that name, if the world has one. {!make} takes names and hands
+    back a world indexed by number, and this is the road back: a game that
+    authored a room as ["cellar"] and wants to say something about it later asks
+    here rather than remembering which index it came out as. *)
+
+val doorways : t -> int -> int
+(** How many doorways the room at that index has — the same count as its own
+    thresholds, which is the invariant — and so the range to read {!val-portal}
+    over. *)
+
+val portal : t -> room:int -> threshold:int -> portal option
+(** The link behind one doorway, by the threshold index a ray reports. [None] is
+    a doorway that leads nowhere yet — see {!open_doorway}.
+
+    One doorway rather than the room's whole row, because one is what both
+    callers in the engine already wanted — {!Renderer} per column, {!Sight} per
+    opening — and it costs no allocation on that path, where handing back a row
+    would either allocate a copy per column or hand out the world's own. *)
+
+val atmosphere : t -> Atmosphere.t
+(** The air every room of it is seen through. *)
+
+val with_atmosphere : t -> Atmosphere.t -> t
+(** The same world seen through other air, sharing every room with the one it
+    came from. This is how a level changes its light without rebuilding its
+    geometry: a lamp brightening is one call and no room is touched. Named as
+    {!Room.with_sprites} is, and for the same reason. *)
+
+val spawn : t -> location
+(** The room and the point the player starts in. *)
 
 val make :
   rooms:(string * Room.t) list ->
@@ -97,7 +135,7 @@ val make :
     thresholds — a link reads [(("plaza", "east"), ("hall", "west"))] — and the
     room and point to start in.
 
-    Each link becomes two {!portal}s, one in each room, carrying
+    Each link becomes two {!type-portal}s, one in each room, carrying
     {!Transform.between} and its inverse. Everything that would make a link
     meaningless is refused here as [Invalid_argument], because each is an
     authoring mistake with no sensible run-time behaviour: a room or threshold
@@ -128,11 +166,11 @@ val open_doorway : t -> room:int -> opened:Room.t -> t
     to them, but its existing thresholds must still describe the same openings
     in the same order.
 
-    Appended and not inserted: every {!portal}'s [twin] is a bare index into
-    this array, and every one of them would mean a different doorway if anything
-    shifted. The new threshold's portal starts [None], so between this call and
-    the {!link} that fills it the doorway is solid and shows as haze — which is
-    exactly what it is. *)
+    Appended and not inserted: every {!type-portal}'s [twin] is a bare index
+    into this array, and every one of them would mean a different doorway if
+    anything shifted. The new threshold's portal starts [None], so between this
+    call and the {!link} that fills it the doorway is solid and shows as haze —
+    which is exactly what it is. *)
 
 val add_room : t -> name:string -> Room.t -> t * int
 (** Append a room, and return the index it landed at. Every doorway it brings
@@ -226,9 +264,9 @@ val check : t -> unit
     side, and the two sides of every link agreed about a door.
 
     That last one is asked of the rooms as they stand now and not of the
-    [threshold] each {!portal} is carrying, which is the copy taken when the
-    link was made. {!replace_room} matches a doorway by where it is rather than
-    by everything about it, so a leaf may be hung into an opening that is
+    [threshold] each {!type-portal} is carrying, which is the copy taken when
+    the link was made. {!replace_room} matches a doorway by where it is rather
+    than by everything about it, so a leaf may be hung into an opening that is
     already linked and the two can differ — and it is the room the renderer and
     {!passable} read that has to be right.
 

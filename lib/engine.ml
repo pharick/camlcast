@@ -127,12 +127,9 @@ let rec loop window game ~state ~actions ~previous =
     let actions =
       if focused then
         let sampled = Input.sample actions ~mouse ~dt in
-        {
-          sampled with
-          Input.pointer =
-            in_framebuffer window.handle !(window.framebuffer)
-              sampled.Input.pointer;
-        }
+        Input.with_pointer sampled
+          (in_framebuffer window.handle !(window.framebuffer)
+             (Input.pointer sampled))
       else Input.freeze actions
     in
     (* Walking and looking are read out of the same frame of controls as

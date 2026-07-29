@@ -332,7 +332,7 @@ let default =
     rather than written down, so re-ordering the rooms above cannot leave this
     pointing at the plaza. *)
 let cellar_room =
-  match Array.find_index (String.equal "cellar") default.World.names with
+  match World.named default "cellar" with
   | Some i -> i
   | None -> invalid_arg "Level: no cellar to put the dust in"
 

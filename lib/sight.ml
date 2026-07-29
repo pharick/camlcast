@@ -165,7 +165,7 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
            neighbour — whether the opening is bare or wearing something the eye
            goes through. With nowhere to go the doorway itself is the answer. *)
         let onwards () =
-          match (World.portals world room).(index) with
+          match World.portal world ~room ~threshold:index with
           | Some portal when budget > 0 ->
               trace world ~room:portal.World.to_room
                 ~pose:

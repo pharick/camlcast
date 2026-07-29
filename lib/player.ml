@@ -35,7 +35,8 @@ let create ~room ~pos ~angle =
   { room; pos; dir; right = Vec.perp dir; pitch = 0. }
 
 let spawn world =
-  create ~room:world.World.spawn.room ~pos:world.World.spawn.pos ~angle:0.
+  let start = World.spawn world in
+  create ~room:start.World.room ~pos:start.World.pos ~angle:0.
 
 (** Carry the pose into a neighbouring room's frame: the position moves with
     {!Transform.point}, the two basis vectors only rotate

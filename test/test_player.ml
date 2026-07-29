@@ -127,7 +127,7 @@ let a_diagonal_through_a_doorway_lands_clear () =
     moved.Player.pos
 
 let spawn_uses_the_world () =
-  Alcotest.check vec "spawn point" two_rooms.World.spawn.pos
+  Alcotest.check vec "spawn point" (World.spawn two_rooms).World.pos
     (Player.spawn two_rooms).Player.pos
 
 let walking_through_a_doorway () =

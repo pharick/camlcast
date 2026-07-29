@@ -485,6 +485,37 @@ let a_doors_state_decides_what_is_seen_and_what_is_felt () =
     (match Room.leaf closed with Some m -> m == mesh | None -> false);
   Alcotest.(check bool) "and stops a step" true (Room.shut closed)
 
+(* [with_thresholds] is public, so a game can reach it even though a room cannot
+   be built by hand. A room outlives the call that made it and the array handed
+   in does not have to, so the room takes its own copy: otherwise a threshold
+   moved afterwards would slip past {!World.replace_room}, which matches a
+   doorway by where it is, and leave a portal describing an opening that is no
+   longer there. *)
+let with_thresholds_keeps_a_copy () =
+  let jambs, threshold =
+    Room.doorway ~name:"gate" ~width:1. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 0. 0.) (Vec.make 4. 0.)
+  in
+  let before =
+    Room.make ~thresholds:[ threshold ] ~floor:flat_floor ~ceiling:flat_ceiling
+      jambs
+  in
+  let handed = Array.copy before.Room.thresholds in
+  let after = Room.with_thresholds before handed in
+  Alcotest.(check bool)
+    "the room did not keep the array it was given" true
+    (after.Room.thresholds != handed);
+  handed.(0) <-
+    snd
+      (Room.doorway ~name:"elsewhere" ~width:1. ~opening:2. ~height:3.
+         ~material:pale (Vec.make 0. 4.) (Vec.make 4. 4.));
+  Alcotest.(check string)
+    "so writing into it afterwards changes nothing" "gate"
+    after.Room.thresholds.(0).Room.name;
+  Alcotest.(check bool)
+    "the walls are still shared, as everything unreplaced is" true
+    (after.Room.walls == before.Room.walls)
+
 let () =
   Alcotest.run "Room"
     [
@@ -537,6 +568,7 @@ let () =
           case "a doorway that could not be cut is refused"
             a_doorway_that_could_not_be_cut_is_refused;
           case "a doorway can hang a door" a_doorway_can_hang_a_door;
+          case "with_thresholds keeps a copy" with_thresholds_keeps_a_copy;
           case "a door's state decides what is seen and what is felt"
             a_doors_state_decides_what_is_seen_and_what_is_felt;
         ] );

@@ -2,23 +2,21 @@ open Camlcast
 open Support
 
 let links_resolve () =
-  Alcotest.(check int) "two rooms" 2 (Array.length two_rooms.World.rooms);
-  Alcotest.(check int)
-    "one portal each way" 1
-    (Array.length (World.portals two_rooms 0));
+  Alcotest.(check int) "two rooms" 2 (World.rooms two_rooms);
+  Alcotest.(check int) "one portal each way" 1 (World.doorways two_rooms 0);
   Alcotest.(check int)
     "destination" 1 (portal two_rooms ~room:0 ~index:0).World.to_room;
   (* The renderer looks a portal up by the index a ray reports for the
-     threshold, so the two arrays have to line up. *)
-  Array.iteri
-    (fun room (r : Room.t) ->
+     threshold, so the two have to line up. *)
+  List.iter
+    (fun room ->
       Array.iteri
         (fun index (t : Room.threshold) ->
           Alcotest.(check string)
             "portals run parallel to thresholds" t.Room.name
             (portal two_rooms ~room ~index).World.threshold.Room.name)
-        r.Room.thresholds)
-    two_rooms.World.rooms
+        (World.room two_rooms room).Room.thresholds)
+    (List.init (World.rooms two_rooms) Fun.id)
 
 (* Each room is authored in its own coordinates, both here occupying the same
    0..4 square, so a crossing is only meaningful once the transform has carried
@@ -295,7 +293,7 @@ let a_world_can_grow () =
     (Array.length (World.room world 0).Room.thresholds);
   Alcotest.(check bool)
     "and leads nowhere yet" true
-    ((World.portals world 0).(0) = None);
+    (World.portal world ~room:0 ~threshold:0 = None);
   let jambs, south = cut ~name:"south" (Vec.make 0. 0.) (Vec.make 4. 0.) in
   let world, next =
     World.add_room world ~name:"next"
@@ -359,11 +357,10 @@ let a_loop_may_contradict_itself () =
   World.check world;
   Alcotest.(check int)
     "two ways from the first room to the second" 2
-    (Array.length
-       (Array.of_list
-          (List.filter
-             (fun p -> (Option.get p).World.to_room = 1)
-             (Array.to_list (World.portals world 0)))));
+    (List.length
+       (List.filter
+          (fun (room, _, p) -> room = 0 && (Option.get p).World.to_room = 1)
+          (doorways world)));
   (* The two routes disagree about where the second room is, which is exactly
      what makes a world bigger on the inside. *)
   let through index = (portal world ~room:0 ~index).World.onto in
@@ -750,6 +747,37 @@ let working_a_door_that_is_not_there_is_refused () =
     (fun () ->
       ignore (World.set_door two_rooms_closed ~room:0 ~threshold:3 Door.Open))
 
+(* The air is the one thing about a world a game changes every frame — a lamp
+   guttering, a fuse burning down — so it has to be changeable without touching
+   the geometry, and it has to touch nothing else. Not equal to what it was:
+   the same. *)
+let changing_the_air_changes_nothing_else () =
+  let thicker =
+    Atmosphere.make ~haze:(Color.rgb 40 30 20) ~fog_distance:3.
+      ~min_brightness:0.05 ~light:(Vec.make 0. (-1.)) ~ambient:0.2
+      ~directional:0.5
+  in
+  let after = World.with_atmosphere two_rooms thicker in
+  Alcotest.check close "the new air is the one asked for" 3.
+    (World.atmosphere after).Atmosphere.fog_distance;
+  Alcotest.(check int)
+    "the rooms are as many as they were" (World.rooms two_rooms)
+    (World.rooms after);
+  List.iter
+    (fun room ->
+      Alcotest.(check bool)
+        (Printf.sprintf "room %d is the very same room" room)
+        true
+        (World.room after room == World.room two_rooms room))
+    (List.init (World.rooms two_rooms) Fun.id);
+  Alcotest.(check bool)
+    "and every doorway leads where it did" true
+    (doorways after = doorways two_rooms);
+  Alcotest.check vec "the spawn point is untouched"
+    (World.spawn two_rooms).World.pos (World.spawn after).World.pos;
+  Alcotest.check close "and the world it came from keeps its own air" 12.
+    (World.atmosphere two_rooms).Atmosphere.fog_distance
+
 let () =
   Alcotest.run "World"
     [
@@ -789,6 +817,8 @@ let () =
         ] );
       ( "replacing",
         [
+          case "changing the air changes nothing else"
+            changing_the_air_changes_nothing_else;
           case "a room can be replaced" a_room_can_be_replaced;
           case "replacing never disturbs a portal"
             replacing_never_disturbs_a_portal;

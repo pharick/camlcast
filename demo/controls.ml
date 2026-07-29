@@ -167,7 +167,7 @@ let update state ~dt ~motion ~actions =
        else fade state.commit dt);
     click =
       (if Input.pressed actions primary then lamp_time else fade state.click dt);
-    pointer = actions.Input.pointer;
+    pointer = Input.pointer actions;
   }
 
 let overlay fb state =

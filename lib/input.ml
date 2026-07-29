@@ -108,6 +108,9 @@ let value actions = function
   | Mouse_x -> fst actions.mouse
   | Mouse_y -> snd actions.mouse
 
+let pointer actions = actions.pointer
+let with_pointer actions pointer = { actions with pointer }
+
 let advance previous ~down ~mouse ~pointer ~dt =
   let now = Array.init controls (fun i -> down (control_of_index i)) in
   let held =

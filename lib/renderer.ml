@@ -457,8 +457,7 @@ and fragment_kind =
 let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
     ~clip:(top, bottom) ~near ~budget ~entered ~translucent =
   let current = World.room world room in
-  let portals = World.portals world room in
-  let air = world.World.atmosphere in
+  let air = World.atmosphere world in
   draw_planes fb viewport ~air current pose ~column ~dir ~near ~first:top
     ~last:bottom;
   (* One wall strip: painted straight over the column if it is opaque, held back
@@ -542,7 +541,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
              or a lintel you can see through, which have to have something drawn
              behind them or their clear texels show this room's own floor. *)
           let behind ~first ~last =
-            match portals.(opening.Ray.index) with
+            match World.portal world ~room ~threshold:opening.Ray.index with
             | Some portal when budget > 0 ->
                 let nested =
                   Player.through portal.World.onto ~room:portal.World.to_room
@@ -623,7 +622,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
     what lets a sprite occlude a window behind it and show through one in front.
 *)
 let draw_translucent fb viewport world fragments =
-  let air = world.World.atmosphere in
+  let air = World.atmosphere world in
   List.iter
     (fun fragment ->
       let current = World.room world fragment.room in

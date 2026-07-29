@@ -272,8 +272,8 @@ let lamp elapsed =
 (** The air at that brightness, and the whole of the lamp: fog closing in and
     less of everything reaching you. Nothing else in the room changes with it.
 
-    {!Camlcast.World.atmosphere} is a plain field the renderer reads every
-    frame, so a lamp is one record update and no rebuilding of anything. *)
+    {!Camlcast.World.with_atmosphere} shares every room with the world it came
+    from, so a lamp is one call and no rebuilding of anything. *)
 let air ~lamp =
   Atmosphere.make ~haze:(Color.rgb 18 18 24)
     ~fog_distance:(2.5 +. (11. *. lamp))
@@ -296,7 +296,7 @@ let air ~lamp =
 let dressed state =
   let brightness = lamp state.elapsed in
   let lit = World.replace_room world ~room:0 ~replacement:(hall ()) in
-  let lit = { lit with World.atmosphere = air ~lamp:brightness } in
+  let lit = World.with_atmosphere lit (air ~lamp:brightness) in
   List.fold_left
     (fun w m ->
       let _, image, glow = symbols.(m.symbol) in

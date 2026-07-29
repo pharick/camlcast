@@ -281,9 +281,28 @@ let recessed ?(blind = true) () =
     ~spawn:("first", Vec.make 2. 2.)
 
 (** The portal behind a threshold that is certainly linked. A world may hold
-    doorways that lead nowhere yet, so [World.portals] hands back options; the
+    doorways that lead nowhere yet, so [World.portal] hands back an option; the
     fixtures here are all finished worlds. *)
-let portal world ~room ~index = Option.get (World.portals world room).(index)
+let portal world ~room ~index =
+  Option.get (World.portal world ~room ~threshold:index)
+
+(** Every room of a world, in index order. [World.room] answers about one room
+    at a time, and a suite that wants to say something about all of them — that
+    each is walled all round, that some one of them is open to the sky — wants
+    them as a list. Pair it with [List.iteri] where the index is wanted too. *)
+let rooms world = List.init (World.rooms world) (World.room world)
+
+(** Every doorway of every room, as [(room, threshold, portal option)]: the
+    whole of a world's linkage, flattened. [World.portal] answers about one
+    doorway at a time, and a suite that wants to say something about all of them
+    — how many lead nowhere, that none leads out of range — would otherwise
+    write the same fold over two ranges each time. *)
+let doorways world =
+  List.concat_map
+    (fun room ->
+      List.init (World.doorways world room) (fun threshold ->
+          (room, threshold, World.portal world ~room ~threshold)))
+    (List.init (World.rooms world) Fun.id)
 
 (** Two rooms joined twice over, into a loop a single step can go all the way
     round. Room a's east doorway leads into b; b's north doorway leads back into

@@ -165,7 +165,7 @@ let make ?(thresholds = []) ~floor ~ceiling ?(sprites = []) walls =
   }
 
 let with_sprites t sprites = { t with sprites = Array.of_list sprites }
-let with_thresholds t thresholds = { t with thresholds }
+let with_thresholds t thresholds = { t with thresholds = Array.copy thresholds }
 
 let add_decal t ~wall decal =
   let walls = Array.copy t.walls in

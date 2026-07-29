@@ -937,7 +937,7 @@ let a_glowing_decal_keeps_its_own_light () =
              (Room.decal ~glow ~along:4. ~z:Config.eye_height ~half_width:1.
                 ~half_height:1. white))
     in
-    let marked = { marked with World.atmosphere = close_air ~fog_distance } in
+    let marked = World.with_atmosphere marked (close_air ~fog_distance) in
     let fb = Framebuffer.offscreen ~width ~height in
     Renderer.draw_frame fb marked (looking_east ());
     (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r

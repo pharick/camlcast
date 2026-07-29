@@ -23,19 +23,19 @@ let each name check =
    result is somewhere you can stand and look. *)
 let is_walkable (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
-  let spawn = world.World.spawn in
+  let spawn = World.spawn world in
   Alcotest.(check bool)
     "the spawn point is not inside a wall" false
     (Room.blocked (World.room world spawn.World.room) spawn.World.pos);
-  Array.iteri
+  List.iteri
     (fun i (room : Room.t) ->
       (* A room that does not close its own boundary leaks its floor and sky to
          the horizon through the gap. *)
       Alcotest.(check bool)
-        (world.World.names.(i) ^ " is walled all round")
+        (World.name world i ^ " is walled all round")
         true
         (Array.length room.Room.walls >= 3))
-    world.World.rooms
+    (rooms world)
 
 let is_consistent (demo : Catalogue.t) =
   World.check (Lazy.force demo.Catalogue.world)
@@ -46,32 +46,29 @@ let is_consistent (demo : Catalogue.t) =
    in all of them. *)
 let has_no_seams (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
-  Array.iteri
-    (fun room portals ->
-      Array.iter
-        (fun portal ->
-          let portal : World.portal = Option.get portal in
-          Alcotest.check close
-            (world.World.names.(room) ^ "." ^ portal.World.threshold.Room.name)
-            0.
-            (World.seam_gap world ~room portal))
-        portals)
-    world.World.portals
+  List.iter
+    (fun (room, _, p) ->
+      let portal : World.portal = Option.get p in
+      Alcotest.check close
+        (World.name world room ^ "." ^ portal.World.threshold.Room.name)
+        0.
+        (World.seam_gap world ~room portal))
+    (doorways world)
 
 (* Every room is reachable from the spawn, so nothing in a demo is content
    nobody can get to. *)
 let is_connected (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
-  let seen = Array.make (Array.length world.World.rooms) false in
+  let seen = Array.make (World.rooms world) false in
   let rec visit i =
     if not seen.(i) then begin
       seen.(i) <- true;
-      Array.iter
-        (fun portal -> visit (Option.get portal).World.to_room)
-        (World.portals world i)
+      for threshold = 0 to World.doorways world i - 1 do
+        visit (Option.get (World.portal world ~room:i ~threshold)).World.to_room
+      done
     end
   in
-  visit world.World.spawn.World.room;
+  visit (World.spawn world).World.room;
   Alcotest.(check bool)
     "every room is reachable from the spawn" true
     (Array.for_all Fun.id seen)
@@ -100,38 +97,32 @@ let names_are_distinct () =
    still be a world every time. *)
 let growing_leaves_a_world_that_still_works () =
   let world = ref Endless.world in
-  let rooms () = Array.length !world.World.rooms in
-  let before = rooms () in
+  let count () = World.rooms !world in
+  let before = count () in
   for _ = 1 to 8 do
-    let far = rooms () - 1 in
+    let far = count () - 1 in
     world :=
       Endless.extend !world
         (Player.create ~room:far ~pos:(Vec.make 0. 2.) ~angle:0.);
     World.check !world;
-    Array.iteri
-      (fun room portals ->
-        Array.iter
-          (fun portal ->
-            let portal : World.portal = Option.get portal in
-            Alcotest.check close "no seam appeared" 0.
-              (World.seam_gap !world ~room portal))
-          portals)
-      !world.World.portals
+    List.iter
+      (fun (room, _, p) ->
+        let portal : World.portal = Option.get p in
+        Alcotest.check close "no seam appeared" 0.
+          (World.seam_gap !world ~room portal))
+      (doorways !world)
   done;
   Alcotest.(check bool)
     "the corridor is longer than it was" true
-    (rooms () > before);
+    (count () > before);
   (* Every room the player has walked through has a way back and a way on, and
      no threshold anywhere is left leading nowhere. *)
-  Array.iteri
-    (fun room portals ->
-      Array.iteri
-        (fun index portal ->
-          Alcotest.(check bool)
-            (Printf.sprintf "room %d threshold %d leads somewhere" room index)
-            true (portal <> None))
-        portals)
-    !world.World.portals
+  List.iter
+    (fun (room, index, portal) ->
+      Alcotest.(check bool)
+        (Printf.sprintf "room %d threshold %d leads somewhere" room index)
+        true (portal <> None))
+    (doorways !world)
 
 (* The trail demo builds a return route out of the crossings each frame reports,
    pushing one unless it undoes the one on top. Walking to the far end of the
@@ -361,8 +352,8 @@ let the_chalk_demo_keeps_its_marks_through_a_rebuild () =
      dark. *)
   Alcotest.(check bool)
     "and the air closed in with it" true
-    ((Chalk.dressed later).World.atmosphere.Atmosphere.fog_distance
-   < (Chalk.dressed marked).World.atmosphere.Atmosphere.fog_distance);
+    ((World.atmosphere (Chalk.dressed later)).Atmosphere.fog_distance
+   < (World.atmosphere (Chalk.dressed marked)).Atmosphere.fog_distance);
   Alcotest.(check (option int))
     "and the mark is still there" (Some 0) (decal_under later)
 
