@@ -21,12 +21,28 @@ This repository is the engine and the demos it is written against.
 
 ## What it looks like
 
-|                                                                                  |                                                                                       |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| ![An open evening sky over a low wall](doc/images/daylight.png)                  | ![A tiled floor climbing to a raised doorway](doc/images/slopes.png)                  |
-| ![Two doorways showing one room](doc/images/portals.png)                         | ![Pictures hung on a wall, figures standing in front of them](doc/images/gallery.png) |
-| ![The next room seen through a grille and a tinted window](doc/images/glass.png) | ![A corridor of pillars fading into its own haze](doc/images/haze.png)                |
-| ![A chamber of falling dust motes](doc/images/dust.png)                          | ![A page of wrapped and clipped text over a room](doc/images/text.png)                |
+<!-- Raw HTML because a markdown table has to have a header row, and this one has
+     nothing to say in it. The widths are attributes rather than a stylesheet
+     because GitHub strips those from a README, and without them a pair of
+     1024-pixel screenshots would size the table past the column. -->
+<table width="100%">
+  <tr>
+    <td width="50%"><img src="doc/images/daylight.png" width="100%" alt="An open evening sky over a low wall"></td>
+    <td width="50%"><img src="doc/images/slopes.png" width="100%" alt="A tiled floor climbing to a raised doorway"></td>
+  </tr>
+  <tr>
+    <td><img src="doc/images/portals.png" width="100%" alt="Two doorways showing one room"></td>
+    <td><img src="doc/images/gallery.png" width="100%" alt="Pictures hung on a wall, figures standing in front of them"></td>
+  </tr>
+  <tr>
+    <td><img src="doc/images/glass.png" width="100%" alt="The next room seen through a grille and a tinted window"></td>
+    <td><img src="doc/images/haze.png" width="100%" alt="A corridor of pillars fading into its own haze"></td>
+  </tr>
+  <tr>
+    <td><img src="doc/images/dust.png" width="100%" alt="A chamber of falling dust motes"></td>
+    <td><img src="doc/images/text.png" width="100%" alt="A page of wrapped and clipped text over a room"></td>
+  </tr>
+</table>
 
 ## Running
 
