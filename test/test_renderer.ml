@@ -36,7 +36,7 @@ let wide = solid ~height:8 16
 (** The box a sprite covers on screen: the smallest rectangle holding every
     pixel that differs between the two worlds, as [(left, top, right, bottom)],
     or [None] where the sprite reached nothing at all. *)
-let drawn ~with_it ~without player =
+let drawn ?(width = width) ?(height = height) ~with_it ~without player =
   let a = Framebuffer.offscreen ~width ~height
   and b = Framebuffer.offscreen ~width ~height in
   Renderer.draw_frame a with_it player;
@@ -55,8 +55,8 @@ let drawn ~with_it ~without player =
   done;
   !box
 
-let box ~with_it ~without player =
-  match drawn ~with_it ~without player with
+let box ?width ?height ~with_it ~without player =
+  match drawn ?width ?height ~with_it ~without player with
   | Some b -> b
   | None -> Alcotest.fail "the sprite was not drawn at all"
 
@@ -722,7 +722,12 @@ let a_decal_on_the_far_face_is_drawn_from_behind () =
 
    The mark is small — a fifth of a cell either way — so a box around it that
    still holds the centre pixel is a tight claim about the numbers, not a
-   bounding box that would hold anything. *)
+   bounding box that would hold anything.
+
+   Run at an odd size as well as an even one, and that is the point of the
+   second: {!Renderer.internal_size} divides the window down by a whole number,
+   so a 1366- or 2560-wide screen produces an odd buffer, and it is there that a
+   convention disagreeing with itself about where a pixel is shows up. *)
 let a_mark_lands_under_the_crosshair () =
   let world = fst (alone []) in
   let aim = looking_east () in
@@ -735,18 +740,24 @@ let a_mark_lands_under_the_crosshair () =
                (Room.decal ~facing:w.facing ~along:w.along ~z:w.z
                   ~half_width:0.2 ~half_height:0.2 mark))
       in
-      let l, t, r, b = box ~with_it ~without:world aim in
-      let cx = width / 2 and cy = height / 2 in
-      Alcotest.(check bool)
-        (Printf.sprintf "the crosshair (%d, %d) is inside %d..%d by %d..%d" cx
-           cy l r t b)
-        true
-        (l <= cx && cx <= r && t <= cy && cy <= b);
-      (* And it is a small mark on a far wall, not half the screen. *)
-      Alcotest.(check bool)
-        (Printf.sprintf "and it is small: %d by %d" (r - l + 1) (b - t + 1))
-        true
-        (r - l < width / 4 && b - t < height / 4)
+      List.iter
+        (fun (width, height) ->
+          let l, t, r, b = box ~width ~height ~with_it ~without:world aim in
+          let cx = width / 2 and cy = height / 2 in
+          Alcotest.(check bool)
+            (Printf.sprintf
+               "%dx%d: the crosshair (%d, %d) is inside %d..%d by %d..%d" width
+               height cx cy l r t b)
+            true
+            (l <= cx && cx <= r && t <= cy && cy <= b);
+          (* And it is a small mark on a far wall, not half the screen. *)
+          Alcotest.(check bool)
+            (Printf.sprintf "%dx%d: and it is small: %d by %d" width height
+               (r - l + 1)
+               (b - t + 1))
+            true
+            (r - l < width / 4 && b - t < height / 4))
+        [ (160, 100); (161, 101) ]
   | _ -> Alcotest.fail "expected the wall ahead"
 
 (* The wall's own share of the light, which nothing else here pins. A pattern's

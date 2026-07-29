@@ -282,6 +282,35 @@ let a_line_entirely_off_the_buffer_draws_nothing () =
   Paint.line fb ~x0:0 ~y0:50 ~x1:9 ~y1:50 ~r:255 ~g:255 ~b:255;
   Alcotest.check color "nothing arrived" black (Framebuffer.pixel fb ~x:0 ~y:0)
 
+(* The crosshair's own claim: two arms crossing on the pixel that holds the
+   middle of the buffer. Which pixel that is matters to more than this module —
+   {!Viewport} casts the straight-ahead ray through it and {!Sight} answers
+   about that ray — but that the arms meet there at all is Paint's, and was
+   asserted nowhere. An odd buffer, so the middle is one pixel and not two. *)
+let a_crosshair_crosses_in_the_middle () =
+  let fb = Framebuffer.offscreen ~width:9 ~height:7 in
+  Paint.crosshair fb ~r:255 ~g:255 ~b:255;
+  Alcotest.check color "the arms meet in the middle" white
+    (Framebuffer.pixel fb ~x:4 ~y:3);
+  Alcotest.check color "the horizontal arm reaches the left edge" white
+    (Framebuffer.pixel fb ~x:0 ~y:3);
+  Alcotest.check color "and the vertical one the top" white
+    (Framebuffer.pixel fb ~x:4 ~y:0);
+  (* Neither arm spills into the quadrants between them. *)
+  Alcotest.check color "off the arms is untouched" black
+    (Framebuffer.pixel fb ~x:0 ~y:0);
+  Alcotest.check color "and so is the far corner" black
+    (Framebuffer.pixel fb ~x:8 ~y:6)
+
+(* Eleven-pixel arms on a buffer of one pixel: every span is clipped away to
+   nothing but the one that holds the middle, which is the whole buffer. A
+   minimised window is exactly this. *)
+let a_crosshair_survives_a_single_pixel () =
+  let fb = Framebuffer.offscreen ~width:1 ~height:1 in
+  Paint.crosshair fb ~r:255 ~g:255 ~b:255;
+  Alcotest.check color "the one pixel is drawn" white
+    (Framebuffer.pixel fb ~x:0 ~y:0)
+
 let () =
   Alcotest.run "Paint"
     [
@@ -290,6 +319,10 @@ let () =
           case "a fresh buffer is black" a_fresh_buffer_is_black;
           case "a rectangle fills what it covers"
             a_rectangle_fills_what_it_covers;
+          case "a crosshair crosses in the middle"
+            a_crosshair_crosses_in_the_middle;
+          case "a crosshair survives a single pixel"
+            a_crosshair_survives_a_single_pixel;
         ] );
       ( "clipping",
         [

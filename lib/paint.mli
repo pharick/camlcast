@@ -120,4 +120,13 @@ val crosshair : Framebuffer.t -> r:int -> g:int -> b:int -> unit
 (** A cross of two eleven-pixel arms in the middle of the buffer, wherever the
     window has been resized to: the overlay is drawn in the buffer's own
     coordinates, and it changes size with the window. Takes no position — the
-    middle is the whole point of it. *)
+    middle is the whole point of it.
+
+    Which pixel the middle is matters, because {!Sight} answers about the ray
+    the crosshair sits on and a player aims by what is drawn. It is [width / 2]
+    and [height / 2], the pixel {e containing} the middle of the buffer, and
+    under {!Viewport}'s rule that a pixel is its centre that is also the pixel
+    whose centre is nearest to it: at an odd size exactly the straight-ahead
+    ray, and at an even one either of the two half a pixel from it, the middle
+    having fallen on a boundary where no pixel is the centre. Round it the other
+    way and odd sizes stop being exact for nothing gained. *)

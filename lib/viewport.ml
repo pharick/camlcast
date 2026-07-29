@@ -21,6 +21,30 @@
     is exactly how [half_width] is derived below. The [d] cancels, so the rule
     holds at every distance.
 
+    {1 Where a pixel is}
+
+    A pixel is its centre. Column [c] covers everything from [c] up to but not
+    including [c + 1], and is sampled at [c + 0.5]; row [r] likewise.
+
+    Two kinds of function here, and the rule is what joins them.
+    {!ray_direction} and {!row_factor} take a pixel {e index} and answer for
+    that pixel's centre. {!project_height}, {!project_point} and {!sprite_box}
+    answer in the {e continuous} coordinates the same numbers live on, and are
+    deliberately not shifted: [Float.round] of one of their answers is exactly
+    "the pixel whose centre that covers", which is how {!Renderer} turns an
+    extent into rows and columns. The two are inverse — {!project_point} of
+    {!ray_direction} at column [c] is [c + 0.5], the centre of that very column.
+
+    Say it the other way, that a pixel is its top-left corner, and half of this
+    module means one thing and half the other: the rays would sample the left
+    edges of their columns while the rasteriser covered their centres, and every
+    sprite would stand half a pixel from the wall behind it, at every window
+    size. The crosshair {!Paint} draws is [width / 2], the pixel containing the
+    middle of the buffer, which is the nearest-centre pixel under this rule —
+    exactly the straight-ahead ray at an odd width, and one of two equally near
+    at an even one, where the middle falls on a boundary and no pixel is the
+    centre.
+
     {1 Widening the window reveals more world}
 
     That leaves [projection] free. Anchoring it to the window {e height} fixes
@@ -76,25 +100,33 @@ let create ~pitch ~eye_z ~width ~height =
     horizon = (float_of_int height /. 2.) +. (pitch *. float_of_int height);
   }
 
-(** Direction of the ray through screen column [column]. [camera_x] runs from -1
-    at the left edge of the window to +1 at the right, and picks the point of
-    the camera plane that column looks through. One multiply and one add, no
-    trigonometry per column. *)
+(** Direction of the ray through screen column [column] — through its centre, by
+    the rule above. [camera_x] picks the point of the camera plane that column
+    looks through: -1 at the left edge of the window and +1 at the right, so the
+    first column reads [-1 + 1/width] and the last [1 - 1/width], half a column
+    in from each edge. One multiply and one add, no trigonometry per column. *)
 let ray_direction t (player : Player.t) ~column =
-  let camera_x = (2. *. float_of_int column /. float_of_int t.width) -. 1. in
+  let camera_x =
+    (2. *. (float_of_int column +. 0.5) /. float_of_int t.width) -. 1.
+  in
   Vec.add player.dir (Vec.scale player.right (t.half_width *. camera_x))
 
 (** The screen row a point of world height [z] projects to, at perpendicular
     distance [distance]. Similar triangles: its height above the eye,
     [z - eye_z], shrinks with distance and is measured down from the horizon. A
     wall's foot is [project_height] at the floor's height there, its top at the
-    floor plus the wall's height, and the strip between them is the wall. *)
+    floor plus the wall's height, and the strip between them is the wall.
+
+    A continuous row and not a pixel index: it is [Float.round] of this that
+    names the pixel, by the rule above. *)
 let project_height t ~z ~distance =
   t.horizon -. (t.projection *. (z -. t.eye_z) /. distance)
 
-(** The dimensionless [(row - horizon) / projection] a screen row sits at, the
-    quantity {!Plane.view_distance} needs to cast the floor and ceiling. *)
-let row_factor t ~row = (float_of_int row -. t.horizon) /. t.projection
+(** The dimensionless [(row + ½ - horizon) / projection] the centre of a screen
+    row sits at, the quantity {!Plane.view_distance} needs to cast the floor and
+    ceiling. The half is the same one {!ray_direction} adds, in the other
+    direction. *)
+let row_factor t ~row = (float_of_int row +. 0.5 -. t.horizon) /. t.projection
 
 (** Where a point of the world lands on the screen: [(column, row)] in pixels,
     or [None] if it is level with the eye or behind it and has no place on the

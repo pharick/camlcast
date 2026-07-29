@@ -81,10 +81,26 @@ let projection_is_inversely_proportional () =
     (offset 4. /. 2.)
     (offset 8.)
 
+(* The horizon is a place on the screen and not a row, and a row is its centre,
+   so whether any row sits exactly on it is a question of parity. At an odd
+   height the middle of the buffer falls on a pixel's centre and that row reads
+   exactly zero; at an even one it falls on the boundary between two, which
+   straddle zero by half a pixel each and neither of which is the horizon. *)
 let row_factor_is_zero_at_the_horizon () =
-  let row = int_of_float reference.Viewport.horizon in
-  Alcotest.check close "the horizon row sits at factor zero" 0.
-    (Viewport.row_factor reference ~row)
+  let odd = at ~width:800 ~height:601 () in
+  Alcotest.check close "an odd height puts a row on the horizon" 0.
+    (Viewport.row_factor odd ~row:(odd.Viewport.height / 2));
+  let half = 0.5 /. reference.Viewport.projection in
+  Alcotest.check close "an even one has the row above it half a pixel high"
+    (-.half)
+    (Viewport.row_factor reference ~row:299);
+  Alcotest.check close "and the row below it half a pixel low" half
+    (Viewport.row_factor reference ~row:300);
+  (* A minimised window is one pixel, and that pixel is the horizon. Under the
+     old convention it read half a screen's worth of factor instead. *)
+  let tiny = at ~width:1 ~height:1 () in
+  Alcotest.check close "and the one pixel of a 1x1 window is the horizon" 0.
+    (Viewport.row_factor tiny ~row:0)
 
 (* Pitch shears the horizon away from the middle of the window: looking up
    drops it (more ceiling), looking down raises it (more floor). *)
@@ -99,14 +115,29 @@ let pitch_shears_the_horizon () =
     "looking down raises it" true
     ((at ~pitch:(-0.2) ~width:800 ~height:600 ()).Viewport.horizon < middle)
 
+(* The column [Paint.crosshair] draws on is [width / 2], and [Sight] answers
+   about the ray straight ahead, so the two agree exactly when that column's
+   centre is the middle of the buffer — which it is at every odd width, the
+   sizes [Renderer.internal_size] actually produces from a 1366- or 2560-wide
+   window. An even width has no middle column at all: the middle falls between
+   two, and the most that can be asked is that neither is favoured. *)
 let the_centre_column_looks_straight_ahead () =
   let player = Player.create ~room:0 ~pos:centre ~angle:0.7 in
-  let direction =
-    Viewport.ray_direction reference player
-      ~column:(reference.Viewport.width / 2)
+  List.iter
+    (fun width ->
+      let v = at ~width ~height:600 () in
+      Alcotest.check vec
+        (Printf.sprintf "%d columns: the middle one is dir" width)
+        player.Player.dir
+        (Viewport.ray_direction v player ~column:(width / 2)))
+    [ 1; 161; 683 ];
+  let off column =
+    Vec.sub (Viewport.ray_direction reference player ~column) player.Player.dir
   in
-  Alcotest.check vec "the middle of the screen is dir" player.Player.dir
-    direction
+  Alcotest.check vec
+    "an even width straddles it, the two middle columns equal and opposite"
+    (Vec.make 0. 0.)
+    (Vec.add (off 399) (off 400))
 
 (* The payoff of the camera plane construction: a flat wall seen head-on reports
    one distance across the whole window, at any shape, so it is drawn flat
@@ -125,6 +156,104 @@ let a_flat_wall_stays_flat () =
             2. hit.Ray.distance)
         [ 0; width / 4; width / 2; width - 1 ])
     [ (800, 600); (1920, 1080); (400, 900) ]
+
+(* The rule the module is built on, stated as a round trip: [ray_direction]
+   takes a column and answers for its centre, [project_point] answers in the
+   continuous coordinates that centre lives on, so a point placed along a
+   column's own ray projects back to [column + 0.5]. Everything else about the
+   convention follows from this — it is what makes [Float.round] of a projected
+   extent name the pixels whose centres it covers, which is how the renderer
+   turns a wall or a sprite into rows and columns. Sample the edges as well as
+   the middle: an error in the half would show at column 0 and width - 1 first. *)
+let a_column_projects_back_to_its_own_centre () =
+  List.iter
+    (fun (width, height) ->
+      let v = at ~width ~height () in
+      let pose = Player.create ~room:0 ~pos:centre ~angle:0.7 in
+      List.iter
+        (fun column ->
+          let direction = Viewport.ray_direction v pose ~column in
+          let point = Vec.add pose.Player.pos (Vec.scale direction 3.) in
+          let x, _ =
+            Option.get
+              (Viewport.project_point v pose ~point ~z:pose.Player.pitch)
+          in
+          Alcotest.check close
+            (Printf.sprintf "%dx%d column %d" width height column)
+            (float_of_int column +. 0.5)
+            x)
+        (List.sort_uniq compare [ 0; width / 2; width - 1 ]))
+    [ (800, 600); (161, 101); (1, 1) ]
+
+(* The one place three modules have to agree, and the disagreement this change
+   exists to end: the pixel [Paint] draws the crosshair on, the ray [Viewport]
+   casts through that pixel, and the ray [Sight] picks along — which is
+   [player.dir] with [Viewport.centre_rise], zero at a level pitch.
+
+   The crosshair is found by looking at what was actually drawn rather than by
+   recomputing [width / 2], so this fails if either module moves and the other
+   does not. *)
+let the_crosshair_sits_on_the_centre_ray () =
+  let player = Player.create ~room:0 ~pos:centre ~angle:0.7 in
+  List.iter
+    (fun (width, height) ->
+      let fb = Framebuffer.offscreen ~width ~height in
+      Paint.crosshair fb ~r:255 ~g:255 ~b:255;
+      let lit ~x ~y = (Framebuffer.pixel fb ~x ~y).Color.r > 0 in
+      (* The arms cross on one pixel, so the row carrying the horizontal arm has
+         more lit pixels in it than any other and likewise the column carrying
+         the vertical one. Whichever line has strictly the most is the middle,
+         and asking for it that way holds down to a buffer of one pixel. *)
+      let busiest what n count =
+        let tally = List.map (fun i -> (i, count i)) (List.init n Fun.id) in
+        let most = List.fold_left (fun m (_, c) -> Int.max m c) 0 tally in
+        match List.filter (fun (_, c) -> c = most) tally with
+        | [ (i, _) ] -> i
+        | found -> Alcotest.failf "%s: %d lines tie" what (List.length found)
+      in
+      let count_if n at = List.length (List.filter at (List.init n Fun.id)) in
+      let v = at ~width ~height () in
+      let name = Printf.sprintf "%dx%d" width height in
+      let cy =
+        busiest (name ^ " row") height (fun y ->
+            count_if width (fun x -> lit ~x ~y))
+      in
+      let cx =
+        busiest (name ^ " column") width (fun x ->
+            count_if height (fun y -> lit ~x ~y))
+      in
+      (* An odd size puts a pixel's centre on the middle of the buffer, so the
+         agreement is exact. An even one puts the middle on a boundary, where
+         the most that can be true of any pixel is that its centre is half a
+         pixel from it — and that is asserted rather than waived, because a
+         crosshair drawn anywhere else would still pass the odd cases. *)
+      if width mod 2 = 1 then
+        Alcotest.check vec
+          (name ^ ": the crosshair column is dir")
+          player.Player.dir
+          (Viewport.ray_direction v player ~column:cx)
+      else
+        Alcotest.(check bool)
+          (name ^ ": the crosshair column is half a pixel from the middle")
+          true
+          (Float.abs (float_of_int cx +. 0.5 -. (float_of_int width /. 2.))
+          <= 0.5);
+      if height mod 2 = 1 then
+        Alcotest.check close
+          (name ^ ": and its row is the horizon")
+          0.
+          (Viewport.row_factor v ~row:cy)
+      else
+        Alcotest.(check bool)
+          (name ^ ": and its row half a pixel from the horizon")
+          true
+          (Float.abs (float_of_int cy +. 0.5 -. v.Viewport.horizon) <= 0.5);
+      (* Which is the ray Sight traces: level, it rises nowhere. *)
+      Alcotest.check close
+        (name ^ ": and Sight looks flat along it")
+        0.
+        (Viewport.centre_rise ~pitch:0.))
+    [ (161, 101); (683, 384); (1, 1); (160, 100) ]
 
 (* {1 Billboards}
 
@@ -246,7 +375,12 @@ let () =
             the_centre_column_looks_straight_ahead;
           case "a flat wall stays flat at any window shape"
             a_flat_wall_stays_flat;
+          case "a column projects back to its own centre"
+            a_column_projects_back_to_its_own_centre;
         ] );
+      ( "the crosshair",
+        [ case "sits on the centre ray" the_crosshair_sits_on_the_centre_ray ]
+      );
       ( "billboards",
         [
           case "a square picture is as wide as it is tall"

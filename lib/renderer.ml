@@ -231,10 +231,17 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
       if occlude || d < depth.(index) then begin
         (* World height this pixel looks at on the wall, then where that falls
            within the current one-cell tile of the texture (bottom of a cell at
-           the texture's bottom row, top at its top). *)
+           the texture's bottom row, top at its top).
+
+           [Viewport.row_factor] written out and multiplied by [d], because it
+           is wanted once per pixel of the strip rather than once per row. The
+           half is that function's, not a rounding: it is what makes this the
+           row's centre, and dropping it would sample the floor and this wall
+           half a pixel apart. *)
         let z =
           viewport.eye_z
-          -. ((float_of_int y -. viewport.horizon) *. d /. viewport.projection)
+          -. (float_of_int y +. 0.5 -. viewport.horizon)
+             *. d /. viewport.projection
         in
         let above_foot = z -. floor_z in
         let tile = above_foot -. Float.floor above_foot in
@@ -348,16 +355,21 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
           Int.min row1 m.last )
   in
   for col = col0 to col1 do
+    (* How far across the picture this column's centre falls. [left] and
+       [y_top] are continuous edges, the columns and rows above are what
+       [Float.round] made of them, and the half is what puts the two on the same
+       footing — the same one every ray and every wall texel is sampled at. *)
     let ui =
       clampi nu
-        (int_of_float ((float_of_int col -. left) /. span *. float_of_int nu))
+        (int_of_float
+           ((float_of_int col +. 0.5 -. left) /. span *. float_of_int nu))
     in
     for y = row0 to row1 do
       if depth_s < depth.((y * width) + col) then begin
         let vi =
           clampi nv
             (int_of_float
-               ((float_of_int y -. y_top) /. vspan *. float_of_int nv))
+               ((float_of_int y +. 0.5 -. y_top) /. vspan *. float_of_int nv))
         in
         let idx = Image.index img ~u:ui ~v:vi in
         let a = img.Image.alpha.(idx) in

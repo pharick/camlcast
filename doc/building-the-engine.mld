@@ -283,6 +283,14 @@ where [camera_x] runs from [-half_width] at the left edge of the screen to
 share [dir]; only the [right] term changes — one multiply and one add per
 column.
 
+{b Where a pixel is.} A pixel is its centre: column [c] covers everything from
+[c] up to but not including [c + 1], and is
+sampled at [c + 0.5], so the first column reads half a column in from the left
+edge rather than on it, and the last half a column in from the right. That
+convention has to be the same one the rasteriser uses — [Float.round] of a
+projected extent, further down, names the pixels whose {e centres} it covers —
+or the rays and the geometry drawn along them sit half a pixel apart.
+
 {b Why distances have no fish-eye.} We measure the hit distance [t] in *units of
 that (un-normalised) [ray_direction]*. Project the hit onto the view direction:
 
@@ -426,9 +434,12 @@ let create ~pitch ~eye_z ~width ~height =
     (* Level, the horizon is the middle row; pitch shears it (Phase 5). *)
     horizon = (float_of_int height /. 2.) +. (pitch *. float_of_int height) }
 
-(* The ray for a column: camera_x runs -1 (left) .. +1 (right). *)
+(* The ray for a column, through its centre: camera_x runs -1 (left edge) ..
+   +1 (right edge), and column c is sampled at c + 0.5. *)
 let ray_direction t (player : Player.t) ~column =
-  let camera_x = (2. *. float_of_int column /. float_of_int t.width) -. 1. in
+  let camera_x =
+    (2. *. (float_of_int column +. 0.5) /. float_of_int t.width) -. 1.
+  in
   Vec.add player.dir (Vec.scale player.right (t.half_width *. camera_x))
 ]}
 
@@ -445,8 +456,13 @@ measured down from the horizon). Add it:
 {@ocaml[
 let project_height t ~z ~distance =
   t.horizon -. (t.projection *. (z -. t.eye_z) /. distance)
-let row_factor t ~row = (float_of_int row -. t.horizon) /. t.projection
+let row_factor t ~row =
+  (float_of_int row +. 0.5 -. t.horizon) /. t.projection
 ]}
+
+[project_height] answers in continuous rows and [row_factor] takes a row index,
+so the half is where the two meet — the same one [ray_direction] adds, in the
+other direction.
 
 {2 Step 2.4 — A software framebuffer}
 
@@ -847,7 +863,8 @@ let gradient t (dir : Vec.t) = (t.a *. dir.x) +. (t.b *. dir.y)   (* rise per un
 {b The casting equation.} For a pixel below the horizon in a column of direction
 [dir], at what perpendicular distance [d] does the line of sight meet the plane?
 The pixel sees, at distance [d], the world point [eye_pos + d·dir] at height
-[eye_z − row_factor·d], where [row_factor = (row − horizon)/projection]. Set that
+[eye_z − row_factor·d], where [row_factor = (row + ½ − horizon)/projection] — the
+half being the pixel's centre, as above. Set that
 equal to the plane's own height there, [base + d·gradient] (with [base] the
 plane under the eye), and solve:
 
@@ -1214,7 +1231,7 @@ To draw one:
 
 {ol
 {li Camera-space coordinates: [depth_s = (pos − player.pos) · dir] (perpendicular distance) and [lateral = (pos − player.pos) · right]. Skip if [depth_s ≤ 0] (behind you).}
-{li Screen column of the centre — invert the camera-plane mapping: [camera_x = lateral / (depth_s · half_width)], then [center = (camera_x + 1) · width / 2].}
+{li Screen column of the centre — invert the camera-plane mapping: [camera_x = lateral / (depth_s · half_width)], then [center = (camera_x + 1) · width / 2]. That is a continuous coordinate and deliberately unshifted: it is [Float.round] of it, and of the two vertical edges below, that names the pixels covered, which is the same convention [ray_direction] samples at.}
 {li Vertical placement: project the foot at [floor_z + base] and the top a [size] above that, with [project_height]. Measure [base] from the floor rather than absolutely and a sprite rides a slope instead of the ground climbing through it — the same rule a decal's [z] follows. The horizontal extent is [center ± (y_base − y_top)/2 · aspect], where [aspect] is the image's own [width / height]: taking it from the picture is what stops a wide one being squashed into a square, and leaves a square one exactly as it was.}
 {li For each pixel, sample the image; draw it (blended) {b only where [depth_s < depth.(pixel)]} — nearer than the opaque wall there. Per-pixel is what lets a short wall hide only the sprite's legs, not its head.}
 }
