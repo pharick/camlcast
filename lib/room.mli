@@ -13,18 +13,39 @@
     A room knows nothing of any other room, or of the {!World} it is in. Every
     coordinate here is its own, and the only thing that ever relates two rooms
     is a {!World} link between a {!type-threshold} of each. That is what lets
-    rooms be authored — or generated — one at a time, in any order. *)
+    rooms be authored — or generated — one at a time, in any order.
+
+    {1 The winding rule}
+
+    This is the one statement of it; everything else refers here.
+    {b A room's boundary is wound so that, walking a wall from [a] to [b], the
+       inside of the room is on the side {!Vec.perp} of the walk direction
+       points.} The demos and these pages call that counter-clockwise — the word
+    it earns on paper, with y up. On the screen's map, where y grows downward,
+    the same loop reads clockwise to the eye: trust the rule, not the picture.
+
+    Each wall's [normal] is that same [perp], so for a boundary wound this way
+    every normal faces {e into} the room — which is what makes [Front] the
+    inside, shading face the light, and a doorway's {!Transform.between} pairing
+    come out right. Wind a room the other way and every normal faces out: the
+    symptom is a room that is {b black from the inside}. Reverse the walls.
+    {!rectangle} and {!regular_polygon} cannot be wound wrong; {!path} and
+    hand-written walls can. *)
 
 (** {1 Surfaces} *)
 
 type surface = { plane : Plane.t; material : Material.t }
 (** A floor or a ceiling: where it is, and what it is made of.
 
-    Concrete and open, and deliberately so. There is no constructor to close it
-    in favour of: it is two independent fields with nothing derived from either,
-    and every one that exists is written down as a literal at the point of use —
-    [{ Room.plane = floor; material = ground }] — so closing it would mean
-    inventing a two-argument constructor to protect an invariant there isn't. *)
+    Concrete and open, and deliberately so: it is two independent fields with
+    nothing derived from either, so there is no invariant for a closed record to
+    protect. {!val-floor} and {!roof} build one at the two places one is wanted,
+    and a literal — [{ Room.plane; material }] — is just as good. *)
+
+val floor : plane:Plane.t -> material:Material.t -> surface
+(** What is underfoot: a {!type-surface}, named for where it goes. The twin of
+    {!roof}, so the two arguments of {!make} that bound a room vertically read
+    the same way. *)
 
 (** Which face of a wall something is on.
 
@@ -144,7 +165,7 @@ val decal_row : decal -> above:float -> int option
 
 (** {1 Walls} *)
 
-type wall = {
+type wall = private {
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
   height : float;  (** how far the wall rises above the floor, in cells *)
@@ -159,19 +180,18 @@ type wall = {
     {b The last three fields are derived from the first two, and nothing
        recomputes them.} [edge] is [b - a], [length] is [|edge|], and [normal]
     is [edge] turned a quarter turn to its left and normalised. {!val-wall}
-    computes all three at once and is the only thing that should.
-    [{ w with Room.a = ... }] moves an endpoint and leaves all three describing
-    the wall it used to be — silently, and each of them is something else's
+    computes all three at once, and each of them is something else's
     measurement: {!Ray.cast} intersects against [edge], a decal is placed along
-    a [length] that no longer matches, and {!Atmosphere.face_shading} and
-    {!side_of} both work off a [normal] that has turned. A functional update of
-    [height], [material] or [decals] touches nothing derived and is safe;
-    {!add_decal} is exactly that.
+    [length], and {!Atmosphere.face_shading} and {!side_of} both work off
+    [normal].
 
-    Concrete rather than private in spite of all that, because {!Renderer}
-    builds one: a door's leaf and the strip of wall above an opening are both
-    drawn as though they were walls, and it copies [edge], [length] and [normal]
-    across from the threshold together, for precisely the reason above. *)
+    Private for exactly that reason. Every field stays readable — the renderer
+    and the ray caster read them per column — but [{ w with Room.a = ... }]
+    would move an endpoint and leave all three describing the wall it used to
+    be, silently, so the update is refused at the type. The one wall anything
+    ever built by hand was {!Renderer}'s — a door's leaf and the lintel strip
+    are drawn as though they were walls — and {!threshold_wall} is that record
+    literal, written down once. *)
 
 val side_of : wall -> Vec.t -> side
 (** Which side of a wall a point is on. A point exactly on the line counts as
@@ -276,7 +296,7 @@ type lintel = { top : float; material : Material.t }
     Open, like a {!type-surface} and for the same reason: two independent fields
     written as a literal wherever one is wanted. *)
 
-type threshold = {
+type threshold = private {
   name : string;  (** what a {!World} link refers to it by *)
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
@@ -305,10 +325,11 @@ type threshold = {
     drawn nor felt, so it behaves exactly as an opening with no door in it.
 
     [edge], [length] and [normal] are derived from [a] and [b] exactly as on a
-    {!type-wall}, and the same warning applies: {!val-threshold} and {!doorway}
-    are what compute them, and moving an endpoint by hand leaves all three
-    behind. [door] and [lintel] are derived from nothing, and updating either is
-    what the engine itself does — {!World.set_door} hangs a state that way. *)
+    {!type-wall}, and private for the same reason: {!val-threshold} and
+    {!doorway} are what compute them, and moving an endpoint by hand would leave
+    all three behind. [door] and [lintel] are derived from nothing and changing
+    them is routine — {!with_door} and {!with_lintel} are the two functional
+    updates, sharing everything else. *)
 
 val leaf : threshold -> Material.t option
 (** What is drawn across this opening, if anything — {!Door.leaf} of whatever
@@ -316,6 +337,33 @@ val leaf : threshold -> Material.t option
 
 val shut : threshold -> bool
 (** Does this opening stop a step? Exactly when there is a leaf across it. *)
+
+val with_door : threshold -> Door.t option -> threshold
+(** The same opening with another leaf hung in it — or none, which is a bare
+    opening again. Every derived field is shared, since the endpoints have not
+    moved. What {!World.set_door} is made of; a game reaches for that, not this,
+    so the world's portals stay honest. *)
+
+val with_lintel : threshold -> lintel option -> threshold
+(** The same opening under another lintel — or under none, which claims the
+    opening reaches the top of its wall (see {!type-lintel} for what that
+    means). Like {!with_door}, nothing derived is touched. *)
+
+val threshold_wall : threshold -> height:float -> material:Material.t -> wall
+(** The threshold drawn as though it were a wall: its own endpoints, [height]
+    tall and made of [material], with [edge], [length] and [normal] copied
+    across rather than recomputed — they describe the same segment, and
+    recomputing them per frame is what {!val-wall} exists to avoid. This is how
+    {!Renderer} draws a door's leaf and the lintel strip above an opening, and
+    it is a function here so that the copying rule is written down once. *)
+
+val across : threshold -> threshold -> Transform.t
+(** The rigid motion carrying this room's coordinates onto the neighbour's,
+    given this room's threshold and the neighbour's it is linked to — that is,
+    {!Transform.between} with the endpoint pairing the winding rule requires,
+    written down once. {!World.make} works this out for every link itself; a
+    game wants it {e before} the world exists, to author a neighbour's floor so
+    it meets this room's across the doorway. *)
 
 (** {1 The room itself} *)
 
@@ -325,6 +373,15 @@ val shut : threshold -> bool
 type ceiling =
   | Roof of surface  (** an inclined plane overhead, of some material *)
   | Open of Sky.t  (** nothing overhead, and which {!Sky} shows instead *)
+
+val roof : plane:Plane.t -> material:Material.t -> ceiling
+(** An inclined plane overhead: [Roof { plane; material }], so that a call to
+    {!make} names its two vertical bounds the same way —
+    [~floor:(Room.floor ...)] and [~ceiling:(Room.roof ...)] — instead of one
+    being a record and the other a record inside a variant. *)
+
+val open_sky : Sky.t -> ceiling
+(** Nothing overhead, and which {!Sky} shows instead: [Open sky]. *)
 
 type t = private {
   walls : wall array;
@@ -346,6 +403,29 @@ type t = private {
 
     The arrays are not mutated. A room that changes is a room built again, and
     the functions below share everything they do not replace. *)
+
+(** {2 Reading a room's bounds}
+
+    A floor is always a {!type-surface} and a ceiling only sometimes is, and a
+    field read that has to say so — [room.Room.floor.Room.plane], a [match] on
+    the ceiling — is longhand at every place that only wanted the plane. These
+    answer the common questions directly; exactly one of {!ceiling_surface} and
+    {!sky} answers [Some] for any room. *)
+
+val floor_plane : t -> Plane.t
+(** The plane underfoot. *)
+
+val floor_material : t -> Material.t
+(** What the floor is made of. *)
+
+val ceiling_surface : t -> surface option
+(** The roof overhead — [None] under the open sky. *)
+
+val ceiling_plane : t -> Plane.t option
+(** The plane of the roof overhead — [None] under the open sky. *)
+
+val sky : t -> Sky.t option
+(** The sky this room is open to — [None] under a roof. *)
 
 (** {1 Building a room} *)
 
@@ -372,9 +452,9 @@ val threshold :
 
 val make :
   ?thresholds:threshold list ->
+  ?sprites:sprite list ->
   floor:surface ->
   ceiling:ceiling ->
-  ?sprites:sprite list ->
   wall list ->
   t
 (** Assemble a room from its parts: the [walls] of its boundary, the
@@ -474,7 +554,7 @@ val blocked : t -> Vec.t -> bool
     small disc of radius {!Config.collision_padding}, so it stops a little short
     of a wall rather than pressing its nose flat against it. *)
 
-val segments_cross : Vec.t -> Vec.t -> Vec.t -> Vec.t -> bool
+val segments_cross : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> bool
 (** Do the two segments [a1..a2] and [b1..b2] cross? Solved with the same cross
     product as {!Ray.cast}: the crossing exists when both parameters land in
     [0, 1].
@@ -484,12 +564,26 @@ val segments_cross : Vec.t -> Vec.t -> Vec.t -> Vec.t -> bool
     — which counts as a crossing just as much. Those are settled separately, by
     projecting [b1..b2] onto [a1..a2] and asking whether the two spans meet. *)
 
-val distance_between_segments : Vec.t -> Vec.t -> Vec.t -> Vec.t -> float
+val distance_between_segments :
+  a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> float
 (** Shortest distance between the segments [a1..a2] and [b1..b2]. Segments that
     cross are no distance apart at all; for two that miss, the closest pair of
     points must include an endpoint of one of them — slide along either segment
     away from an interior closest point and the distance would keep falling — so
     the four endpoint-to-segment distances cover every remaining case. *)
+
+val nearest_threshold :
+  ?within:float -> ?where:(threshold -> bool) -> t -> Vec.t -> int option
+(** The index of the threshold whose midpoint is nearest the point — among those
+    [where] admits, which is all of them unless said, and no farther than
+    [within] cells away, which is any distance unless said. [None] in a room
+    with no threshold that qualifies.
+
+    This is what "press the key at the door in front of you" is made of:
+    [nearest_threshold ~within:reach ~where:(fun t -> t.door <> None) room pos].
+    Nearest-wins rather than what-you-are-looking-at, because a player standing
+    at a door is usually working it, wherever the crosshair drifted; the index
+    is the one {!World.set_door} takes. *)
 
 val passable : t -> from:Vec.t -> dest:Vec.t -> bool
 (** May the player step from [from] to [dest]? The player is a disc of radius
@@ -507,6 +601,19 @@ val passable : t -> from:Vec.t -> dest:Vec.t -> bool
     Walls in the shapes rooms are usually made of. Each returns plain
     {!type-wall}s, so a room built this way is no different from one written out
     segment by segment. *)
+
+val rectangle :
+  height:float -> material:Material.t -> Vec.t -> Vec.t -> wall list
+(** The four walls of the axis-aligned rectangle with these two opposite corners
+    — the single most common room there is, which every demo used to open by
+    naming four corners and a winding. The walls come out wound
+    counter-clockwise whichever two opposite corners are given, so the one
+    authoring mistake a box invites cannot be made through here.
+
+    @raise Invalid_argument
+      if the corners do not span an area in both axes — a flat rectangle has
+      walls of no length, whose normals could not be computed. Negated, so a
+      [nan] coordinate is refused with it. *)
 
 val path :
   ?closed:bool -> height:float -> material:Material.t -> Vec.t list -> wall list

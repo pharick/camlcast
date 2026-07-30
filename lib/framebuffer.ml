@@ -34,7 +34,7 @@ let buffer ~width ~height =
     height;
   }
 
-let create sdl ~width ~height =
+let make sdl ~width ~height =
   let+ texture =
     Sdl.create_texture sdl pixel_format Sdl.Texture.access_streaming ~w:width
       ~h:height
@@ -53,11 +53,11 @@ let set t ~x ~y ~r ~g ~b =
   Bigarray.Array1.unsafe_set p (base + 2) r;
   Bigarray.Array1.unsafe_set p (base + 3) 255
 
-let blend t ~x ~y ~r ~g ~b ~a =
+let blend t ~x ~y ~r ~g ~b ~alpha =
   let base = ((y * t.width) + x) * 4 in
   let p = t.pixels in
-  let inv = 255 - a in
-  let mix dst src = ((src * a) + (dst * inv)) / 255 in
+  let inv = 255 - alpha in
+  let mix dst src = ((src * alpha) + (dst * inv)) / 255 in
   Bigarray.Array1.unsafe_set p base (mix (Bigarray.Array1.unsafe_get p base) b);
   Bigarray.Array1.unsafe_set p (base + 1)
     (mix (Bigarray.Array1.unsafe_get p (base + 1)) g);

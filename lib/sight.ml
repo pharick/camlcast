@@ -72,7 +72,7 @@ type candidate = Met of Ray.step | Billboard of int
 let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
   let here = World.room world room in
   let origin = pose.Player.pos and direction = pose.Player.dir in
-  let floor_at point = Plane.elevation here.Room.floor.Room.plane point in
+  let floor_at point = Plane.elevation (Room.floor_plane here) point in
   (* The height of the crosshair at a distance, and the point it is over.
 
      Nothing is accumulated across a doorway, and nothing needs to be. A link is
@@ -207,7 +207,7 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
 let look ?(through = 1) world (player : Player.t) =
   let here = World.room world player.Player.room in
   let eye_z =
-    Plane.elevation here.Room.floor.Room.plane player.Player.pos
+    Plane.elevation (Room.floor_plane here) player.Player.pos
     +. Config.eye_height
   in
   trace world ~room:player.Player.room ~pose:player

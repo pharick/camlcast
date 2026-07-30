@@ -7,14 +7,14 @@ open Support
 let walk world player ~forward ~strafe =
   (Player.traverse world player ~forward ~strafe).Player.player
 
-let facing_east ?(pos = centre) () = Player.create ~room:0 ~pos ~angle:0.
+let facing_east ?(pos = centre) () = Player.make ~room:0 ~pos ~angle:0.
 
 (* Viewport builds every ray as [dir + right * k]. That is only correct while
    both are unit vectors and they stay perpendicular. *)
 let camera_basis () =
   List.iter
     (fun angle ->
-      let p = Player.create ~room:0 ~pos:centre ~angle in
+      let p = Player.make ~room:0 ~pos:centre ~angle in
       Alcotest.check close "dir is a unit vector" 1. (Vec.length p.Player.dir);
       Alcotest.check close "right is a unit vector" 1.
         (Vec.length p.Player.right);
@@ -115,7 +115,7 @@ let a_blocked_axis_does_not_block_the_other () =
    vouch for where it goes — and what it would otherwise finish inside is the low
    wall standing just inside the second. *)
 let a_diagonal_through_a_doorway_lands_clear () =
-  let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.2) ~angle:0. in
+  let start = Player.make ~room:0 ~pos:(Vec.make 3.8 2.2) ~angle:0. in
   let moved = walk two_rooms start ~forward:0.5 ~strafe:0.3 in
   Alcotest.(check int) "ends up in the second room" 1 moved.Player.room;
   Alcotest.(check bool)
@@ -130,8 +130,18 @@ let spawn_uses_the_world () =
   Alcotest.check vec "spawn point" (World.spawn two_rooms).World.pos
     (Player.spawn two_rooms).Player.pos
 
+(* The initial facing used to be a hardcoded zero; now it is spawn's to take
+   and the player's to choose. Facing 0. stays the default, so a game that
+   never says one starts exactly as it always did. *)
+let spawn_faces_where_it_is_told () =
+  Alcotest.check vec "the default faces along +x" (Vec.of_angle 0.)
+    (Player.spawn two_rooms).Player.dir;
+  let angle = Float.pi /. 2. in
+  Alcotest.check vec "an angle is faced on Vec.of_angle's reckoning"
+    (Vec.of_angle angle) (Player.spawn ~angle two_rooms).Player.dir
+
 let walking_through_a_doorway () =
-  let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
+  let start = Player.make ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
   let crossed = walk two_rooms start ~forward:0.4 ~strafe:0. in
   Alcotest.(check int) "room changes" 1 crossed.room;
   Alcotest.check vec "lands inside" (Vec.make 0.2 2.) crossed.pos;
@@ -144,7 +154,7 @@ let walking_through_a_doorway () =
    it started in. The two portals of a link carry a transform and its inverse,
    so anything else means the pair has drifted apart. *)
 let walking_through_and_back_returns_you () =
-  let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
+  let start = Player.make ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
   let there = walk two_rooms start ~forward:0.4 ~strafe:0. in
   Alcotest.(check int) "through" 1 there.Player.room;
   let back = walk two_rooms there ~forward:(-0.4) ~strafe:0. in
@@ -157,7 +167,7 @@ let walking_through_and_back_returns_you () =
    crosses the threshold's line but finishes on the side it started, so it must
    not be counted as going through. *)
 let rounding_a_jamb_is_not_a_crossing () =
-  let player = Player.create ~room:0 ~pos:(Vec.make 3.9 1.9) ~angle:0. in
+  let player = Player.make ~room:0 ~pos:(Vec.make 3.9 1.9) ~angle:0. in
   let moved = walk two_rooms player ~forward:0. ~strafe:0.1 in
   Alcotest.(check int) "still in the first room" 0 moved.Player.room
 
@@ -168,7 +178,7 @@ let rounding_a_jamb_is_not_a_crossing () =
    it has seen, and keeping a route home it can walk backwards — so the order
    and the identities have to be exact, not merely the count. *)
 
-let at world ~room ~pos = Player.create ~room ~pos ~angle:0.
+let at world ~room ~pos = Player.make ~room ~pos ~angle:0.
 
 (* Most frames go through no doorway at all, and the list has to be empty rather
    than approximately empty. *)
@@ -319,7 +329,7 @@ let a_crossing_does_not_double_back_however_the_rooms_meet () =
   List.iter
     (fun radians ->
       let world = angled radians in
-      let start = Player.create ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
+      let start = Player.make ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in
       let moved = Player.slide world start (Vec.make 0.4 0.) in
       Alcotest.(check int)
         (Printf.sprintf "one crossing at %.3g radians" radians)
@@ -466,6 +476,7 @@ let () =
           case "turning does not move the player"
             turning_does_not_move_the_player;
           case "spawn uses the world" spawn_uses_the_world;
+          case "spawn faces where it is told" spawn_faces_where_it_is_told;
         ] );
       ( "movement",
         [

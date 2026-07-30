@@ -13,9 +13,11 @@
     game, the same way a {!Material} does.
 
     Two conventions hold throughout. Coordinates are framebuffer pixels from a
-    top-left origin, with [y] growing downwards; and [r], [g] and [b] are
-    channels out of 255, passed loose rather than as a {!Color.t} because these
-    are the calls in an overlay's inner loop. Everything is clipped, so a shape
+    top-left origin, with [y] growing downwards; and colour arrives as a
+    {!Color.t}, since a shape is one colour and its caller usually has the value
+    already. (The loose [~r ~g ~b] spelling lives on in {!Framebuffer.set} and
+    {!Framebuffer.blend}, the per-pixel calls these clip for, where a record per
+    pixel would be paid in the inner loop.) Everything is clipped, so a shape
     that falls partly or wholly outside the buffer draws what fits and no more,
     without raising. *)
 
@@ -25,9 +27,7 @@ val rect :
   y:int ->
   w:int ->
   h:int ->
-  r:int ->
-  g:int ->
-  b:int ->
+  color:Color.t ->
   alpha:int ->
   unit
 (** A filled rectangle [w] by [h] pixels with its top-left corner at [(x, y)].
@@ -76,13 +76,11 @@ val bar :
   w:int ->
   h:int ->
   fraction:float ->
-  r:int ->
-  g:int ->
-  b:int ->
+  color:Color.t ->
   unit
 (** A meter [fraction] full, in a box [w] by [h] with its top-left corner at
-    [(x, y)]: a dark trough with a bright fill over it in [r], [g], [b]. The
-    fill grows rightwards from the left edge.
+    [(x, y)]: a dark trough with a bright fill over it in [color]. The fill
+    grows rightwards from the left edge.
 
     [fraction] is clamped to 0 .. 1, so a meter cannot overrun its box however
     it is arrived at. The trough is drawn one pixel proud on every side, so this
@@ -90,15 +88,7 @@ val bar :
     that much room around it. *)
 
 val line :
-  Framebuffer.t ->
-  x0:int ->
-  y0:int ->
-  x1:int ->
-  y1:int ->
-  r:int ->
-  g:int ->
-  b:int ->
-  unit
+  Framebuffer.t -> x0:int -> y0:int -> x1:int -> y1:int -> color:Color.t -> unit
 (** A line from [(x0, y0)] to [(x1, y1)], both ends included, walked in whole
     pixels. Two identical endpoints draw the single pixel there. Good enough to
     draw round something with; it is not what draws the something.
@@ -110,13 +100,13 @@ val line :
     projected coordinates needs — those divide by distance, and something close
     to the eye projects to a shape millions of pixels across. *)
 
-val ring : Framebuffer.t -> (int * int) list -> r:int -> g:int -> b:int -> unit
+val ring : Framebuffer.t -> (int * int) list -> color:Color.t -> unit
 (** The outline of a shape given as its corners in order, each an [(x, y)],
     joined up and closed back to the first. A rectangle on the screen and a
     decal's trapezoid are both this. No corners draws nothing and one corner
     draws that pixel, so neither is a case to guard against. *)
 
-val crosshair : Framebuffer.t -> r:int -> g:int -> b:int -> unit
+val crosshair : Framebuffer.t -> color:Color.t -> unit
 (** A cross of two eleven-pixel arms in the middle of the buffer, wherever the
     window has been resized to: the overlay is drawn in the buffer's own
     coordinates, and it changes size with the window. Takes no position — the

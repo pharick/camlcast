@@ -19,12 +19,6 @@ open Camlcast
 
 let height = 5.
 
-(* The transform a link will be given, exactly as {!Camlcast.World.make} is
-   about to derive it, so a floor can be carried across a doorway before the
-   world that joins the two rooms exists. *)
-let across (a : Room.threshold) (b : Room.threshold) =
-  Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
-
 let world =
   (* The hall runs east and climbs as it goes. *)
   let hall_sw = Vec.make 0. (-5.)
@@ -45,15 +39,14 @@ let world =
   let hall_floor = Plane.make ~a:0.11 ~b:0. ~c:0. in
   let hall_roof = Plane.make ~a:0.17 ~b:0. ~c:height in
   (* Both surfaces carried through the doorway rather than restated. *)
-  let onward = across hall_onward up_back in
+  let onward = Room.across hall_onward up_back in
   let up_floor = Plane.through onward hall_floor
   and up_roof = Plane.through onward hall_roof in
   let stone a b = Room.wall ~height ~material:Surfaces.stone a b in
   let hall =
     Room.make ~thresholds:[ hall_onward ]
-      ~floor:{ Room.plane = hall_floor; material = Surfaces.ground }
-      ~ceiling:
-        (Room.Roof { Room.plane = hall_roof; material = Surfaces.soffit })
+      ~floor:(Room.floor ~plane:hall_floor ~material:Surfaces.ground)
+      ~ceiling:(Room.roof ~plane:hall_roof ~material:Surfaces.soffit)
       ~sprites:
         [
           (* Standing on the slope: a sprite's feet are on the floor wherever
@@ -66,8 +59,8 @@ let world =
       )
   and upper =
     Room.make ~thresholds:[ up_back ]
-      ~floor:{ Room.plane = up_floor; material = Surfaces.ground }
-      ~ceiling:(Room.Roof { Room.plane = up_roof; material = Surfaces.soffit })
+      ~floor:(Room.floor ~plane:up_floor ~material:Surfaces.ground)
+      ~ceiling:(Room.roof ~plane:up_roof ~material:Surfaces.soffit)
       ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]
       (up_jambs @ [ stone up_sw up_se; stone up_se up_ne; stone up_ne up_nw ])
   in

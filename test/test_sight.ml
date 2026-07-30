@@ -20,12 +20,11 @@ let rooms ?door ?lintel ?(bare = false) ?(near = []) ?(far = []) () =
      put back afterwards rather than asked for. [bare] takes the strip away
      altogether, which {!Room.doorway} has no way to ask for at all. *)
   let over (t : Room.threshold) =
-    if bare then { t with Room.lintel = None }
+    if bare then Room.with_lintel t None
     else
       match lintel with
       | None -> t
-      | Some material ->
-          { t with Room.lintel = Some { Room.top = 3.; material } }
+      | Some material -> Room.with_lintel t (Some { Room.top = 3.; material })
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
@@ -63,7 +62,7 @@ let rooms ?door ?lintel ?(bare = false) ?(near = []) ?(far = []) () =
    second room's own copy of the doorway is at x = 0 there, so something at
    (2, 2) in it is two cells beyond the threshold. *)
 let looking_east ?(pitch = 0.) ?(from = centre) () =
-  let p = Player.create ~room:0 ~pos:from ~angle:0. in
+  let p = Player.make ~room:0 ~pos:from ~angle:0. in
   Player.pitch_by p ~radians:pitch
 
 let describe = function
@@ -89,7 +88,7 @@ let is what got = Alcotest.(check string) "" what (describe got)
    this is also what keeps what can be picked the same as what is drawn. *)
 let a_sprite_is_read_across_by_its_width () =
   let split =
-    Image.make ~height:12 16 (fun ~u ~v:_ ->
+    Image.make ~height:12 ~width:16 (fun ~u ~v:_ ->
         if u < 8 then Image.clear else (Color.rgb 200 60 60, 255))
   in
   let world =
@@ -304,7 +303,7 @@ let a_see_through_wall_does_not_occlude () =
 let the_wrong_angle_misses () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
   let turned radians =
-    Player.turn (Player.create ~room:0 ~pos:centre ~angle:0.) ~radians
+    Player.turn (Player.make ~room:0 ~pos:centre ~angle:0.) ~radians
   in
   is "wall 3 of room 0" (Sight.look world (turned 1.6));
   (* Level, but aimed at the jamb above the opening rather than through it. *)
@@ -406,14 +405,14 @@ let a_decal_on_a_wall_is_named () =
   (* Level, straight at the middle of the picture, which is hung at eye height. *)
   Alcotest.(check (option int))
     "the picture the crosshair is on" (Some 0)
-    (decal_under (Player.create ~room:0 ~pos:centre ~angle:0.));
+    (decal_under (Player.make ~room:0 ~pos:centre ~angle:0.));
   (* The same wall, a foot to one side of the frame: wall, and no picture. *)
   Alcotest.(check (option int))
     "beside it is bare wall" None
-    (decal_under (Player.create ~room:0 ~pos:(Vec.make 2. 0.8) ~angle:0.));
+    (decal_under (Player.make ~room:0 ~pos:(Vec.make 2. 0.8) ~angle:0.));
   (* And the wall is still what was hit, picture or no picture. *)
   is "wall 0 of room 0"
-    (Sight.look world (Player.create ~room:0 ~pos:centre ~angle:0.))
+    (Sight.look world (Player.make ~room:0 ~pos:centre ~angle:0.))
 
 (* A mark on a wall you can see through is drawn, so it can be picked.
    [Renderer.draw_wall] runs its decal loop outside the test on the wall's own
@@ -477,9 +476,11 @@ let a_decal_on_a_see_through_wall_is_picked () =
 let a_wall_can_be_marked_where_the_crosshair_is () =
   let world = rooms () in
   let aim =
-    Player.create ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.)
+    Player.make ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.)
   in
-  let mark = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255)) in
+  let mark =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255))
+  in
   match Sight.look world aim with
   | Some { Sight.kind = Sight.Wall w; room; _ } ->
       Alcotest.(check (option int)) "bare wall to begin with" None w.decal;
@@ -519,7 +520,7 @@ let a_target_can_be_found_on_the_screen () =
   | Some { Sight.kind = Sight.Sprite s; room; pose; distance; crossed } ->
       Alcotest.(check int) "in the room next door" 1 crossed;
       let viewport =
-        Viewport.create ~pitch:0.
+        Viewport.make ~pitch:0.
           ~eye_z:
             (Plane.elevation flat_floor.Room.plane centre +. Config.eye_height)
           ~width:640 ~height:400

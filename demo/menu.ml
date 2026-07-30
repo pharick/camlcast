@@ -32,10 +32,9 @@ let backdrop =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
   World.make
@@ -109,7 +108,7 @@ let overlay font fb state =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let line = font.Font.height + 2 in
   let margin = line in
-  Paint.rect fb ~x:0 ~y:0 ~w:width ~h:height ~r:0 ~g:0 ~b:0 ~alpha:170;
+  Paint.rect fb ~x:0 ~y:0 ~w:width ~h:height ~color:(Color.rgb 0 0 0) ~alpha:170;
   let ink = Color.rgb 200 200 200 in
   let bright = Color.rgb 255 255 255 in
   let dim = Color.rgb 140 140 140 in
@@ -128,8 +127,8 @@ let overlay font fb state =
     let y = top + (row * line) in
     let here = index = state.selected in
     if here then
-      Paint.rect fb ~x:(margin / 2) ~y:(y - 1) ~w:(width - margin) ~h:line ~r:70
-        ~g:90 ~b:120 ~alpha:220;
+      Paint.rect fb ~x:(margin / 2) ~y:(y - 1) ~w:(width - margin) ~h:line
+        ~color:(Color.rgb 70 90 120) ~alpha:220;
     Font.draw fb font
       (Printf.sprintf "%-9s %s" demo.Catalogue.name demo.Catalogue.blurb)
       ~x:margin ~y
@@ -156,9 +155,11 @@ let overlay font fb state =
 let choose ?from window =
   let* font = Typeface.load () in
   let+ state, ending =
-    Engine.run window ~update ~view ~overlay:(overlay font)
-      ~finished:(fun state -> state.chosen <> None)
-      ~bindings:Bindings.escapable (start_on from)
+    Engine.run window
+      (Engine.game ~update ~view ~overlay:(overlay font)
+         ~finished:(fun state -> state.chosen <> None)
+         ~bindings:Bindings.escapable ())
+      (start_on from)
   in
   match ending with
   | Engine.Closed -> None

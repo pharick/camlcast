@@ -84,10 +84,11 @@ val room : t -> int -> Room.t
 (** [room world i] is the room at that index. Indices come back from
     {!Sight.look}, from a {!type-portal}'s [to_room], and from {!add_room}. *)
 
-val rooms : t -> int
-(** How many rooms there are; the indices run [0] to [rooms world - 1].
+val room_count : t -> int
+(** How many rooms there are; the indices run [0] to [room_count world - 1].
     {!add_room} appends and never inserts, so an index a frame is holding stays
-    the room it named. *)
+    the room it named. A count and named as one — the rooms themselves are read
+    one at a time through {!val-room}. *)
 
 val name : t -> int -> string
 (** What the room at that index was authored as — the name it was given in
@@ -99,10 +100,10 @@ val named : t -> string -> int option
     authored a room as ["cellar"] and wants to say something about it later asks
     here rather than remembering which index it came out as. *)
 
-val doorways : t -> int -> int
-(** How many doorways the room at that index has — the same count as its own
-    thresholds, which is the invariant — and so the range to read {!val-portal}
-    over. *)
+val doorway_count : t -> room:int -> int
+(** How many doorways that room has — the same count as its own thresholds,
+    which is the invariant — and so the range to read {!val-portal} over. The
+    index is labelled as {!val-portal}'s and {!set_door}'s is. *)
 
 val portal : t -> room:int -> threshold:int -> portal option
 (** The link behind one doorway, by the threshold index a ray reports. [None] is

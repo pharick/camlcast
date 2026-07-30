@@ -34,7 +34,7 @@ let a_fresh_buffer_is_black () =
 
 let a_rectangle_fills_what_it_covers () =
   let fb = buffer () in
-  Paint.rect fb ~x:2 ~y:3 ~w:3 ~h:2 ~r:255 ~g:255 ~b:255 ~alpha:255;
+  Paint.rect fb ~x:2 ~y:3 ~w:3 ~h:2 ~color:(Color.rgb 255 255 255) ~alpha:255;
   Alcotest.check color "the first pixel" white (Framebuffer.pixel fb ~x:2 ~y:3);
   Alcotest.check color "the last" white (Framebuffer.pixel fb ~x:4 ~y:4);
   Alcotest.check color "one before it is untouched" black
@@ -50,21 +50,24 @@ let a_rectangle_is_clipped_to_the_buffer () =
   (* Written out rather than looped, because each edge fails differently and the
      pixel worth checking afterwards is different for each. *)
   let over_left = buffer () in
-  Paint.rect over_left ~x:(-3) ~y:2 ~w:5 ~h:2 ~r:255 ~g:255 ~b:255 ~alpha:255;
+  Paint.rect over_left ~x:(-3) ~y:2 ~w:5 ~h:2 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the left: the visible part" white
     (Framebuffer.pixel over_left ~x:0 ~y:2);
   Alcotest.check color "off the left: and it stops where it should" black
     (Framebuffer.pixel over_left ~x:2 ~y:2);
 
   let over_top = buffer () in
-  Paint.rect over_top ~x:2 ~y:(-3) ~w:2 ~h:5 ~r:255 ~g:255 ~b:255 ~alpha:255;
+  Paint.rect over_top ~x:2 ~y:(-3) ~w:2 ~h:5 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the top: the visible part" white
     (Framebuffer.pixel over_top ~x:2 ~y:0);
   Alcotest.check color "off the top: and it stops" black
     (Framebuffer.pixel over_top ~x:2 ~y:2);
 
   let over_right = buffer () in
-  Paint.rect over_right ~x:8 ~y:2 ~w:5 ~h:2 ~r:255 ~g:255 ~b:255 ~alpha:255;
+  Paint.rect over_right ~x:8 ~y:2 ~w:5 ~h:2 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the right: the last column is drawn" white
     (Framebuffer.pixel over_right ~x:9 ~y:2);
   (* If the clip were missing, the overflow would land at the start of the next
@@ -74,13 +77,14 @@ let a_rectangle_is_clipped_to_the_buffer () =
     (Framebuffer.pixel over_right ~x:0 ~y:3);
 
   let over_bottom = buffer () in
-  Paint.rect over_bottom ~x:2 ~y:6 ~w:2 ~h:5 ~r:255 ~g:255 ~b:255 ~alpha:255;
+  Paint.rect over_bottom ~x:2 ~y:6 ~w:2 ~h:5 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the bottom: the last row is drawn" white
     (Framebuffer.pixel over_bottom ~x:2 ~y:7);
 
   let over_corner = buffer () in
-  Paint.rect over_corner ~x:(-2) ~y:(-2) ~w:4 ~h:4 ~r:255 ~g:255 ~b:255
-    ~alpha:255;
+  Paint.rect over_corner ~x:(-2) ~y:(-2) ~w:4 ~h:4
+    ~color:(Color.rgb 255 255 255) ~alpha:255;
   Alcotest.check color "off a corner: the quarter that shows" white
     (Framebuffer.pixel over_corner ~x:0 ~y:0);
   Alcotest.check color "off a corner: and no more" black
@@ -90,7 +94,7 @@ let a_rectangle_entirely_off_the_buffer_draws_nothing () =
   List.iter
     (fun (name, x, y) ->
       let fb = buffer () in
-      Paint.rect fb ~x ~y ~w:3 ~h:3 ~r:255 ~g:255 ~b:255 ~alpha:255;
+      Paint.rect fb ~x ~y ~w:3 ~h:3 ~color:(Color.rgb 255 255 255) ~alpha:255;
       for py = 0 to 7 do
         for px = 0 to 9 do
           Alcotest.check color
@@ -110,8 +114,8 @@ let a_rectangle_entirely_off_the_buffer_draws_nothing () =
    which is what lets a panel tint the world behind it instead of hiding it. *)
 let alpha_blends_with_what_is_underneath () =
   let fb = buffer () in
-  Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~r:200 ~g:100 ~b:0 ~alpha:255;
-  Paint.rect fb ~x:0 ~y:0 ~w:2 ~h:2 ~r:0 ~g:0 ~b:200 ~alpha:128;
+  Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~color:(Color.rgb 200 100 0) ~alpha:255;
+  Paint.rect fb ~x:0 ~y:0 ~w:2 ~h:2 ~color:(Color.rgb 0 0 200) ~alpha:128;
   (* (src * a + dst * (255 - a)) / 255, with a = 128. *)
   let mix dst src = ((src * 128) + (dst * 127)) / 255 in
   Alcotest.check color "half of each"
@@ -121,7 +125,7 @@ let alpha_blends_with_what_is_underneath () =
     (Color.rgb 200 100 0)
     (Framebuffer.pixel fb ~x:3 ~y:3);
   (* Fully transparent leaves the pixel exactly alone. *)
-  Paint.rect fb ~x:3 ~y:3 ~w:1 ~h:1 ~r:0 ~g:255 ~b:0 ~alpha:0;
+  Paint.rect fb ~x:3 ~y:3 ~w:1 ~h:1 ~color:(Color.rgb 0 255 0) ~alpha:0;
   Alcotest.check color "alpha 0 changes nothing" (Color.rgb 200 100 0)
     (Framebuffer.pixel fb ~x:3 ~y:3)
 
@@ -129,10 +133,10 @@ let alpha_blends_with_what_is_underneath () =
    under it rather than stamping a rectangle of paint. *)
 let an_image_keeps_its_own_transparency () =
   let fb = buffer () in
-  Paint.rect fb ~x:0 ~y:0 ~w:10 ~h:8 ~r:40 ~g:40 ~b:40 ~alpha:255;
+  Paint.rect fb ~x:0 ~y:0 ~w:10 ~h:8 ~color:(Color.rgb 40 40 40) ~alpha:255;
   (* Solid on the left half, clear on the right. *)
   let img =
-    Image.make ~height:2 4 (fun ~u ~v:_ ->
+    Image.make ~height:2 ~width:4 (fun ~u ~v:_ ->
         if u < 2 then (Color.rgb 255 0 0, 255) else Image.clear)
   in
   Paint.image fb img ~x:1 ~y:1;
@@ -149,7 +153,7 @@ let a_sub_rectangle_takes_what_it_was_asked_for () =
   (* Each pixel's red channel is its own column, so what lands says where it
      came from. *)
   let img =
-    Image.make ~height:4 8 (fun ~u ~v:_ -> (Color.rgb (u * 10) 0 0, 255))
+    Image.make ~height:4 ~width:8 (fun ~u ~v:_ -> (Color.rgb (u * 10) 0 0, 255))
   in
   let fb = buffer () in
   Paint.sub fb img ~x:0 ~y:0 ~sx:3 ~sy:1 ~sw:2 ~sh:2;
@@ -186,7 +190,7 @@ let a_sub_rectangle_before_the_picture_is_clipped_too () =
      the first of either is not black and cannot be mistaken for a pixel that
      was never drawn. *)
   let img =
-    Image.make ~height:4 8 (fun ~u ~v ->
+    Image.make ~height:4 ~width:8 (fun ~u ~v ->
         (Color.rgb ((u + 1) * 10) ((v + 1) * 10) 0, 255))
   in
   let fb = buffer () in
@@ -221,12 +225,16 @@ let a_sub_rectangle_before_the_picture_is_clipped_too () =
 
 let a_tint_multiplies_the_picture () =
   let fb = buffer () in
-  let img = Image.make 2 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let img =
+    Image.make ~width:2 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   Paint.image ~tint:(Color.rgb 100 200 50) fb img ~x:0 ~y:0;
   Alcotest.check color "white takes the tint exactly" (Color.rgb 100 200 50)
     (Framebuffer.pixel fb ~x:0 ~y:0);
   let fb = buffer () in
-  let half = Image.make 2 (fun ~u:_ ~v:_ -> (Color.rgb 128 128 128, 255)) in
+  let half =
+    Image.make ~width:2 (fun ~u:_ ~v:_ -> (Color.rgb 128 128 128, 255))
+  in
   Paint.image ~tint:(Color.rgb 200 200 200) fb half ~x:0 ~y:0;
   Alcotest.check color "and a grey halves it"
     (Color.rgb (128 * 200 / 255) (128 * 200 / 255) (128 * 200 / 255))
@@ -236,7 +244,7 @@ let a_tint_multiplies_the_picture () =
    that leaves the buffer draws the part that did not. *)
 let a_line_is_clipped_too () =
   let fb = buffer () in
-  Paint.line fb ~x0:0 ~y0:0 ~x1:20 ~y1:0 ~r:255 ~g:255 ~b:255;
+  Paint.line fb ~x0:0 ~y0:0 ~x1:20 ~y1:0 ~color:(Color.rgb 255 255 255);
   Alcotest.check color "the start" white (Framebuffer.pixel fb ~x:0 ~y:0);
   Alcotest.check color "the last pixel on the buffer" white
     (Framebuffer.pixel fb ~x:9 ~y:0);
@@ -254,7 +262,8 @@ let a_line_is_clipped_too () =
    screen. Without that it is a thousand million iterations. *)
 let a_line_from_far_off_the_buffer_is_still_cheap () =
   let fb = buffer () in
-  Paint.line fb ~x0:0 ~y0:0 ~x1:1_000_000_000 ~y1:0 ~r:255 ~g:255 ~b:255;
+  Paint.line fb ~x0:0 ~y0:0 ~x1:1_000_000_000 ~y1:0
+    ~color:(Color.rgb 255 255 255);
   Alcotest.check color "the start" white (Framebuffer.pixel fb ~x:0 ~y:0);
   Alcotest.check color "the last pixel on the buffer" white
     (Framebuffer.pixel fb ~x:9 ~y:0);
@@ -266,7 +275,8 @@ let a_line_from_far_off_the_buffer_is_still_cheap () =
    rejected. A diagonal, so neither axis alone decides it. *)
 let a_line_passing_across_the_buffer_draws_the_crossing () =
   let fb = buffer () in
-  Paint.line fb ~x0:(-1000) ~y0:(-1000) ~x1:1000 ~y1:1000 ~r:255 ~g:255 ~b:255;
+  Paint.line fb ~x0:(-1000) ~y0:(-1000) ~x1:1000 ~y1:1000
+    ~color:(Color.rgb 255 255 255);
   Alcotest.check color "the corner it enters at" white
     (Framebuffer.pixel fb ~x:0 ~y:0);
   Alcotest.check color "and on down the diagonal" white
@@ -278,8 +288,8 @@ let a_line_passing_across_the_buffer_draws_the_crossing () =
    raising: the range the two axes leave is empty rather than reversed. *)
 let a_line_entirely_off_the_buffer_draws_nothing () =
   let fb = buffer () in
-  Paint.line fb ~x0:100 ~y0:0 ~x1:200 ~y1:0 ~r:255 ~g:255 ~b:255;
-  Paint.line fb ~x0:0 ~y0:50 ~x1:9 ~y1:50 ~r:255 ~g:255 ~b:255;
+  Paint.line fb ~x0:100 ~y0:0 ~x1:200 ~y1:0 ~color:(Color.rgb 255 255 255);
+  Paint.line fb ~x0:0 ~y0:50 ~x1:9 ~y1:50 ~color:(Color.rgb 255 255 255);
   Alcotest.check color "nothing arrived" black (Framebuffer.pixel fb ~x:0 ~y:0)
 
 (* The crosshair's own claim: two arms crossing on the pixel that holds the
@@ -289,7 +299,7 @@ let a_line_entirely_off_the_buffer_draws_nothing () =
    asserted nowhere. An odd buffer, so the middle is one pixel and not two. *)
 let a_crosshair_crosses_in_the_middle () =
   let fb = Framebuffer.offscreen ~width:9 ~height:7 in
-  Paint.crosshair fb ~r:255 ~g:255 ~b:255;
+  Paint.crosshair fb ~color:(Color.rgb 255 255 255);
   Alcotest.check color "the arms meet in the middle" white
     (Framebuffer.pixel fb ~x:4 ~y:3);
   Alcotest.check color "the horizontal arm reaches the left edge" white
@@ -307,7 +317,7 @@ let a_crosshair_crosses_in_the_middle () =
    minimised window is exactly this. *)
 let a_crosshair_survives_a_single_pixel () =
   let fb = Framebuffer.offscreen ~width:1 ~height:1 in
-  Paint.crosshair fb ~r:255 ~g:255 ~b:255;
+  Paint.crosshair fb ~color:(Color.rgb 255 255 255);
   Alcotest.check color "the one pixel is drawn" white
     (Framebuffer.pixel fb ~x:0 ~y:0)
 

@@ -28,7 +28,7 @@ let height = 100
    that change are the whole billboard and not a cut-out inside it. The colour
    is only ever compared against itself. *)
 let solid ?height w =
-  Image.make ?height w (fun ~u:_ ~v:_ -> (Color.rgb 255 0 255, 255))
+  Image.make ?height ~width:w (fun ~u:_ ~v:_ -> (Color.rgb 255 0 255, 255))
 
 let square = solid 16
 let wide = solid ~height:8 16
@@ -89,14 +89,13 @@ let alone ?floor ?extra sprites =
   (one (hall ?floor ?extra sprites), one (hall ?floor ?extra []))
 
 (** At the origin, looking east down the hall, level. *)
-let looking_east ?(pos = Vec.make 0. 0.) () =
-  Player.create ~room:0 ~pos ~angle:0.
+let looking_east ?(pos = Vec.make 0. 0.) () = Player.make ~room:0 ~pos ~angle:0.
 
 (** The viewport a frame of this size is drawn through, over a floor at
     [floor_z] — what {!Viewport.sprite_box} has to be asked with if its answer
     is to be comparable with what landed on the buffer. *)
 let viewport ~floor_z =
-  Viewport.create ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
+  Viewport.make ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
 
 (* The drawing half of the cutoff {!Sight} reads. A billboard is scaled by one
    over its distance, so near enough there is nothing left worth placing and the
@@ -246,7 +245,7 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
      (6, 2) of the second room's frame stands four cells straight ahead of a
      player at (2, 2) of the first — and, two and a half cells across, is wider
      than the opening it is seen through. *)
-  let looking = Player.create ~room:0 ~pos:centre ~angle:0. in
+  let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   let sprite = Room.sprite ~size:2.5 ~image:square (Vec.make 2. 2.) in
   let second = World.room two_rooms 1 in
   let with_it =
@@ -318,7 +317,7 @@ let roofed world material =
    Behind a solid leaf the same sprite is not drawn at all — the recursion never
    happens, which is the whole of why a closed door is cheap. *)
 let a_see_through_leaf_shows_the_room_behind () =
-  let looking = Player.create ~room:0 ~pos:centre ~angle:0. in
+  let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   let sprite = Room.sprite ~size:2.5 ~image:square (Vec.make 2. 2.) in
   let peopled world =
     World.replace_room world ~room:1
@@ -342,7 +341,7 @@ let a_see_through_lintel_shows_the_room_behind () =
      the top of the window entirely, and there is nothing to look through. *)
   let looking =
     Player.pitch_by
-      (Player.create ~room:0 ~pos:centre ~angle:0.)
+      (Player.make ~room:0 ~pos:centre ~angle:0.)
       ~radians:Config.max_pitch
   in
   let reaches world =
@@ -365,7 +364,7 @@ let a_see_through_lintel_shows_the_room_behind () =
 let a_bare_opening_does_not_show_the_room_above_it () =
   let looking =
     Player.pitch_by
-      (Player.create ~room:0 ~pos:centre ~angle:0.)
+      (Player.make ~room:0 ~pos:centre ~angle:0.)
       ~radians:Config.max_pitch
   in
   let reaches world =
@@ -389,7 +388,7 @@ let a_bare_opening_does_not_show_the_room_above_it () =
 let the_far_rooms_ceiling_begins_where_the_doorway_does () =
   let looking =
     Player.pitch_by
-      (Player.create ~room:0 ~pos:(Vec.make 0.3 2.) ~angle:0.)
+      (Player.make ~room:0 ~pos:(Vec.make 0.3 2.) ~angle:0.)
       ~radians:Config.max_pitch
   in
   let world = joined_rooms ~door:(Door.make dim) ~lintel:mesh () in
@@ -402,7 +401,7 @@ let the_far_rooms_ceiling_begins_where_the_doorway_does () =
      moves the expectation with the picture. *)
   let edge =
     Viewport.project_height
-      (Viewport.create ~pitch:Config.max_pitch ~eye_z:Config.eye_height ~width
+      (Viewport.make ~pitch:Config.max_pitch ~eye_z:Config.eye_height ~width
          ~height)
       ~z:3. ~distance:3.7
   in
@@ -432,7 +431,7 @@ let the_far_rooms_ceiling_begins_where_the_doorway_does () =
    fills the whole of the doorway's columns, being the first thing every one of
    those rays meets. *)
 let what_stands_in_front_of_a_doorway_is_not_drawn_through_it () =
-  let looking = Player.create ~room:0 ~pos:centre ~angle:0. in
+  let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   Alcotest.(check bool)
     "the wall in front of the doorway reaches no pixel" true
     (drawn ~with_it:(recessed ()) ~without:(recessed ~blind:false ()) looking
@@ -517,7 +516,7 @@ let a_sprite_behind_the_player_is_not_drawn () =
 let vivid =
   Atmosphere.make ~haze:(Color.rgb 40 220 255) ~fog_distance:12.
     ~min_brightness:0.05 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
-    ~directional:0.4
+    ~directional:0.4 ()
 
 (** The hall again, under air you can see the colour of. *)
 let hazy ?floor ?extra sprites =
@@ -601,7 +600,9 @@ let the_floor_fades_into_the_haze_towards_the_horizon () =
    colour and the whole picture moves towards the haze together. The same grey
    picture twice, near and far, read through its middle. *)
 let a_distant_sprite_fades_into_the_haze () =
-  let grey = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255)) in
+  let grey =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255))
+  in
   let at away =
     let s = Room.sprite ~size:1.6 ~image:grey (Vec.make away 0.) in
     Framebuffer.pixel
@@ -639,7 +640,7 @@ let orientation_dims_a_wall_rather_than_fogging_it () =
   in
   let facing angle =
     Framebuffer.pixel
-      (shot square_room (Player.create ~room:0 ~pos:centre ~angle))
+      (shot square_room (Player.make ~room:0 ~pos:centre ~angle))
       ~x:(width / 2) ~y:(height / 2)
   in
   (* South is nearly square-on to the light, east nearly edge-on to it. *)
@@ -671,7 +672,7 @@ let orientation_dims_a_wall_rather_than_fogging_it () =
    faces can be looked at without walking through anything, with a mark on one
    of them. *)
 
-let mark = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 0 255 255, 255))
+let mark = Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 0 255 255, 255))
 
 (* Standing at (5, -2) to (5, 2): the edge runs +y, so the normal — a quarter
    turn to its left — points at -x, and the origin is at its Front. *)
@@ -694,7 +695,7 @@ let marked facing =
 
 let bare = fst (alone ~extra:(partition []) [])
 let in_front () = looking_east ()
-let behind () = Player.create ~room:0 ~pos:(Vec.make 10. 0.) ~angle:Float.pi
+let behind () = Player.make ~room:0 ~pos:(Vec.make 10. 0.) ~angle:Float.pi
 
 let a_decal_is_drawn_on_the_face_it_is_on () =
   Alcotest.(check bool)
@@ -837,7 +838,9 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
    and what is left is the ratio of the two fog factors — once the air's own
    colour is taken back out of both readings, exactly as for the wall above. *)
 let a_decal_is_fogged_like_the_wall_it_is_on () =
-  let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let white =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let world = fst (alone []) in
   (* The hall's east wall is index 1, running from (12, -4); looking east from
      the axis hits it four along, at eye height. *)
@@ -879,7 +882,9 @@ let a_decal_is_fogged_like_the_wall_it_is_on () =
    out more as it does: the wall goes down twice — its own colour and the fog —
    where the mark goes down once. *)
 let a_decal_ignores_what_the_wall_is_made_of () =
-  let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let white =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let hung =
     Room.decal ~along:4. ~z:Config.eye_height ~half_width:1. ~half_height:1.
       white
@@ -935,10 +940,12 @@ let a_decal_ignores_what_the_wall_is_made_of () =
    cells and in air that fades over six, once as paint and once glowing. *)
 let close_air ~fog_distance =
   Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance ~min_brightness:0.05
-    ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6 ~directional:0.4
+    ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6 ~directional:0.4 ()
 
 let a_glowing_decal_keeps_its_own_light () =
-  let white = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+  let white =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let lit ~glow ~fog_distance =
     let world = fst (alone []) in
     let marked =
@@ -992,7 +999,7 @@ let a_glowing_decal_keeps_its_own_light () =
    uses: white plus haze saturates back to white, so a white mark cannot tell a
    mark that took no haze from one that took some and clipped. *)
 let a_glowing_decal_takes_none_of_the_haze () =
-  let red = Image.make 8 (fun ~u:_ ~v:_ -> (Color.rgb 200 0 0, 255)) in
+  let red = Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 200 0 0, 255)) in
   let lit ~glow =
     let world = hazy [] in
     let marked =

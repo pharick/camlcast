@@ -2,8 +2,10 @@ open Camlcast
 open Support
 
 let links_resolve () =
-  Alcotest.(check int) "two rooms" 2 (World.rooms two_rooms);
-  Alcotest.(check int) "one portal each way" 1 (World.doorways two_rooms 0);
+  Alcotest.(check int) "two rooms" 2 (World.room_count two_rooms);
+  Alcotest.(check int)
+    "one portal each way" 1
+    (World.doorway_count two_rooms ~room:0);
   Alcotest.(check int)
     "destination" 1 (portal two_rooms ~room:0 ~index:0).World.to_room;
   (* The renderer looks a portal up by the index a ray reports for the
@@ -16,7 +18,7 @@ let links_resolve () =
             "portals run parallel to thresholds" t.Room.name
             (portal two_rooms ~room ~index).World.threshold.Room.name)
         (World.room two_rooms room).Room.thresholds)
-    (List.init (World.rooms two_rooms) Fun.id)
+    (List.init (World.room_count two_rooms) Fun.id)
 
 (* Each room is authored in its own coordinates, both here occupying the same
    0..4 square, so a crossing is only meaningful once the transform has carried
@@ -129,7 +131,7 @@ let a_door_blocks_in_the_states_that_have_a_leaf () =
     (World.passable two_rooms_closed ~room:0 ~from:(Vec.make 2. 2.)
        ~dest:(Vec.make 2.5 2.));
   (* Walking is where the two meet: the step is refused, so the player stays. *)
-  let start = Player.create ~room:0 ~pos:(Vec.make 3.5 2.) ~angle:0. in
+  let start = Player.make ~room:0 ~pos:(Vec.make 3.5 2.) ~angle:0. in
   let moved = Player.traverse two_rooms_closed start ~forward:1. ~strafe:0. in
   Alcotest.(check int)
     "the player is still on this side of it" 0 moved.Player.player.Player.room;
@@ -479,10 +481,8 @@ let invalid_growth_is_refused () =
              (Room.make
                 ~thresholds:
                   [
-                    {
-                      (first.Room.thresholds.(0)) with
-                      Room.door = Some (Door.make pale);
-                    };
+                    Room.with_door first.Room.thresholds.(0)
+                      (Some (Door.make pale));
                     extra;
                   ]
                 ~floor:flat_floor ~ceiling:flat_ceiling
@@ -581,7 +581,7 @@ let a_door_takes_two_replacements () =
            ~thresholds:
              (List.map
                 (fun (x : Room.threshold) ->
-                  { x with Room.door = Some (Door.make pale) })
+                  Room.with_door x (Some (Door.make pale)))
                 (Array.to_list before.Room.thresholds))
            ~floor:before.Room.floor ~ceiling:before.Room.ceiling
            (Array.to_list before.Room.walls))
@@ -755,21 +755,22 @@ let changing_the_air_changes_nothing_else () =
   let thicker =
     Atmosphere.make ~haze:(Color.rgb 40 30 20) ~fog_distance:3.
       ~min_brightness:0.05 ~light:(Vec.make 0. (-1.)) ~ambient:0.2
-      ~directional:0.5
+      ~directional:0.5 ()
   in
   let after = World.with_atmosphere two_rooms thicker in
   Alcotest.check close "the new air is the one asked for" 3.
     (World.atmosphere after).Atmosphere.fog_distance;
   Alcotest.(check int)
-    "the rooms are as many as they were" (World.rooms two_rooms)
-    (World.rooms after);
+    "the rooms are as many as they were"
+    (World.room_count two_rooms)
+    (World.room_count after);
   List.iter
     (fun room ->
       Alcotest.(check bool)
         (Printf.sprintf "room %d is the very same room" room)
         true
         (World.room after room == World.room two_rooms room))
-    (List.init (World.rooms two_rooms) Fun.id);
+    (List.init (World.room_count two_rooms) Fun.id);
   Alcotest.(check bool)
     "and every doorway leads where it did" true
     (doorways after = doorways two_rooms);

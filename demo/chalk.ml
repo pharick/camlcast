@@ -105,7 +105,8 @@ let stroke ~x0 ~y0 ~x1 ~y1 ~width u v =
 let size = 24
 
 let drawn f =
-  Image.make size (fun ~u ~v -> if f u v then (chalk, 255) else Image.clear)
+  Image.make ~width:size (fun ~u ~v ->
+      if f u v then (chalk, 255) else Image.clear)
 
 (** An arrow: a shaft up the middle and two barbs off its head. *)
 let arrow =
@@ -192,10 +193,9 @@ let hall () =
   let wall material a b = Room.wall ~height ~material a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ onward ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     (jambs
     @ [
         wall Surfaces.stone hall_sw hall_se;
@@ -213,10 +213,9 @@ let hall () =
 
 let back =
   Room.make ~thresholds:[ back_here ]
-    ~floor:{ Room.plane = Plane.horizontal 0.; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.horizontal height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
     ~sprites:[ Room.sprite ~size:1.7 ~image:Pictures.figure (Vec.make 4. 0.) ]
     (back_jambs
     @ [
@@ -280,7 +279,7 @@ let air ~lamp =
     ~min_brightness:(0.05 +. (0.2 *. lamp))
     ~light:(Vec.make (-0.4) (-0.9))
     ~ambient:(0.3 +. (0.3 *. lamp))
-    ~directional:0.4
+    ~directional:0.4 ()
 
 (** The world as it stands: the hall built again, in air of this moment's
     brightness, then every mark put back onto it.
@@ -363,7 +362,7 @@ let overlay fb state =
     if can then (236, 233, 222)
     else match seen with Some _ -> (215, 165, 90) | None -> (150, 150, 155)
   in
-  Paint.crosshair fb ~r ~g ~b;
+  Paint.crosshair fb ~color:(Color.rgb r g b);
   let font = Lazy.force font in
   let pad = 6 in
   (* A word under the crosshair when there is something to be done about it. *)
@@ -385,7 +384,7 @@ let overlay fb state =
     ~y:(height - th - (3 * pad))
     ~w:(tw + (2 * pad))
     ~h:(th + (2 * pad))
-    ~r:12 ~g:14 ~b:22 ~alpha:190;
+    ~color:(Color.rgb 12 14 22) ~alpha:190;
   Font.draw fb font line ~x:(2 * pad)
     ~y:(height - th - (2 * pad))
     ~color:(Color.rgb 236 233 222);
@@ -402,6 +401,8 @@ let overlay fb state =
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view ~overlay ())
+      start
   in
   ending

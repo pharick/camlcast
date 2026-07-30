@@ -13,17 +13,17 @@ open Camlcast
 
 (** A small framed landscape: a wooden border around a sky, a sun and grass. *)
 let painting =
-  Image.make 32 (fun ~u ~v ->
+  Image.make ~width:32 (fun ~u ~v ->
       if u < 2 || u > 29 || v < 2 || v > 29 then (Color.rgb 38 26 14, 255)
       else if u < 4 || u > 27 || v < 4 || v > 27 then (Color.rgb 150 105 55, 255)
-      else if Image.disc ~cx:22. ~cy:11. ~r:3.5 u v then
+      else if Image.disc ~cx:22. ~cy:11. ~r:3.5 ~u ~v then
         (Color.rgb 245 225 120, 255)
       else if v < 18 then (Color.rgb 120 165 210, 255)
       else (Color.rgb 85 140 70, 255))
 
 (** A bold poster: a yellow ring on a red field, in a dark border. *)
 let poster =
-  Image.make 32 (fun ~u ~v ->
+  Image.make ~width:32 (fun ~u ~v ->
       if u < 2 || u > 29 || v < 2 || v > 29 then (Color.rgb 22 22 26, 255)
       else
         let du = float_of_int u -. 16. and dv = float_of_int v -. 16. in
@@ -36,7 +36,7 @@ let poster =
 (** A wooden barrel: a shaded cylinder with darker hoops, clear to either side.
 *)
 let barrel =
-  Image.make 32 (fun ~u ~v ->
+  Image.make ~width:32 (fun ~u ~v ->
       if u < 7 || u > 24 || v < 3 || v > 30 then Image.clear
       else
         let edge = (float_of_int u -. 16.) /. 9. in
@@ -87,7 +87,7 @@ let mote ~frame =
           1.2 +. (1.7 *. fraction 0.7320508076 k),
           0.4 +. (0.6 *. fraction 0.4142135624 k) ))
   in
-  Image.make ~height:mote_height mote_width (fun ~u ~v ->
+  Image.make ~height:mote_height ~width:mote_width (fun ~u ~v ->
       let x = float_of_int u +. 0.5 and y = float_of_int v +. 0.5 in
       (* The brightest speck covering this pixel, faded across most of its own
          radius rather than only at the rim. Sampling is nearest-neighbour, so a
@@ -119,8 +119,8 @@ let motes = Array.init mote_frames (fun frame -> mote ~frame)
 
 (** A standing figure: a head, a shirted torso with arms, and legs. *)
 let figure =
-  Image.make 32 (fun ~u ~v ->
-      if Image.disc ~cx:16. ~cy:7. ~r:4.5 u v then (Color.rgb 226 182 142, 255)
+  Image.make ~width:32 (fun ~u ~v ->
+      if Image.disc ~cx:16. ~cy:7. ~r:4.5 ~u ~v then (Color.rgb 226 182 142, 255)
       else if u >= 7 && u <= 25 && v >= 12 && v <= 15 then
         (Color.rgb 58 88 158, 255)
       else if u >= 10 && u <= 22 && v >= 11 && v <= 21 then

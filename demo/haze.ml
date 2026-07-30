@@ -23,15 +23,15 @@ let length = 90.
 let fog =
   Atmosphere.make ~haze:(Color.rgb 38 44 58) ~fog_distance:13.
     ~min_brightness:0.15 ~light:(Vec.make (-0.5) (-0.85)) ~ambient:0.35
-    ~directional:0.65
+    ~directional:0.65 ()
 
 let world =
-  (* The colonnade runs east, which is the way you are facing when you arrive. *)
-  let sw = Vec.make 0. (-6.)
-  and se = Vec.make length (-6.)
-  and ne = Vec.make length 6.
-  and nw = Vec.make 0. 6. in
-  let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
+  (* The colonnade runs east, which is the way you are facing when you
+     arrive. A plain box boundary, so the two corners say all of it. *)
+  let bounds =
+    Room.rectangle ~height ~material:Surfaces.stone (Vec.make 0. (-6.))
+      (Vec.make length 6.)
+  in
   let floor = Plane.horizontal 0. in
   let colonnade =
     List.concat
@@ -45,11 +45,10 @@ let world =
   in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
-      ([ wall sw se; wall se ne; wall ne nw; wall nw sw ] @ colonnade)
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
+      (bounds @ colonnade)
   in
   World.make
     ~rooms:[ ("colonnade", room) ]

@@ -4,12 +4,13 @@ let clipped (fb : Framebuffer.t) ~x ~y ~w ~h =
     Int.min fb.Framebuffer.width (x + w),
     Int.min fb.Framebuffer.height (y + h) )
 
-let rect fb ~x ~y ~w ~h ~r ~g ~b ~alpha =
+let rect fb ~x ~y ~w ~h ~color:(c : Color.t) ~alpha =
+  let r = c.Color.r and g = c.Color.g and b = c.Color.b in
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w ~h in
   for py = y0 to y1 - 1 do
     for px = x0 to x1 - 1 do
       if alpha >= 255 then Framebuffer.set fb ~x:px ~y:py ~r ~g ~b
-      else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~a:alpha
+      else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~alpha
     done
   done
 
@@ -40,7 +41,7 @@ let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
                 c.Color.b * t.Color.b / 255 )
         in
         if a >= 255 then Framebuffer.set fb ~x:px ~y:py ~r ~g ~b
-        else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~a
+        else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~alpha:a
       end
     done
   done
@@ -48,18 +49,19 @@ let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
 let image ?tint fb (img : Image.t) ~x ~y =
   sub ?tint fb img ~x ~y ~sx:0 ~sy:0 ~sw:img.Image.width ~sh:img.Image.height
 
-let bar fb ~x ~y ~w ~h ~fraction ~r ~g ~b =
-  rect fb ~x:(x - 1) ~y:(y - 1) ~w:(w + 2) ~h:(h + 2) ~r:0 ~g:0 ~b:0 ~alpha:140;
+let bar fb ~x ~y ~w ~h ~fraction ~color =
+  rect fb ~x:(x - 1) ~y:(y - 1) ~w:(w + 2) ~h:(h + 2) ~color:(Color.rgb 0 0 0)
+    ~alpha:140;
   let fraction = Float.max 0. (Float.min 1. fraction) in
   rect fb ~x ~y
     ~w:(int_of_float (fraction *. float_of_int w))
-    ~h ~r ~g ~b ~alpha:255
+    ~h ~color ~alpha:255
 
-let dot fb ~x ~y ~r ~g ~b = rect fb ~x ~y ~w:1 ~h:1 ~r ~g ~b ~alpha:255
+let dot fb ~x ~y ~color = rect fb ~x ~y ~w:1 ~h:1 ~color ~alpha:255
 
-let line fb ~x0 ~y0 ~x1 ~y1 ~r ~g ~b =
+let line fb ~x0 ~y0 ~x1 ~y1 ~color =
   let steps = Int.max (abs (x1 - x0)) (abs (y1 - y0)) in
-  if steps = 0 then dot fb ~x:x0 ~y:y0 ~r ~g ~b
+  if steps = 0 then dot fb ~x:x0 ~y:y0 ~color
   else
     let step from to_ i =
       from
@@ -99,19 +101,19 @@ let line fb ~x0 ~y0 ~x1 ~y1 ~r ~g ~b =
     with
     | Some (lo, hi), Some (lo', hi') ->
         for i = Int.max lo lo' to Int.min hi hi' do
-          dot fb ~x:(step x0 x1 i) ~y:(step y0 y1 i) ~r ~g ~b
+          dot fb ~x:(step x0 x1 i) ~y:(step y0 y1 i) ~color
         done
     | _ -> ()
 
-let ring fb corners ~r ~g ~b =
+let ring fb corners ~color =
   let corners = Array.of_list corners in
   let n = Array.length corners in
   for i = 0 to n - 1 do
     let x0, y0 = corners.(i) and x1, y1 = corners.((i + 1) mod n) in
-    line fb ~x0 ~y0 ~x1 ~y1 ~r ~g ~b
+    line fb ~x0 ~y0 ~x1 ~y1 ~color
   done
 
-let crosshair fb ~r ~g ~b =
+let crosshair fb ~color =
   let cx = fb.Framebuffer.width / 2 and cy = fb.Framebuffer.height / 2 in
-  rect fb ~x:(cx - 5) ~y:cy ~w:11 ~h:1 ~r ~g ~b ~alpha:255;
-  rect fb ~x:cx ~y:(cy - 5) ~w:1 ~h:11 ~r ~g ~b ~alpha:255
+  rect fb ~x:(cx - 5) ~y:cy ~w:11 ~h:1 ~color ~alpha:255;
+  rect fb ~x:cx ~y:(cy - 5) ~w:1 ~h:11 ~color ~alpha:255

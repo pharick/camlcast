@@ -17,11 +17,11 @@ open Camlcast
 let height = 4.
 
 let world =
-  let sw = Vec.make (-8.) (-6.)
-  and se = Vec.make 8. (-6.)
-  and ne = Vec.make 8. 6.
-  and nw = Vec.make (-8.) 6. in
-  let solid a b = Room.wall ~height ~material:Surfaces.stone a b in
+  (* A plain box boundary: two opposite corners say all of it. *)
+  let bounds =
+    Room.rectangle ~height ~material:Surfaces.stone (Vec.make (-8.) (-6.))
+      (Vec.make 8. 6.)
+  in
   let floor = Plane.horizontal 0. in
   (* A screen across the room in two halves, bars on one side and leaded glass
      on the other, with a gap between them to walk through. It stands square
@@ -36,10 +36,9 @@ let world =
   in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:
         [
           (* One behind each half of the screen, and one in front of it: the
@@ -48,7 +47,7 @@ let world =
           Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. 3.5);
           Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make (-3.) (-2.5));
         ]
-      ([ solid sw se; solid se ne; solid ne nw; solid nw sw ] @ screen)
+      (bounds @ screen)
   in
   World.make
     ~rooms:[ ("room", room) ]

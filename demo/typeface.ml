@@ -17,8 +17,7 @@ open Result_ext
     missing picture there should fall back to the printed listing rather than
     take the program down. *)
 let load () =
-  let* path = Asset.path "assets/font.png" in
-  let+ atlas = Image.load path in
+  let+ atlas = Image.of_asset "assets/font.png" in
   Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
 
 (** The same font, read once and shared, for a demo already deep in a frame

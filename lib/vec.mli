@@ -65,4 +65,6 @@ val rotate : t -> float -> t
 
 val perp : t -> t
 (** The perpendicular vector, a quarter turn clockwise on screen — the same
-    direction {!rotate} would give for [pi /. 2.], but cheaper and exact. *)
+    direction {!rotate} would give for [pi /. 2.], but cheaper and exact. On
+    paper, with y up, the same turn reads as a quarter turn to the {e left}; the
+    winding rule that hangs off that is stated once, at the top of {!Room}. *)

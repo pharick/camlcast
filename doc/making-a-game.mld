@@ -48,13 +48,13 @@ Which one you get says what kind of mistake it was.
     [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.with_window},
     {!Camlcast.Engine.run_world}, {!Camlcast.Engine.run},
     {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
-    {!Camlcast.Framebuffer.create}. A missing file is one of these.}
+    {!Camlcast.Framebuffer.make}. A missing file is one of these.}
 {li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
     {!Camlcast.World.link}, {!Camlcast.World.add_room},
     {!Camlcast.World.open_doorway}, {!Camlcast.Room.doorway},
-    {!Camlcast.Font.make}, {!Camlcast.Atmosphere.make},
-    {!Camlcast.Transform.between}, {!Camlcast.Texture.noise},
-    {!Camlcast.Key.of_scancode}. A doorway linked to nothing, two rooms with the
+    {!Camlcast.Font.make}, {!Camlcast.Atmosphere.make}, {!Camlcast.Sky.make},
+    {!Camlcast.Room.rectangle}, {!Camlcast.Transform.between},
+    {!Camlcast.Texture.noise}, {!Camlcast.Key.of_scancode}. A doorway linked to nothing, two rooms with the
     same name, a doorway wider than the wall it is cut into, air lit from
     nowhere — these are bugs in the level, not conditions to handle, and they
     stop the program with a message naming what was wrong.}}
@@ -64,14 +64,21 @@ the message; it names the room and the doorway.
 
 {2 Rooms are wound counterclockwise}
 
-Author a room's boundary counterclockwise, so each wall's normal faces {e into}
-the room. Give a doorway's endpoints in that same direction. A link between two
-doorways is derived from their four endpoints and nothing else, and
-{!Camlcast.Transform.between} pairs them in reverse — because the two rooms
-describe the same opening from opposite sides. Wind one the other way and the
-neighbour arrives inside out.
+Author a room's boundary so that, walking each wall from its first endpoint to
+its second, the inside of the room is to the {e left on paper} — the direction
+these pages call counterclockwise. (On the screen's map, where y grows
+downward, the same loop reads clockwise to the eye; trust the rule, not the
+picture. The one full statement of it lives at the top of {!Camlcast.Room},
+and everything else, including this page, defers to it.) Give a doorway's
+endpoints in that same direction. A link between two doorways is derived from
+their four endpoints and nothing else, and {!Camlcast.Transform.between} pairs
+them in reverse — because the two rooms describe the same opening from
+opposite sides. Wind one the other way and the neighbour arrives inside out.
 
-If a room looks black from the inside, this is why.
+If a room looks black from the inside, this is why. The shapes the engine
+builds for you — {!Camlcast.Room.rectangle},
+{!Camlcast.Room.regular_polygon} — cannot be wound wrong; walls you write out
+by hand can.
 
 {1 Step 0 — A project that depends on the engine}
 
@@ -119,47 +126,45 @@ And [bin/main.ml], empty for now.
 {b Goal.} A window, four walls, a floor and a ceiling, and mouse-look movement
 inside them.
 
-Six values and you are standing in a room. Here is the whole program:
+Five values and you are standing in a room. Here is the whole program:
 
 {@ocaml[
 open Camlcast
 
 (* A pattern is a pure function from a texel coordinate to a colour. This one is
    a check; Color.level scales all three channels together, so it moves the
-   brightness without touching the hue. *)
+   brightness without touching the hue. Both coordinates and the levels are
+   0 .. 255 — the range every pattern computes in. *)
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
 
 let stone =
-  Material.make ~pattern:(Texture.generate (checker ~color:(Color.rgb 150 150 160)))
+  Material.make
+    ~pattern:(Texture.generate (checker ~color:(Color.rgb 150 150 160)))
 
 let ground =
-  Material.make ~pattern:(Texture.generate (checker ~color:(Color.rgb 116 110 98)))
-
-let air =
-  Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
-    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
-    ~directional:0.4
+  Material.make
+    ~pattern:(Texture.generate (checker ~color:(Color.rgb 116 110 98)))
 
 let world =
   let height = 4. in
-  (* Counterclockwise, so every wall's normal faces into the room. *)
-  let sw = Vec.make (-6.) (-6.)
-  and se = Vec.make 6. (-6.)
-  and ne = Vec.make 6. 6.
-  and nw = Vec.make (-6.) 6. in
-  let wall a b = Room.wall ~height ~material:stone a b in
+  (* Distances are in cells: one cell is one texture repeat, and the eye
+     stands half a cell up, so a 12-cell room under a 4-cell ceiling reads as
+     a hall. *)
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = ground }
-      ~ceiling:
-        (Room.Roof { Room.plane = Plane.above floor height; material = stone })
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
+      ~floor:(Room.floor ~plane:floor ~material:ground)
+      ~ceiling:(Room.roof ~plane:(Plane.above floor height) ~material:stone)
+      (* The axis-aligned box, from two opposite corners. *)
+      (Room.rectangle ~height ~material:stone (Vec.make (-6.) (-6.))
+         (Vec.make 6. 6.))
   in
   World.make
     ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:air
+    ~links:[]
+      (* The air of an unremarkable day. Step 3 is about making your own. *)
+    ~atmosphere:Atmosphere.default
     ~spawn:("room", Vec.make (-4.5) 0.)
 
 let () =
@@ -192,18 +197,29 @@ fullscreen, {b Esc} quits.
 {li {!Camlcast.Material.make} wraps a pattern into the thing a wall wears.}
 {li {!Camlcast.Plane} is an elevation over the room, [z = a*x + b*y + c].
     {!Camlcast.Plane.horizontal} is the flat case and {!Camlcast.Plane.above}
-    raises one by a fixed amount.}
-{li {!Camlcast.Room.make} takes a wall list, a floor surface and a
-    {!Camlcast.Room.type-ceiling}.}
+    raises one by a fixed amount — used for the ceiling here so that when the
+    floor stops being flat in step 6, the roof follows it by construction.}
+{li {!Camlcast.Room.make} takes a wall list, a floor and a ceiling, and the
+    two vertical bounds read the same way: {!Camlcast.Room.val-floor} names a
+    plane and a material, {!Camlcast.Room.roof} the same — or
+    {!Camlcast.Room.open_sky} instead of a roof, which is step 7. A floor is
+    always a surface; a ceiling has to say which of the two things overhead
+    it is, so that a room open to the sky cannot forget to say which sky.}
+{li {!Camlcast.Room.rectangle} is the axis-aligned box — the one shape common
+    enough to earn a shortcut. Walls written out by hand come in step 4.}
 {li {!Camlcast.World.make} names the rooms, links their doorways (none yet),
-    gives the world its air, and says where the player starts.}
+    gives the world its air, and says where the player starts. The spawn
+    faces along the positive x axis; a game that wants another facing runs
+    the loop itself with {!Camlcast.Player.spawn}'s [~angle] — step 12.}
 {li {!Camlcast.Engine.with_window} opens the window, and closes it again when
     what it hands the window to has finished with it.}
 {li {!Camlcast.Engine.run_world} runs the loop on that window until the player
     quits.}}
 
-{b If the room is black from the inside}, the walls are wound clockwise. Reverse
-them.
+{b If a room is ever black from the inside}, its walls are wound the wrong
+way round — reverse them. It cannot happen to this one:
+{!Camlcast.Room.rectangle} winds its four walls for you, whichever corners it
+is given.
 
 {b Read next:} [demo/masonry.ml] is this, with four materials and a post in it.
 
@@ -260,26 +276,71 @@ The mortar is grey, not pink.
 {b Goal.} Distance and shape, which come from the air rather than from the walls.
 
 An {!Camlcast.Atmosphere} is one per {e world}, and is most of what tells one
-place from another:
+place from another. Step 1 borrowed {!Camlcast.Atmosphere.default}; every
+argument of {!Camlcast.Atmosphere.make} defaults to that air, so your own
+names only what is different about your place:
 
 {@ocaml[
-let air =
+(* A fogbound cellar: the fade closes in at five cells and lands on black,
+   and the light has no direction worth speaking of. Everything unsaid —
+   the light's own direction, the floor of the fade — stays the default's. *)
+let cellar_air =
   Atmosphere.make
-    ~haze:(Color.rgb 24 24 32)       (* what things fade to *)
-    ~fog_distance:12.                (* how far away that takes *)
-    ~min_brightness:0.25             (* the darkest a face ever gets *)
-    ~light:(Vec.make (-0.4) (-0.9))  (* where the light comes from; normalised for you *)
-    ~ambient:0.6                     (* light arriving from everywhere *)
-    ~directional:0.4                 (* light arriving from ~light *)
+    ~haze:(Color.rgb 6 6 8)
+    ~fog_distance:5.
+    ~ambient:0.85 ~directional:0.15 ()
 ]}
 
-[ambient] and [directional] together decide how much a wall's angle matters: all
-ambient and every wall is equally lit, all directional and a wall facing away is
-black. [fog_distance] is the scale over which things fade into [haze], so a small
-number is a fogbound cellar and a large one a clear day.
+The six, with their units and ranges (each is also on
+{!Camlcast.Atmosphere.make}, beside its default):
 
-{b Check it:} set [~fog_distance:4.] and walk backwards. The far wall turns into
-the haze colour — set [~haze] to something lurid and you can watch it happen.
+{ul
+{li [haze : Color.t] — what distance fades things to. Default a dark
+    blue-grey, [Color.rgb 24 24 32].}
+{li [fog_distance : float] — how many {e cells} the fade takes to fully
+    arrive; must be above [0.]. Small is a fogbound cellar, large a clear
+    day. Default [12.].}
+{li [min_brightness : float] — the floor the fade stops at, [0. .. 1.].
+    Default [0.25].}
+{li [light : Vec.t] — the direction light comes from; normalised for you.
+    Default from the north-west.}
+{li [ambient : float] — light arriving from everywhere, [0. .. 1.].
+    Default [0.6].}
+{li [directional : float] — how much more a face square to [light] gets,
+    [0. .. 1.]. Default [0.4].}}
+
+[ambient] and [directional] together decide how much a wall's angle matters:
+all ambient and every wall is equally lit, all directional and a wall facing
+away is dark. {b Keep their sum at or below [1.]} — the sum is what a face
+square to the light is multiplied by, and past [1.] it blows out. Every
+atmosphere in this repository keeps the sum at exactly [1.].
+
+Out-of-range numbers are refused with [Invalid_argument] naming the argument
+— a [fog_distance] of [0.] is a division by zero wearing a trench coat, so
+{!Camlcast.Atmosphere.make} does not let it in the door.
+
+{b Check it:} set [~fog_distance:4. ()] and walk backwards. The far wall turns
+into the haze colour — set [~haze] to something lurid and you can watch it
+happen.
+
+{2:units The units, once and for all}
+
+Four scales cover the whole engine, and every numeric argument names its own
+in its doc:
+
+{ul
+{li {b Cells} — all distances and heights. One cell is one texture repeat
+    along a wall or a floor; the eye stands {!Camlcast.Config.eye_height},
+    half a cell, above the floor.}
+{li {b Radians} — all angles, on {!Camlcast.Vec.of_angle}'s reckoning.}
+{li {b 0 .. 255} — colour channels and alpha, the range patterns compute
+    in.}
+{li {b [0. .. 1.]} — fades and fractions: glow, brightness, the two shading
+    terms above.}}
+
+The glossary in {{!page-"building-the-engine"} Building the engine} carries
+the longer story, and {!Camlcast.Config} the constants these scales hang
+off.
 
 {b Read next:} [demo/haze.ml].
 
@@ -289,8 +350,12 @@ the haze colour — set [~haze] to something lurid and you can watch it happen.
 
 {b Goal.} Rooms that are not squares.
 
+With [height] and [stone] as in step 1, three wall-list builders cover the
+common shapes — and anything else is walls written out by hand:
+
 {@ocaml[
-(* An open run of walls, or a closed loop with ~closed:true. *)
+(* An open run of walls, or a closed loop with ~closed:true. This is the
+   hand-wound case, so the winding rule from the top of the page applies. *)
 let corridor =
   Room.path ~height ~material:stone
     [ Vec.make 0. 0.; Vec.make 8. 0.; Vec.make 8. 3.; Vec.make 14. 3. ]
@@ -300,15 +365,18 @@ let hexagon =
   Room.regular_polygon ~center:(Vec.make 0. 0.) ~radius:8. ~sides:6
     ~rotation:0. ~height ~material:stone
 
+(* A low square post, standing in whatever room's list it joins. *)
 let post =
   Room.regular_polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
-    ~rotation:0.4 ~height:2.6 ~material:oak
+    ~rotation:0.4 ~height:2.6 ~material:stone
 ]}
 
-Both return a wall list, so they concatenate with walls you wrote by hand.
-Nothing says a room's walls must form one loop: a pillar is four more walls in
-the same list. And each wall carries its own height, so a low wall drops below
-its neighbours and you see over it.
+All of these — and {!Camlcast.Room.rectangle} from step 1 — return a plain
+wall list, so they concatenate with walls you wrote by hand, and a room built
+this way is no different from one written out segment by segment. Nothing
+says a room's walls must form one loop: a pillar is four more walls in the
+same list, wound the same way. And each wall carries its own height, so a low
+wall drops below its neighbours and you see over it.
 
 {b Read next:} [demo/masonry.ml] puts a post in a square room.
 
@@ -328,26 +396,38 @@ from [a] to [b], and hands back {b both} the two jambs left either side {b and}
 the threshold that fills the gap. Taking them together is what stops a boundary
 and its openings from drifting apart:
 
+With [ground] and [air] as in step 1, [brick] as in step 2, and [soffit] any
+material you like the ceiling in (the demos keep one by that name — the
+underside of a roof is a soffit):
+
 {@ocaml[
+(* Taller than step 1's rooms: this one is its own program. *)
 let height = 5.
 
-(* One room, built once. Used twice below. *)
+(* One room description, called twice below to build its two instances. *)
 let chamber () =
+  (* Wound as the rule at the top of the page says; doorway endpoints run the
+     same way as the boundary they are cut from. *)
   let sw = Vec.make (-3.5) 0.
   and se = Vec.make 3.5 0.
   and ne = Vec.make 3.5 9.
   and nw = Vec.make (-3.5) 9. in
   let jambs, back =
-    Room.doorway ~name:"back" ~width:2.6 ~opening:3. ~height ~material:brick sw se
+    Room.doorway ~name:"back" ~width:2.6 ~opening:3. ~height ~material:brick
+      sw se
   in
-  let wall a b = Room.wall ~height ~material:brick a b in
+  (* Partial application is the wall-list idiom: fix what the walls share,
+     write only their endpoints. *)
+  let wall = Room.wall ~height ~material:brick in
   Room.make ~thresholds:[ back ]
-    ~floor:{ Room.plane = Plane.horizontal 0.; material = ground }
-    ~ceiling:
-      (Room.Roof { Room.plane = Plane.horizontal height; material = soffit })
+    ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:ground)
+    ~ceiling:(Room.roof ~plane:(Plane.horizontal height) ~material:soffit)
     (jambs @ [ wall se ne; wall ne nw; wall nw sw ])
 
 let world =
+  (* The hub is a hexagon of radius 8: corner k sits k sixths of a turn
+     around it, and side k runs from corner k to the next. Sides 0 and 5
+     become doorways; sides 1 to 4 stay walls. *)
   let corner k =
     let angle = float_of_int k *. Float.pi /. 3. in
     Vec.make (8. *. cos angle) (8. *. sin angle)
@@ -363,9 +443,8 @@ let world =
   in
   let hub =
     Room.make ~thresholds:[ right; left ]
-      ~floor:{ Room.plane = Plane.horizontal 0.; material = ground }
-      ~ceiling:
-        (Room.Roof { Room.plane = Plane.horizontal height; material = soffit })
+      ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:ground)
+      ~ceiling:(Room.roof ~plane:(Plane.horizontal height) ~material:soffit)
       (List.concat [ right_jambs; left_jambs; List.map side [ 1; 2; 3; 4 ] ])
   in
   World.make
@@ -377,10 +456,11 @@ let world =
     ~spawn:("hub", Vec.make (-6.) 0.)
 ]}
 
-{b Check it:} two doorways in a hexagonal hub, each with a room beyond. The two
-rooms beyond are {e the same room}, built once and used twice — what puts one off
-to the right and one off to the left, each turned to meet the wall it opens onto,
-is the doorway and nothing else.
+{b Check it:} two doorways in a hexagonal hub, each with a room beyond. The
+two rooms beyond are {e the same description}, [chamber], called twice — what
+puts one instance off to the right and one off to the left, each turned to
+meet the wall it opens onto, is the doorway and nothing else. Neither call
+said where its room sits, because a room never knows.
 
 {2 Three arguments worth naming}
 
@@ -429,12 +509,12 @@ few thousandths where they meet, which reads as a step you walk into. Derive the
 second from the first instead, with {!Camlcast.Plane.through}:
 
 {@ocaml[
-(* The transform the link is about to be given, derived here so a floor can be
-   carried across the doorway before the world that joins the rooms exists. *)
-let across (a : Room.threshold) (b : Room.threshold) =
-  Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
-
-let onward = across hall_onward up_back
+(* The two thresholds the link will join: [hall_onward] cut from the far end
+   of the hall, [up_back] from the room beyond, exactly as in step 5.
+   Room.across is the transform World.make will derive for that link, made
+   available here so a floor can be carried across the doorway before the
+   world that joins the rooms exists. *)
+let onward = Room.across hall_onward up_back
 let up_floor = Plane.through onward hall_floor
 let up_roof = Plane.through onward hall_roof
 ]}
@@ -453,22 +533,35 @@ at the same angle.
 
 {b Goal.} A room with no roof.
 
-The ceiling is chosen per room, so one room may have a roof while its neighbour
-is open:
+The ceiling is chosen per room, so one room may have a roof while its
+neighbour is open. A {!Camlcast.Sky} is built like an atmosphere: every
+argument of {!Camlcast.Sky.make} defaults to {!Camlcast.Sky.default} — a
+clear noon — so a sky names only what is different about it:
 
 {@ocaml[
-let noon =
-  { Sky.horizon = Color.rgb 176 196 222;
-    zenith = Color.rgb 40 62 126;
-    sun = Color.rgb 255 246 216;
-    sun_azimuth = -0.9;  (* radians: where the sun is around the compass *)
-    sun_height = 0.5;    (* 0 is on the horizon, 1 is overhead *)
-    sun_radius = 0.55;   (* how big and soft the glow is *)
-    gradient = 2.2       (* how fast horizon gives way to zenith *)
-  }
+let noon = Sky.default
 
-let yard = Room.make ~ceiling:(Room.Open noon) (* … *)
+(* The same sky wound on a few hours: the sun gone round the compass
+   (radians, on Vec.of_angle's reckoning) and dropped to the horizon. *)
+let evening = Sky.make ~sun_azimuth:2.7 ~sun_height:0.06 ()
+
+let yard =
+  Room.make
+    ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:ground)
+    ~ceiling:(Room.open_sky noon)
+    (Room.rectangle ~height:4. ~material:stone (Vec.make (-6.) (-6.))
+       (Vec.make 6. 6.))
 ]}
+
+Two of the sun's numbers are screen quantities, and their scale is worth
+knowing before you reach for them. [sun_height] is a {e screen elevation}: a
+level view spans only about [0. .. 0.4] from the horizon to the top of the
+window, so [0.06] sits on the horizon, [0.5] rides high, and [1.] is above
+the visible sky until the player looks up. [sun_radius] is the size of the
+glow in view angle — roughly radians near the horizon — with useful values
+around [0.2 .. 0.8]; it may not be zero, and {!Camlcast.Sky.make} refuses
+one. [gradient] is how fast the horizon colour gives way to the zenith over
+that same elevation scale, which is why values above [1.] are ordinary.
 
 A sky is an {e infinitely far} backdrop: its colour depends only on the direction
 looked in, never on where you stand. So it does not slide past as you walk — it
@@ -492,7 +585,7 @@ of a surface rather than a thing in its own right.
 
 {@ocaml[
 let poster =
-  Image.make 32 (fun ~u ~v ->
+  Image.make ~width:32 (fun ~u ~v ->
       if u < 2 || u > 29 || v < 2 || v > 29 then (Color.rgb 22 22 26, 255)
       else
         let du = float_of_int u -. 16. and dv = float_of_int v -. 16. in
@@ -625,9 +718,18 @@ transom. {b Read next:} [demo/barred.ml] has one of each.
 
 {{image:images/barred.png}A barred gate and the transom over it: you see through both and can walk past neither}
 
-Opening one is a world rebuild, from your own update function:
+Opening one is a world rebuild, from your own update function. Which door?
+{!Camlcast.Room.nearest_threshold} answers "the one the player is at":
+nearest-wins within a reach, filtered to the thresholds that have a door
+hung in them —
 
 {@ocaml[
+let at_hand world (player : Player.t) =
+  Room.nearest_threshold ~within:3.5
+    ~where:(fun t -> t.Room.door <> None)
+    (World.room world player.Player.room)
+    player.Player.pos
+
 let toggled world (player : Player.t) threshold =
   let current =
     (World.room world player.Player.room).Room.thresholds.(threshold).Room.door
@@ -655,20 +757,17 @@ refuse to be toggled.
 {@ocaml[
 open Result_ext  (* for let* and let+ *)
 
-let pattern name =
-  let* path = Asset.path name in
-  Texture.load path
-
-let picture name =
-  let* path = Asset.path name in
-  Image.load path
-
 let build () =
-  let* tiles = pattern "assets/tiles.png" in
-  let* poster = picture "assets/poster.png" in
+  let* tiles = Texture.of_asset "assets/tiles.png" in
+  let* poster = Image.of_asset "assets/poster.png" in
   (* … build the world from them … *)
   Ok (world tiles poster)
 ]}
+
+{!Camlcast.Texture.of_asset} is {!Camlcast.Asset.path} — which finds where the
+file lives relative to the running executable — followed by
+{!Camlcast.Texture.load}; {!Camlcast.Image.of_asset} is its twin. The [load]
+pair is still there for a path you already hold.
 
 A loaded texture and a generated one produce the same {!Camlcast.Texture.t}, and
 the renderer has no way to ask which it was given. {b A texture must be square};
@@ -712,9 +811,11 @@ their generated counterparts.
 {b Goal.} Anything that is not just a world and a player walking it.
 
 Everything so far used {!Camlcast.Engine.run_world}, which holds the only state
-the engine can hold on its own. A game with phases, doors, a journal, a score or a
-random seed uses {!Camlcast.Engine.run}, which runs a state of {e whatever
-type you like} and asks six things of it:
+the engine can hold on its own. A game with phases, doors, a journal, a score or
+a random seed uses {!Camlcast.Engine.run}, which runs a state of {e whatever
+type you like}, described by an {!Camlcast.Engine.type-game} — built with
+{!Camlcast.Engine.val-game} from the two things every game has and the four it
+may not:
 
 {ul
 {li [update] — the next state, given how long the frame lasted, the movement
@@ -768,9 +869,11 @@ let view state =
 let () =
   match
     Engine.with_window @@ fun window ->
-    Engine.run window ~update ~view
-      ~bindings:(Binding.make ~leave:[ Input.Key Key.escape ] ())
-      ~finished:(fun state -> state.phase = Done)
+    Engine.run window
+      (Engine.game ~update ~view
+         ~bindings:(Binding.make ~leave:[ Input.Key Key.escape ] ())
+         ~finished:(fun state -> state.phase = Done)
+         ())
       start
   with
   | Ok (_final, _ending) -> ()
@@ -778,6 +881,11 @@ let () =
       prerr_endline m;
       exit 1
 ]}
+
+One more thing [run] hands you that [run_world] decides for itself: the
+starting pose. [Player.spawn world] stands at the world's spawn facing along
+the positive x axis; [Player.spawn ~angle:(Float.pi /. 2.) world] faces where
+you say, on {!Camlcast.Vec.of_angle}'s reckoning.
 
 {2 How a run ends}
 
@@ -915,14 +1023,15 @@ let overlay fb state =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let unit = Int.max 3 (height / 60) in
   (* A band, blended so the world shows through it. *)
-  Paint.rect fb ~x:0 ~y:(height - (8 * unit)) ~w:width ~h:(4 * unit) ~r:10 ~g:12
-    ~b:20 ~alpha:110;
+  Paint.rect fb ~x:0 ~y:(height - (8 * unit)) ~w:width ~h:(4 * unit)
+    ~color:(Color.rgb 10 12 20) ~alpha:110;
   Paint.bar fb ~x:(2 * unit)
     ~y:(height - (7 * unit))
     ~w:(width - (4 * unit))
     ~h:(2 * unit)
-    ~fraction:(state.fuel /. full) ~r:230 ~g:190 ~b:90;
-  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+    ~fraction:(state.fuel /. full)
+    ~color:(Color.rgb 230 190 90);
+  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 ]}
 
 {!Camlcast.Paint} has clipped rectangles, bars, lines, dots, outlines, whole
@@ -942,8 +1051,7 @@ let drift out of step with it. Text is therefore monospaced.
 let font =
   lazy
     (match
-       let* path = Asset.path "assets/font.png" in
-       let+ atlas = Image.load path in
+       let+ atlas = Image.of_asset "assets/font.png" in
        Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
      with
     | Ok font -> font
@@ -954,7 +1062,8 @@ let overlay fb _state =
   let column = (fb.Framebuffer.width * 2 / 3) - 12 in
   let body = String.concat "\n" (Font.wrap font paragraph ~width:column) in
   let tw, th = Font.measure font body in
-  Paint.rect fb ~x:6 ~y:6 ~w:(tw + 12) ~h:(th + 12) ~r:12 ~g:14 ~b:22 ~alpha:190;
+  Paint.rect fb ~x:6 ~y:6 ~w:(tw + 12) ~h:(th + 12) ~color:(Color.rgb 12 14 22)
+    ~alpha:190;
   Font.draw fb font body ~x:12 ~y:12 ~color:(Color.rgb 236 232 224)
 ]}
 
@@ -976,9 +1085,9 @@ conversion is needed:
 let overlay fb state =
   if state.pointing then
     let x, y = state.pointer in
-    Paint.rect fb ~x:(x - 2) ~y:(y - 2) ~w:4 ~h:4 ~r:250 ~g:250 ~b:250
+    Paint.rect fb ~x:(x - 2) ~y:(y - 2) ~w:4 ~h:4 ~color:(Color.rgb 250 250 250)
       ~alpha:255
-  else Paint.crosshair fb ~r:245 ~g:245 ~b:245
+  else Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 ]}
 
 {b Read next:} [demo/overlay.ml], [demo/text.ml], [demo/controls.ml].
@@ -1095,7 +1204,7 @@ let rec build world ~room ~ahead =
         let world =
           World.open_doorway world ~room ~opened:(segment ~onward:true room)
         in
-        let index = World.rooms world in
+        let index = World.room_count world in
         let world, next =
           World.add_room world ~name:(named index) (segment ~onward:false index)
         in

@@ -14,6 +14,11 @@ type 'a game = {
   bindings : Binding.t;
 }
 
+let game ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
+    ?(finished = fun _ -> false) ?(bindings = Binding.default) ~update ~view ()
+    =
+  { update; view; overlay; pointing; finished; bindings }
+
 type window = {
   handle : Sdl.window;
   renderer : Sdl.renderer;
@@ -205,7 +210,7 @@ let with_window use =
     Renderer.internal_size ~width:Config.initial_width
       ~height:Config.initial_height
   in
-  let* initial = Framebuffer.create renderer ~width ~height in
+  let* initial = Framebuffer.make renderer ~width ~height in
   let framebuffer = ref initial in
   Fun.protect
     ~finally:(fun () -> Framebuffer.destroy !framebuffer)
@@ -220,9 +225,7 @@ let with_window use =
           relative = true;
         })
 
-let run window ~update ~view ?(overlay = fun _ _ -> ())
-    ?(pointing = fun _ -> false) ?(finished = fun _ -> false)
-    ?(bindings = Binding.default) state =
+let run window (game : 'a game) state =
   (* What was held when the last run ended is not a press in this one. Starting
      from {!Input.untouched} would state every key as newly down, so a player
      still holding the one that chose this game would have it read as pressed on
@@ -235,7 +238,7 @@ let run window ~update ~view ?(overlay = fun _ _ -> ())
      be played knows what it wants the mouse for. *)
   let* () =
     let+ enabled =
-      set_relative_mouse ~current:window.relative (not (pointing state))
+      set_relative_mouse ~current:window.relative (not (game.pointing state))
     in
     window.relative <- enabled
   in
@@ -245,9 +248,7 @@ let run window ~update ~view ?(overlay = fun _ _ -> ())
      line above and not before it: taking the mouse warps the cursor, and that
      warp is itself a delta waiting to be read. *)
   ignore (Input.mouse_delta ());
-  loop window
-    { update; view; overlay; pointing; finished; bindings }
-    ~state ~actions ~previous:(Clock.now ())
+  loop window game ~state ~actions ~previous:(Clock.now ())
 
 let run_world window ?(extend = fun world _ -> world)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) world =
@@ -259,6 +260,8 @@ let run_world window ?(extend = fun world _ -> world)
     ((if Player.crossed moved then extend world player else world), player)
   in
   let+ _, ending =
-    run window ~update ~view:Fun.id ~bindings (world, Player.spawn world)
+    run window
+      (game ~update ~view:Fun.id ~bindings ())
+      (world, Player.spawn world)
   in
   ending

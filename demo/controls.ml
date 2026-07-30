@@ -122,10 +122,9 @@ let world =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:
         [
           Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
@@ -183,9 +182,11 @@ let overlay fb state =
     ~y:(height - margin - (2 * unit))
     ~w:(width / 3) ~h:(2 * unit)
     ~fraction:(state.hold /. commit_after)
-    ~r:(if full then 120 else 230)
-    ~g:(if full then 220 else 180)
-    ~b:(if full then 130 else 80);
+    ~color:
+      (Color.rgb
+         (if full then 120 else 230)
+         (if full then 220 else 180)
+         (if full then 130 else 80));
   (* Three lamps in a row, each fading out over [lamp_time]. *)
   List.iteri
     (fun i (left, (r, g, b)) ->
@@ -193,7 +194,7 @@ let overlay fb state =
       Paint.rect fb
         ~x:(margin + (i * 5 * unit))
         ~y:(height - margin - (7 * unit))
-        ~w:(4 * unit) ~h:(3 * unit) ~r ~g ~b ~alpha)
+        ~w:(4 * unit) ~h:(3 * unit) ~color:(Color.rgb r g b) ~alpha)
     [
       (state.tap, (110, 170, 245));
       (state.commit, (120, 220, 130));
@@ -201,17 +202,19 @@ let overlay fb state =
     ];
   if state.pointing then begin
     let x, y = state.pointer in
-    Paint.rect fb ~x:(x - unit) ~y:(y - unit) ~w:(2 * unit) ~h:(2 * unit) ~r:250
-      ~g:250 ~b:250 ~alpha:255
+    Paint.rect fb ~x:(x - unit) ~y:(y - unit) ~w:(2 * unit) ~h:(2 * unit)
+      ~color:(Color.rgb 250 250 250) ~alpha:255
   end
-  else Paint.crosshair fb ~r:245 ~g:245 ~b:245
+  else Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings ~update
-      ~view:(fun state -> (world, state.player))
-      ~overlay
-      ~pointing:(fun state -> state.pointing)
+    Engine.run window
+      (Engine.game ~bindings ~update
+         ~view:(fun state -> (world, state.player))
+         ~overlay
+         ~pointing:(fun state -> state.pointing)
+         ())
       start
   in
   ending

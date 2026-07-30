@@ -62,13 +62,11 @@ let room ~phase =
   let floor = Plane.horizontal (0.3 *. sin turn) in
   let wall material a b = Room.wall ~height ~material a b in
   Room.make
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         {
-           Room.plane = Plane.horizontal (height +. 0.5);
-           material = Surfaces.soffit;
-         })
+      (Room.roof
+         ~plane:(Plane.horizontal (height +. 0.5))
+         ~material:Surfaces.soffit)
     ~sprites:
       [
         Room.sprite ~size:0.9 ~image:Pictures.barrel
@@ -106,6 +104,8 @@ let view state =
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view ())
+      start
   in
   ending

@@ -36,10 +36,9 @@ let world =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:
         [
           Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 1.5 0.);
@@ -70,6 +69,7 @@ let air ~light =
     ~light:(Vec.make (-0.4) (-0.9))
     ~ambient:(0.08 +. (0.52 *. light))
     ~directional:(0.08 +. (0.32 *. light))
+    ()
 
 let update state ~dt ~motion ~actions =
   let player = Engine.step world state.player motion in
@@ -95,8 +95,10 @@ let view state =
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view
-      ~finished:(fun state -> state.phase = Done)
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view
+         ~finished:(fun state -> state.phase = Done)
+         ())
       start
   in
   ending

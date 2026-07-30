@@ -75,10 +75,9 @@ let hall =
   let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ bare; worked; sealed ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     (List.concat
        [
          bare_jambs;
@@ -102,10 +101,9 @@ let chamber ~door =
   let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ back ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.) ]
     (jambs @ [ wall sw se; wall se ne; wall ne nw ])
 
@@ -137,20 +135,10 @@ let start = { world; player = Player.spawn world; refused = 0. }
     Openings with nothing hanging in them are skipped, there being nothing there
     to work. *)
 let nearest (world : World.t) (player : Player.t) =
-  let room = World.room world player.Player.room in
-  let reach = 3.5 in
-  Array.to_list room.Room.thresholds
-  |> List.mapi (fun i (t : Room.threshold) -> (i, t))
-  |> List.filter_map (fun (i, (t : Room.threshold)) ->
-      if t.Room.door = None then None
-      else
-        let middle = Vec.scale (Vec.add t.Room.a t.Room.b) 0.5 in
-        let away = Vec.length (Vec.sub middle player.Player.pos) in
-        if away <= reach then Some (away, i) else None)
-  |> List.sort (fun (a, _) (b, _) -> Float.compare a b)
-  |> function
-  | [] -> None
-  | (_, i) :: _ -> Some i
+  Room.nearest_threshold ~within:3.5
+    ~where:(fun t -> t.Room.door <> None)
+    (World.room world player.Player.room)
+    player.Player.pos
 
 let state_of world (player : Player.t) threshold =
   match
@@ -197,15 +185,19 @@ let overlay fb state =
         ~y:(height - (5 * unit))
         ~w:(width / 3) ~h:(2 * unit)
         ~fraction:(if shut then 1. else 0.06)
-        ~r:(if refusing then 235 else 210)
-        ~g:(if refusing then 80 else if shut then 170 else 220)
-        ~b:(if refusing then 70 else if shut then 90 else 130));
-  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+        ~color:
+          (Color.rgb
+             (if refusing then 235 else 210)
+             (if refusing then 80 else if shut then 170 else 220)
+             (if refusing then 70 else if shut then 90 else 130)));
+  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update
-      ~view:(fun state -> (state.world, state.player))
-      ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update
+         ~view:(fun state -> (state.world, state.player))
+         ~overlay ())
+      start
   in
   ending

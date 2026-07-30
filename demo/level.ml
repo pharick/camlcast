@@ -43,9 +43,9 @@ open Camlcast
 open Result_ext
 
 (** A floor or ceiling of the level's usual materials. *)
-let ground plane = { Room.plane; material = Surfaces.ground }
+let ground plane = Room.floor ~plane ~material:Surfaces.ground
 
-let roof plane = Room.Roof { Room.plane; material = Surfaces.soffit }
+let roof plane = Room.roof ~plane ~material:Surfaces.soffit
 
 (** The two leaves in the level, both hung open.
 
@@ -125,11 +125,10 @@ let default =
     Room.doorway ~name:"up" ~door:cellar_door ~width:1.6 ~opening:2.2
       ~height:2.8 ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.))
   in
-  (* The transform of a link, exactly as {!Camlcast.World.make} will derive it,
-     so a neighbour's floor can be built to meet this one across the doorway. *)
-  let link (a : Room.threshold) (b : Room.threshold) =
-    Transform.between ~a1:a.a ~a2:a.b ~b1:b.a ~b2:b.b
-  in
+  (* Room.across is the transform of a link, exactly as {!Camlcast.World.make}
+     will derive it, so a neighbour's floor can be built to meet this one
+     across the doorway. *)
+  let link = Room.across in
   let plaza_floor = Plane.make ~a:0.06 ~b:0.03 ~c:0. in
   let hall_floor = Plane.through (link plaza_east hall_west) plaza_floor in
   let nook_floor = Plane.through (link plaza_north nook_south) plaza_floor in
@@ -184,7 +183,7 @@ let default =
     Room.make
       ~thresholds:[ plaza_east; plaza_north; plaza_west ]
       ~floor:(ground plaza_floor)
-      ~ceiling:(Room.Open Surfaces.day)
+      ~ceiling:(Room.open_sky Surfaces.day)
         (* Kept off the bearings of the three doorways (15, 105 and 195
            degrees), so that from the spawn each opening is seen through rather
            than blocked by something standing in front of it. *)
@@ -253,7 +252,7 @@ let default =
          under two skies costs a second value and nothing else; the light on the
          walls does not follow, because that is the world's one
          {!Camlcast.Atmosphere} and it lights both. *)
-      ~ceiling:(Room.Open Surfaces.dusk)
+      ~ceiling:(Room.open_sky Surfaces.dusk)
       ~sprites:
         [
           (* Held clear of the floor, which nothing else in the level is: a
@@ -408,19 +407,10 @@ let reach = 3.2
     near enough to reach one. The {!Doors} demo does the same thing and says
     more about why it is nearest-wins rather than what-you-are-looking-at. *)
 let nearest (world : World.t) (player : Player.t) =
-  let room = World.room world player.Player.room in
-  Array.to_list room.Room.thresholds
-  |> List.mapi (fun i (t : Room.threshold) -> (i, t))
-  |> List.filter_map (fun (i, (t : Room.threshold)) ->
-      if t.Room.door = None then None
-      else
-        let middle = Vec.scale (Vec.add t.Room.a t.Room.b) 0.5 in
-        let away = Vec.length (Vec.sub middle player.Player.pos) in
-        if away <= reach then Some (away, i) else None)
-  |> List.sort (fun (a, _) (b, _) -> Float.compare a b)
-  |> function
-  | [] -> None
-  | (_, i) :: _ -> Some i
+  Room.nearest_threshold ~within:reach
+    ~where:(fun t -> t.Room.door <> None)
+    (World.room world player.Player.room)
+    player.Player.pos
 
 let update state ~dt ~motion ~actions =
   let player = Engine.step state.world state.player motion in
@@ -468,10 +458,12 @@ let overlay fb state =
     | Some _ -> (235, 195, 100)
     | None -> (245, 245, 245)
   in
-  Paint.crosshair fb ~r ~g ~b
+  Paint.crosshair fb ~color:(Color.rgb r g b)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view ~overlay ())
+      start
   in
   ending

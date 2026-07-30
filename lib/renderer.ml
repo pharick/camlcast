@@ -143,7 +143,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
       (player.Player.pos.Vec.x +. (d *. dir.Vec.x))
       (player.Player.pos.Vec.y +. (d *. dir.Vec.y))
   in
-  let floor_z = Plane.elevation room.Room.floor.Room.plane hit_point in
+  let floor_z = Plane.elevation (Room.floor_plane room) hit_point in
   (* The wall rises to its own height, but a roof caps it so it never draws over
      the ceiling in front of it; with open sky there is nothing to cap against. *)
   let top_z =
@@ -262,7 +262,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
           if occlude then depth.(index) <- d
         end
         else if a > 0 then
-          Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~a;
+          Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~alpha:a;
         List.iter
           (fun ((dec : Room.decal), ui, lit, veil) ->
             (* A decal hangs a height above the {e floor} under the wall, not at
@@ -290,7 +290,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
                       (clamp8
                          (int_of_float (float_of_int c.Color.b *. lit)
                          + veil.Color.b))
-                    ~a:da)
+                    ~alpha:da)
           decals
       end
     done
@@ -325,7 +325,7 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let open Viewport in
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let depth = fb.Framebuffer.depth in
-  let floor_z = Plane.elevation room.Room.floor.Room.plane s.Room.pos in
+  let floor_z = Plane.elevation (Room.floor_plane room) s.Room.pos in
   let left, y_top, rightx, y_base =
     Viewport.sprite_box viewport player ~floor_z ~distance:depth_s s
   in
@@ -385,7 +385,7 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
             ~b:
               (clamp8
                  (int_of_float (float_of_int c.Color.b *. f) + veil.Color.b))
-            ~a
+            ~alpha:a
       end
     done
   done
@@ -494,20 +494,8 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
      standing over the gap. [index] is the threshold's own, since that is what
      this stands for; nothing on this path reads it, but a hit has to carry
      something and a wall index would be a lie. *)
-  let as_wall (threshold : Room.threshold) ~index ~height ~material ~distance
-      ~along =
-    let wall : Room.wall =
-      {
-        a = threshold.a;
-        b = threshold.b;
-        height;
-        material;
-        decals = [];
-        edge = threshold.edge;
-        length = threshold.length;
-        normal = threshold.normal;
-      }
-    in
+  let as_wall threshold ~index ~height ~material ~distance ~along =
+    let wall = Room.threshold_wall threshold ~height ~material in
     { Ray.distance; along; wall; index }
   in
   List.iter
@@ -529,9 +517,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
           let threshold = current.Room.thresholds.(opening.Ray.index) in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
-          let floor_z =
-            Plane.elevation current.Room.floor.Room.plane hit_point
-          in
+          let floor_z = Plane.elevation (Room.floor_plane current) hit_point in
           let row z =
             int_of_float
               (Float.round (Viewport.project_height viewport ~z ~distance))
@@ -658,11 +644,11 @@ let draw_frame fb world (player : Player.t) =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let current = World.room world player.room in
   let eye_z =
-    Plane.elevation current.Room.floor.Room.plane player.Player.pos
+    Plane.elevation (Room.floor_plane current) player.Player.pos
     +. Config.eye_height
   in
   let viewport =
-    Viewport.create ~pitch:player.Player.pitch ~eye_z ~width ~height
+    Viewport.make ~pitch:player.Player.pitch ~eye_z ~width ~height
   in
   Framebuffer.clear_depth fb;
   let translucent = ref [] in
@@ -696,7 +682,7 @@ let ensure sdl fb_ref ~width ~height =
   if current.Framebuffer.width = width && current.Framebuffer.height = height
   then Ok ()
   else
-    let+ next = Framebuffer.create sdl ~width ~height in
+    let+ next = Framebuffer.make sdl ~width ~height in
     Framebuffer.destroy current;
     fb_ref := next
 

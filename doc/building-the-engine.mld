@@ -523,7 +523,7 @@ ceiling and floor with flat colours. [lib/renderer.ml] (first cut):
 {@ocaml[
 let draw_frame fb room (player : Player.t) =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
-  let viewport = Viewport.create ~pitch:0. ~eye_z:Config.eye_height ~width ~height in
+  let viewport = Viewport.make ~pitch:0. ~eye_z:Config.eye_height ~width ~height in
   for column = 0 to width - 1 do
     (* placeholder background: top half ceiling, bottom half floor *)
     for y = 0 to height - 1 do
@@ -1645,7 +1645,7 @@ Engine       (window lifetime, fullscreen, the loop played on one)
 ]}
 
 The shipped engine adds six more that this tutorial does not build, because none
-of them is needed to get a picture on screen: [Surface] (decoding a PNG or
+of them is needed to get a picture on screen: [Bitmap] (decoding a PNG or
 JPEG), [Asset] (finding a file relative to the executable), [Door] (a leaf hung
 in a doorway), [Sight] (what the crosshair is on), [Paint] (clipped shapes over a
 finished frame) and [Font] (a bitmap font on a fixed grid).

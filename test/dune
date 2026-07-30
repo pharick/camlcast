@@ -51,7 +51,7 @@
   test_vec
   test_result_ext
   test_asset
-  test_surface
+  test_bitmap
   test_paint
   test_renderer
   test_font

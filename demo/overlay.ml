@@ -31,10 +31,9 @@ let world =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:
         [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 0.) ]
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
@@ -58,17 +57,19 @@ let overlay fb state =
   let bar_h = Int.max 4 (height / 60) in
   let bar_y = height - (height / 8) in
   (* A band behind the meter, blended so the world shows through it. *)
-  Paint.rect fb ~x:0 ~y:(bar_y - bar_h) ~w:width ~h:(bar_h * 4) ~r:10 ~g:12
-    ~b:20 ~alpha:110;
+  Paint.rect fb ~x:0 ~y:(bar_y - bar_h) ~w:width ~h:(bar_h * 4)
+    ~color:(Color.rgb 10 12 20) ~alpha:110;
   Paint.bar fb ~x:margin ~y:bar_y
     ~w:(width - (2 * margin))
-    ~h:bar_h ~fraction:(state.elapsed /. period) ~r:230 ~g:190 ~b:90;
-  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+    ~h:bar_h ~fraction:(state.elapsed /. period) ~color:(Color.rgb 230 190 90);
+  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update
-      ~view:(fun state -> (world, state.player))
-      ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update
+         ~view:(fun state -> (world, state.player))
+         ~overlay ())
+      start
   in
   ending

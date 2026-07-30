@@ -45,7 +45,7 @@ type t = private {
     it, and one of no size divides by zero somewhere in a frame — see
     {!Room.sprite_half_width}, which divides by [height]. *)
 
-val make : ?height:int -> int -> (u:int -> v:int -> Color.t * int) -> t
+val make : ?height:int -> width:int -> (u:int -> v:int -> Color.t * int) -> t
 (** Build a [width] x [height] image from a function of the pixel coordinates,
     returning the colour and alpha at each. [height] defaults to [width], since
     a generated picture is usually square and saying so twice reads worse than
@@ -84,10 +84,17 @@ val load : string -> (t, [ `Msg of string ]) result
     be missing, or not be a picture, or — the one {!make} would otherwise raise
     on — decode to no pixels at all. *)
 
-val disc : cx:float -> cy:float -> r:float -> int -> int -> bool
-(** Is [(u, v)] inside the circle of radius [r] about [(cx, cy)]? A generator
-    helper, here rather than repeated in every module that draws a round thing.
-*)
+val of_asset : string -> (t, [ `Msg of string ]) result
+(** {!load}, given an asset's name instead of a path: {!Asset.path} finds where
+    the file lives relative to the running executable, and the picture is read
+    from there. The error is whichever step's it was — the roots that were
+    searched, or what was wrong with the file they turned up. The twin of
+    {!Texture.of_asset}, for the same reason. *)
+
+val disc : cx:float -> cy:float -> r:float -> u:int -> v:int -> bool
+(** Is pixel [(u, v)] inside the circle of radius [r] about [(cx, cy)]? A
+    generator helper, here rather than repeated in every module that draws a
+    round thing — labeled as a generator's own coordinates are. *)
 
 val clear : Color.t * int
 (** Nothing at all: the value a generator returns for a pixel outside the shape

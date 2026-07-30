@@ -48,16 +48,18 @@ one, and a program that has several to play — a launcher and its menu — open
 the window once and plays them all on it, so that going from one to the next is
 the picture changing and not the window going away.
 
-{!Camlcast.Engine.run} runs a state of whatever type the game likes, and
-asks six things of it: [update], given the frame's length, the movement asked
-for over it and what the player is pressing and holding through it; [view],
-which world and which player to draw this frame from; [overlay], anything drawn
-over the finished picture; [pointing], whether the mouse is working a cursor
-over something the game has drawn instead of looking around; [finished],
-whether the run is over; and [bindings], what the player's controls are for.
-Everything else a game keeps — phases, doors, a journal, a random seed, what it
-has already built — stays on the game's side of the line and the engine stays a
-pure function of what it is handed. Time passes only while the window has focus.
+{!Camlcast.Engine.run} runs a state of whatever type the game likes, described
+by an {!Camlcast.Engine.type-game} — built with {!Camlcast.Engine.val-game} from
+the two things every game has and the four it may not: [update], given the
+frame's length, the movement asked for over it and what the player is pressing
+and holding through it; [view], which world and which player to draw this frame
+from; and optionally [overlay], anything drawn over the finished picture;
+[pointing], whether the mouse is working a cursor over something the game has
+drawn instead of looking around; [finished], whether the run is over; and
+[bindings], what the player's controls are for. Everything else a game keeps —
+phases, doors, a journal, a random seed, what it has already built — stays on
+the game's side of the line and the engine stays a pure function of what it is
+handed. Time passes only while the window has focus.
 
 It reports how the run ended, as an {!Camlcast.Engine.ending}: [Closed] for a
 window that was shut, [Left] for a run that finished on its own terms. Only
@@ -88,6 +90,45 @@ enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
 doorways, which is exactly as deep as the renderer looks through them. The
 [endless] demo does this in miniature.
 
+{1 The house rules}
+
+The API is written to a few conventions, so that knowing one module is knowing
+them all.
+
+- {b Constructors are [make].} Where a value has one natural way in, it is
+  [Module.make], with configuration labelled and the subject of the call — a
+  picture, a material, two endpoints — positional at the end. Domain-named
+  constructors stand beside it where the domain has better words:
+  {!Camlcast.Color.rgb}, {!Camlcast.Plane.horizontal},
+  {!Camlcast.Texture.generate}, {!Camlcast.Transform.between},
+  {!Camlcast.Room.doorway}.
+- {b All-optional constructors end in [()]}, and each names its defaults in
+  its own doc: {!Camlcast.Atmosphere.make}, {!Camlcast.Sky.make},
+  {!Camlcast.Binding.make}, {!Camlcast.Engine.val-game}. Where the default is
+  a value worth having, it is also exported — {!Camlcast.Atmosphere.default},
+  {!Camlcast.Sky.default}, {!Camlcast.Binding.default} — as the thing to start
+  from and perturb.
+- {b Reading a file is [load]}, always [string -> (t, [ `Msg of string ])
+  result], and every fallible call in the library carries that same closed
+  error: {!Camlcast.Bitmap.load}, {!Camlcast.Image.load},
+  {!Camlcast.Texture.load}, and the [of_asset] pair that goes through
+  {!Camlcast.Asset} first.
+- {b Every number states its unit and range where it is declared.} Distances
+  and heights are in cells (one cell = one texture repeat; the eye stands
+  {!Camlcast.Config.eye_height} up); angles are radians on
+  {!Camlcast.Vec.of_angle}'s reckoning; colour channels and alpha run 0 .. 255;
+  fades and fractions run [0. .. 1.]. What a constructor would divide by or
+  fade across, it checks — refusals are written as the negation of what would
+  pass, so a [nan] is refused with the out-of-range.
+- {b Changing an immutable value}: [with_x] hands back the same thing with one
+  component replaced ({!Camlcast.Room.with_sprites},
+  {!Camlcast.Room.with_door}, {!Camlcast.World.with_atmosphere}); [add_x]
+  appends ({!Camlcast.Room.add_decal}, {!Camlcast.World.add_room}); [set_x] is
+  an engine-mediated change that keeps a cross-cutting invariant
+  ({!Camlcast.World.set_door}, which changes both sides of a link at once).
+- {b The winding rule is stated once}, at the top of {!Camlcast.Room}, and
+  everything else points there.
+
 {1 Where to start}
 
 {!Camlcast.Ray} carries the ray-versus-segment derivation and why the distance
@@ -113,7 +154,7 @@ Each depends only on the ones above it.
 - {!Camlcast.Transform} — rigid motions between room-local coordinate frames
 - {!Camlcast.Plane} — an inclined floor/ceiling plane and its casting equation
 - {!Camlcast.Color} — 8-bit RGB, shading and blending
-- {!Camlcast.Surface} — decoding a PNG or JPEG into plain bytes: the one place
+- {!Camlcast.Bitmap} — decoding a PNG or JPEG into plain bytes: the one place
   pixel formats appear
 - {!Camlcast.Asset} — where a file is, searched relative to the executable
   rather than to a source tree

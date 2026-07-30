@@ -55,7 +55,7 @@ let height = 4.
 let air =
   Atmosphere.make ~haze:(Color.rgb 26 26 34) ~fog_distance:22.
     ~min_brightness:0.4 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.65
-    ~directional:0.35
+    ~directional:0.35 ()
 
 type t = {
   player : Player.t;
@@ -75,9 +75,8 @@ let world =
   let wall material a b = Room.wall ~height ~material a b in
   let floor = Plane.horizontal 0. in
   let surfaces plane =
-    ( { Room.plane; material = Surfaces.ground },
-      Room.Roof
-        { Room.plane = Plane.above plane height; material = Surfaces.soffit } )
+    ( Room.floor ~plane ~material:Surfaces.ground,
+      Room.roof ~plane:(Plane.above plane height) ~material:Surfaces.soffit )
   in
   let ground, roof = surfaces floor in
   let near =
@@ -175,7 +174,7 @@ let update state ~dt:_ ~motion ~actions =
 let ringed fb (state : t) (seen : Sight.t option) =
   let here = World.room world state.player.Player.room in
   let viewport =
-    Viewport.create ~pitch:state.player.Player.pitch
+    Viewport.make ~pitch:state.player.Player.pitch
       ~eye_z:
         (Plane.elevation here.Room.floor.Room.plane state.player.Player.pos
         +. Config.eye_height)
@@ -239,22 +238,24 @@ let overlay fb state =
            (fun (x, y) ->
              (int_of_float (Float.round x), int_of_float (Float.round y)))
            corners)
-        ~r ~g ~b)
+        ~color:(Color.rgb r g b))
     (ringed fb state seen);
-  Paint.crosshair fb ~r ~g ~b;
+  Paint.crosshair fb ~color:(Color.rgb r g b);
   (* One tick per barrel recorded. *)
   List.iteri
     (fun i _ ->
       Paint.rect fb
         ~x:((2 * unit) + (i * 3 * unit))
         ~y:(height - (5 * unit))
-        ~w:(2 * unit) ~h:(3 * unit) ~r:120 ~g:230 ~b:130 ~alpha:255)
+        ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 120 230 130) ~alpha:255)
     state.collected
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update
-      ~view:(fun state -> (world, state.player))
-      ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update
+         ~view:(fun state -> (world, state.player))
+         ~overlay ())
+      start
   in
   ending

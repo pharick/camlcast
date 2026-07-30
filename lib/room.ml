@@ -1,6 +1,9 @@
 (* Implementation of {!Camlcast.Room}; the interface carries the prose. *)
 
 type surface = { plane : Plane.t; material : Material.t }
+
+let floor ~plane ~material = { plane; material }
+
 type side = Front | Back
 
 type decal = {
@@ -117,8 +120,16 @@ type threshold = {
 
 let leaf (t : threshold) = Option.bind t.door Door.leaf
 let shut (t : threshold) = Option.is_some (leaf t)
+let with_door (t : threshold) door = { t with door }
+let with_lintel (t : threshold) lintel = { t with lintel }
+
+let across (a : threshold) (b : threshold) =
+  Transform.between ~a1:a.a ~a2:a.b ~b1:b.a ~b2:b.b
 
 type ceiling = Roof of surface | Open of Sky.t
+
+let roof ~plane ~material = Roof { plane; material }
+let open_sky sky = Open sky
 
 type t = {
   walls : wall array;
@@ -127,6 +138,24 @@ type t = {
   ceiling : ceiling;
   sprites : sprite array;
 }
+
+let floor_plane t = t.floor.plane
+let floor_material t = t.floor.material
+let ceiling_surface t = match t.ceiling with Roof s -> Some s | Open _ -> None
+let ceiling_plane t = Option.map (fun s -> s.plane) (ceiling_surface t)
+let sky t = match t.ceiling with Open s -> Some s | Roof _ -> None
+
+let threshold_wall (t : threshold) ~height ~material : wall =
+  {
+    a = t.a;
+    b = t.b;
+    height;
+    material;
+    decals = [];
+    edge = t.edge;
+    length = t.length;
+    normal = t.normal;
+  }
 
 let wall ~height ~material ?(decals = []) a b =
   let edge = Vec.sub b a in
@@ -155,7 +184,7 @@ let threshold ~name ~height ?door ?lintel a b =
     normal = Vec.normalize (Vec.perp edge);
   }
 
-let make ?(thresholds = []) ~floor ~ceiling ?(sprites = []) walls =
+let make ?(thresholds = []) ?(sprites = []) ~floor ~ceiling walls =
   {
     walls = Array.of_list walls;
     thresholds = Array.of_list thresholds;
@@ -196,7 +225,7 @@ let blocked t (p : Vec.t) =
     (fun w -> distance_to_wall w p < Config.collision_padding)
     t.walls
 
-let segments_cross a1 a2 b1 b2 =
+let segments_cross ~a1 ~a2 ~b1 ~b2 =
   let d1 = Vec.sub a2 a1 and d2 = Vec.sub b2 b1 in
   let denom = Vec.cross d1 d2 in
   let off = Vec.sub b1 a1 in
@@ -214,8 +243,8 @@ let segments_cross a1 a2 b1 b2 =
     let t = Vec.cross off d2 /. denom and u = Vec.cross off d1 /. denom in
     t >= 0. && t <= 1. && u >= 0. && u <= 1.
 
-let distance_between_segments a1 a2 b1 b2 =
-  if segments_cross a1 a2 b1 b2 then 0.
+let distance_between_segments ~a1 ~a2 ~b1 ~b2 =
+  if segments_cross ~a1 ~a2 ~b1 ~b2 then 0.
   else
     let to_b p = distance_to_segment p ~a:b1 ~b:b2
     and to_a p = distance_to_segment p ~a:a1 ~b:a2 in
@@ -225,7 +254,8 @@ let passable t ~from ~dest =
   not
     (Array.exists
        (fun (w : wall) ->
-         distance_between_segments from dest w.a w.b < Config.collision_padding)
+         distance_between_segments ~a1:from ~a2:dest ~b1:w.a ~b2:w.b
+         < Config.collision_padding)
        t.walls)
 
 let path ?(closed = false) ~height ~material points =
@@ -251,6 +281,34 @@ let doorway ~name ?door ~width ~opening ~height ~material a b =
   ( [ wall ~height ~material a p; wall ~height ~material q b ],
     threshold ~name ?door ~height:opening ~lintel:{ top = height; material } p q
   )
+
+let rectangle ~height ~material c1 c2 =
+  let x0 = Float.min c1.Vec.x c2.Vec.x
+  and x1 = Float.max c1.Vec.x c2.Vec.x
+  and y0 = Float.min c1.Vec.y c2.Vec.y
+  and y1 = Float.max c1.Vec.y c2.Vec.y in
+  (* Negated, so a nan corner is refused with the flat ones. *)
+  if not (x0 < x1 && y0 < y1) then
+    invalid_arg "Room.rectangle: the corners have to span an area";
+  (* Counterclockwise with y down, so every wall's normal faces inward,
+     whichever two opposite corners were given. *)
+  path ~closed:true ~height ~material
+    [ Vec.make x0 y0; Vec.make x1 y0; Vec.make x1 y1; Vec.make x0 y1 ]
+
+let nearest_threshold ?(within = infinity) ?(where = fun _ -> true) t
+    (p : Vec.t) =
+  let best = ref None in
+  Array.iteri
+    (fun i (th : threshold) ->
+      if where th then
+        let middle = Vec.scale (Vec.add th.a th.b) 0.5 in
+        let away = Vec.length (Vec.sub middle p) in
+        let nearer =
+          match !best with None -> true | Some (d, _) -> away < d
+        in
+        if away <= within && nearer then best := Some (away, i))
+    t.thresholds;
+  Option.map snd !best
 
 let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
   path ~closed:true ~height ~material

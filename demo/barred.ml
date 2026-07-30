@@ -63,10 +63,9 @@ let hall =
   let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ barred; glazed ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     (List.concat
        [ barred_jambs; glazed_jambs; [ wall sw se; wall ne nw; wall nw sw ] ])
 
@@ -82,16 +81,14 @@ let chamber ~door ~transom ~ceiling ~sprites =
   let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ back ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling ~sprites
     (jambs @ [ wall sw se; wall se ne; wall ne nw ])
 
 let roofed =
-  Room.Roof
-    {
-      Room.plane = Plane.above (Plane.horizontal 0.) height;
-      material = Surfaces.soffit;
-    }
+  Room.roof
+    ~plane:(Plane.above (Plane.horizontal 0.) height)
+    ~material:Surfaces.soffit
 
 let world =
   World.make
@@ -109,7 +106,8 @@ let world =
            door itself does not. *)
         ( "behind-the-glass",
           chamber ~door:oak ~transom:Surfaces.window
-            ~ceiling:(Room.Open Surfaces.day) ~sprites:[] );
+            ~ceiling:(Room.open_sky Surfaces.day)
+            ~sprites:[] );
       ]
     ~links:
       [

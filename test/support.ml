@@ -59,13 +59,13 @@ let mesh =
 let air =
   Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:12.
     ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
-    ~directional:0.4
+    ~directional:0.4 ()
 
 (* Something to hang on a wall. Four quadrants, so a test can tell which corner
    of it a sample came from, and a clear border so the cut-out path is covered
    too. *)
 let poster =
-  Image.make 8 (fun ~u ~v ->
+  Image.make ~width:8 (fun ~u ~v ->
       if u = 0 || v = 0 || u = 7 || v = 7 then Image.clear
       else
         ( Color.rgb (if u < 4 then 200 else 40) (if v < 4 then 200 else 40) 0,
@@ -77,17 +77,7 @@ let flat_ceiling =
   Room.Roof { Room.plane = Plane.horizontal 3.; material = dim }
 
 (** A cloudless sky, for the fixture room that is open to one. *)
-let open_sky =
-  Room.Open
-    {
-      Sky.horizon = Color.rgb 176 196 222;
-      zenith = Color.rgb 40 62 126;
-      sun = Color.rgb 255 246 216;
-      sun_azimuth = -0.9;
-      sun_height = 0.5;
-      sun_radius = 0.55;
-      gradient = 2.2;
-    }
+let open_sky = Room.open_sky Sky.default
 
 (** A square room, 4 x 4, its four walls given counter-clockwise so [along]
     grows predictably. Small enough that every expected distance is obvious:
@@ -148,12 +138,11 @@ let world =
     transom being a lintel like any other. *)
 let joined_rooms ?door ?lintel ?(bare = false) () =
   let over (t : Room.threshold) =
-    if bare then { t with Room.lintel = None }
+    if bare then Room.with_lintel t None
     else
       match lintel with
       | None -> t
-      | Some material ->
-          { t with Room.lintel = Some { Room.top = 3.; material } }
+      | Some material -> Room.with_lintel t (Some { Room.top = 3.; material })
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
@@ -290,7 +279,7 @@ let portal world ~room ~index =
     at a time, and a suite that wants to say something about all of them — that
     each is walled all round, that some one of them is open to the sky — wants
     them as a list. Pair it with [List.iteri] where the index is wanted too. *)
-let rooms world = List.init (World.rooms world) (World.room world)
+let rooms world = List.init (World.room_count world) (World.room world)
 
 (** Every doorway of every room, as [(room, threshold, portal option)]: the
     whole of a world's linkage, flattened. [World.portal] answers about one
@@ -300,9 +289,9 @@ let rooms world = List.init (World.rooms world) (World.room world)
 let doorways world =
   List.concat_map
     (fun room ->
-      List.init (World.doorways world room) (fun threshold ->
+      List.init (World.doorway_count world ~room) (fun threshold ->
           (room, threshold, World.portal world ~room ~threshold)))
-    (List.init (World.rooms world) Fun.id)
+    (List.init (World.room_count world) Fun.id)
 
 (** Two rooms joined twice over, into a loop a single step can go all the way
     round. Room a's east doorway leads into b; b's north doorway leads back into

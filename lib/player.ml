@@ -30,13 +30,13 @@ type t = {
   pitch : float;  (** look up (+) or down (-), as a window-height fraction *)
 }
 
-let create ~room ~pos ~angle =
+let make ~room ~pos ~angle =
   let dir = Vec.of_angle angle in
   { room; pos; dir; right = Vec.perp dir; pitch = 0. }
 
-let spawn world =
+let spawn ?(angle = 0.) world =
   let start = World.spawn world in
-  create ~room:start.World.room ~pos:start.World.pos ~angle:0.
+  make ~room:start.World.room ~pos:start.World.pos ~angle
 
 (** Carry the pose into a neighbouring room's frame: the position moves with
     {!Transform.point}, the two basis vectors only rotate
