@@ -84,6 +84,13 @@ val load : string -> (t, [ `Msg of string ]) result
     be missing, or not be a picture, or — the one {!make} would otherwise raise
     on — decode to no pixels at all. *)
 
+val of_asset : string -> (t, [ `Msg of string ]) result
+(** {!load}, given an asset's name instead of a path: {!Asset.path} finds where
+    the file lives relative to the running executable, and the picture is read
+    from there. The error is whichever step's it was — the roots that were
+    searched, or what was wrong with the file they turned up. The twin of
+    {!Texture.of_asset}, for the same reason. *)
+
 val disc : cx:float -> cy:float -> r:float -> int -> int -> bool
 (** Is [(u, v)] inside the circle of radius [r] about [(cx, cy)]? A generator
     helper, here rather than repeated in every module that draws a round thing.

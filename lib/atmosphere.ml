@@ -32,6 +32,10 @@ let make ~haze ~fog_distance ~min_brightness ~light ~ambient ~directional =
     directional;
   }
 
+let default =
+  make ~haze:(Color.rgb 24 24 32) ~fog_distance:12. ~min_brightness:0.25
+    ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6 ~directional:0.4
+
 let fog t distance =
   Float.max t.min_brightness (1. -. (distance /. t.fog_distance))
 

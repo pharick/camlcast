@@ -18,6 +18,11 @@ let color = Sky.color day
 let sun_azimuth = day.sun_azimuth
 let sun_height = day.sun_height
 
+(* The default is the noon above — pinned so that a change to it is a decision
+   and not a drift. *)
+let the_default_is_the_settled_noon () =
+  Alcotest.(check bool) "default is the suite's own day" true (Sky.default = day)
+
 (* The sky is a vertical gradient: pale near the horizon, deep blue overhead.
    Away from the sun, higher up must be bluer and darker. *)
 let gradient_climbs_to_the_zenith () =
@@ -62,6 +67,7 @@ let () =
         [
           case "climbs to the zenith" gradient_climbs_to_the_zenith;
           case "azimuth wraps around" azimuth_wraps_around;
+          case "the default is the settled noon" the_default_is_the_settled_noon;
         ] );
       ("sun", [ case "is a bright spot" the_sun_is_a_bright_spot ]);
     ]

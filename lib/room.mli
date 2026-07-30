@@ -20,11 +20,15 @@
 type surface = { plane : Plane.t; material : Material.t }
 (** A floor or a ceiling: where it is, and what it is made of.
 
-    Concrete and open, and deliberately so. There is no constructor to close it
-    in favour of: it is two independent fields with nothing derived from either,
-    and every one that exists is written down as a literal at the point of use —
-    [{ Room.plane = floor; material = ground }] — so closing it would mean
-    inventing a two-argument constructor to protect an invariant there isn't. *)
+    Concrete and open, and deliberately so: it is two independent fields with
+    nothing derived from either, so there is no invariant for a closed record
+    to protect. {!val-floor} and {!roof} build one at the two places one is
+    wanted, and a literal — [{ Room.plane; material }] — is just as good. *)
+
+val floor : plane:Plane.t -> material:Material.t -> surface
+(** What is underfoot: a {!type-surface}, named for where it goes. The twin of
+    {!roof}, so the two arguments of {!make} that bound a room vertically read
+    the same way. *)
 
 (** Which face of a wall something is on.
 
@@ -317,6 +321,33 @@ val leaf : threshold -> Material.t option
 val shut : threshold -> bool
 (** Does this opening stop a step? Exactly when there is a leaf across it. *)
 
+val with_door : threshold -> Door.t option -> threshold
+(** The same opening with another leaf hung in it — or none, which is a bare
+    opening again. Every derived field is shared, since the endpoints have not
+    moved. What {!World.set_door} is made of; a game reaches for that, not
+    this, so the world's portals stay honest. *)
+
+val with_lintel : threshold -> lintel option -> threshold
+(** The same opening under another lintel — or under none, which claims the
+    opening reaches the top of its wall (see {!type-lintel} for what that
+    means). Like {!with_door}, nothing derived is touched. *)
+
+val threshold_wall : threshold -> height:float -> material:Material.t -> wall
+(** The threshold drawn as though it were a wall: its own endpoints, [height]
+    tall and made of [material], with [edge], [length] and [normal] copied
+    across rather than recomputed — they describe the same segment, and
+    recomputing them per frame is what {!val-wall} exists to avoid. This is how
+    {!Renderer} draws a door's leaf and the lintel strip above an opening, and
+    it is a function here so that the copying rule is written down once. *)
+
+val across : threshold -> threshold -> Transform.t
+(** The rigid motion carrying this room's coordinates onto the neighbour's,
+    given this room's threshold and the neighbour's it is linked to — that is,
+    {!Transform.between} with the endpoint pairing the winding rule requires,
+    written down once. {!World.make} works this out for every link itself; a
+    game wants it {e before} the world exists, to author a neighbour's floor so
+    it meets this room's across the doorway. *)
+
 (** {1 The room itself} *)
 
 (** What is overhead: an inclined plane of some material, or nothing at all and
@@ -325,6 +356,15 @@ val shut : threshold -> bool
 type ceiling =
   | Roof of surface  (** an inclined plane overhead, of some material *)
   | Open of Sky.t  (** nothing overhead, and which {!Sky} shows instead *)
+
+val roof : plane:Plane.t -> material:Material.t -> ceiling
+(** An inclined plane overhead: [Roof { plane; material }], so that a call to
+    {!make} names its two vertical bounds the same way — [~floor:(Room.floor
+    ...)] and [~ceiling:(Room.roof ...)] — instead of one being a record and
+    the other a record inside a variant. *)
+
+val open_sky : Sky.t -> ceiling
+(** Nothing overhead, and which {!Sky} shows instead: [Open sky]. *)
 
 type t = private {
   walls : wall array;
@@ -346,6 +386,29 @@ type t = private {
 
     The arrays are not mutated. A room that changes is a room built again, and
     the functions below share everything they do not replace. *)
+
+(** {2 Reading a room's bounds}
+
+    A floor is always a {!type-surface} and a ceiling only sometimes is, and a
+    field read that has to say so — [room.Room.floor.Room.plane], a [match] on
+    the ceiling — is longhand at every place that only wanted the plane. These
+    answer the common questions directly; exactly one of {!ceiling_surface}
+    and {!sky} answers [Some] for any room. *)
+
+val floor_plane : t -> Plane.t
+(** The plane underfoot. *)
+
+val floor_material : t -> Material.t
+(** What the floor is made of. *)
+
+val ceiling_surface : t -> surface option
+(** The roof overhead — [None] under the open sky. *)
+
+val ceiling_plane : t -> Plane.t option
+(** The plane of the roof overhead — [None] under the open sky. *)
+
+val sky : t -> Sky.t option
+(** The sky this room is open to — [None] under a roof. *)
 
 (** {1 Building a room} *)
 
@@ -491,6 +554,19 @@ val distance_between_segments : Vec.t -> Vec.t -> Vec.t -> Vec.t -> float
     away from an interior closest point and the distance would keep falling — so
     the four endpoint-to-segment distances cover every remaining case. *)
 
+val nearest_threshold :
+  ?within:float -> ?where:(threshold -> bool) -> t -> Vec.t -> int option
+(** The index of the threshold whose midpoint is nearest the point — among
+    those [where] admits, which is all of them unless said, and no farther
+    than [within] cells away, which is any distance unless said. [None] in a
+    room with no threshold that qualifies.
+
+    This is what "press the key at the door in front of you" is made of:
+    [nearest_threshold ~within:reach ~where:(fun t -> t.door <> None) room
+    pos]. Nearest-wins rather than what-you-are-looking-at, because a player
+    standing at a door is usually working it, wherever the crosshair drifted;
+    the index is the one {!World.set_door} takes. *)
+
 val passable : t -> from:Vec.t -> dest:Vec.t -> bool
 (** May the player step from [from] to [dest]? The player is a disc of radius
     {!Config.collision_padding}, so the step sweeps that disc along the segment
@@ -507,6 +583,19 @@ val passable : t -> from:Vec.t -> dest:Vec.t -> bool
     Walls in the shapes rooms are usually made of. Each returns plain
     {!type-wall}s, so a room built this way is no different from one written out
     segment by segment. *)
+
+val rectangle :
+  height:float -> material:Material.t -> Vec.t -> Vec.t -> wall list
+(** The four walls of the axis-aligned rectangle with these two opposite
+    corners — the single most common room there is, which every demo used to
+    open by naming four corners and a winding. The walls come out wound
+    counter-clockwise whichever two opposite corners are given, so the one
+    authoring mistake a box invites cannot be made through here.
+
+    @raise Invalid_argument
+      if the corners do not span an area in both axes — a flat rectangle has
+      walls of no length, whose normals could not be computed. Negated, so a
+      [nan] coordinate is refused with it. *)
 
 val path :
   ?closed:bool -> height:float -> material:Material.t -> Vec.t list -> wall list

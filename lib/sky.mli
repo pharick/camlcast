@@ -35,6 +35,10 @@ type t = {
     seven-argument constructor that no caller wants, to protect an invariant
     there isn't. *)
 
+val default : t
+(** A clear noon: pale horizon, deep zenith, and a soft warm sun riding high.
+    The sky to start from and perturb. *)
+
 val color : t -> azimuth:float -> up:float -> Color.t
 (** [color sky ~azimuth ~up] is the colour that sky shows to a column looking
     along [azimuth] radians, at screen elevation [up] — zero at the horizon,

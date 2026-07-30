@@ -6,6 +6,13 @@ let daylight =
     ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
     ~directional:0.4
 
+(* The default is the air above, the one every demo settled on — pinned so
+   that a change to it is a decision and not a drift. *)
+let the_default_is_the_settled_air () =
+  Alcotest.(check bool)
+    "default is the daylight the suite is written against" true
+    (Atmosphere.default = daylight)
+
 (* Walls face every direction, so shading follows the normal's angle to the
    light rather than a fixed x/y rule. It must stay within the band the
    atmosphere declares, or a wall would go black or blow out on orientation
@@ -133,6 +140,7 @@ let () =
           case "make normalises the light" make_normalises_the_light;
           case "a light that points nowhere is refused"
             a_light_that_points_nowhere_is_refused;
+          case "the default is the settled air" the_default_is_the_settled_air;
         ] );
       ( "fog",
         [

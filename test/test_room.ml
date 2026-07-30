@@ -516,6 +516,156 @@ let with_thresholds_keeps_a_copy () =
     "the walls are still shared, as everything unreplaced is" true
     (after.Room.walls == before.Room.walls)
 
+(* The constructors and the accessors are two ends of the same statement: what
+   goes in through [floor]/[roof]/[open_sky] is what comes back out of the
+   reads, with the match on the ceiling variant written once, in the library. *)
+let bounds_read_back_through_the_accessors () =
+  let ground = Plane.horizontal 0. in
+  let lid = Plane.above ground 3. in
+  let walls =
+    Room.rectangle ~height:3. ~material:pale (Vec.make (-2.) (-2.))
+      (Vec.make 2. 2.)
+  in
+  let boxed =
+    Room.make
+      ~floor:(Room.floor ~plane:ground ~material:pale)
+      ~ceiling:(Room.roof ~plane:lid ~material:mesh)
+      walls
+  in
+  Alcotest.(check bool)
+    "the floor's plane reads back" true
+    (Room.floor_plane boxed = ground);
+  Alcotest.(check bool)
+    "and its material" true
+    (Room.floor_material boxed == pale);
+  Alcotest.(check bool)
+    "a roofed room has a ceiling plane" true
+    (Room.ceiling_plane boxed = Some lid);
+  Alcotest.(check bool) "and no sky" true (Room.sky boxed = None);
+  let yard =
+    Room.make
+      ~floor:(Room.floor ~plane:ground ~material:pale)
+      ~ceiling:(Room.open_sky Sky.default) walls
+  in
+  Alcotest.(check bool)
+    "an open room says which sky" true
+    (Room.sky yard = Some Sky.default);
+  Alcotest.(check bool)
+    "and has no roof to read" true
+    (Room.ceiling_surface yard = None && Room.ceiling_plane yard = None)
+
+(* The one authoring mistake a box invites is winding it backwards. The
+   constructor's whole promise is that it cannot be made through it, whichever
+   two opposite corners arrive, in whichever order. *)
+let a_rectangle_is_wound_inward_from_either_corner_pair () =
+  let centre = Vec.make 1. 1. in
+  let check_walls what walls =
+    Alcotest.(check int) (what ^ " has four walls") 4 (List.length walls);
+    List.iter
+      (fun w ->
+        Alcotest.(check bool)
+          (what ^ ": the centre is on the front") true
+          (Room.side_of w centre = Room.Front))
+      walls
+  in
+  check_walls "low corner first"
+    (Room.rectangle ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 2. 2.));
+  check_walls "high corner first"
+    (Room.rectangle ~height:2. ~material:pale (Vec.make 2. 2.) (Vec.make 0. 0.));
+  check_walls "the other diagonal"
+    (Room.rectangle ~height:2. ~material:pale (Vec.make 0. 2.) (Vec.make 2. 0.))
+
+let a_flat_rectangle_is_refused () =
+  let raises what corner =
+    Alcotest.check_raises what
+      (Invalid_argument "Room.rectangle: the corners have to span an area")
+      (fun () ->
+        ignore (Room.rectangle ~height:2. ~material:pale (Vec.make 0. 0.) corner))
+  in
+  raises "no width" (Vec.make 0. 3.);
+  raises "no height" (Vec.make 3. 0.);
+  raises "no extent at all" (Vec.make 0. 0.);
+  raises "a nan corner" (Vec.make Float.nan 2.)
+
+(* [across] is [Transform.between] with the endpoint pairing already right —
+   the same pairing {!World.make} uses for a link, which is the fact a game
+   authoring a neighbour's floor depends on. *)
+let across_is_the_link_transform () =
+  let t1 =
+    Room.threshold ~name:"a" ~height:2. (Vec.make 1. 0.) (Vec.make 3. 0.)
+  and t2 =
+    Room.threshold ~name:"b" ~height:2. (Vec.make 7. 4.) (Vec.make 7. 6.)
+  in
+  Alcotest.(check bool)
+    "the same transform as spelling out the endpoints" true
+    (Room.across t1 t2
+    = Transform.between ~a1:t1.Room.a ~a2:t1.Room.b ~b1:t2.Room.a
+        ~b2:t2.Room.b)
+
+let doorway_in ~name ?door a b =
+  snd
+    (Room.doorway ~name ?door ~width:1. ~opening:2. ~height:3. ~material:pale a
+       b)
+
+(* Nearest-wins, gated by [where] and cut off by [within] — the whole of
+   "press the key at the door in front of you". *)
+let nearest_threshold_picks_the_nearest_that_qualifies () =
+  let near = doorway_in ~name:"near" (Vec.make 0. 0.) (Vec.make 4. 0.)
+  and far =
+    doorway_in ~name:"far" ~door:(Door.make mesh) (Vec.make 0. 8.)
+      (Vec.make 4. 8.)
+  in
+  let room =
+    Room.make ~thresholds:[ near; far ] ~floor:flat_floor ~ceiling:flat_ceiling
+      (Room.rectangle ~height:3. ~material:pale (Vec.make 0. 0.)
+         (Vec.make 4. 8.))
+  in
+  let at = Vec.make 2. 1. in
+  Alcotest.(check (option int))
+    "the nearer threshold wins" (Some 0)
+    (Room.nearest_threshold room at);
+  Alcotest.(check (option int))
+    "where filters — only the far one has a door" (Some 1)
+    (Room.nearest_threshold ~where:(fun t -> t.Room.door <> None) room at);
+  Alcotest.(check (option int))
+    "within cuts the far one off" None
+    (Room.nearest_threshold ~within:3.
+       ~where:(fun t -> t.Room.door <> None)
+       room at);
+  Alcotest.(check (option int))
+    "a room with no thresholds answers none" None
+    (Room.nearest_threshold
+       (Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+          (Room.rectangle ~height:3. ~material:pale (Vec.make 0. 0.)
+             (Vec.make 4. 4.)))
+       at)
+
+(* The three functions that stand where a record update used to: each touches
+   the field it names and shares every derived one, which is the property the
+   warning on {!Room.type-wall} is about. *)
+let threshold_edits_share_the_derived_fields () =
+  let t = doorway_in ~name:"gate" (Vec.make 0. 0.) (Vec.make 4. 0.) in
+  let hung = Room.with_door t (Some (Door.make mesh)) in
+  Alcotest.(check bool)
+    "with_door hangs the door" true
+    (hung.Room.door <> None && t.Room.door = None);
+  Alcotest.(check bool)
+    "and shares the geometry" true
+    (hung.Room.edge == t.Room.edge && hung.Room.normal == t.Room.normal);
+  let bare = Room.with_lintel t None in
+  Alcotest.(check bool)
+    "with_lintel takes the lintel away" true
+    (bare.Room.lintel = None && t.Room.lintel <> None);
+  let w = Room.threshold_wall t ~height:2.5 ~material:mesh in
+  Alcotest.(check bool)
+    "threshold_wall copies the segment across" true
+    (w.Room.a == t.Room.a && w.Room.edge == t.Room.edge
+    && w.Room.length = t.Room.length
+    && w.Room.normal == t.Room.normal);
+  Alcotest.(check bool)
+    "wearing the height and material it was told" true
+    (w.Room.height = 2.5 && w.Room.material == mesh && w.Room.decals = [])
+
 let () =
   Alcotest.run "Room"
     [
@@ -560,6 +710,14 @@ let () =
           case "path builds runs of walls" path_builds_runs_of_walls;
           case "regular polygon has a wall per side"
             regular_polygon_has_a_wall_per_side;
+          case "a rectangle is wound inward from either corner pair"
+            a_rectangle_is_wound_inward_from_either_corner_pair;
+          case "a flat rectangle is refused" a_flat_rectangle_is_refused;
+        ] );
+      ( "bounds",
+        [
+          case "bounds read back through the accessors"
+            bounds_read_back_through_the_accessors;
         ] );
       ( "doorways",
         [
@@ -571,5 +729,10 @@ let () =
           case "with_thresholds keeps a copy" with_thresholds_keeps_a_copy;
           case "a door's state decides what is seen and what is felt"
             a_doors_state_decides_what_is_seen_and_what_is_felt;
+          case "across is the link transform" across_is_the_link_transform;
+          case "nearest threshold picks the nearest that qualifies"
+            nearest_threshold_picks_the_nearest_that_qualifies;
+          case "threshold edits share the derived fields"
+            threshold_edits_share_the_derived_fields;
         ] );
     ]

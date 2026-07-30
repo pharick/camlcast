@@ -67,6 +67,20 @@ type 'a game = {
     answer to whether it is over, and the table its controls are read through.
 *)
 
+val game :
+  ?overlay:(Framebuffer.t -> 'a -> unit) ->
+  ?pointing:('a -> bool) ->
+  ?finished:('a -> bool) ->
+  ?bindings:Binding.t ->
+  update:('a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a) ->
+  view:('a -> World.t * Player.t) ->
+  'a game
+(** A game from the two things every game has and the four it may not: an
+    [update] and a [view], with the omitted rest meaning what omitting them
+    has always meant — [overlay] draws nothing, [pointing] never, [finished]
+    never of its own accord, and [bindings] {!Binding.default}. The defaults
+    live here, so {!run} and {!simulate} agree about them by construction. *)
+
 val with_window :
   (window -> ('a, [ `Msg of string ]) result) -> ('a, [ `Msg of string ]) result
 (** Open a window, hand it to the given function, and close it again when that

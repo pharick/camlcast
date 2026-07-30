@@ -77,6 +77,10 @@ let load path =
     Ok { size = w; texels; alpha; opaque = !opaque }
   end
 
+let of_asset name =
+  let* path = Asset.path name in
+  load path
+
 let hash a b =
   let h = a * 73856093 lxor (b * 19349663) in
   h lxor (h lsr 13) land max_int

@@ -143,7 +143,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
       (player.Player.pos.Vec.x +. (d *. dir.Vec.x))
       (player.Player.pos.Vec.y +. (d *. dir.Vec.y))
   in
-  let floor_z = Plane.elevation room.Room.floor.Room.plane hit_point in
+  let floor_z = Plane.elevation (Room.floor_plane room) hit_point in
   (* The wall rises to its own height, but a roof caps it so it never draws over
      the ceiling in front of it; with open sky there is nothing to cap against. *)
   let top_z =
@@ -325,7 +325,7 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let open Viewport in
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let depth = fb.Framebuffer.depth in
-  let floor_z = Plane.elevation room.Room.floor.Room.plane s.Room.pos in
+  let floor_z = Plane.elevation (Room.floor_plane room) s.Room.pos in
   let left, y_top, rightx, y_base =
     Viewport.sprite_box viewport player ~floor_z ~distance:depth_s s
   in
@@ -494,20 +494,8 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
      standing over the gap. [index] is the threshold's own, since that is what
      this stands for; nothing on this path reads it, but a hit has to carry
      something and a wall index would be a lie. *)
-  let as_wall (threshold : Room.threshold) ~index ~height ~material ~distance
-      ~along =
-    let wall : Room.wall =
-      {
-        a = threshold.a;
-        b = threshold.b;
-        height;
-        material;
-        decals = [];
-        edge = threshold.edge;
-        length = threshold.length;
-        normal = threshold.normal;
-      }
-    in
+  let as_wall threshold ~index ~height ~material ~distance ~along =
+    let wall = Room.threshold_wall threshold ~height ~material in
     { Ray.distance; along; wall; index }
   in
   List.iter
@@ -530,7 +518,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
           let floor_z =
-            Plane.elevation current.Room.floor.Room.plane hit_point
+            Plane.elevation (Room.floor_plane current) hit_point
           in
           let row z =
             int_of_float
@@ -658,7 +646,7 @@ let draw_frame fb world (player : Player.t) =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let current = World.room world player.room in
   let eye_z =
-    Plane.elevation current.Room.floor.Room.plane player.Player.pos
+    Plane.elevation (Room.floor_plane current) player.Player.pos
     +. Config.eye_height
   in
   let viewport =

@@ -8,6 +8,17 @@ type t = {
   gradient : float;
 }
 
+let default =
+  {
+    horizon = Color.rgb 176 196 222;
+    zenith = Color.rgb 40 62 126;
+    sun = Color.rgb 255 246 216;
+    sun_azimuth = -0.9;
+    sun_height = 0.5;
+    sun_radius = 0.55;
+    gradient = 2.2;
+  }
+
 let wrap a =
   let two_pi = 2. *. Float.pi in
   let a = Float.rem a two_pi in

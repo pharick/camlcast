@@ -14,6 +14,10 @@ type 'a game = {
   bindings : Binding.t;
 }
 
+let game ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
+    ?(finished = fun _ -> false) ?(bindings = Binding.default) ~update ~view =
+  { update; view; overlay; pointing; finished; bindings }
+
 type window = {
   handle : Sdl.window;
   renderer : Sdl.renderer;

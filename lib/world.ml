@@ -312,7 +312,7 @@ let set_door t ~room ~threshold state =
     | Some door ->
         let thresholds = Array.copy before.Room.thresholds in
         thresholds.(threshold) <-
-          { x with Room.door = Some (Door.set_state door state) };
+          Room.with_door x (Some (Door.set_state door state));
         (* Through {!replace_room}, so that a door changed here is held to the
            same invariants as a room rebuilt for any other reason. *)
         replace_room world ~room
@@ -461,8 +461,8 @@ let seam_gap t ~room:index portal =
   let here = t.rooms.(index) and there = t.rooms.(portal.to_room) in
   let difference p =
     Float.abs
-      (Plane.elevation here.Room.floor.Room.plane p
-      -. Plane.elevation there.Room.floor.Room.plane
+      (Plane.elevation (Room.floor_plane here) p
+      -. Plane.elevation (Room.floor_plane there)
            (Transform.point portal.onto p))
   in
   Float.max (difference portal.threshold.a) (difference portal.threshold.b)

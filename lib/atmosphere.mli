@@ -60,6 +60,12 @@ val make :
       {!Vec.normalize} cannot get a direction out of them, so the field would be
       left claiming to be a unit vector when it is not. *)
 
+val default : t
+(** The air of an unremarkable, mildly hazy day: dark blue-grey haze arriving
+    over twelve cells, light from the north-west, and a [0.6 .. 1.0] shading
+    band. The value to start from and perturb — every number in it is the one
+    the demos settled on. *)
+
 val fog : t -> float -> float
 (** [fog air distance] is how much of a surface's own colour survives at that
     many cells away: [1.] up close, falling linearly to [min_brightness] at

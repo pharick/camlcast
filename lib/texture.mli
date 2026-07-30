@@ -123,6 +123,9 @@ val load : string -> (t, [ `Msg of string ]) result
 (** Read a pattern from a PNG or JPEG file, colour and alpha both, exactly as
     they were drawn. A file with no alpha of its own arrives solid.
 
+    The [string] is a path on disk, taken as given. A game that ships assets
+    wants {!of_asset}, which asks {!Asset} where they live first.
+
     Nothing is reduced or reinterpreted on the way in, so what a painting
     program showed is what a wall wearing this will show, under whatever the
     {!Atmosphere} does to it. That is the whole reason to read a file rather
@@ -136,6 +139,14 @@ val load : string -> (t, [ `Msg of string ]) result
     A result and not an exception, because a file is a run-time failure: it may
     be missing, or not be a picture, or be the wrong shape, or — the one
     {!generate} would raise on — decode to no texels at all. *)
+
+val of_asset : string -> (t, [ `Msg of string ]) result
+(** {!load}, given an asset's name instead of a path: {!Asset.path} finds where
+    the file lives relative to the running executable, and the pattern is read
+    from there. The error is whichever step's it was — the roots that were
+    searched, or what was wrong with the file they turned up.
+
+    This composition is two lines, and every game was writing them. *)
 
 val hash : int -> int -> int
 (** A cheap deterministic hash. Not good randomness by any standard, but enough

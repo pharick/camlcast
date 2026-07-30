@@ -46,6 +46,10 @@ let load path =
             path w h))
   else Ok (make ~height:h w (fun ~u ~v -> Surface.sample s ~x:u ~y:v))
 
+let of_asset name =
+  let* path = Asset.path name in
+  load path
+
 let disc ~cx ~cy ~r u v =
   let du = float_of_int u -. cx and dv = float_of_int v -. cy in
   (du *. du) +. (dv *. dv) < r *. r
