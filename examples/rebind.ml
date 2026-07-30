@@ -40,8 +40,7 @@ let bindings =
             { Binding.source = Binding.Hold (Input.Key Key.k); weight = -1. };
           ];
       }
-    ~leave:[ Input.Key Key.escape ]
-    ()
+    ~leave:[ Input.Key Key.escape ] ()
 
 let () =
   match

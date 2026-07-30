@@ -65,8 +65,9 @@ let world =
   World.make
     ~rooms:[ ("hub", hub); ("east", chamber ()); ("west", chamber ()) ]
     ~links:
-      [ (("hub", "right"), ("east", "back"));
-        (("hub", "left"), ("west", "back")) ]
+      [
+        (("hub", "right"), ("east", "back")); (("hub", "left"), ("west", "back"));
+      ]
     ~atmosphere:Atmosphere.default
     ~spawn:("hub", Vec.make (-6.) 0.)
 
