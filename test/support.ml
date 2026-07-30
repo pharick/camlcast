@@ -46,15 +46,41 @@ let material brightness =
 let pale = material 230
 let dim = material 90
 
-(* A material you see through, for the one test that needs the renderer's
-   translucent routing to have something to route. *)
+(* A grille: solid bars three texels wide every eight, in both directions, with
+   clear five-by-five holes between them. Two things want it. The renderer's
+   translucent routing needs something to route, and anything about picking
+   {e through} a surface needs one whose alpha depends on where you look — the
+   bars stop a ray and the holes do not, so a test that moves the crosshair
+   across it can tell the two rules apart. Note that texel 0 of {e u} is bar, so
+   a hit landing squarely on a cell boundary is on a bar and not in a hole.
+
+   The bars across are offset by five texels, which is the one arbitrary number
+   here and is chosen rather than left at zero. Every sighting test crosses this
+   material level, at [Config.eye_height] over a flat floor, and
+   {!Texture.row_of_height} turns that half a cell into row 32 of 64 — a
+   multiple of the period, so unoffset it would be bar whatever [u] did, and the
+   fixture would answer the same for every aim across it. Five puts row 32 in
+   the middle of a hole, three rows clear of the bars either side, so those
+   tests turn on [u] — the thing they actually vary — and no rounding at the
+   edge of a texel can flip the answer. *)
 let mesh =
   Material.make
     ~pattern:
       (Texture.generate_masked (fun ~u ~v ->
-           if u mod 8 < 3 || v mod 8 < 3 then
+           if u mod 8 < 3 || (v + 5) mod 8 < 3 then
              (Color.level (Color.rgb 120 120 130) 180, 255)
            else (Color.rgb 0 0 0, 0)))
+
+(* And a pane of glass: partly transparent at every texel and fully solid at
+   none. What that buys is a see-through material with no pattern to aim at, so
+   a test about a see-through {e material} — a glazed door, a transom — says
+   what it means wherever the crosshair happens to land, instead of quietly
+   turning into a test about which texel it landed on. *)
+let glass =
+  Material.make
+    ~pattern:
+      (Texture.generate_masked (fun ~u:_ ~v:_ ->
+           (Color.level (Color.rgb 150 170 190) 210, 120)))
 
 let air =
   Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:12.

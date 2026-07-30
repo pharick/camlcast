@@ -22,6 +22,16 @@ let column_of_offset t offset =
   Int.min (t.size - 1)
     (Int.max 0 (int_of_float (offset *. float_of_int t.size)))
 
+(* Reduced to the current tile, flipped so that the bottom of a cell is the
+   bottom row, and clamped. [column_of_offset]'s rule turned on its side: the
+   same scale by [size], so every row owns the same band of a cell. The flip
+   sends [tile = 0] to [size] exactly, which the clamp brings back to the last
+   row — the one case the clamp is load-bearing rather than defensive. *)
+let row_of_height t height =
+  let tile = height -. Float.floor height in
+  Int.min (t.size - 1)
+    (Int.max 0 (int_of_float ((1. -. tile) *. float_of_int t.size)))
+
 let clamp v = Int.min 255 (Int.max 0 v)
 
 (* Whether [size * size] is a length an array can have. Divided rather than

@@ -212,7 +212,6 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     let level = clamp8 (int_of_float (light *. 255.)) in
     let veil = Color.shade air.Atmosphere.haze (1. -. fog) in
     let pattern = w.Room.material.Material.pattern in
-    let rows = Texture.size pattern in
     let u =
       Texture.column_of_offset pattern
         (hit.Ray.along -. Float.floor hit.Ray.along)
@@ -253,9 +252,10 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
          pixel, so a short wall in front hides only the part behind it. *)
       let index = (y * width) + column in
       if occlude || d < depth.(index) then begin
-        (* World height this pixel looks at on the wall, then where that falls
-           within the current one-cell tile of the texture (bottom of a cell at
-           the texture's bottom row, top at its top).
+        (* World height this pixel looks at on the wall, which
+           [Texture.row_of_height] turns into a texel row — it holds the tiling
+           and the flip, so that {!Sight} can ask the same question of the same
+           point and get the texel that was drawn here.
 
            [Viewport.row_factor] written out and multiplied by [d], because it
            is wanted once per pixel of the strip rather than once per row. The
@@ -268,10 +268,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
              *. d /. viewport.projection
         in
         let above_foot = z -. floor_z in
-        let tile = above_foot -. Float.floor above_foot in
-        let v =
-          clampi rows (int_of_float ((1. -. tile) *. float_of_int (rows - 1)))
-        in
+        let v = Texture.row_of_height pattern above_foot in
         let texel = Texture.sample pattern ~u ~v in
         let a = Texture.alpha pattern ~u ~v in
         (* Clamped, which the multiply alone did not need to be: [level] and a

@@ -217,13 +217,18 @@ let a_shut_door_stops_it () =
   let opened = World.set_door closed ~room:0 ~threshold:0 Door.Open in
   is "sprite 0 of room 1" (Sight.look opened (looking_east ()))
 
-(* A leaf of a material that carries an alpha stops the ray no more than a
+(* A leaf of a material you see through stops the ray no more than a
    see-through wall does — the renderer draws the room behind it, and what can
    be picked is what can be seen. What it still does is refuse the step: the two
-   questions are different questions, and this is the case that says so. *)
+   questions are different questions, and this is the case that says so.
+
+   {!Support.glass} and not {!Support.mesh}, because the claim here is about the
+   material and not about the aim: glass is see-through at every texel, so this
+   holds wherever the crosshair lands on the leaf. A grille would be answering a
+   different question, and {!a_grille_stops_the_ray_along_its_bars} asks it. *)
 let a_see_through_leaf_does_not_stop_it () =
   let barred =
-    rooms ~door:(Door.make mesh) ~far:[ figure (Vec.make 2. 2.) ] ()
+    rooms ~door:(Door.make glass) ~far:[ figure (Vec.make 2. 2.) ] ()
   in
   is "sprite 0 of room 1" (Sight.look barred (looking_east ()));
   Alcotest.(check bool)
@@ -245,7 +250,7 @@ let a_see_through_lintel_does_not_stop_it () =
       (looking_east ~pitch:Config.max_pitch ~from:(Vec.make 1. 2.) ())
   in
   is "doorway 0 of room 0" (over_the_door None);
-  is "sprite 0 of room 1" (over_the_door (Some mesh))
+  is "sprite 0 of room 1" (over_the_door (Some glass))
 
 (* A nearer opaque thing wins, wherever it stands. *)
 let a_nearer_thing_occludes () =
@@ -259,26 +264,29 @@ let a_nearer_thing_occludes () =
   | Some s -> Alcotest.(check int) "no doorway crossed" 0 s.Sight.crossed
   | None -> Alcotest.fail "expected the near sprite"
 
+(* A screen across the near room, added to it after the fact — the same rebuild
+   the cases below all want, and the reason they can all say "wall 5": it goes
+   on the end of the room's own four walls and its jamb, so it is always the
+   last of them. [a] and [b] are its ends, which the see-through cases move
+   about to aim the crosshair at one texel of it or another. *)
+let screened ?decals ~material a b world =
+  World.replace_room world ~room:0
+    ~replacement:
+      (let before = World.room world 0 in
+       Room.make
+         ~thresholds:
+           (List.init (Room.threshold_count before) (Room.threshold_at before))
+         ~floor:flat_floor ~ceiling:flat_ceiling
+         (List.init (Room.wall_count before) (Room.wall_at before)
+         @ [ Room.wall ~height:3. ~material ?decals a b ]))
+
 (* A wall in the way of the doorway does the same, and reports which wall — the
    index, not a copy of it, so it still means something after the room has been
    rebuilt around it. *)
 let a_wall_occludes_and_names_itself () =
-  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
   let blocked =
-    World.replace_room world ~room:0
-      ~replacement:
-        (let before = World.room world 0 in
-         Room.make
-           ~thresholds:
-             (List.init
-                (Room.threshold_count before)
-                (Room.threshold_at before))
-           ~floor:flat_floor ~ceiling:flat_ceiling
-           (List.init (Room.wall_count before) (Room.wall_at before)
-           @ [
-               Room.wall ~height:3. ~material:pale (Vec.make 3. 1.)
-                 (Vec.make 3. 3.);
-             ]))
+    screened ~material:pale (Vec.make 3. 1.) (Vec.make 3. 3.)
+      (rooms ~far:[ figure (Vec.make 2. 2.) ] ())
   in
   match Sight.look blocked (looking_east ()) with
   | Some { Sight.kind = Sight.Wall w; room; distance; crossed } ->
@@ -291,27 +299,76 @@ let a_wall_occludes_and_names_itself () =
       Alcotest.check close "at eye height" Config.eye_height w.z
   | other -> Alcotest.failf "expected a wall, got %s" (describe other)
 
-(* A see-through wall is no more of an obstacle to picking than it is to the
-   eye: the mesh fixture carries an alpha, so the sprite behind it wins. *)
-let a_see_through_wall_does_not_occlude () =
-  let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
-  let screened =
-    World.replace_room world ~room:0
-      ~replacement:
-        (let before = World.room world 0 in
-         Room.make
-           ~thresholds:
-             (List.init
-                (Room.threshold_count before)
-                (Room.threshold_at before))
-           ~floor:flat_floor ~ceiling:flat_ceiling
-           (List.init (Room.wall_count before) (Room.wall_at before)
-           @ [
-               Room.wall ~height:3. ~material:mesh (Vec.make 3. 1.)
-                 (Vec.make 3. 3.);
-             ]))
+(* Where an aim lands on {!Support.mesh}, said in the fixture's own terms rather
+   than asked of {!Material.opaque_at}, which is the thing under test: it is bar
+   where either index falls in the first three of every eight — the rows offset
+   by five, so that eye height is a hole and not a bar — and clear in the
+   five-by-five hole between. [along] is how far across the screen the ray
+   crosses it and [above] how high up it.
+
+   This shares two functions with the code under test, so it pins the aim and
+   not the arithmetic. What pins the arithmetic is elsewhere and on purpose:
+   {!Texture.row_of_height} has its own cases in [test_texture], and the
+   agreement with the {e picture} is asserted on real pixels in
+   [test_renderer]'s "a grille is picked where it is drawn". *)
+let on_a_bar ~along ~above =
+  let p = mesh.Material.pattern in
+  let u = Texture.column_of_offset p (along -. Float.floor along)
+  and v = Texture.row_of_height p above in
+  u mod 8 < 3 || (v + 5) mod 8 < 3
+
+(* A see-through wall is an obstacle to picking exactly where it is one to the
+   eye, and nowhere else. The renderer decides that per texel — a solid one is
+   written over the column and a clear one leaves what is behind — so the
+   crosshair has to decide it per texel too, or it names the sprite behind a bar
+   the picture shows no sprite through.
+
+   Geometry as in [a_wall_occludes_and_names_itself]: a screen two cells long
+   with the doorway and a sprite behind it, crossed level at eye height. Sliding
+   its near end moves where along it the ray lands, which is the only thing that
+   changes between the two halves. *)
+let a_see_through_wall_stops_the_ray_at_its_bars () =
+  let world () = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
+  let at y0 =
+    screened ~material:mesh (Vec.make 3. y0) (Vec.make 3. (y0 +. 2.)) (world ())
   in
-  is "sprite 0 of room 1" (Sight.look screened (looking_east ()))
+  (* The ray crosses at y = 2, so [along] is that much past the screen's near
+     end, and [above] is eye height over the flat floor. Asserted rather than
+     assumed: a change to the fixture or to [Config.eye_height] should fail here
+     and say which aim moved, not silently swap the two answers below. *)
+  let aim y0 = (2. -. y0, Config.eye_height) in
+  let bar_along, bar_above = aim 1. and hole_along, hole_above = aim 0.9 in
+  Alcotest.(check bool)
+    "the near end squarely on a cell boundary lands on a bar" true
+    (on_a_bar ~along:bar_along ~above:bar_above);
+  Alcotest.(check bool)
+    "and a tenth of a cell along lands in a hole" false
+    (on_a_bar ~along:hole_along ~above:hole_above);
+  (* A bar covers the pixel, so the wall is what is being looked at — named the
+     same way any other wall would be. *)
+  is "wall 5 of room 0" (Sight.look (at 1.) (looking_east ()));
+  (* A hole covers nothing, so the ray goes on through the doorway behind it. *)
+  is "sprite 0 of room 1" (Sight.look (at 0.9) (looking_east ()))
+
+(* Where no texel of a surface is solid, no aim at it stops the ray. Glass is
+   drawn — the renderer blends it over the column and it tints what is behind —
+   but blending is exactly the case where what is behind is still showing, and
+   what is still showing is still pickable. The line is at a full 255 and not at
+   "drawn at all", because a window you cannot look through is not a window.
+
+   The same two placements the grille was given, which there answered
+   differently and here do not: that is the difference between a material and an
+   aim, said side by side. *)
+let a_pane_of_glass_is_looked_through () =
+  List.iter
+    (fun y0 ->
+      is "sprite 0 of room 1"
+        (Sight.look
+           (screened ~material:glass (Vec.make 3. y0)
+              (Vec.make 3. (y0 +. 2.))
+              (rooms ~far:[ figure (Vec.make 2. 2.) ] ()))
+           (looking_east ())))
+    [ 1.; 0.9 ]
 
 (* A wall stops at the ceiling over it, however tall it was authored, because
    that is where {!Renderer} stops drawing it: above the roof the rows are the
@@ -473,7 +530,7 @@ let the_roof_caps_what_an_opening_shows () =
     Room.Roof { Room.plane = Plane.horizontal ceiling; material = dim }
   in
   let looking = looking_east ~pitch () in
-  let solid = Door.make pale and glazed = Door.make mesh in
+  let solid = Door.make pale and glazed = Door.make glass in
   (* With the roof where the fixture puts it, three cells up and clear of all of
      this, each of the three answers as it always did. *)
   is "doorway 0 of room 0" (Sight.look (rooms ~door:solid ()) looking);
@@ -485,7 +542,7 @@ let the_roof_caps_what_an_opening_shows () =
            "%s: with the roof clear it looks into the far room (found %s)" what
            found)
         true (mentions found "room 1"))
-    [ ("through the bars", rooms ~door:glazed ()); ("bare", rooms ()) ];
+    [ ("through the glass", rooms ~door:glazed ()); ("bare", rooms ()) ];
   (* Drop the roof below the doorway's head and every one of them is ceiling. *)
   is "nothing" (Sight.look (rooms ~ceiling:low ~door:solid ()) looking);
   is "nothing" (Sight.look (rooms ~ceiling:low ~door:glazed ()) looking);
@@ -569,26 +626,16 @@ let a_decal_on_a_wall_is_named () =
 
    The exception is the mark's and not the wall's: the same screen left bare is
    still looked straight through, which is what the two halves of this test say
-   next to each other. Geometry as in [a_wall_occludes_and_names_itself] — the
-   screen runs north from (3, 1), so a level look east crosses it one cell
-   along, at eye height. *)
+   next to each other. So the screen is aimed at a {e hole} of the grille — it
+   runs north from (3, 0.9), which puts the crossing a tenth of a cell along a
+   texel that is clear, by [a_see_through_wall_stops_the_ray_at_its_bars]'s
+   reckoning. Aimed at a bar the wall would stop the ray by itself and the two
+   halves would agree for the wrong reason. The mark is wide enough to cover
+   that crossing either way. *)
 let a_decal_on_a_see_through_wall_is_picked () =
   let world ~decals =
-    let plain = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
-    World.replace_room plain ~room:0
-      ~replacement:
-        (let before = World.room plain 0 in
-         Room.make
-           ~thresholds:
-             (List.init
-                (Room.threshold_count before)
-                (Room.threshold_at before))
-           ~floor:flat_floor ~ceiling:flat_ceiling
-           (List.init (Room.wall_count before) (Room.wall_at before)
-           @ [
-               Room.wall ~height:3. ~material:mesh ~decals (Vec.make 3. 1.)
-                 (Vec.make 3. 3.);
-             ]))
+    screened ~material:mesh ~decals (Vec.make 3. 0.9) (Vec.make 3. 2.9)
+      (rooms ~far:[ figure (Vec.make 2. 2.) ] ())
   in
   let marked =
     world
@@ -720,8 +767,10 @@ let () =
           case "a nearer thing occludes" a_nearer_thing_occludes;
           case "a wall occludes and names itself"
             a_wall_occludes_and_names_itself;
-          case "a see-through wall does not occlude"
-            a_see_through_wall_does_not_occlude;
+          case "a see-through wall stops the ray at its bars"
+            a_see_through_wall_stops_the_ray_at_its_bars;
+          case "a pane of glass is looked through"
+            a_pane_of_glass_is_looked_through;
           case "a sprite is read across by its width"
             a_sprite_is_read_across_by_its_width;
           case "a lifted sprite is looked at where it floats"

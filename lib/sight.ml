@@ -153,9 +153,12 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
           (* Asked of every wall in the band, and not only of the opaque ones,
              because a mark on a see-through wall is drawn and so has to be
              pickable. This is one ray a frame rather than one a column, so the
-             extra work is not worth avoiding. *)
+             extra work is not worth avoiding — which is what pays for the texel
+             {!Material.opaque_at} fetches below as well. *)
           let decal = decal_at wall ~seen_from ~along ~above in
-          if Material.opaque wall.Room.material || decal <> None then
+          if
+            Material.opaque_at wall.Room.material ~along ~above || decal <> None
+          then
             found d
               (Wall
                  {
@@ -180,6 +183,11 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
         let where = point_at d in
         let foot = floor_at where in
         let z = z_at d in
+        (* Where a leaf or a lintel is met, in that surface's own coordinates.
+           The renderer draws both as though they were walls — its [as_wall]
+           hands them the opening's [along] and the floor under the hit point —
+           so the texel this names is the texel that was painted here. *)
+        let along = opening.Ray.along and above = z -. foot in
         (* On through the doorway, which is where the renderer has drawn the
            neighbour — whether the opening is bare or wearing something the eye
            goes through. With nowhere to go the doorway itself is the answer. *)
@@ -197,12 +205,13 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
         if z > foot +. threshold.Room.height then
           (* Over the top of the opening. What is there is the strip of wall
              left standing above it — so this stops, but only if there is one
-             and it is solid; a glazed transom is looked through rather than at.
-             With no lintel the opening already runs the full height of the wall
-             it was cut into, so there is no strip: what is up there is this
-             room's own ceiling, which is not something to pick and not a way
-             through either, so the ray carries on and finds nothing. That is
-             the answer the renderer draws.
+             and it is solid where the crosshair is on it; the clear pane of a
+             transom is looked through rather than at, and its glazing bar is
+             not. With no lintel the opening already runs the full height of
+             the wall it was cut into, so there is no strip: what is up there
+             is this room's own ceiling, which is not something to pick and not
+             a way through either, so the ray carries on and finds nothing.
+             That is the answer the renderer draws.
 
              A strip has a top of its own, and the ceiling may cut it shorter
              still. Past either the lintel is behind us and we are back at the
@@ -210,7 +219,7 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
              neither the strip nor the neighbour up there. *)
           match threshold.Room.lintel with
           | Some l when z > under_roof where (foot +. l.Room.top) -> first rest
-          | Some l when Material.opaque l.Room.material ->
+          | Some l when Material.opaque_at l.Room.material ~along ~above ->
               found d (Doorway { index })
           | Some _ -> onwards ()
           | None -> first rest
@@ -225,11 +234,13 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
              nothing here to pick and nothing to look through. *)
           first rest
         else
-          (* The same rule the wall above follows: what is opaque stops the ray,
-             and what you can see through does not. {!Room.shut} is not asked,
-             because it is about the step and this is about the eye. *)
+          (* The same rule the wall above follows: a leaf stops the ray where
+             its texel is solid, and does not where you can see through it.
+             {!Room.shut} is not asked, because it is about the step and this is
+             about the eye — a barred gate refuses the one and not the other,
+             and now refuses the eye only along its bars. *)
           match Room.leaf threshold with
-          | Some material when Material.opaque material ->
+          | Some material when Material.opaque_at material ~along ~above ->
               found d (Doorway { index })
           | Some _ | None -> onwards ())
   in

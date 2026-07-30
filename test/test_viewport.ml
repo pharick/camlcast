@@ -120,7 +120,13 @@ let pitch_shears_the_horizon () =
    centre is the middle of the buffer — which it is at every odd width, the
    sizes [Renderer.internal_size] actually produces from a 1366- or 2560-wide
    window. An even width has no middle column at all: the middle falls between
-   two, and the most that can be asked is that neither is favoured. *)
+   two, and the most that can be asked is that neither is favoured.
+
+   Half a pixel buys more than it used to. [Sight] reads the texel under the
+   crosshair now, so at an even width the ray it traces and the ray through the
+   pixel drawn can fall either side of a texel edge, and the two disagree over a
+   grille's bar by one texel of the pattern. That is what the bound below is
+   worth in the world, and why it is asserted and not waived. *)
 let the_centre_column_looks_straight_ahead () =
   let player = Player.make ~room:0 ~pos:centre ~angle:0.7 in
   List.iter

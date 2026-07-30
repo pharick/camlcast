@@ -813,6 +813,75 @@ let a_mark_lands_under_the_crosshair () =
         [ (160, 100); (161, 101) ]
   | _ -> Alcotest.fail "expected the wall ahead"
 
+(* The other half of that round trip, and the one a see-through wall can fail:
+   what {!Sight} says the crosshair is on has to be what was drawn there, texel
+   by texel and not material by material. A grille is where the two can part
+   company, because its alpha changes from one texel to the next — the renderer
+   samples the one the column lands on, so a picker judging the whole material
+   names whatever is behind a bar the picture shows no way through.
+
+   Whether the wall covered the crosshair is read off the frame rather than
+   asserted about. Draw the hall with a sprite standing behind the screen and
+   again without it, and look at the middle pixel: unchanged means the screen
+   covered it, changed means the sprite showed through. That measurement goes
+   through none of Sight's arithmetic, which is what makes this a comparison
+   between the two modules rather than a restatement of one of them.
+
+   The screen is placed twice, a tenth of a cell apart, so that one crossing
+   falls on a bar and the other in a hole — and neither module is told which is
+   which. An odd buffer, because there the middle pixel's own ray is exactly
+   [player.dir], the ray Sight traces; at an even size the two straddle the
+   middle by half a pixel and this would be a test about that instead. *)
+let a_grille_is_picked_where_it_is_drawn () =
+  let odd = 161 and tall = 101 in
+  (* Four cells of grille across the hall at x = 4, and a sprite four cells
+     further on for it to hide or not. Sliding the near end moves where along
+     the screen the level ray crosses it, which is the only difference between
+     the two placements. *)
+  let screen y0 =
+    [
+      Room.wall ~height:3. ~material:mesh (Vec.make 4. y0)
+        (Vec.make 4. (y0 +. 4.));
+    ]
+  in
+  let behind = [ Room.sprite ~size:1.5 ~image:square (Vec.make 8. 0.) ] in
+  let showed_through y0 =
+    let with_it, without = alone ~extra:(screen y0) behind in
+    let a = Framebuffer.offscreen ~width:odd ~height:tall
+    and b = Framebuffer.offscreen ~width:odd ~height:tall in
+    Renderer.draw_frame a with_it (looking_east ());
+    Renderer.draw_frame b without (looking_east ());
+    let at fb = Framebuffer.pixel fb ~x:(odd / 2) ~y:(tall / 2) in
+    at a <> at b
+  in
+  let picked y0 =
+    match
+      Sight.look (fst (alone ~extra:(screen y0) behind)) (looking_east ())
+    with
+    | Some { Sight.kind = Sight.Wall _; _ } -> "wall"
+    | Some { Sight.kind = Sight.Sprite _; _ } -> "sprite"
+    | other ->
+        Alcotest.failf "expected the screen or the sprite, got %s"
+          (match other with None -> "nothing" | Some _ -> "a doorway")
+  in
+  (* The two placements answer differently, or the fixture is not aimed at what
+     this is about and everything below would pass by agreeing on one case. *)
+  Alcotest.(check bool)
+    "the two placements land on different texels" true
+    (showed_through (-2.) <> showed_through (-2.1));
+  List.iter
+    (fun y0 ->
+      let seen = showed_through y0 in
+      Alcotest.(check string)
+        (Printf.sprintf
+           "a screen from y = %g: the sprite %s through it, so the crosshair \
+            is on the"
+           y0
+           (if seen then "shows" else "does not show"))
+        (if seen then "sprite" else "wall")
+        (picked y0))
+    [ -2.; -2.1 ]
+
 (* The wall's own share of the light, which nothing else here pins. A pattern's
    texel is what the surface {e is}, and the air is the only thing between that
    and the screen — so if the light stopped arriving, every wall in the game
@@ -1240,6 +1309,8 @@ let () =
             a_decal_on_the_far_face_is_drawn_from_behind;
           case "a mark lands under the crosshair"
             a_mark_lands_under_the_crosshair;
+          case "a grille is picked where it is drawn"
+            a_grille_is_picked_where_it_is_drawn;
           case "a decal is fogged like the wall it is on"
             a_decal_is_fogged_like_the_wall_it_is_on;
           case "a decal ignores what the wall is made of"

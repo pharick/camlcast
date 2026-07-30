@@ -45,6 +45,25 @@
     at an even one, where the middle falls on a boundary and no pixel is the
     centre.
 
+    {!Sight} traces the middle itself rather than that pixel, on purpose: its
+    answer is the same whatever size the window has been dragged to. At an even
+    size the two are half a pixel apart, and what that half is worth has grown.
+    Now that picking reads the {e texel} under the crosshair rather than judging
+    a whole material, a ray landing half a pixel to one side can land on the
+    next texel along, so the two can differ by one texel of the pattern at the
+    edge of a grille's bar — where before it took a target narrower than a pixel
+    to notice.
+
+    Bounded on the screen, at half a pixel; not bounded in the world, because
+    half a pixel subtends more of a surface the further off it is. At the
+    512x384 an unresized window renders into, the two rays part by 0.0011 cells
+    for every cell of distance — for a 64-texel pattern, one texel at about
+    fourteen cells and two at twenty-eight. What caps it in practice is the haze
+    rather than the arithmetic: an atmosphere with a [fog_distance] in the low
+    tens has taken the pattern away before the disagreement reaches a second
+    texel. Still only at even sizes, and still the price of a crosshair that
+    means the same thing in every window.
+
     {1 Widening the window reveals more world}
 
     That leaves [projection] free. Anchoring it to the window {e height} fixes

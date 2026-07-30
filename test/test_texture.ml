@@ -83,6 +83,97 @@ let offsets_map_into_the_texture () =
     "a denser pattern spreads the same face over more columns" 128
     (Texture.column_of_offset dense 0.5)
 
+(* The vertical half of the same rule, and the one thing about it that is not
+   the horizontal half turned on its side: a row is counted {e down} from the
+   top, so a height just over the foot of a wall is the bottom row of the
+   pattern and one just under the next cell is the top. Get the flip wrong and
+   every wall in the game is drawn upside down. *)
+let heights_map_into_the_texture () =
+  let last = Texture.default_size - 1 in
+  Alcotest.(check int)
+    "the foot of a cell is the bottom row" last
+    (Texture.row_of_height checker 0.);
+  (* Not the same case as the one above, which passes by clamping: this is a
+     height genuinely inside the bottom row's band, and it is what scaling by
+     [size - 1] used to get wrong — under that rule the last row was reachable
+     only from exactly the foot and every height just over it fell in the row
+     above, leaving the bottom of every pattern undrawn. *)
+  Alcotest.(check int)
+    "and so is a height just over it" last
+    (Texture.row_of_height checker 0.001);
+  Alcotest.(check int)
+    "just under its head is the top row" 0
+    (Texture.row_of_height checker 0.999);
+  Alcotest.(check int)
+    "and the middle is the middle" (Texture.default_size / 2)
+    (Texture.row_of_height checker 0.5);
+  (* The pattern tiles every world unit, so only the fraction comes into it —
+     the same rule the columns follow, and what makes a wall's pattern repeat up
+     its height instead of stretching over it. Negative heights do not arise on
+     the drawing path, where a wall is only sampled between its foot and its
+     top, but [Float.floor] tiles them the same way and nothing here has to
+     special-case a floor that slopes below zero. *)
+  Alcotest.(check int)
+    "a whole number of cells up is the same row"
+    (Texture.row_of_height checker 0.25)
+    (Texture.row_of_height checker 3.25);
+  Alcotest.(check int)
+    "and below zero tiles the same way"
+    (Texture.row_of_height checker 0.25)
+    (Texture.row_of_height checker (-2.75));
+  (* Denser patterns spread one cell over more rows, for the same reason
+     [column_of_offset] takes the pattern rather than a module constant. *)
+  let dense = Texture.generate ~size:256 (fun ~u:_ ~v:_ -> grey) in
+  Alcotest.(check int)
+    "a denser pattern spreads one cell over more rows" 255
+    (Texture.row_of_height dense 0.)
+
+(* The two axes are scaled by the same number, so the row rule is the column
+   rule turned on its side and nothing but the flip tells them apart. What that
+   buys is the assertion below it: every row owns the same band of a cell, the
+   bottom one included, so a pattern tiles up a wall on the terms it tiles
+   along one.
+
+   The mirror is [size - 1 - column] rather than [size - column] because the two
+   count from opposite ends of the same half-open bands, and it holds only
+   {e off} the boundaries: a fraction landing exactly on a texel edge belongs to
+   the band above it going up and the band below it coming down, so the two
+   differ by one there. The fractions below are picked to sit inside a texel for
+   that reason — [0.5] would not, since [0.5 * 64] is a whole number. *)
+let the_two_axes_agree () =
+  let last = Texture.default_size - 1 in
+  List.iter
+    (fun tile ->
+      Alcotest.(check int)
+        (Printf.sprintf "at %g the row is the column, flipped" tile)
+        (last - Texture.column_of_offset checker tile)
+        (Texture.row_of_height checker tile))
+    [ 0.1; 0.3; 0.7; 0.999 ]
+
+(* And the consequence worth having: no row is favoured. Swept rather than
+   sampled, because the claim is about area and a point has none — under the old
+   [size - 1] scale this sweep reached 63 of the 64 rows and never the bottom
+   one, handing its share to the others at 101 and 102 samples apiece.
+
+   Midpoints of each step, so that no sample lands on a texel boundary and the
+   count cannot turn on which side of one a rounding fell. *)
+let every_row_covers_the_same_span () =
+  let size = Texture.default_size in
+  let per_row = 100 in
+  let steps = size * per_row in
+  let counts = Array.make size 0 in
+  for i = 0 to steps - 1 do
+    let tile = (float_of_int i +. 0.5) /. float_of_int steps in
+    let row = Texture.row_of_height checker tile in
+    counts.(row) <- counts.(row) + 1
+  done;
+  Array.iteri
+    (fun row n ->
+      Alcotest.(check int)
+        (Printf.sprintf "row %d gets its share of the cell" row)
+        per_row n)
+    counts
+
 let generate_masked_flags_transparency () =
   Alcotest.(check bool)
     "a solid pattern is opaque" true (Texture.opaque checker);
@@ -318,6 +409,9 @@ let () =
           case "texels are bytes" texels_are_bytes;
           case "sampling is row major" sampling_is_row_major;
           case "offsets map into the texture" offsets_map_into_the_texture;
+          case "heights map into the texture" heights_map_into_the_texture;
+          case "the two axes agree" the_two_axes_agree;
+          case "every row covers the same span" every_row_covers_the_same_span;
           case "patterns carry their own size" patterns_carry_their_own_size;
           case "generate_masked flags transparency"
             generate_masked_flags_transparency;

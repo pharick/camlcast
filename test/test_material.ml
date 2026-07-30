@@ -34,6 +34,76 @@ let opacity_comes_from_the_pattern () =
     "one with holes does not" false
     (Material.opaque (Material.make ~pattern:holes))
 
+(* [opaque] answers for the whole surface and [opaque_at] for one point of it.
+   The pointwise one is what {!Sight} asks, because the renderer decides per
+   texel: a solid texel is written over the column and hides what is behind, a
+   clear one leaves it showing. [holes] is bar where either index falls in the
+   first five of every sixteen, so a point in the middle of a bar and a point in
+   the middle of a hole answer differently — which is the whole difference the
+   whole-surface question cannot express. *)
+let opacity_is_asked_of_a_point () =
+  let m = Material.make ~pattern:holes in
+  (* A texel column is 1/64 of a cell, so 2/64 along is inside the first bar and
+     8/64 is well into the hole after it. Heights are measured up from the foot
+     and rows count down from the top, so a hole in [v] is high up the cell. *)
+  Alcotest.(check bool)
+    "solid where the pattern is bar" true
+    (Material.opaque_at m ~along:0.03 ~above:0.97);
+  Alcotest.(check bool)
+    "and see-through where it is not" false
+    (Material.opaque_at m ~along:0.13 ~above:0.85);
+  (* Either index being bar is enough: the fixture's bars run both ways. *)
+  Alcotest.(check bool)
+    "a bar in one axis alone still stops it" true
+    (Material.opaque_at m ~along:0.13 ~above:0.97);
+  (* The pattern tiles every world unit, the same way a plane's does, so a wall
+     several cells along and several cells up shows the same texel. *)
+  Alcotest.(check bool)
+    "and it tiles every cell" true
+    (Material.opaque_at m ~along:5.03 ~above:3.97)
+
+(* Partly transparent is not solid. The renderer only writes a pixel outright —
+   and only records its distance — at a full 255; anything less it blends, which
+   leaves what is behind showing through and so leaves it there to be picked.
+   Drawing the line anywhere else would make a pane of glass something you could
+   not look through, which is the one thing a window is for. *)
+let a_half_transparent_texel_is_not_solid () =
+  let veil alpha =
+    Material.make
+      ~pattern:
+        (Texture.generate_masked (fun ~u:_ ~v:_ ->
+             (Color.rgb 200 200 200, alpha)))
+  in
+  Alcotest.(check bool)
+    "a full 255 is solid" true
+    (Material.opaque_at (veil 255) ~along:0.5 ~above:0.5);
+  Alcotest.(check bool)
+    "one short of it is not" false
+    (Material.opaque_at (veil 254) ~along:0.5 ~above:0.5);
+  Alcotest.(check bool)
+    "and neither is a clear one" false
+    (Material.opaque_at (veil 0) ~along:0.5 ~above:0.5)
+
+(* The two questions cannot disagree, which is what lets the renderer route a
+   whole wall by the cheap one and [Sight] then ask the dear one of a single
+   ray: a pattern is [Texture.opaque] only when every texel of it is solid, so a
+   material that says it is opaque answers true at every point of itself. Swept
+   across a cell in both directions rather than asserted at a point, because the
+   claim is "everywhere" and one sample is not that. *)
+let a_solid_material_is_solid_everywhere () =
+  let m = Material.make ~pattern:banded in
+  Alcotest.(check bool) "the whole surface says solid" true (Material.opaque m);
+  let steps = List.init 17 (fun i -> float_of_int i /. 16.) in
+  List.iter
+    (fun along ->
+      List.iter
+        (fun above ->
+          if not (Material.opaque_at m ~along ~above) then
+            Alcotest.failf "an opaque material was see-through at %f, %f" along
+              above)
+        steps)
+    steps
+
 (* The floor and ceiling are textured in world space, sampled by the fractional
    part of the coordinates so the pattern tiles every world unit. Tiling in
    world space rather than across the plane is what makes an incline visible. *)
@@ -74,6 +144,14 @@ let () =
         [
           case "materials share a pattern" materials_share_a_pattern;
           case "opacity comes from the pattern" opacity_comes_from_the_pattern;
+        ] );
+      ( "opacity at a point",
+        [
+          case "opacity is asked of a point" opacity_is_asked_of_a_point;
+          case "a half transparent texel is not solid"
+            a_half_transparent_texel_is_not_solid;
+          case "a solid material is solid everywhere"
+            a_solid_material_is_solid_everywhere;
         ] );
       ( "planes",
         [

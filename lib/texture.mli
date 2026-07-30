@@ -106,6 +106,28 @@ val column_of_offset : t -> float -> int
     [offset] reaches 1.0 exactly when a ray strikes a corner, which would index
     one past the end, so the result is clamped. *)
 
+val row_of_height : t -> float -> int
+(** The texel row of [t] that a point [height] above the foot of a surface falls
+    in. The pattern tiles every world unit, so only the fractional part of the
+    height comes into it, and the row is measured {e down} from the top: a
+    height just over the foot is the bottom row and one just under the next cell
+    is the top. That flip is what makes a wall's pattern stand up the right way,
+    and it is written here so that {!Renderer} and {!Sight} cannot each have
+    their own idea of it.
+
+    It is [column_of_offset]'s rule turned on its side: both scale the fraction
+    by [size], so every one of a pattern's rows owns the same band of a cell as
+    every one of its columns, and a wall tiles up its height on the same terms
+    it tiles along its length. Scaling by [size - 1] instead — as this did until
+    the rows were measured — leaves the last row reachable only from a height
+    that is exactly a whole number of cells, so the bottom row of every pattern
+    has no area at all and the rest stretch to cover for it.
+
+    This is also the arithmetic the wall is {e drawn} with, and anything asking
+    what a surface is at a point has to agree with what was drawn there — which
+    is why the two questions share this function rather than each spelling it
+    out. *)
+
 val generate : ?size:int -> (u:int -> v:int -> Color.t) -> t
 (** A solid (fully opaque) pattern from a colour function. [f] is clamped rather
     than trusted, because a pattern is usually arithmetic about a base value and

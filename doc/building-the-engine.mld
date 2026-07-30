@@ -797,7 +797,12 @@ looks at and take the fractional cell:
 let z = viewport.eye_z -. ((float_of_int y -. viewport.horizon) *. d /. viewport.projection) in
 let tile = let h = z -. floor_z in h -. Float.floor h in       (* 0 at cell bottom .. 1 at top *)
 let pattern = wall.Room.material.Material.pattern in
-let v = int_of_float ((1. -. tile) *. float_of_int (Texture.size pattern - 1)) in
+let size = Texture.size pattern in
+(* Scaled by [size] and clamped, the same rule [column_of_offset] follows, so
+   that every row of the pattern covers as much of a cell as every column does.
+   The clamp earns its place on the flip: a height exactly at the foot of a cell
+   sends [1. -. tile] to 1 and the product to [size], one past the last row. *)
+let v = Int.min (size - 1) (int_of_float ((1. -. tile) *. float_of_int size)) in
 (* The texel is already the colour. All that is left is the light on it: how
    squarely this wall faces the lamp multiplies it, and how far away it is
    blends it towards the colour of the air. *)

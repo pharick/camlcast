@@ -43,6 +43,25 @@ val opaque : t -> bool
     painting a wall straight over the column and holding it back for the
     translucent pass. *)
 
+val opaque_at : t -> along:float -> above:float -> bool
+(** Whether the material hides what is behind it {e at that point} of a wall's
+    surface: [along] it in cells, from the wall's [a] endpoint, and [above] the
+    floor standing under it. The two coordinates a {!Room.type-decal} is placed
+    in, and the two {!Renderer} turns into a texel.
+
+    True exactly where that texel is fully solid, which is exactly where the
+    renderer writes the pixel outright and records its distance. A texel it only
+    {e blends} — a pane of glass, the gap in a grille — is one the eye goes
+    through, and so one the crosshair goes through: what can be picked is what
+    can be seen, and a surface drawn over what is behind it is the only thing
+    that hides it.
+
+    {!opaque} is this everywhere at once, and the two cannot disagree: a pattern
+    is {!Texture.opaque} only if every texel of it is solid, so a material that
+    says it is opaque answers true here at every point of it. Which is why the
+    cheap whole-surface question is still the right one for the renderer to
+    route a wall by, and this the right one to ask about a single ray. *)
+
 val plane_texel : t -> x:float -> y:float -> Color.t
 (** [plane_texel material ~x ~y] is the colour [material] shows at that world
     point, for a floor or ceiling {!Plane}. The two coordinates are the ground

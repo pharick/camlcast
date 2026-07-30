@@ -25,15 +25,20 @@
     The same things that stop the eye, which is the point: what can be picked is
     what can be seen.
 
-    - An {b opaque wall}, but only where the wall actually is — the ray's height
-      has to fall between the wall's foot on the sloped floor and its top, or it
-      passes over or under it. Its top is its own height or the ceiling standing
-      over that point, whichever is lower: {!Renderer} caps a wall at the
-      ceiling and paints the ceiling above it, so a wall that runs on past one
-      is a wall nobody can see up there. A room open to the sky caps nothing. A
-      see-through wall ({!Material.opaque} is false) does not stop it, exactly
-      as it does not stop the renderer, and by the same whole-wall rule rather
-      than texel by texel.
+    - A {b wall}, where it is solid — the ray's height has to fall between the
+      wall's foot on the sloped floor and its top, or it passes over or under
+      it. Its top is its own height or the ceiling standing over that point,
+      whichever is lower: {!Renderer} caps a wall at the ceiling and paints the
+      ceiling above it, so a wall that runs on past one is a wall nobody can see
+      up there. A room open to the sky caps nothing. Solid is asked of the
+      {e texel} the crosshair is on and not of the wall as a whole, by
+      {!Material.opaque_at}, because that is the question the renderer asks of
+      each pixel: a texel it writes outright is one that hides what is behind,
+      and a texel it merely blends — the gap in a grille, a pane of glass — is
+      one the eye goes through. So the bars of a grille stop the ray and the
+      holes between them do not, which is what the picture shows. One ray a
+      frame can afford to look; the renderer, at one a column, routes a whole
+      wall by {!Material.opaque} first and reaches the same answer.
     - A {b decal} on either sort of wall, where its image is not transparent
       there. This is what makes the see-through case an exception rather than a
       hole: the renderer draws a wall's decals whether or not the wall itself
@@ -48,16 +53,17 @@
       the renderer stops drawing them at, read from the same place so that the
       two cannot drift apart, and a sprite the frame does not show is not
       something the crosshair should claim to be looking at.
-    - An {b opaque leaf} across a doorway, a doorway that {b leads nowhere yet},
-      and an {b opaque lintel} over an opening — a ray meeting a doorway above
-      its head meets the wall standing over it. A leaf or a lintel of a
-      see-through material stops the ray no more than a see-through wall does:
-      the renderer draws the neighbouring room behind both, so the ray goes on
-      into it, and the leaf still refuses the step it always did. What can be
-      picked is what can be seen, not what can be walked through. An opening
-      with {b no lintel} has no wall standing over it, and is no way through
-      either — above its head is this room's own ceiling — so a ray up there
-      meets nothing at all.
+    - A {b leaf} across a doorway, a doorway that {b leads nowhere yet}, and a
+      {b lintel} over an opening — a ray meeting a doorway above its head meets
+      the wall standing over it. The renderer draws a leaf and a lintel as
+      though each were a wall, so both are read the same way a wall is: solid
+      where the texel under the crosshair is, see-through where it is not. A
+      barred gate stops the ray along its bars and not between them, the
+      neighbouring room is drawn behind it either way, and the leaf still
+      refuses the step it always did. What can be picked is what can be seen,
+      not what can be walked through. An opening with {b no lintel} has no wall
+      standing over it, and is no way through either — above its head is this
+      room's own ceiling — so a ray up there meets nothing at all.
     - Running out of {b doorways to look through}.
 
     A doorway is bounded above the same way a wall is, and for the same reason.
