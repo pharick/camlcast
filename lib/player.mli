@@ -38,13 +38,25 @@ val make : room:int -> pos:Vec.t -> angle:float -> t
     derived from [angle], so they start unit and perpendicular, which every
     rotation after preserves — and which is why the record is private: a [dir]
     written by hand is a [dir] whose [right] no longer agrees with it, silently,
-    and every column of every frame is built from the pair. *)
+    and every column of every frame is built from the pair.
+
+    An angle has to be a number for that to mean anything, and the numbers the
+    private record promises are the ones the whole picture is measured from — so
+    a non-finite one is refused here rather than believed and handed on. {!Vec}
+    refuses nothing itself, deliberately: the refusing belongs where a direction
+    is first promised to be one, and this is where.
+
+    @raise Invalid_argument
+      if [angle] is not finite. The check is negated, so a [nan] is refused with
+      it. *)
 
 val spawn : ?angle:float -> World.t -> t
 (** The pose a world says to start in: {!World.spawn}'s room and position,
     facing [angle] radians on {!Vec.of_angle}'s reckoning — and facing [0.] if
     you do not say. The angle is the player's to choose rather than the world's
-    to dictate, which is why it is not part of {!World.make}'s [spawn]. *)
+    to dictate, which is why it is not part of {!World.make}'s [spawn].
+
+    @raise Invalid_argument if [angle] is not finite, as {!make} does. *)
 
 val through : Transform.t -> room:int -> t -> t
 (** Carry the pose into a neighbouring room's frame: the position moves with
@@ -60,11 +72,22 @@ val through : Transform.t -> room:int -> t -> t
 
 val turn : t -> radians:float -> t
 (** Rotate the view by [radians], clockwise positive, both basis vectors
-    together. *)
+    together.
+
+    @raise Invalid_argument
+      if [radians] is not finite, which would rotate the basis into a pair of
+      nans and leave nothing unit about it. Negated, so a [nan] is refused with
+      it. *)
 
 val pitch_by : t -> radians:float -> t
 (** Tip the view up or down, clamped to {!Config.max_pitch} so it never tips
-    past where the sheared image stops looking right. *)
+    past where the sheared image stops looking right.
+
+    @raise Invalid_argument
+      if [radians] is not finite. The clamp is why this one matters: [Float.min]
+      and [Float.max] propagate a nan rather than pinning it, so the pitch this
+      type says lies inside the limit would be a number that compares false with
+      both ends of it. Negated, so a [nan] is refused with it. *)
 
 type crossing = {
   from_room : int;
@@ -123,4 +146,12 @@ val traverse : World.t -> t -> forward:float -> strafe:float -> movement
 
     A step that went through a doorway comes back from {!slide} already in the
     room on the other side, pose and all, with the doorways it went through
-    alongside. *)
+    alongside.
+
+    @raise Invalid_argument
+      if either is not finite. That clamp is written as [length > limit], which
+      is false of a nan, so an unrefused nan step would reach {!slide} unclamped
+      and end at a position that is nowhere. Nothing in {!Engine} can ask for
+      one — {!Clock.frame_time} is bounded at both ends — so this fires on a
+      game whose own [update] worked one out, which is the authoring mistake it
+      is for. *)

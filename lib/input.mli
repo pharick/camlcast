@@ -149,6 +149,7 @@ val with_pointer : actions -> int * int -> actions
     frame forward. *)
 
 val advance :
+  ?tapped:(control -> bool) ->
   actions ->
   down:(control -> bool) ->
   mouse:float * float ->
@@ -158,6 +159,14 @@ val advance :
 (** Roll a frame forward onto what is held at this instant: [down] answers for
     each control, [mouse] is how far the mouse moved, [pointer] is where the
     cursor is, and the frame being asked about lasted [dt] seconds.
+
+    [tapped] is for the control that went down and came back up in the gap
+    between two frames, which [down] has no way to report: by the time anybody
+    asks, it is up again. Answering [true] for one counts it as down for this
+    frame, so {!pressed} is true now and {!released} is true on the frame after,
+    and the hold reads the [0.] a tap is worth. A control that is both held and
+    tapped is just held, and nothing says it twice. Say nothing and nothing was
+    tapped, which is what {!freeze} wants.
 
     This is the whole of the edge detection and the hold timer, and none of it
     touches SDL — hand it a [down] of your own and a frame of input is a value
@@ -186,32 +195,61 @@ val freeze : actions -> actions
     the sampling does: by the time [simulate] has the actions the seconds have
     been counted, and no amount of suppression downstream can un-count them. *)
 
-val sample : actions -> mouse:float * float -> dt:float -> actions
-(** Read the keyboard and the mouse buttons as they are now, and roll a frame
-    forward onto them. [mouse] comes in from {!mouse_delta}, which {!Engine}
-    calls whether this is reached or not.
+type queue
+(** What went past in the event queue during one frame: whether the window
+    system asked the program to stop, and which controls were seen going down.
+    Abstract for the same reason {!actions} is — the second of those is an
+    array, and it is nobody's to write into. *)
+
+val drain : Tsdl.Sdl.event -> queue
+(** Drain the event queue into one of those, reading into the caller's event
+    record rather than allocating one per event.
+
+    Draining is the part that has to happen: the queue must be pumped every
+    frame even when nothing in it interests us, or the window stops responding.
+    What the caller gets for it is what went past.
+
+    Two kinds of thing are kept. The window asking to close — the close button,
+    or Cmd-Q, which reaches SDL by the same road — comes back out of {!closed}.
+    And every key and mouse button seen going {e down} is remembered for
+    {!sample}, because a control the player taps inside a single frame is up
+    again by the time the keyboard is read, and reading state alone loses it
+    entirely: no press, no release, nothing at all. Coming {e up} is not
+    remembered, having no need to be — the device already reports a control that
+    is up as up. Nor is auto-repeat filtered out, because a repeat means the key
+    is held, and the mark it leaves is one the state was going to make anyway.
+
+    What is still lost is the control released {e and} pressed again inside one
+    frame: it is down at both ends of this frame and was down at both ends of
+    the last, so there is no edge to be had without keeping the whole queue in
+    order — a great deal of machinery for a sixteen millisecond double tap
+    nobody can perform.
+
+    No key is read here as a {e binding}, not even the two the engine acts on
+    itself. Fullscreen and leaving the run are ordinary state from {!Binding},
+    like anything a game binds: {!pressed} is already true for exactly one frame
+    per press, which is the whole of what watching for the event used to buy.
+    What a {e player} means by a control is {!sample}'s business; what the
+    {e window} meant is this one's. *)
+
+val closed : queue -> bool
+(** Whether the window system asked the program to stop while the queue was
+    being read. {!Engine}'s loop asks this first, and leaves if it is true. *)
+
+val quiet : queue
+(** A frame in which nothing whatever went past. What the first sample of a run
+    starts from, there being no queue to drain before the run has begun. *)
+
+val sample : actions -> queue -> mouse:float * float -> dt:float -> actions
+(** Read the keyboard and the mouse buttons as they are now, add what the
+    frame's [queue] saw going down, and roll a frame forward onto the pair.
+    [mouse] comes in from {!mouse_delta}, which {!Engine} calls whether this is
+    reached or not.
 
     The keyboard array SDL hands back is its own and it changes underneath us,
     so {!advance} copies out of it rather than keeping it. The cursor comes out
     in window coordinates; {!Engine} scales it into the framebuffer's with
     {!with_pointer}, being the one that knows how the two compare.
 
-    The loop's seam, and the one thing here that needs SDL running. *)
-
-val quit_requested : ?quit:bool -> Tsdl.Sdl.event -> bool
-(** Drain the event queue, and say whether the window system asked the program
-    to stop while we were reading it — the close button, or Cmd-Q, which reaches
-    SDL by the same road.
-
-    Draining is the part that has to happen: the queue must be pumped every
-    frame even when nothing in it interests us, or the window stops responding.
-    Answering one question about what went past is what the caller gets for it.
-
-    No key is in here, not even the two the engine acts on itself. Fullscreen
-    and leaving the run are read as ordinary state from {!Binding}, like
-    anything a game binds: {!pressed} is already true for exactly one frame per
-    press, which is the whole of what watching for the event and filtering out
-    the auto-repeat used to buy. That is why this asks about the window and
-    nothing else — what a {e player} presses is {!sample}'s business.
-
-    [quit] is the accumulator of its own recursion and is not for a caller. *)
+    The loop's seam, and the one thing here that needs SDL running. What it
+    makes of the two is {!advance}'s [down] and [tapped], which need nothing. *)

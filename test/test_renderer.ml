@@ -63,10 +63,13 @@ let box ?width ?height ~with_it ~without player =
 (* One room, one sprite, and the same room without it. Both are built from the
    same parts so that the only difference between the two frames is the
    billboard. [floor] is a plane so that the sloped case is the same fixture. *)
-let hall ?(floor = Plane.horizontal 0.) ?(extra = []) sprites =
+let hall ?(floor = Plane.horizontal 0.) ?ceiling ?(extra = []) sprites =
   Room.make
     ~floor:{ Room.plane = floor; material = pale }
-    ~ceiling:(Room.Roof { Room.plane = Plane.above floor 3.; material = dim })
+    ~ceiling:
+      (Option.value ceiling
+         ~default:
+           (Room.Roof { Room.plane = Plane.above floor 3.; material = dim }))
     ~sprites
     ([
        Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-4.))
@@ -520,9 +523,9 @@ let vivid =
     ~directional:0.4 ()
 
 (** The hall again, under air you can see the colour of. *)
-let hazy ?floor ?extra sprites =
+let hazy ?floor ?ceiling ?extra sprites =
   World.make
-    ~rooms:[ ("hall", hall ?floor ?extra sprites) ]
+    ~rooms:[ ("hall", hall ?floor ?ceiling ?extra sprites) ]
     ~links:[] ~atmosphere:vivid
     ~spawn:("hall", Vec.make 0. 0.)
 
@@ -1031,6 +1034,87 @@ let a_glowing_decal_takes_none_of_the_haze () =
     true
     (from_the_haze paint < 40)
 
+(* {1 Every pixel of a frame}
+
+   Nothing clears the colour buffer. [Framebuffer.clear_depth] resets the depth
+   and there is deliberately no companion for the colour, because the background
+   pass is meant to cover every pixel of every column before anything reads one —
+   so a pixel it skips does not go black, it keeps whatever the {e previous}
+   frame put there.
+
+   No test above could have caught one. They all compare two freshly allocated
+   buffers, a fresh buffer is zeroed, and a pixel neither frame writes reads back
+   as black in both and diffs away to nothing.
+
+   So draw the same frame twice: once into a buffer seeded with a colour, once
+   into a fresh one. Every pixel the frame writes lands the same in both; a pixel
+   it skips keeps the seed in one and the black in the other. No colour can hide
+   a gap or invent one, because what is being compared is two runs of the same
+   drawing and not a colour anybody predicted. *)
+let unwritten world player =
+  let seeded = Framebuffer.offscreen ~width ~height
+  and fresh = Framebuffer.offscreen ~width ~height in
+  for y = 0 to height - 1 do
+    for x = 0 to width - 1 do
+      Framebuffer.set seeded ~x ~y ~r:255 ~g:0 ~b:255
+    done
+  done;
+  Renderer.draw_frame seeded world player;
+  Renderer.draw_frame fresh world player;
+  let count = ref 0 in
+  for y = 0 to height - 1 do
+    for x = 0 to width - 1 do
+      if Framebuffer.pixel seeded ~x ~y <> Framebuffer.pixel fresh ~x ~y then
+        incr count
+    done
+  done;
+  !count
+
+(* A roof lower than the eye is authorable: [Plane.above] takes any height and
+   neither [Room.roof] nor [Room.make] has an opinion about it. Such a ceiling
+   casts to a {e negative} distance — behind the eye, and so no surface at all —
+   and above the horizon the floor is not in view either, which makes the band
+   the haze's. Asking whether the raw cast was finite rather than whether it
+   pointed forwards called that a plane the doorway had clipped, left the pixels
+   alone, and what they showed was the frame before. *)
+let a_roof_below_the_eye_leaves_nothing_behind () =
+  let low = Room.Roof { Room.plane = Plane.horizontal 0.4; material = dim } in
+  Alcotest.(check bool)
+    "the roof really is under the eye" true (0.4 < Config.eye_height);
+  let world = hazy ~ceiling:low [] in
+  List.iter
+    (fun (name, pitch) ->
+      Alcotest.(check int)
+        (name ^ ": nothing is left of the frame before")
+        0
+        (unwritten world (Player.pitch_by (looking_east ()) ~radians:pitch)))
+    [
+      ("level", 0.);
+      ("looking up", Config.max_pitch);
+      ("looking down", -.Config.max_pitch);
+    ]
+
+(* And the contract itself, over the ordinary fixtures: a roofed room, a room
+   open to the sky, and a frame drawn through a doorway into both. *)
+let every_pixel_of_a_frame_is_written () =
+  let tipped pitch world =
+    (world, Player.pitch_by (Player.spawn world) ~radians:pitch)
+  in
+  List.iter
+    (fun (name, (world, player)) ->
+      Alcotest.(check int)
+        (name ^ ": every pixel is written")
+        0 (unwritten world player))
+    [
+      ("the hall", (hazy [], looking_east ()));
+      ("looking up at the roof", tipped Config.max_pitch (hazy []));
+      ("looking down at the floor", tipped (-.Config.max_pitch) (hazy []));
+      ("through a doorway", tipped 0. two_rooms);
+      ("through a doorway, looking up", tipped Config.max_pitch two_rooms);
+      ( "a sloped floor",
+        tipped 0. (hazy ~floor:(Plane.make ~a:0.1 ~b:0. ~c:0.) []) );
+    ]
+
 let () =
   Alcotest.run "Renderer"
     [
@@ -1090,6 +1174,13 @@ let () =
             a_distant_sprite_fades_into_the_haze;
           case "orientation dims a wall rather than fogging it"
             orientation_dims_a_wall_rather_than_fogging_it;
+        ] );
+      ( "every pixel of a frame",
+        [
+          case "a roof below the eye leaves nothing behind"
+            a_roof_below_the_eye_leaves_nothing_behind;
+          case "every pixel of a frame is written"
+            every_pixel_of_a_frame_is_written;
         ] );
       ( "marks on walls",
         [

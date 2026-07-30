@@ -52,6 +52,47 @@ let pitch_tips_within_a_limit () =
     ((Player.pitch_by p ~radians:(-100.)).Player.pitch
    >= -.Config.max_pitch -. 1e-9)
 
+(* The private record promises a unit basis and a pitch inside the limit, and a
+   non-finite number keeps neither promise while breaking no type: [Vec.of_angle
+   nan] is a pair of nans, and the pitch clamp propagates one rather than pinning
+   it, because that is what Float.min and Float.max do. So the numbers are
+   refused where they come in, the way every other float the library takes is. *)
+let refused what message build =
+  Alcotest.check_raises what (Invalid_argument message) (fun () ->
+      ignore (build ()))
+
+let unreal = [ Float.nan; Float.infinity; Float.neg_infinity ]
+
+let a_camera_cannot_face_nowhere () =
+  List.iter
+    (fun angle ->
+      refused (Printf.sprintf "make, facing %f" angle)
+        "Player.make: the angle has to be finite" (fun () ->
+          Player.make ~room:0 ~pos:centre ~angle);
+      refused (Printf.sprintf "spawn, facing %f" angle)
+        "Player.make: the angle has to be finite" (fun () ->
+          Player.spawn ~angle two_rooms))
+    unreal
+
+let turning_by_nothing_real_is_refused () =
+  List.iter
+    (fun radians ->
+      refused (Printf.sprintf "turning by %f" radians)
+        "Player.turn: the angle has to be finite" (fun () ->
+          Player.turn (facing_east ()) ~radians))
+    unreal
+
+(* The clamp would let this one through: [Float.min] and [Float.max] both hand a
+   nan straight back, so the pitch would come out of the limit as a nan and
+   compare false with either end of it. *)
+let tipping_by_nothing_real_is_refused () =
+  List.iter
+    (fun radians ->
+      refused (Printf.sprintf "tipping by %f" radians)
+        "Player.pitch_by: the angle has to be finite" (fun () ->
+          Player.pitch_by (facing_east ()) ~radians))
+    unreal
+
 let turning_does_not_move_the_player () =
   let turned = Player.turn (facing_east ()) ~radians:0.7 in
   Alcotest.check vec "same position" centre turned.Player.pos;
@@ -182,6 +223,18 @@ let at world ~room ~pos = Player.make ~room ~pos ~angle:0.
 
 (* Most frames go through no doorway at all, and the list has to be empty rather
    than approximately empty. *)
+(* The diagonal clamp is written [length > limit], which is false of a nan, so an
+   unrefused nan step would arrive at [slide] unclamped and end nowhere. *)
+let a_step_of_nothing_real_is_refused () =
+  let message = "Player.traverse: forward and strafe have to be finite" in
+  List.iter
+    (fun d ->
+      refused (Printf.sprintf "walking %f" d) message (fun () ->
+          Player.traverse two_rooms (facing_east ()) ~forward:d ~strafe:0.);
+      refused (Printf.sprintf "strafing %f" d) message (fun () ->
+          Player.traverse two_rooms (facing_east ()) ~forward:0. ~strafe:d))
+    unreal
+
 let a_step_that_crosses_nothing_reports_nothing () =
   let moved =
     Player.traverse world (at world ~room:0 ~pos:centre) ~forward:0.5 ~strafe:0.
@@ -477,6 +530,11 @@ let () =
             turning_does_not_move_the_player;
           case "spawn uses the world" spawn_uses_the_world;
           case "spawn faces where it is told" spawn_faces_where_it_is_told;
+          case "a camera cannot face nowhere" a_camera_cannot_face_nowhere;
+          case "turning by nothing real is refused"
+            turning_by_nothing_real_is_refused;
+          case "tipping by nothing real is refused"
+            tipping_by_nothing_real_is_refused;
         ] );
       ( "movement",
         [
@@ -488,6 +546,8 @@ let () =
             walking_through_and_back_returns_you;
           case "rounding a jamb is not a crossing"
             rounding_a_jamb_is_not_a_crossing;
+          case "a step of nothing real is refused"
+            a_step_of_nothing_real_is_refused;
         ] );
       ( "traces",
         [

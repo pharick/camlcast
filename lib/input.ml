@@ -111,8 +111,12 @@ let value actions = function
 let pointer actions = actions.pointer
 let with_pointer actions pointer = { actions with pointer }
 
-let advance previous ~down ~mouse ~pointer ~dt =
-  let now = Array.init controls (fun i -> down (control_of_index i)) in
+let advance ?(tapped = fun _ -> false) previous ~down ~mouse ~pointer ~dt =
+  let now =
+    Array.init controls (fun i ->
+        let control = control_of_index i in
+        down control || tapped control)
+  in
   let held =
     Array.init controls (fun i ->
         match (now.(i), previous.down.(i)) with
@@ -129,7 +133,50 @@ let freeze previous =
     ~down:(fun control -> previous.down.(index control))
     ~mouse:(0., 0.) ~pointer:previous.pointer ~dt:0.
 
-let sample previous ~mouse ~dt =
+type queue = {
+  quit : bool;  (** whether the window system asked the program to stop *)
+  tapped : bool array;
+      (** which controls went down while the queue was being read, indexed by
+          [index] *)
+}
+
+let quiet = { quit = false; tapped = Array.make controls false }
+let closed queue = queue.quit
+
+let drain event =
+  let tapped = Array.make controls false in
+  (* SDL is not trusted to report a scancode inside the range the flat array was
+     sized for, for the same reason {!Key.of_scancode} range-checks: the key at
+     [Key.count] would be the left mouse button and would be believed. *)
+  let mark_key scancode =
+    if scancode >= 0 && scancode < Key.count then
+      tapped.(first_key + scancode) <- true
+  in
+  let mark_button button =
+    if button = Sdl.Button.left then tapped.(first_button + 0) <- true
+    else if button = Sdl.Button.middle then tapped.(first_button + 1) <- true
+    else if button = Sdl.Button.right then tapped.(first_button + 2) <- true
+  in
+  let rec pump quit =
+    if not (Sdl.poll_event (Some event)) then quit
+    else
+      let quit =
+        match Sdl.Event.(enum (get event typ)) with
+        | `Quit -> true
+        | `Key_down ->
+            mark_key Sdl.Event.(get event keyboard_scancode);
+            quit
+        | `Mouse_button_down ->
+            mark_button Sdl.Event.(get event mouse_button_button);
+            quit
+        | _ -> quit
+      in
+      pump quit
+  in
+  let quit = pump false in
+  { quit; tapped }
+
+let sample previous queue ~mouse ~dt =
   let keys = Sdl.get_keyboard_state () in
   let held, pointer = Sdl.get_mouse_state () in
   let mask = function
@@ -141,12 +188,5 @@ let sample previous ~mouse ~dt =
     | Key key -> Bigarray.Array1.get keys (Key.to_scancode key) = 1
     | Button button -> Int32.logand held (mask button) <> 0l
   in
-  advance previous ~down ~mouse ~pointer ~dt
-
-let rec quit_requested ?(quit = false) event =
-  if not (Sdl.poll_event (Some event)) then quit
-  else
-    let quit =
-      match Sdl.Event.(enum (get event typ)) with `Quit -> true | _ -> quit
-    in
-    quit_requested ~quit event
+  let tapped control = queue.tapped.(index control) in
+  advance ~tapped previous ~down ~mouse ~pointer ~dt

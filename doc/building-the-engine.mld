@@ -1564,8 +1564,11 @@ let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)
 
 let rec loop ctx ~player ~fullscreen ~previous =
   (* Drains the event queue — which has to happen every frame or the window
-     stops responding — and says whether the desktop asked us to stop. *)
-  if Input.quit_requested ctx.event then Ok ()
+     stops responding — and keeps both what the desktop asked of us and every
+     control seen going down, which is the only record of one the player tapped
+     and let go of inside a single frame. *)
+  let queue = Input.drain ctx.event in
+  if Input.closed queue then Ok ()
   else
     let* fullscreen =
       if Input.pressed ctx.actions (Input.Key Key.f11) then

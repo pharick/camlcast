@@ -24,9 +24,19 @@ let column_of_offset t offset =
 
 let clamp v = Int.min 255 (Int.max 0 v)
 
+(* Whether [size * size] is a length an array can have. Divided rather than
+   multiplied, so the check itself cannot overflow the thing it is checking for:
+   for a positive [size], this is false exactly when the product would exceed
+   [Sys.max_array_length]. Past that the product wraps — [max_int] squared is
+   [1] — and the record would claim a size its two arrays cannot answer for,
+   which is the one arithmetic [sample] trusts without checking. *)
+let fits size = size <= Sys.max_array_length / size
+
 let generate ?(size = default_size) f =
   if size <= 0 then
     invalid_arg "Texture.generate: a pattern must have a positive size";
+  if not (fits size) then
+    invalid_arg "Texture.generate: a pattern that size does not fit in an array";
   {
     size;
     texels =
@@ -39,6 +49,9 @@ let generate ?(size = default_size) f =
 let generate_masked ?(size = default_size) f =
   if size <= 0 then
     invalid_arg "Texture.generate_masked: a pattern must have a positive size";
+  if not (fits size) then
+    invalid_arg
+      "Texture.generate_masked: a pattern that size does not fit in an array";
   let n = size * size in
   let texels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
   let opaque = ref true in

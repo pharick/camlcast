@@ -38,10 +38,20 @@ let clampi n v = Int.max 0 (Int.min (n - 1) v)
     this band. The haze is for the pixel where neither plane is in view at all,
     which is a fact about the geometry and not about the doorway.
 
+    Telling those two apart is a question of direction and not of distance. Only
+    a plane in {e front} of the eye can be the one the doorway clipped, and that
+    is what makes leaving its pixel alone safe — something nearer painted it. A
+    plane behind the eye was never anybody's to paint: it casts to a negative
+    distance, and a negative distance is not a near surface but an absent one, so
+    the band is the haze's.
+
     At the top level [near] is zero and the floor is never clipped, the eye
-    standing {!Config.eye_height} above it. A ceiling {e below} the eye would be:
-    it casts to a negative distance, drawn today and left alone now. That takes a
-    roof under half a cell, which {!Plane.above} cannot make. *)
+    standing {!Config.eye_height} above it. A ceiling {e below} the eye is
+    clipped, and is authorable however unlikely it reads: {!Plane.above} takes a
+    negative height, {!Room.roof} has no opinion, and a roof that merely
+    {e converges} on the floor gets there too. Above the horizon neither plane is
+    then in view and the haze fills the band, which is the whole of what keeps
+    the promise the colour buffer is never cleared on. *)
 let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
     ~first ~last =
   let open Viewport in
@@ -81,14 +91,20 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
      the picture: taken out before the two planes are compared, so that a floor
      clipped away still lets the ceiling behind it be drawn. *)
   let beyond d = if d > near then d else infinity in
+  (* In front of the eye, and so a surface somebody has to show — which is the
+     only kind [beyond] can have taken out. A cast that is finite but negative is
+     a plane behind the eye and no surface at all. *)
+  let in_view d = Float.is_finite d && d > 0. in
   match Room.ceiling room with
   | Room.Roof ceiling ->
       let ceil_base = Plane.elevation ceiling.Room.plane player.Player.pos in
       let gc = Plane.gradient ceiling.Room.plane dir in
       for y = Int.max 0 first to Int.min (height - 1) last do
         let r = row_factor viewport ~row:y in
-        (* A plane is only in view on its side of the horizon, so at most one of
-           these is a positive distance for this pixel. *)
+        (* A plane is only in view on its side of the horizon, so for parallel
+           planes at most one of these is a positive distance. Two that converge
+           along the ray can both be, and then the comparison below takes the
+           nearer, which is what it would do anyway. *)
         let cast_f =
           let dn = r +. gf in
           if dn > 1e-9 then (eye_z -. floor_base) /. dn else infinity
@@ -99,7 +115,7 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
         let df = beyond cast_f and dc = beyond cast_c in
         if Float.is_finite df && df <= dc then surface y df floor_material
         else if Float.is_finite dc then surface y dc ceiling.Room.material
-        else if not (Float.is_finite cast_f || Float.is_finite cast_c) then
+        else if not (in_view cast_f || in_view cast_c) then
           (* Neither plane is in view here, so there is no surface to keep any
              of: the band is the haze at full strength, which is where the two
              fades either side of it are heading. *)
@@ -109,7 +125,14 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
   | Room.Open sky ->
       (* No roof: below the horizon is floor, above it is sky. The sky depends
          only on the column's azimuth and the pixel's elevation. It needs no
-         clip of its own, being infinitely far and so beyond every doorway. *)
+         clip of its own, being infinitely far and so beyond every doorway.
+
+         Nothing here needs [in_view]. There is only one plane, and at the top
+         level it is never clipped — the eye stands {!Config.eye_height} above
+         its own floor, so the cast is positive wherever it is in view, and every
+         row is either floor or sky. Inside a portal a cast the clip takes out is
+         a floor the room in front has already painted, which is the case the
+         pixel is left alone for. *)
       let azimuth = Float.atan2 dy dx in
       for y = Int.max 0 first to Int.min (height - 1) last do
         let r = row_factor viewport ~row:y in

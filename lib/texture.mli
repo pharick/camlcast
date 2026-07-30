@@ -114,7 +114,14 @@ val generate : ?size:int -> (u:int -> v:int -> Color.t) -> t
     @raise Invalid_argument
       if [size] is not positive. A pattern of no size is an authoring mistake
       and not a condition to handle: there is nothing in it to sample, and
-      everything that reads one indexes by the side it says it has. *)
+      everything that reads one indexes by the side it says it has.
+    @raise Invalid_argument
+      if [size * size] is longer than an array can be. That product is the
+      invariant above, and past the square root of [Sys.max_array_length] it
+      wraps rather than growing — a size of [max_int] squares to [1] — so a
+      texture would come back claiming a side its two arrays are far too short
+      to answer for, and the first {!sample} past the first row would raise from
+      inside the stdlib instead of from here. *)
 
 val generate_masked : ?size:int -> (u:int -> v:int -> Color.t * int) -> t
 (** A pattern that can see through itself: [f] returns a colour {e and} an alpha
@@ -123,7 +130,8 @@ val generate_masked : ?size:int -> (u:int -> v:int -> Color.t * int) -> t
     arrives rather than taken on trust.
 
     @raise Invalid_argument
-      if [size] is not positive, on the terms {!generate} refuses it. *)
+      if [size] is not positive, or if its square is longer than an array can be
+      — on both of the terms {!generate} refuses them. *)
 
 val load : string -> (t, [ `Msg of string ]) result
 (** Read a pattern from a PNG or JPEG file, colour and alpha both, exactly as

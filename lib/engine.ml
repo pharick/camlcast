@@ -101,7 +101,12 @@ let in_framebuffer window framebuffer (x, y) =
       y * framebuffer.Framebuffer.height / height )
 
 let rec loop window game ~state ~actions ~previous =
-  if Input.quit_requested window.event then Ok (state, Closed)
+  (* Drained before anything else and whether or not the window has focus, both
+     because a queue nobody pumps stops the window responding and because what
+     went past in it is half of the frame's input: a control tapped between two
+     frames is only in here. *)
+  let queue = Input.drain window.event in
+  if Input.closed queue then Ok (state, Closed)
   else
     let now = Clock.now () in
     let dt = Clock.frame_time ~previous ~now in
@@ -131,7 +136,7 @@ let rec loop window game ~state ~actions ~previous =
        previous frame's forward, and that one has been scaled already. *)
     let actions =
       if focused then
-        let sampled = Input.sample actions ~mouse ~dt in
+        let sampled = Input.sample actions queue ~mouse ~dt in
         Input.with_pointer sampled
           (in_framebuffer window.handle !(window.framebuffer)
              (Input.pointer sampled))
@@ -232,7 +237,8 @@ let run window (game : 'a game) state =
      its first frame; {!Input.freeze} states [down] and [was_down] alike, and no
      edge fires. *)
   let actions =
-    Input.freeze (Input.sample Input.untouched ~mouse:(0., 0.) ~dt:0.)
+    Input.freeze
+      (Input.sample Input.untouched Input.quiet ~mouse:(0., 0.) ~dt:0.)
   in
   (* The window arrives however the last run left it, and only the game about to
      be played knows what it wants the mouse for. *)

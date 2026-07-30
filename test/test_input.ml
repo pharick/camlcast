@@ -11,10 +11,14 @@ let c = Input.Key Key.c
 let click = Input.Button Input.Left
 let tick = 1. /. 60.
 
-(* One frame, in which [held] is everything the player is holding down. The
-   mouse is still: what it read is [Binding]'s business, not the edges'. *)
-let frame ?(dt = tick) held actions =
-  Input.advance actions
+(* One frame, in which [held] is everything the player is holding down and
+   [tapped] everything they pressed and let go of inside it — what [Input.drain]
+   picks out of the event queue and the device state cannot say. The mouse is
+   still: what it read is [Binding]'s business, not the edges'. *)
+let frame ?(dt = tick) ?(tapped = []) held actions =
+  Input.advance
+    ~tapped:(fun control -> List.mem control tapped)
+    actions
     ~down:(fun control -> List.mem control held)
     ~mouse:(0., 0.) ~pointer:(0, 0) ~dt
 
@@ -110,6 +114,50 @@ let a_button_is_a_control_like_any_other () =
     (List.exists (Input.down clicked)
        [ e; c; Input.Key Key.escape; Input.Button Input.Right ])
 
+(* {1 The tap nobody was holding}
+
+   A control pressed and released between two frames is up again by the time the
+   device is asked, so the state alone reports nothing at all: no press, and no
+   release either. What the event queue saw going down is the only record of it,
+   and counting that as down for the frame gives the press its edge — the same
+   edge, and the same hold of nothing, as a tap that happened to straddle a
+   frame boundary. *)
+
+let a_tap_between_frames_is_still_a_press () =
+  let tap = frame ~tapped:[ e ] [] Input.untouched in
+  Alcotest.(check bool) "the press is not lost" true (Input.pressed tap e);
+  Alcotest.(check bool)
+    "and it counts as down for the frame" true (Input.down tap e);
+  Alcotest.check close "held for no time, being a tap" 0. (Input.held_for tap e);
+  let after = frame [] tap in
+  Alcotest.(check bool)
+    "the release arrives on the frame after" true (Input.released after e);
+  Alcotest.check close "with the nothing it was held for" 0.
+    (Input.held_for after e);
+  Alcotest.(check bool)
+    "and then it is over" false
+    (Input.released (frame [] after) e)
+
+(* A tap of something already held is the double tap [drain] cannot see: down at
+   both ends of the frame is down, and no edge is invented for it. *)
+let a_tap_of_something_already_held_is_no_new_edge () =
+  let held = frames [ e ] 10 Input.untouched in
+  let again = frame ~tapped:[ e ] [ e ] held in
+  Alcotest.(check bool) "no second press" false (Input.pressed again e);
+  Alcotest.(check bool) "no release" false (Input.released again e);
+  Alcotest.check close "and the hold runs on" (10. *. tick)
+    (Input.held_for again e)
+
+let a_tap_reaches_only_the_control_that_was_tapped () =
+  let clicked = frame ~tapped:[ click ] [] Input.untouched in
+  Alcotest.(check bool)
+    "the button was tapped" true
+    (Input.pressed clicked click);
+  Alcotest.(check bool)
+    "and nothing else went down with it" false
+    (List.exists (Input.down clicked)
+       [ e; c; Input.Key Key.escape; Input.Button Input.Right ])
+
 (* The frame's length is what the hold is measured in, not the frame count, so
    a machine that renders slowly counts the same seconds as one that races. *)
 let a_hold_is_measured_in_seconds_not_frames () =
@@ -198,6 +246,12 @@ let () =
           case "controls are counted separately" controls_are_counted_separately;
           case "a button is a control like any other"
             a_button_is_a_control_like_any_other;
+          case "a tap between frames is still a press"
+            a_tap_between_frames_is_still_a_press;
+          case "a tap of something already held is no new edge"
+            a_tap_of_something_already_held_is_no_new_edge;
+          case "a tap reaches only the control that was tapped"
+            a_tap_reaches_only_the_control_that_was_tapped;
         ] );
       ( "holds",
         [

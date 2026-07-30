@@ -122,6 +122,29 @@ let a_pattern_of_no_size_is_refused () =
         (fun () -> ignore (Texture.noise ~size ~seed:0 ~cell:4 ~u:0 ~v:0)))
     [ 0; -8 ]
 
+(* A positive size is not on its own enough: it is [size * size] that both arrays
+   are as long as, and past the square root of the longest array that product
+   wraps instead of growing. [max_int] squares to exactly [1], so without the
+   check the texture would come back saying its side was [max_int] with a single
+   texel in it, and the arithmetic {!Texture.sample} does without bounds checking
+   would be arithmetic about a length that was never allocated. Only the refusing
+   is asserted here — the size just inside the limit is a size no machine should
+   be asked to allocate to prove a point. *)
+let a_pattern_too_big_for_an_array_is_refused () =
+  let just_over = int_of_float (sqrt (float_of_int Sys.max_array_length)) + 2 in
+  List.iter
+    (fun size ->
+      Alcotest.check_raises (Printf.sprintf "generate ~size:%d" size)
+        (Invalid_argument
+           "Texture.generate: a pattern that size does not fit in an array")
+        (fun () -> ignore (Texture.generate ~size (fun ~u:_ ~v:_ -> grey)));
+      Alcotest.check_raises (Printf.sprintf "generate_masked ~size:%d" size)
+        (Invalid_argument
+           "Texture.generate_masked: a pattern that size does not fit in an \
+            array") (fun () ->
+          ignore (Texture.generate_masked ~size (fun ~u:_ ~v:_ -> (grey, 255)))))
+    [ max_int; just_over ]
+
 let noise_stays_in_band () =
   let low = ref 255 and high = ref 0 in
   for v = 0 to Texture.default_size - 1 do
@@ -299,6 +322,8 @@ let () =
           case "generate_masked flags transparency"
             generate_masked_flags_transparency;
           case "a pattern of no size is refused" a_pattern_of_no_size_is_refused;
+          case "a pattern too big for an array is refused"
+            a_pattern_too_big_for_an_array_is_refused;
         ] );
       ( "noise",
         [

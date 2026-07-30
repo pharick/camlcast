@@ -30,7 +30,16 @@ type t = {
   pitch : float;  (** look up (+) or down (-), as a window-height fraction *)
 }
 
+(* Negated, so a nan fails rather than slipping through. {!Vec} refuses nothing,
+   by design — the refusing belongs where a direction is first promised to be
+   one, and for the camera basis that is here. [Vec.of_angle nan] is a pair of
+   nans, which is not a unit vector, and nothing downstream would ever say so. *)
+let finite_angle who angle =
+  if not (Float.is_finite angle) then
+    invalid_arg (who ^ ": the angle has to be finite")
+
 let make ~room ~pos ~angle =
+  finite_angle "Player.make" angle;
   let dir = Vec.of_angle angle in
   { room; pos; dir; right = Vec.perp dir; pitch = 0. }
 
@@ -58,6 +67,7 @@ let through transform ~room player =
   }
 
 let turn player ~radians =
+  finite_angle "Player.turn" radians;
   {
     player with
     dir = Vec.rotate player.dir radians;
@@ -65,8 +75,15 @@ let turn player ~radians =
   }
 
 (** Tip the view up or down by [radians], clamped to {!Config.max_pitch} so it
-    never tips past where the sheared image stops looking right. *)
+    never tips past where the sheared image stops looking right.
+
+    The clamp is what makes the finiteness check load-bearing rather than
+    decorative: {!Float.min} and {!Float.max} both {e propagate} a nan, so a nan
+    delta would come out the far side of the clamp as a nan pitch, and the
+    interface's promise that the pitch lies within the limit would be a promise
+    about a number that compares false with everything. *)
 let pitch_by player ~radians =
+  finite_angle "Player.pitch_by" radians;
   let limit = Config.max_pitch in
   {
     player with
@@ -218,6 +235,11 @@ let slide world player (delta : Vec.t) =
     room on the other side, pose and all, with the doorways it went through
     alongside. *)
 let traverse world player ~forward ~strafe =
+  (* Negated for the usual reason, and here the clamp below is the reason: it is
+     written [length > limit], which is false of a nan, so a nan step would go to
+     {!slide} unclamped and come out as a position that is nowhere. *)
+  if not (Float.is_finite forward && Float.is_finite strafe) then
+    invalid_arg "Player.traverse: forward and strafe have to be finite";
   let delta =
     Vec.add (Vec.scale player.dir forward) (Vec.scale player.right strafe)
   in
