@@ -1,4 +1,4 @@
-{0 Building a Raycasting Engine from Scratch}
+{0 Building the engine from scratch}
 
 A step-by-step tutorial for rebuilding this engine by hand, in OCaml on SDL2.
 Each {b phase} ends in something you can run and see, and each {b step} adds one
@@ -39,7 +39,7 @@ Then, in an empty directory:
 
 {@sh[
 opam switch create . 5.5.0
-eval $(opam env)
+eval $(opam env --switch=. --set-switch)
 opam install dune tsdl        # add --no-depexts on macOS
 dune --version                # you should get 3.21 or later
 ]}
@@ -1659,6 +1659,7 @@ Input        (keyboard + mouse as they are: controls, edges, holds, analog)
 Binding      (what those controls are for — the game's table, read purely)
 Framebuffer  (CPU pixels + alpha blend + per-pixel depth + streaming texture)
 Renderer     (floor/ceiling/sky, opaque walls + decals, then sprites + windows by depth)
+Clock        (the pacing arithmetic of Step 8.1, apart from any window)
 Engine       (window lifetime, fullscreen, the loop played on one)
 ]}
 
@@ -1695,6 +1696,48 @@ where every room looks the same.
 {li {b [horizon] is a float}; only convert to an int pixel at the last moment.}
 {li {b Sprites vs transparent walls need one depth-sorted pass}, and occlusion must be {b per pixel}, or short walls cull whole sprites behind them.}
 }
+
+{2 Symptom index}
+
+Every checkpoint above ends with the failures its step can cause. This is the
+same list gathered up, symptom first:
+
+{ul
+{li {b One flat colour, no walls} — no ray hits anything: the [t] and [s]
+    tests. (Milestone 2.)}
+{li {b Walls bulge towards you at the screen edges} — a Euclidean distance
+    crept in. (Milestone 2.)}
+{li {b The room is inside out} — the boundary is wound clockwise.
+    (Milestone 2.)}
+{li {b Sticking in corners} — the two axes are resolved together rather than
+    one at a time. (Milestone 2.6.)}
+{li {b A fast step tunnels through a thin wall} — the test is on the endpoint
+    rather than the swept path. (Milestone 2.6.)}
+{li {b Distance darkens instead of hazing} — the fog is a multiply rather
+    than a blend. (Milestone 3.2.)}
+{li {b The pattern stretches up a tall wall, or is upside down} — the [frac]
+    is missing from the lookup, or the [1. -. tile] is. (Milestone 3.2.)}
+{li {b A low wall hides the tall one behind it} — the renderer stops at the
+    nearest hit instead of painting every hit farthest-first.
+    (Milestone 3.3.)}
+{li {b The floor is a smear of one colour} — sampled in screen space rather
+    than at the world point. (Milestone 4.)}
+{li {b A bright seam on the horizon} — both planes are in view and the wrong
+    [d] wins: take the nearer {e positive} one. (Milestone 4.)}
+{li {b Walls lean as you look up} — pitch is applied as a rotation somewhere
+    rather than purely as a shear of the horizon. (Milestone 5.)}
+{li {b The view stretches when the window changes shape} — the projection is
+    taken from the width; anchor it to the height. (Milestone 5.)}
+{li {b A sprite shows through the wall in front of it} — the depth test is
+    per-column rather than per-pixel. (Milestone 6.)}
+{li {b A sprite behind a window vanishes} — the window wrote depth:
+    see-through things must not. (Milestone 6.)}
+{li {b The neighbour looks mirrored} — the threshold endpoints are wound
+    against the boundary. (Milestone 7.)}
+{li {b You can walk through the far wall while standing in the opening} —
+    collision is not asking the neighbour. (Milestone 7.)}
+{li {b The view through a doorway is a rectangle} — the mask is not per
+    column. (Milestone 7.)}}
 
 {2 Exercises to go further}
 

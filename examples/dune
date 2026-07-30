@@ -1,0 +1,9 @@
+; Complete programs from the guides, compiled with everything else so the
+; pages that quote them cannot drift from the engine: room.ml is step 1 of
+; making-a-game (and README.md's example), doorways.ml is step 5, game.ml is
+; step 12 and rebind.ml is step 13. Attached to no package, so nothing
+; installs them and the -p builds opam runs never see them.
+
+(executables
+ (names room doorways game rebind)
+ (libraries camlcast))

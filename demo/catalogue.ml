@@ -7,7 +7,10 @@
 
     A demo carries the world it starts from as well as the function that runs
     it, so the test suite can check every one of them without opening a window.
-*)
+
+    Adding a demo is adding it in four places: its file in this directory, an
+    entry in {!demos} below — which also enrols it in [test_demos] — a row in
+    README.md's table, and a line on [doc/demo/index.mld]. *)
 
 open Camlcast
 

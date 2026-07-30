@@ -124,7 +124,8 @@ them all.
   pass, so a [nan] is refused with the out-of-range.
 - {b Changing an immutable value}: [with_x] hands back the same thing with one
   component replaced ({!Camlcast.Room.with_sprites},
-  {!Camlcast.Room.with_door}, {!Camlcast.World.with_atmosphere}); [add_x]
+  {!Camlcast.World.with_atmosphere} — and {!Camlcast.Room.with_door}, whose
+  "thing" is a single threshold); [add_x]
   appends ({!Camlcast.Room.add_decal}, {!Camlcast.World.add_room}); [set_x] is
   an engine-mediated change that keeps a cross-cutting invariant
   ({!Camlcast.World.set_door}, which changes both sides of a link at once).
@@ -168,6 +169,8 @@ Each depends only on the ones above it.
   and where its light comes from
 - {!Camlcast.Sky} — the open sky where a room has no roof
 - {!Camlcast.Image} — full-colour images with alpha, for decals and sprites
+- {!Camlcast.Framebuffer} — a CPU pixel buffer and the streaming texture it
+  uploads through
 - {!Camlcast.Paint} — clipped rectangles, lines and pictures over a finished
   frame
 - {!Camlcast.Font} — a bitmap font on a fixed grid: layout, wrapping and
@@ -187,17 +190,16 @@ Each depends only on the ones above it.
   edges and holds, and what the analog sources read
 - {!Camlcast.Binding} — what those controls are for: a game's table, and the one
   pure function that turns a frame of them into a movement
-- {!Camlcast.Framebuffer} — a CPU pixel buffer and the streaming texture it
-  uploads through
 - {!Camlcast.Renderer} — the software renderer: casts the planes, paints the
   walls, per pixel
-- {!Camlcast.Engine} — window lifetime, fullscreen state, and the game loop
 - {!Camlcast.Clock} — the pacing arithmetic the loop measures its frames by,
   apart from any window
+- {!Camlcast.Engine} — window lifetime, fullscreen state, and the game loop
 
 {1 The demos}
 
-[camlcast-demo] with no argument lists them; [camlcast-demo <name>] runs one.
+[camlcast-demo] with no argument opens the list in a window — [--list] prints
+it instead — and [camlcast-demo <name>] runs one.
 Each is a single file with the feature it demonstrates as the only thing in it.
 They are the other package, so their pages are its own:
 {{:../camlcast-demo/index.html} the demos}.
