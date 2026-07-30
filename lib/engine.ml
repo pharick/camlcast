@@ -15,7 +15,8 @@ type 'a game = {
 }
 
 let game ?(overlay = fun _ _ -> ()) ?(pointing = fun _ -> false)
-    ?(finished = fun _ -> false) ?(bindings = Binding.default) ~update ~view =
+    ?(finished = fun _ -> false) ?(bindings = Binding.default) ~update ~view ()
+    =
   { update; view; overlay; pointing; finished; bindings }
 
 type window = {

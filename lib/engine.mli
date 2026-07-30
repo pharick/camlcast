@@ -74,12 +74,17 @@ val game :
   ?bindings:Binding.t ->
   update:('a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a) ->
   view:('a -> World.t * Player.t) ->
+  unit ->
   'a game
 (** A game from the two things every game has and the four it may not: an
     [update] and a [view], with the omitted rest meaning what omitting them
     has always meant — [overlay] draws nothing, [pointing] never, [finished]
     never of its own accord, and [bindings] {!Binding.default}. The defaults
-    live here, so {!run} and {!simulate} agree about them by construction. *)
+    live here, so {!run} and {!simulate} agree about them by construction.
+
+    The trailing [()] is what closes the optional arguments, as on
+    {!Binding.make} and {!Font.make}: nothing positional follows them, so
+    nothing else could. *)
 
 val with_window :
   (window -> ('a, [ `Msg of string ]) result) -> ('a, [ `Msg of string ]) result
