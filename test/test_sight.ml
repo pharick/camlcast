@@ -14,17 +14,26 @@ open Support
    works by accident of a shared frame. *)
 let figure pos = Room.sprite ~size:1.4 ~image:poster pos
 
-let rooms ?door ?lintel ?(bare = false) ?(near = []) ?(far = []) () =
+let rooms ?door ?lintel ?lintel_top ?(ceiling = flat_ceiling) ?(bare = false)
+    ?(near = []) ?(far = []) () =
   (* {!Room.doorway} gives the jambs and the strip of wall above the opening one
      material, and a transom is precisely the case where those differ, so it is
-     put back afterwards rather than asked for. [bare] takes the strip away
-     altogether, which {!Room.doorway} has no way to ask for at all. *)
+     put back afterwards rather than asked for. [lintel_top] moves the top of
+     that strip, which {!Room.doorway} also has no way to ask for: it always
+     takes the wall's own height. [bare] takes the strip away altogether. *)
   let over (t : Room.threshold) =
     if bare then Room.with_lintel t None
     else
-      match lintel with
-      | None -> t
-      | Some material -> Room.with_lintel t (Some { Room.top = 3.; material })
+      match (lintel, lintel_top) with
+      | None, None -> t
+      | _ ->
+          let was = Option.get t.Room.lintel in
+          Room.with_lintel t
+            (Some
+               {
+                 Room.top = Option.value lintel_top ~default:was.Room.top;
+                 material = Option.value lintel ~default:was.Room.material;
+               })
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
@@ -34,9 +43,10 @@ let rooms ?door ?lintel ?(bare = false) ?(near = []) ?(far = []) () =
       ~material:dim (Vec.make 0. 4.) (Vec.make 0. 0.)
   in
   let east = over east and west = over west in
+  (* [ceiling] roofs the room the player stands in and not the one beyond it, so
+     a case about the roof over the crosshair leaves the far room alone. *)
   let first =
-    Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling:flat_ceiling
-      ~sprites:near
+    Room.make ~thresholds:[ east ] ~floor:flat_floor ~ceiling ~sprites:near
       (first_jambs
       @ [
           Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
@@ -303,6 +313,69 @@ let a_see_through_wall_does_not_occlude () =
   in
   is "sprite 0 of room 1" (Sight.look screened (looking_east ()))
 
+(* A wall stops at the ceiling over it, however tall it was authored, because
+   that is where {!Renderer} stops drawing it: above the roof the rows are the
+   ceiling [draw_planes] has already painted, and a wall that carried on up
+   there would be a wall nobody can see. Reported at all and the crosshair names
+   masonry where the picture shows a roof — and a decal hung high on such a wall
+   would be pickable through it.
+
+   The roof is read at the hit point rather than once for the room, so the
+   second half tilts one instead of lowering it: the same ray, at the same
+   height, meets a wall at one end of the room and the ceiling at the other. *)
+let a_wall_is_not_picked_over_the_ceiling () =
+  (* Where the crosshair is when it reaches a wall two cells off, read off
+     {!Viewport} so that a change to the field of view moves it with the
+     picture. *)
+  let up =
+    Config.eye_height +. (Viewport.centre_rise ~pitch:Config.max_pitch *. 2.)
+  in
+  let boxed ceiling =
+    World.make
+      ~rooms:
+        [
+          ( "only",
+            Room.make ~floor:flat_floor ~ceiling
+              [
+                Room.wall ~height:9. ~material:pale (Vec.make 0. 0.)
+                  (Vec.make 4. 0.);
+                Room.wall ~height:9. ~material:pale (Vec.make 4. 0.)
+                  (Vec.make 4. 4.);
+                Room.wall ~height:9. ~material:pale (Vec.make 4. 4.)
+                  (Vec.make 0. 4.);
+                Room.wall ~height:9. ~material:pale (Vec.make 0. 4.)
+                  (Vec.make 0. 0.);
+              ] );
+        ]
+      ~links:[] ~atmosphere:air ~spawn:("only", centre)
+  in
+  let looking ?(angle = 0.) pitch =
+    Player.pitch_by (Player.make ~room:0 ~pos:centre ~angle) ~radians:pitch
+  in
+  Alcotest.(check bool)
+    "the eye is under the roof and the crosshair over it" true
+    (Config.eye_height < up -. 0.2);
+  let low =
+    Room.Roof { Room.plane = Plane.horizontal (up -. 0.2); material = dim }
+  in
+  (* Level, the wall is there to be found; pitched up over the roof it is not,
+     though nine cells of it stand behind that roof. *)
+  is "wall 1 of room 0" (Sight.look (boxed low) (looking 0.));
+  is "nothing" (Sight.look (boxed low) (looking Config.max_pitch));
+  (* A roof that rises towards the west: over the east wall it is under the
+     crosshair, over the west wall it is clear of it. One ray, one height, two
+     answers, from the slope alone. *)
+  let tilted =
+    Room.Roof
+      {
+        Room.plane = Plane.make ~a:(-0.25) ~b:0. ~c:(up +. 0.3);
+        material = dim;
+      }
+  in
+  is "nothing" (Sight.look (boxed tilted) (looking Config.max_pitch));
+  is "wall 3 of room 0"
+    (Sight.look (boxed tilted) (looking ~angle:Float.pi Config.max_pitch))
+
 (* Looking somewhere else finds something else, or nothing. The sprite is a
    cut-out and mostly empty, so this also covers the texel test: a crosshair
    inside its bounding box but outside its picture is looking past it. *)
@@ -350,6 +423,73 @@ let a_bare_opening_has_nothing_over_it () =
   is "nothing"
     (Sight.look world
        (looking_east ~pitch:Config.max_pitch ~from:(Vec.make 1. 2.) ()))
+
+(* A strip of wall has a top of its own, and above it the answer is the bare
+   case again: the renderer draws the strip from the opening's head up to
+   {!Room.type-lintel}'s [top] and leaves the rows over that to the ceiling, so
+   a crosshair up there is on the ceiling whatever the strip is made of.
+   {!Room.doorway} always takes the wall's own height for the lintel, which puts
+   its top and the ceiling in the same place and hides the question; a threshold
+   built by hand can stop the strip short, and this is that. The roof is left
+   well clear of the ray so that it is the lintel's own top doing the work. *)
+let a_lintel_is_not_picked_above_its_top () =
+  let rise = Viewport.centre_rise ~pitch:Config.max_pitch in
+  (* The doorway stands at [x = 4], so a look east from [x] meets it [4 - x]
+     away. Read off {!Viewport} rather than written down, so that a change to
+     the field of view moves the expectation with the picture. *)
+  let z_from x = Config.eye_height +. (rise *. (4. -. x)) in
+  let under = 1. and over = 0.4 in
+  let top = (z_from under +. z_from over) /. 2. in
+  Alcotest.(check bool)
+    "the strip stands over the opening, and the roof clear of the ray" true
+    (2. < top && z_from over < 3.);
+  let world = rooms ~lintel_top:top () in
+  let looking x =
+    Sight.look world
+      (looking_east ~pitch:Config.max_pitch ~from:(Vec.make x 2.) ())
+  in
+  is "doorway 0 of room 0" (looking under);
+  is "nothing" (looking over)
+
+(* And the roof caps the opening itself, on all three of the paths through it.
+   A ceiling hanging below a doorway's head is drawn across those rows, and
+   neither the leaf nor the room beyond reaches them — so an opaque leaf is not
+   there to be picked, and a bare opening or one you can see through is not a
+   way through, exactly as {!Renderer} has it. A gap in a wall is no way past
+   the roof over it.
+
+   Half the usual pitch, so the crosshair is inside the opening rather than over
+   its head: this is the leaf's band and not the lintel's. *)
+let the_roof_caps_what_an_opening_shows () =
+  let pitch = Config.max_pitch /. 2. in
+  let at_doorway = Config.eye_height +. (Viewport.centre_rise ~pitch *. 2.) in
+  let ceiling = at_doorway -. 0.15 in
+  Alcotest.(check bool)
+    "the crosshair is inside the opening, and the roof under it but over the \
+     eye"
+    true
+    (at_doorway < 2. && Config.eye_height < ceiling);
+  let low =
+    Room.Roof { Room.plane = Plane.horizontal ceiling; material = dim }
+  in
+  let looking = looking_east ~pitch () in
+  let solid = Door.make pale and glazed = Door.make mesh in
+  (* With the roof where the fixture puts it, three cells up and clear of all of
+     this, each of the three answers as it always did. *)
+  is "doorway 0 of room 0" (Sight.look (rooms ~door:solid ()) looking);
+  List.iter
+    (fun (what, world) ->
+      let found = describe (Sight.look world looking) in
+      Alcotest.(check bool)
+        (Printf.sprintf
+           "%s: with the roof clear it looks into the far room (found %s)" what
+           found)
+        true (mentions found "room 1"))
+    [ ("through the bars", rooms ~door:glazed ()); ("bare", rooms ()) ];
+  (* Drop the roof below the doorway's head and every one of them is ceiling. *)
+  is "nothing" (Sight.look (rooms ~ceiling:low ~door:solid ()) looking);
+  is "nothing" (Sight.look (rooms ~ceiling:low ~door:glazed ()) looking);
+  is "nothing" (Sight.look (rooms ~ceiling:low ()) looking)
 
 (* One doorway by default, because that is what the design asks for. Asking for
    none is asking about the room you are standing in. *)
@@ -568,6 +708,10 @@ let () =
             looking_over_the_opening_meets_the_lintel;
           case "a bare opening has nothing over it"
             a_bare_opening_has_nothing_over_it;
+          case "a lintel is not picked above its top"
+            a_lintel_is_not_picked_above_its_top;
+          case "the roof caps what an opening shows"
+            the_roof_caps_what_an_opening_shows;
           case "it looks as far as it is told to"
             it_looks_as_far_as_it_is_told_to;
         ] );
@@ -584,6 +728,8 @@ let () =
             a_lifted_sprite_is_looked_at_where_it_floats;
           case "a sprite nearer than the clip is not picked"
             a_sprite_nearer_than_the_clip_is_not_picked;
+          case "a wall is not picked over the ceiling"
+            a_wall_is_not_picked_over_the_ceiling;
           case "the wrong angle misses" the_wrong_angle_misses;
           case "asking twice gives the same answer"
             asking_twice_gives_the_same_answer;

@@ -27,9 +27,13 @@
 
     - An {b opaque wall}, but only where the wall actually is — the ray's height
       has to fall between the wall's foot on the sloped floor and its top, or it
-      passes over or under it. A see-through wall ({!Material.opaque} is false)
-      does not stop it, exactly as it does not stop the renderer, and by the
-      same whole-wall rule rather than texel by texel.
+      passes over or under it. Its top is its own height or the ceiling standing
+      over that point, whichever is lower: {!Renderer} caps a wall at the
+      ceiling and paints the ceiling above it, so a wall that runs on past one
+      is a wall nobody can see up there. A room open to the sky caps nothing. A
+      see-through wall ({!Material.opaque} is false) does not stop it, exactly
+      as it does not stop the renderer, and by the same whole-wall rule rather
+      than texel by texel.
     - A {b decal} on either sort of wall, where its image is not transparent
       there. This is what makes the see-through case an exception rather than a
       hole: the renderer draws a wall's decals whether or not the wall itself
@@ -55,6 +59,13 @@
       either — above its head is this room's own ceiling — so a ray up there
       meets nothing at all.
     - Running out of {b doorways to look through}.
+
+    A doorway is bounded above the same way a wall is, and for the same reason.
+    A lintel reaches its own [top] and no further, the ceiling may cut it or the
+    opening itself shorter still, and past whichever of the three comes first
+    the answer is the bare case again whatever hangs there: nothing to pick, and
+    no way through. The renderer has drawn this room's own ceiling across those
+    rows, and neither the strip nor the neighbour reaches them.
 
     {1 Depth and distance}
 

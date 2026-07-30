@@ -378,6 +378,54 @@ let a_bare_opening_does_not_show_the_room_above_it () =
     "over a lintel-less opening, the far room's roof is not drawn" true
     (reaches (joined_rooms ~door:(Door.make dim) ~bare:true ()) = None)
 
+(* The two cases above are the same claim about the strip over an opening, and
+   the roof makes it about the opening itself. Drop the ceiling of the room the
+   player is standing in below the doorway's head and those rows are this room's
+   own roof, exactly as the rows over a lintel-less opening are: neither the far
+   room's ceiling nor its sky may be painted through the gap, however tall the
+   gap was cut. The seam is what makes it matter — two rooms whose floors meet
+   need not have their roofs meet, and the neighbour's clip in [draw_planes]
+   only catches the case where they do.
+
+   Both ways in are checked, because they are two call sites: a transom you can
+   see through, and a gap with nothing across it at all. *)
+let the_roof_caps_what_an_opening_shows () =
+  let looking =
+    Player.pitch_by
+      (Player.make ~room:0 ~pos:centre ~angle:0.)
+      ~radians:Config.max_pitch
+  in
+  (* The near room under a roof that hangs below the head of its own two-cell
+     opening, and clear over the eye. Only room 0 is touched; [roofed] varies
+     room 1 as before, so a pixel that differs still came from inside it. *)
+  let low world =
+    let before = World.room world 0 in
+    World.replace_room world ~room:0
+      ~replacement:
+        (Room.make
+           ~thresholds:
+             (List.init
+                (Room.threshold_count before)
+                (Room.threshold_at before))
+           ~floor:(Room.floor_surface before)
+           ~ceiling:
+             (Room.Roof { Room.plane = Plane.horizontal 1.2; material = dim })
+           (List.init (Room.wall_count before) (Room.wall_at before)))
+  in
+  Alcotest.(check bool)
+    "the roof is under the opening's head and over the eye" true
+    (Config.eye_height < 1.2 && 1.2 < 2.);
+  let reaches world =
+    let world = low world in
+    drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
+  in
+  Alcotest.(check bool)
+    "through a transom under a low roof, the far room's roof is not drawn" true
+    (reaches (joined_rooms ~door:(Door.make dim) ~lintel:mesh ()) = None);
+  Alcotest.(check bool)
+    "and through an open doorway under one, none of it either" true
+    (reaches (joined_rooms ()) = None)
+
 (* And where it {e is} drawn, it does not begin at the top of the window. The
    camera carried into the far room sits behind that room's copy of the opening,
    so its roof runs back from there towards the eye and stands, in the rows near
@@ -1151,6 +1199,8 @@ let () =
             a_see_through_lintel_shows_the_room_behind;
           case "a bare opening does not show the room above it"
             a_bare_opening_does_not_show_the_room_above_it;
+          case "the roof caps what an opening shows"
+            the_roof_caps_what_an_opening_shows;
           case "the far room's ceiling begins where the doorway does"
             the_far_rooms_ceiling_begins_where_the_doorway_does;
         ] );

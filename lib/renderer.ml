@@ -537,7 +537,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
          of it: no lintel, no leaf, no recursion — and no [nothing_behind]
          either, which would blank rows that belong to the room in front. *)
       | Ray.Opening opening when opening.Ray.distance <= near -> ()
-      | Ray.Opening opening -> (
+      | Ray.Opening opening ->
           let threshold = Room.threshold_at current opening.Ray.index in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
@@ -548,6 +548,17 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
           in
           let head = Int.max top (row (floor_z +. threshold.height))
           and foot = Int.min bottom (row floor_z) in
+          (* A height capped at the roof over this point, the same way
+             [draw_wall] caps a wall. What an opening shows is bounded by it as
+             much as what stands beside one is: above the ceiling are rows
+             [draw_planes] has already given this room's own roof, and the room
+             beyond may no more paint over them than the strip may. *)
+          let under_roof z =
+            match Room.ceiling current with
+            | Room.Roof ceiling ->
+                Float.min z (Plane.elevation ceiling.Room.plane hit_point)
+            | Room.Open _ -> z
+          in
           (* Out of budget, or a doorway onto a room that has not been built
              yet: either way there is nothing behind it to draw, so those rows
              take the colour the distance fog already fades into. *)
@@ -614,28 +625,42 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
             (fun (l : Room.lintel) ->
               let last = Int.min bottom (head - 1) in
               if top <= last then begin
-                if not (Material.opaque l.Room.material) then
-                  behind ~first:top ~last;
+                if not (Material.opaque l.Room.material) then begin
+                  (* Where the strip itself begins, which is where [draw_wall]
+                     will start painting the glass: over the top of it the strip
+                     is not drawn, so there is nothing for the neighbour to show
+                     through and the ceiling above stays. *)
+                  let first =
+                    Int.max top (row (under_roof (floor_z +. l.Room.top)))
+                  in
+                  if first <= last then behind ~first ~last
+                end;
                 paint ~first:top ~last
                   (as_wall threshold ~index:opening.Ray.index ~height:l.Room.top
                      ~material:l.Room.material ~distance
                      ~along:opening.Ray.along)
               end)
             threshold.lintel;
-          if head <= foot then
+          if head <= foot then begin
+            (* The opening's head, or the ceiling where that hangs below it. A
+               gap in a wall is no way past the roof over it. *)
+            let mouth =
+              Int.max head (row (under_roof (floor_z +. threshold.height)))
+            in
             match Room.leaf threshold with
             | Some material ->
                 (* A leaf you can see through is a wall you can see through: the
                    room beyond has to be there for its clear texels to show, and
                    [paint] holds the leaf itself back for the translucent pass,
                    which blends it over what this just drew. *)
-                if not (Material.opaque material) then
-                  behind ~first:head ~last:foot;
+                if (not (Material.opaque material)) && mouth <= foot then
+                  behind ~first:mouth ~last:foot;
                 paint ~first:head ~last:foot
                   (as_wall threshold ~index:opening.Ray.index
                      ~height:threshold.height ~material ~distance
                      ~along:opening.Ray.along)
-            | None -> behind ~first:head ~last:foot))
+            | None -> if mouth <= foot then behind ~first:mouth ~last:foot
+          end)
     (Ray.merge
        (Ray.cast current ~origin:pose.Player.pos ~direction:dir)
        (Ray.openings current ~origin:pose.Player.pos ~direction:dir))

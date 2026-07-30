@@ -293,6 +293,11 @@ type lintel = { top : float; material : Material.t }
     neighbour. {!doorway} takes the wall's own height for its lintel and so
     never leaves the question open; only a threshold written by hand can.
 
+    [top] bounds the strip in both directions that matter: {!Renderer} draws it
+    from the opening's head up to [top] or the ceiling, whichever comes first,
+    and {!Sight} picks it over exactly that band. Above it is the room's own
+    ceiling on both sides of the question.
+
     Open, like a {!type-surface} and for the same reason: two independent fields
     written as a literal wherever one is wanted. *)
 
@@ -347,7 +352,13 @@ val with_door : threshold -> Door.t option -> threshold
 val with_lintel : threshold -> lintel option -> threshold
 (** The same opening under another lintel — or under none, which claims the
     opening reaches the top of its wall (see {!type-lintel} for what that
-    means). Like {!with_door}, nothing derived is touched. *)
+    means). Like {!with_door}, nothing derived is touched.
+
+    @raise Invalid_argument
+      if the lintel does not sit above the opening, on exactly the terms
+      {!val-threshold} refuses one on. A threshold is private so that it carries
+      one invariant rather than one per route to it, and this is a route to it.
+*)
 
 val threshold_wall : threshold -> height:float -> material:Material.t -> wall
 (** The threshold drawn as though it were a wall: its own endpoints, [height]
@@ -355,7 +366,13 @@ val threshold_wall : threshold -> height:float -> material:Material.t -> wall
     across rather than recomputed — they describe the same segment, and
     recomputing them per frame is what {!val-wall} exists to avoid. This is how
     {!Renderer} draws a door's leaf and the lintel strip above an opening, and
-    it is a function here so that the copying rule is written down once. *)
+    it is a function here so that the copying rule is written down once.
+
+    @raise Invalid_argument
+      if [height] does not rise above the floor. The geometry needs no checking
+      — it came from a threshold that passed the same test — but [height] comes
+      from the caller, and {!val-wall}'s docstring has what a wall that does not
+      rise costs. *)
 
 val across : threshold -> threshold -> Transform.t
 (** The rigid motion carrying this room's coordinates onto the neighbour's,

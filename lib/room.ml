@@ -118,10 +118,26 @@ type threshold = {
   normal : Vec.t;
 }
 
+(* A lintel is the strip of wall above an opening, so one that does not reach the
+   opening it stands over describes a wall that cannot be drawn. Written here
+   rather than inside [threshold] because [with_lintel] hangs one on a threshold
+   that has already been built and has to hold it to the same terms: a private
+   type earns nothing from a check every route to it does not make. [who] is
+   whichever of the two was called, so the message names it. *)
+let check_lintel ~who ~name ~height lintel =
+  Option.iter
+    (fun (l : lintel) ->
+      if not (Float.is_finite l.top && l.top >= height) then
+        invalid_arg (who ^ ": the lintel has to sit above the opening: " ^ name))
+    lintel
+
 let leaf (t : threshold) = Option.bind t.door Door.leaf
 let shut (t : threshold) = Option.is_some (leaf t)
 let with_door (t : threshold) door = { t with door }
-let with_lintel (t : threshold) lintel = { t with lintel }
+
+let with_lintel (t : threshold) lintel =
+  check_lintel ~who:"Room.with_lintel" ~name:t.name ~height:t.height lintel;
+  { t with lintel }
 
 let across (a : threshold) (b : threshold) =
   Transform.between ~a1:a.a ~a2:a.b ~b1:b.a ~b2:b.b
@@ -148,6 +164,12 @@ let ceiling_plane t = Option.map (fun s -> s.plane) (ceiling_surface t)
 let sky t = match t.ceiling with Open s -> Some s | Roof _ -> None
 
 let threshold_wall (t : threshold) ~height ~material : wall =
+  (* The geometry is safe by construction — every derived field is copied from a
+     threshold that already passed the same test [wall] would apply — but the
+     height arrives from outside, so it is held to [wall]'s terms here. Without
+     it this is the one route to a [wall] the checks below do not guard. *)
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg "Room.threshold_wall: the wall has to rise above the floor";
   {
     a = t.a;
     b = t.b;
@@ -199,8 +221,8 @@ let wall ~height ~material ?(decals = []) a b =
    length is the first thing World.pair measures. The height carries one stake
    of its own: World.passable is flat and never reads it, so an opening that
    does not rise is walked through all the same while the renderer draws it as a
-   sliver or as nothing. And a lintel is by definition the strip above the
-   opening — one hanging below it describes a wall that cannot be drawn. *)
+   sliver or as nothing. The lintel it may carry is held to check_lintel's
+   terms, which with_lintel holds it to as well. *)
 let threshold ~name ~height ?door ?lintel a b =
   let edge = Vec.sub b a in
   let length = Vec.length edge in
@@ -209,12 +231,7 @@ let threshold ~name ~height ?door ?lintel a b =
   if not (Float.is_finite height && height > 0.) then
     invalid_arg
       ("Room.threshold: the opening has to rise above the floor: " ^ name);
-  Option.iter
-    (fun (l : lintel) ->
-      if not (Float.is_finite l.top && l.top >= height) then
-        invalid_arg
-          ("Room.threshold: the lintel has to sit above the opening: " ^ name))
-    lintel;
+  check_lintel ~who:"Room.threshold" ~name ~height lintel;
   {
     name;
     a;

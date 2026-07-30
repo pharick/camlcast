@@ -755,6 +755,35 @@ let a_lintel_below_its_opening_is_refused () =
     "a lintel flush with the top of its opening is allowed" true
     (Option.is_some flush.Room.lintel)
 
+(* And hanging one afterwards is held to the same terms. A threshold is private
+   so that it carries one invariant rather than one per route to it, and
+   [with_lintel] is a route to it: an opening built with a lintel the
+   constructor refused could otherwise be given that lintel a line later. The
+   message names [with_lintel] because that is what was called. *)
+let with_lintel_is_refused_the_same_lintel () =
+  let gate =
+    Room.threshold ~name:"gate" ~height:2. (Vec.make 0. 0.) (Vec.make 4. 0.)
+  in
+  let raises what top =
+    Alcotest.check_raises what
+      (Invalid_argument
+         "Room.with_lintel: the lintel has to sit above the opening: gate")
+      (fun () ->
+        ignore (Room.with_lintel gate (Some { Room.top; material = pale })))
+  in
+  raises "a lintel below its opening" 1.;
+  raises "a lintel at the floor" 0.;
+  raises "a nan lintel" Float.nan;
+  raises "an infinite lintel" Float.infinity;
+  let flush = Room.with_lintel gate (Some { Room.top = 2.; material = pale })
+  and none = Room.with_lintel gate None in
+  Alcotest.(check bool)
+    "one flush with the top of its opening is allowed" true
+    (Option.is_some flush.Room.lintel);
+  Alcotest.(check bool)
+    "and taking the lintel away asks nothing at all" true
+    (none.Room.lintel = None)
+
 (* Shutting a closed loop by repeating the first point at the end is the natural
    way to write one down, and exactly the mistake: [closed] already joins them,
    so the repeated pair is a wall of no length. Refused under [path]'s own name
@@ -903,6 +932,24 @@ let threshold_edits_share_the_derived_fields () =
     "wearing the height and material it was told" true
     (w.Room.height = 2.5 && w.Room.material == mesh && w.Room.decals = [])
 
+(* [threshold_wall] is the one route to a [wall] that does not go through
+   [wall], and a private type is only worth having if every route to it holds.
+   The geometry it copies came from a threshold that already passed the same
+   test; the height comes from the caller, and one that does not rise is the
+   invisible collision blocker [wall]'s own comment is about. *)
+let threshold_wall_will_not_build_a_wall_that_does_not_rise () =
+  let t = doorway_in ~name:"gate" (Vec.make 0. 0.) (Vec.make 4. 0.) in
+  let raises what height =
+    Alcotest.check_raises what
+      (Invalid_argument
+         "Room.threshold_wall: the wall has to rise above the floor") (fun () ->
+        ignore (Room.threshold_wall t ~height ~material:pale))
+  in
+  raises "a wall of no height" 0.;
+  raises "a wall below the floor" (-2.);
+  raises "a nan wall" Float.nan;
+  raises "an infinite wall" Float.infinity
+
 let () =
   Alcotest.run "Room"
     [
@@ -958,6 +1005,8 @@ let () =
             a_wall_or_threshold_that_does_not_rise_is_refused;
           case "a lintel below its opening is refused"
             a_lintel_below_its_opening_is_refused;
+          case "with_lintel is refused the same lintel"
+            with_lintel_is_refused_the_same_lintel;
           case "a path that stands still is refused"
             a_path_that_stands_still_is_refused;
           case "a polygon that is not one is refused"
@@ -985,5 +1034,7 @@ let () =
             nearest_threshold_picks_the_nearest_that_qualifies;
           case "threshold edits share the derived fields"
             threshold_edits_share_the_derived_fields;
+          case "threshold_wall will not build a wall that does not rise"
+            threshold_wall_will_not_build_a_wall_that_does_not_rise;
         ] );
     ]

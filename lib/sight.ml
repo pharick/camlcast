@@ -82,6 +82,19 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
      rooms several doorways deep into one depth buffer.) *)
   let z_at d = eye_z +. (rise *. d) in
   let point_at d = Vec.add origin (Vec.scale direction d) in
+  (* A height, capped at the roof standing over that point. This is the one rule
+     that keeps every case below the same shape as the picture: Renderer.draw_wall
+     stops a wall, a leaf and a lintel strip alike at the ceiling and leaves the
+     rows above them to draw_planes, so a height past it is a height nothing was
+     drawn at. Taken per point rather than per room because a ceiling is a
+     Plane and may be sloped, which caps each column at its own height. Open sky
+     caps nothing, and the renderer does not cap against it either. *)
+  let under_roof point z =
+    match Room.ceiling here with
+    | Room.Roof ceiling ->
+        Float.min z (Plane.elevation ceiling.Room.plane point)
+    | Room.Open _ -> z
+  in
   let found d kind = Some { room; crossed; distance = d; pose; kind } in
   (* Everything in this room the ray could meet, nearest first. The walls and
      thresholds come merged by {!Ray.merge}; the sprites are not on that path at
@@ -124,9 +137,14 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
         else first rest
     | (d, Met (Ray.Wall hit)) :: rest ->
         let wall = hit.Ray.wall in
-        let foot = floor_at (point_at d) in
+        let where = point_at d in
+        let foot = floor_at where in
+        (* Its own height or the ceiling over it, whichever is lower. A roof
+           that does not clear the floor there leaves the renderer nothing to
+           draw at all, and the guard is the same one it makes. *)
+        let top = under_roof where (foot +. wall.Room.height) in
         let z = z_at d in
-        if z >= foot && z <= foot +. wall.Room.height then
+        if top > foot && z >= foot && z <= top then
           let along = hit.Ray.along and above = z -. foot in
           (* The face being looked at, taken from where the eye is and not from
              where the ray landed — the hit point is {e on} the wall, where
@@ -159,7 +177,8 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
     | (d, Met (Ray.Opening opening)) :: rest -> (
         let index = opening.Ray.index in
         let threshold = Room.threshold_at here index in
-        let foot = floor_at (point_at d) in
+        let where = point_at d in
+        let foot = floor_at where in
         let z = z_at d in
         (* On through the doorway, which is where the renderer has drawn the
            neighbour — whether the opening is bare or wearing something the eye
@@ -183,8 +202,14 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
              it was cut into, so there is no strip: what is up there is this
              room's own ceiling, which is not something to pick and not a way
              through either, so the ray carries on and finds nothing. That is
-             the answer the renderer draws. *)
+             the answer the renderer draws.
+
+             A strip has a top of its own, and the ceiling may cut it shorter
+             still. Past either the lintel is behind us and we are back at the
+             bare case, whatever the strip is made of: the renderer paints
+             neither the strip nor the neighbour up there. *)
           match threshold.Room.lintel with
+          | Some l when z > under_roof where (foot +. l.Room.top) -> first rest
           | Some l when Material.opaque l.Room.material ->
               found d (Doorway { index })
           | Some _ -> onwards ()
@@ -192,6 +217,12 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
         else if z < foot then
           (* Under it, which is to say into the floor. Not something this picks;
              the ray carries on and finds nothing, which is the honest answer. *)
+          first rest
+        else if z > under_roof where (foot +. threshold.Room.height) then
+          (* Within the opening's own height, but over a ceiling that hangs
+             below its head. The renderer draws that ceiling across these rows
+             and neither the leaf nor the room beyond reaches them, so there is
+             nothing here to pick and nothing to look through. *)
           first rest
         else
           (* The same rule the wall above follows: what is opaque stops the ray,
