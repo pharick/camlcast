@@ -288,8 +288,7 @@ let bindings =
             { Binding.source = Binding.Hold (Input.Key Key.k); weight = -1. };
           ];
       }
-    ~leave:[ Input.Key Key.escape ]
-    ()
+    ~leave:[ Input.Key Key.escape ] ()
 ```
 
 An axis adds up terms, and the two kinds of term are added differently: a held
