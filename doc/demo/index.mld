@@ -45,3 +45,12 @@ can walk through. The nav above goes back to the engine's own pages.
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
 - {!Camlcast_demo.Pictures} — two decals and two sprites
 - {!Camlcast_demo.Surfaces} — the demos' materials, daylight sky and air
+
+{1 The shared machinery}
+
+Three more modules the demos have in common — not demos, but what they run on:
+
+- {!Camlcast_demo.Bindings} — the demos' controls: one table, shared by all of
+  them
+- {!Camlcast_demo.Menu} — the list of demos, on screen
+- {!Camlcast_demo.Typeface} — the typeface the demos draw with
