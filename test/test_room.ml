@@ -34,7 +34,8 @@ let a_wall_can_wear_decals () =
    high, hung in a space four times as wide as it is tall. *)
 let a_decal_is_indexed_by_width_across_and_height_down () =
   let image =
-    Image.make ~height:3 ~width:12 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+    Image.make ~height:3 ~width:12 (fun ~u ~v -> (Color.rgb u v 0, 255))
+  in
   let dec = Room.decal ~along:2. ~z:1. ~half_width:2. ~half_height:0.5 image in
   let column at = Room.decal_column dec ~seen_from:Room.Front ~along:at
   and row at = Room.decal_row dec ~above:at in
@@ -158,7 +159,8 @@ let a_decal_can_be_added_to_a_wall () =
    picture is again deliberately not square. *)
 let a_sprite_is_indexed_by_width_across_and_height_down () =
   let image =
-    Image.make ~height:4 ~width:16 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+    Image.make ~height:4 ~width:16 (fun ~u ~v -> (Color.rgb u v 0, 255))
+  in
   let s = Room.sprite ~size:1. ~image (Vec.make 0. 0.) in
   (* Four times as wide as it is tall, so a sprite one cell tall is four cells
      across and reaches two either side. *)
@@ -421,7 +423,8 @@ let a_decal_or_sprite_of_no_size_is_refused () =
     Alcotest.check_raises what (Invalid_argument message) body
   in
   let poster =
-    Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255)) in
+    Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255))
+  in
   let mark ?glow ~half_width ~half_height () =
    fun () ->
     ignore (Room.decal ?glow ~along:1. ~z:1. ~half_width ~half_height poster)
@@ -548,7 +551,8 @@ let bounds_read_back_through_the_accessors () =
   let yard =
     Room.make
       ~floor:(Room.floor ~plane:ground ~material:pale)
-      ~ceiling:(Room.open_sky Sky.default) walls
+      ~ceiling:(Room.open_sky Sky.default)
+      walls
   in
   Alcotest.(check bool)
     "an open room says which sky" true
@@ -567,7 +571,8 @@ let a_rectangle_is_wound_inward_from_either_corner_pair () =
     List.iter
       (fun w ->
         Alcotest.(check bool)
-          (what ^ ": the centre is on the front") true
+          (what ^ ": the centre is on the front")
+          true
           (Room.side_of w centre = Room.Front))
       walls
   in
@@ -583,7 +588,8 @@ let a_flat_rectangle_is_refused () =
     Alcotest.check_raises what
       (Invalid_argument "Room.rectangle: the corners have to span an area")
       (fun () ->
-        ignore (Room.rectangle ~height:2. ~material:pale (Vec.make 0. 0.) corner))
+        ignore
+          (Room.rectangle ~height:2. ~material:pale (Vec.make 0. 0.) corner))
   in
   raises "no width" (Vec.make 0. 3.);
   raises "no height" (Vec.make 3. 0.);
@@ -594,16 +600,15 @@ let a_flat_rectangle_is_refused () =
    the same pairing {!World.make} uses for a link, which is the fact a game
    authoring a neighbour's floor depends on. *)
 let across_is_the_link_transform () =
-  let t1 =
-    Room.threshold ~name:"a" ~height:2. (Vec.make 1. 0.) (Vec.make 3. 0.)
+  let t1 = Room.threshold ~name:"a" ~height:2. (Vec.make 1. 0.) (Vec.make 3. 0.)
   and t2 =
     Room.threshold ~name:"b" ~height:2. (Vec.make 7. 4.) (Vec.make 7. 6.)
   in
   Alcotest.(check bool)
     "the same transform as spelling out the endpoints" true
     (Room.across t1 t2
-    = Transform.between ~a1:t1.Room.a ~a2:t1.Room.b ~b1:t2.Room.a
-        ~b2:t2.Room.b)
+    = Transform.between ~a1:t1.Room.a ~a2:t1.Room.b ~b1:t2.Room.a ~b2:t2.Room.b
+    )
 
 let doorway_in ~name ?door a b =
   snd

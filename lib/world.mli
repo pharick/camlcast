@@ -87,8 +87,8 @@ val room : t -> int -> Room.t
 val room_count : t -> int
 (** How many rooms there are; the indices run [0] to [room_count world - 1].
     {!add_room} appends and never inserts, so an index a frame is holding stays
-    the room it named. A count and named as one — the rooms themselves are
-    read one at a time through {!val-room}. *)
+    the room it named. A count and named as one — the rooms themselves are read
+    one at a time through {!val-room}. *)
 
 val name : t -> int -> string
 (** What the room at that index was authored as — the name it was given in

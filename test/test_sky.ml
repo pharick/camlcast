@@ -4,11 +4,9 @@ open Support
 (* A sky is a value now, so the suite brings its own rather than reaching for
    whichever one some level happens to use. *)
 let day =
-  Sky.make
-    ~horizon:(Color.rgb 176 196 222)
-    ~zenith:(Color.rgb 40 62 126)
-    ~sun:(Color.rgb 255 246 216)
-    ~sun_azimuth:(-0.9) ~sun_height:0.5 ~sun_radius:0.55 ~gradient:2.2 ()
+  Sky.make ~horizon:(Color.rgb 176 196 222) ~zenith:(Color.rgb 40 62 126)
+    ~sun:(Color.rgb 255 246 216) ~sun_azimuth:(-0.9) ~sun_height:0.5
+    ~sun_radius:0.55 ~gradient:2.2 ()
 
 let color = Sky.color day
 let sun_azimuth = day.sun_azimuth
@@ -29,8 +27,7 @@ let a_degenerate_sun_is_refused () =
   in
   List.iter
     (fun r ->
-      refused
-        (Printf.sprintf "sun_radius %f" r)
+      refused (Printf.sprintf "sun_radius %f" r)
         "Sky.make: sun_radius has to be a positive size" (fun () ->
           Sky.make ~sun_radius:r ()))
     [ 0.; -0.5; Float.nan ];

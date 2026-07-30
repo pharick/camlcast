@@ -89,8 +89,7 @@ let alone ?floor ?extra sprites =
   (one (hall ?floor ?extra sprites), one (hall ?floor ?extra []))
 
 (** At the origin, looking east down the hall, level. *)
-let looking_east ?(pos = Vec.make 0. 0.) () =
-  Player.make ~room:0 ~pos ~angle:0.
+let looking_east ?(pos = Vec.make 0. 0.) () = Player.make ~room:0 ~pos ~angle:0.
 
 (** The viewport a frame of this size is drawn through, over a floor at
     [floor_z] — what {!Viewport.sprite_box} has to be asked with if its answer
@@ -602,7 +601,8 @@ let the_floor_fades_into_the_haze_towards_the_horizon () =
    picture twice, near and far, read through its middle. *)
 let a_distant_sprite_fades_into_the_haze () =
   let grey =
-    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255)) in
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255))
+  in
   let at away =
     let s = Room.sprite ~size:1.6 ~image:grey (Vec.make away 0.) in
     Framebuffer.pixel
@@ -839,7 +839,8 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
    colour is taken back out of both readings, exactly as for the wall above. *)
 let a_decal_is_fogged_like_the_wall_it_is_on () =
   let white =
-    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let world = fst (alone []) in
   (* The hall's east wall is index 1, running from (12, -4); looking east from
      the axis hits it four along, at eye height. *)
@@ -882,7 +883,8 @@ let a_decal_is_fogged_like_the_wall_it_is_on () =
    where the mark goes down once. *)
 let a_decal_ignores_what_the_wall_is_made_of () =
   let white =
-    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let hung =
     Room.decal ~along:4. ~z:Config.eye_height ~half_width:1. ~half_height:1.
       white
@@ -942,7 +944,8 @@ let close_air ~fog_distance =
 
 let a_glowing_decal_keeps_its_own_light () =
   let white =
-    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   let lit ~glow ~fog_distance =
     let world = fst (alone []) in
     let marked =

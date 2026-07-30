@@ -12,14 +12,13 @@
     normalised: {!Viewport.ray_direction} builds it as [dir + right * k] with
     [dir] the unit view direction. Because [t] is measured in units of
     [direction], projecting the hit onto [dir] leaves exactly [t] — so [t] is
-    the distance perpendicular to the camera plane, which is what the
-    projection needs and what removes the fish-eye bulge.
+    the distance perpendicular to the camera plane, which is what the projection
+    needs and what removes the fish-eye bulge.
 
     {b Seeing past a wall.} Walls have different heights and the floor and
-    ceiling are sloped, so a near wall does not necessarily hide what is
-    behind it. The cast therefore keeps {e every} wall the ray crosses and
-    returns them farthest-first, ready for {!Renderer} to paint back to
-    front. *)
+    ceiling are sloped, so a near wall does not necessarily hide what is behind
+    it. The cast therefore keeps {e every} wall the ray crosses and returns them
+    farthest-first, ready for {!Renderer} to paint back to front. *)
 
 type hit = {
   distance : float;  (** perpendicular distance from the camera plane *)

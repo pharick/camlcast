@@ -3,7 +3,8 @@ open Support
 
 let links_resolve () =
   Alcotest.(check int) "two rooms" 2 (World.room_count two_rooms);
-  Alcotest.(check int) "one portal each way" 1
+  Alcotest.(check int)
+    "one portal each way" 1
     (World.doorway_count two_rooms ~room:0);
   Alcotest.(check int)
     "destination" 1 (portal two_rooms ~room:0 ~index:0).World.to_room;
@@ -480,8 +481,7 @@ let invalid_growth_is_refused () =
              (Room.make
                 ~thresholds:
                   [
-                    Room.with_door
-                      first.Room.thresholds.(0)
+                    Room.with_door first.Room.thresholds.(0)
                       (Some (Door.make pale));
                     extra;
                   ]
@@ -761,7 +761,8 @@ let changing_the_air_changes_nothing_else () =
   Alcotest.check close "the new air is the one asked for" 3.
     (World.atmosphere after).Atmosphere.fog_distance;
   Alcotest.(check int)
-    "the rooms are as many as they were" (World.room_count two_rooms)
+    "the rooms are as many as they were"
+    (World.room_count two_rooms)
     (World.room_count after);
   List.iter
     (fun room ->

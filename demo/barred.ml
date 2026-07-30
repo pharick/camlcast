@@ -106,7 +106,8 @@ let world =
            door itself does not. *)
         ( "behind-the-glass",
           chamber ~door:oak ~transom:Surfaces.window
-            ~ceiling:(Room.open_sky Surfaces.day) ~sprites:[] );
+            ~ceiling:(Room.open_sky Surfaces.day)
+            ~sprites:[] );
       ]
     ~links:
       [

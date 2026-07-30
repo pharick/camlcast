@@ -64,7 +64,8 @@ let room ~phase =
   Room.make
     ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.roof ~plane:(Plane.horizontal (height +. 0.5))
+      (Room.roof
+         ~plane:(Plane.horizontal (height +. 0.5))
          ~material:Surfaces.soffit)
     ~sprites:
       [

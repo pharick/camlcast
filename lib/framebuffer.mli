@@ -74,10 +74,11 @@ val set : t -> x:int -> y:int -> r:int -> g:int -> b:int -> unit
     a caller that has not clipped. *)
 
 val blend : t -> x:int -> y:int -> r:int -> g:int -> b:int -> alpha:int -> unit
-(** Blend one pixel over what is already there with opacity [alpha] (0 leaves the
-    pixel untouched, 255 replaces it). This is how a translucent wall, a decal
-    or a sprite lets the background — already painted, since everything is drawn
-    back to front — show through. Unchecked, on the same terms as {!set}. *)
+(** Blend one pixel over what is already there with opacity [alpha] (0 leaves
+    the pixel untouched, 255 replaces it). This is how a translucent wall, a
+    decal or a sprite lets the background — already painted, since everything is
+    drawn back to front — show through. Unchecked, on the same terms as {!set}.
+*)
 
 val pixel : t -> x:int -> y:int -> Color.t
 (** What is at pixel [(x, y)] now. The counterpart of {!set}, and the only

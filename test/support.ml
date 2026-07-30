@@ -142,8 +142,7 @@ let joined_rooms ?door ?lintel ?(bare = false) () =
     else
       match lintel with
       | None -> t
-      | Some material ->
-          Room.with_lintel t (Some { Room.top = 3.; material })
+      | Some material -> Room.with_lintel t (Some { Room.top = 3.; material })
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.

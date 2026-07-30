@@ -95,9 +95,8 @@ let a_closer_atmosphere_fades_sooner () =
 let make_normalises_the_light () =
   let stretched =
     Atmosphere.make ~haze:(Color.rgb 0 0 0) ~fog_distance:10.
-      ~min_brightness:0.1
-      ~light:(Vec.make 0. 40.)
-      ~ambient:0.5 ~directional:0.5 ()
+      ~min_brightness:0.1 ~light:(Vec.make 0. 40.) ~ambient:0.5 ~directional:0.5
+      ()
   in
   Alcotest.check close "the light is a unit vector" 1.
     (Vec.length stretched.Atmosphere.light);
@@ -139,23 +138,19 @@ let out_of_range_air_is_refused () =
   in
   List.iter
     (fun d ->
-      refused
-        (Printf.sprintf "fog_distance %f" d)
+      refused (Printf.sprintf "fog_distance %f" d)
         "Atmosphere.make: fog_distance is a distance in cells, above 0"
         (fun () -> Atmosphere.make ~fog_distance:d ()))
     [ 0.; -1.; Float.nan; Float.infinity ];
   List.iter
     (fun v ->
-      refused
-        (Printf.sprintf "min_brightness %f" v)
+      refused (Printf.sprintf "min_brightness %f" v)
         "Atmosphere.make: min_brightness is a fraction from 0 to 1" (fun () ->
           Atmosphere.make ~min_brightness:v ());
-      refused
-        (Printf.sprintf "ambient %f" v)
+      refused (Printf.sprintf "ambient %f" v)
         "Atmosphere.make: ambient is a fraction from 0 to 1" (fun () ->
           Atmosphere.make ~ambient:v ());
-      refused
-        (Printf.sprintf "directional %f" v)
+      refused (Printf.sprintf "directional %f" v)
         "Atmosphere.make: directional is a fraction from 0 to 1" (fun () ->
           Atmosphere.make ~directional:v ()))
     [ -0.1; 1.1; Float.nan ]

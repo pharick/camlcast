@@ -14,7 +14,8 @@ let make_builds_a_square () =
    along the diagonal, which is a wrong picture and not an error. *)
 let make_builds_a_rectangle () =
   let img =
-    Image.make ~height:2 ~width:5 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+    Image.make ~height:2 ~width:5 (fun ~u ~v -> (Color.rgb u v 0, 255))
+  in
   Alcotest.(check int) "the width" 5 img.Image.width;
   Alcotest.(check int) "the height" 2 img.Image.height;
   Alcotest.(check int) "and that many pixels" 10 (Array.length img.Image.pixels);
@@ -32,8 +33,8 @@ let index_agrees_with_sample () =
   (* Non-square on purpose: a square image agrees with itself under a width and
      height swapped over, and that is the mistake this test is here to catch. *)
   let img =
-    Image.make ~height:5 ~width:8
-      (fun ~u ~v -> (Color.rgb (u * 8) (v * 8) 0, u + v))
+    Image.make ~height:5 ~width:8 (fun ~u ~v ->
+        (Color.rgb (u * 8) (v * 8) 0, u + v))
   in
   List.iter
     (fun (u, v) ->

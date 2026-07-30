@@ -517,9 +517,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
           let threshold = current.Room.thresholds.(opening.Ray.index) in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
-          let floor_z =
-            Plane.elevation (Room.floor_plane current) hit_point
-          in
+          let floor_z = Plane.elevation (Room.floor_plane current) hit_point in
           let row z =
             int_of_float
               (Float.round (Viewport.project_height viewport ~z ~distance))

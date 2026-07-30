@@ -14,12 +14,12 @@
 
     Two conventions hold throughout. Coordinates are framebuffer pixels from a
     top-left origin, with [y] growing downwards; and colour arrives as a
-    {!Color.t}, since a shape is one colour and its caller usually has the
-    value already. (The loose [~r ~g ~b] spelling lives on in
-    {!Framebuffer.set} and {!Framebuffer.blend}, the per-pixel calls these
-    clip for, where a record per pixel would be paid in the inner loop.)
-    Everything is clipped, so a shape that falls partly or wholly outside the
-    buffer draws what fits and no more, without raising. *)
+    {!Color.t}, since a shape is one colour and its caller usually has the value
+    already. (The loose [~r ~g ~b] spelling lives on in {!Framebuffer.set} and
+    {!Framebuffer.blend}, the per-pixel calls these clip for, where a record per
+    pixel would be paid in the inner loop.) Everything is clipped, so a shape
+    that falls partly or wholly outside the buffer draws what fits and no more,
+    without raising. *)
 
 val rect :
   Framebuffer.t ->
@@ -88,8 +88,7 @@ val bar :
     that much room around it. *)
 
 val line :
-  Framebuffer.t ->
-  x0:int -> y0:int -> x1:int -> y1:int -> color:Color.t -> unit
+  Framebuffer.t -> x0:int -> y0:int -> x1:int -> y1:int -> color:Color.t -> unit
 (** A line from [(x0, y0)] to [(x1, y1)], both ends included, walked in whole
     pixels. Two identical endpoints draw the single pixel there. Good enough to
     draw round something with; it is not what draws the something.

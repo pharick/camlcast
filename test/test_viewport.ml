@@ -289,7 +289,8 @@ let a_wide_picture_is_as_wide_as_its_picture () =
   let s =
     Room.sprite ~size:1.5
       ~image:
-        (Image.make ~height:8 ~width:16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+        (Image.make ~height:8 ~width:16 (fun ~u:_ ~v:_ ->
+             (Color.rgb 1 1 1, 255)))
       (Vec.make 4. 0.)
   in
   List.iter

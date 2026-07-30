@@ -68,14 +68,12 @@ let day = Sky.default
     a glance at the top of the frame, which is all a room this enclosed gives
     you. *)
 let dusk =
-  Sky.make
-    ~horizon:(Color.rgb 240 156 96)
-    ~zenith:(Color.rgb 74 48 108)
-    ~sun:(Color.rgb 255 226 170)
-    ~sun_azimuth:2.1 ~sun_height:0.34 ~sun_radius:0.5 ~gradient:1.1 ()
+  Sky.make ~horizon:(Color.rgb 240 156 96) ~zenith:(Color.rgb 74 48 108)
+    ~sun:(Color.rgb 255 226 170) ~sun_azimuth:2.1 ~sun_height:0.34
+    ~sun_radius:0.5 ~gradient:1.1 ()
 
 (** Daylight air: a long, gentle fade to a blue-grey haze, and enough
-    directional light that walls at different angles read as different
-    surfaces. {!Camlcast.Atmosphere.default} is exactly that air, so the name
-    here only says what the demos mean by it. *)
+    directional light that walls at different angles read as different surfaces.
+    {!Camlcast.Atmosphere.default} is exactly that air, so the name here only
+    says what the demos mean by it. *)
 let air = Atmosphere.default

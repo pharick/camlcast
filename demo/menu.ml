@@ -108,8 +108,7 @@ let overlay font fb state =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let line = font.Font.height + 2 in
   let margin = line in
-  Paint.rect fb ~x:0 ~y:0 ~w:width ~h:height ~color:(Color.rgb 0 0 0)
-    ~alpha:170;
+  Paint.rect fb ~x:0 ~y:0 ~w:width ~h:height ~color:(Color.rgb 0 0 0) ~alpha:170;
   let ink = Color.rgb 200 200 200 in
   let bright = Color.rgb 255 255 255 in
   let dim = Color.rgb 140 140 140 in

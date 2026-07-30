@@ -77,10 +77,10 @@ val game :
   unit ->
   'a game
 (** A game from the two things every game has and the four it may not: an
-    [update] and a [view], with the omitted rest meaning what omitting them
-    has always meant — [overlay] draws nothing, [pointing] never, [finished]
-    never of its own accord, and [bindings] {!Binding.default}. The defaults
-    live here, so {!run} and {!simulate} agree about them by construction.
+    [update] and a [view], with the omitted rest meaning what omitting them has
+    always meant — [overlay] draws nothing, [pointing] never, [finished] never
+    of its own accord, and [bindings] {!Binding.default}. The defaults live
+    here, so {!run} and {!simulate} agree about them by construction.
 
     The trailing [()] is what closes the optional arguments, as on
     {!Binding.make} and {!Font.make}: nothing positional follows them, so
@@ -101,22 +101,20 @@ val with_window :
     starting SDL, opening the window, making the renderer, or making the buffer.
 *)
 
-val run :
-  window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
-(** [run window game state] runs a state through the loop on a window,
-    returning what it has become when the game says it is finished or the
-    player quits.
+val run : window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
+(** [run window game state] runs a state through the loop on a window, returning
+    what it has become when the game says it is finished or the player quits.
 
     The game is the {!type-game} record, usually built with {!val-game} — the
     engine knows nothing about the state but its six callbacks, and the record
     is the same one {!simulate} reads, so the loop and a test drive one
     description of the game rather than two spellings of it.
 
-    Note what {!val-game}'s defaults do {e not} include: no key ends the run.
-    A run with no other way out has to ask for one — see {!Binding.default}
-    for why the engine will not assume it, and {!run_world} for the one place
-    it does. Omitting both [finished] and a leaving key is a window the player
-    can only close.
+    Note what {!val-game}'s defaults do {e not} include: no key ends the run. A
+    run with no other way out has to ask for one — see {!Binding.default} for
+    why the engine will not assume it, and {!run_world} for the one place it
+    does. Omitting both [finished] and a leaving key is a window the player can
+    only close.
 
     The window may have been played on already, so a run does not assume it
     arrives at a fresh one. It takes the mouse as this game wants it, from

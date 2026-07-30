@@ -50,24 +50,24 @@ let a_rectangle_is_clipped_to_the_buffer () =
   (* Written out rather than looped, because each edge fails differently and the
      pixel worth checking afterwards is different for each. *)
   let over_left = buffer () in
-  Paint.rect over_left ~x:(-3) ~y:2 ~w:5 ~h:2
-    ~color:(Color.rgb 255 255 255) ~alpha:255;
+  Paint.rect over_left ~x:(-3) ~y:2 ~w:5 ~h:2 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the left: the visible part" white
     (Framebuffer.pixel over_left ~x:0 ~y:2);
   Alcotest.check color "off the left: and it stops where it should" black
     (Framebuffer.pixel over_left ~x:2 ~y:2);
 
   let over_top = buffer () in
-  Paint.rect over_top ~x:2 ~y:(-3) ~w:2 ~h:5
-    ~color:(Color.rgb 255 255 255) ~alpha:255;
+  Paint.rect over_top ~x:2 ~y:(-3) ~w:2 ~h:5 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the top: the visible part" white
     (Framebuffer.pixel over_top ~x:2 ~y:0);
   Alcotest.check color "off the top: and it stops" black
     (Framebuffer.pixel over_top ~x:2 ~y:2);
 
   let over_right = buffer () in
-  Paint.rect over_right ~x:8 ~y:2 ~w:5 ~h:2
-    ~color:(Color.rgb 255 255 255) ~alpha:255;
+  Paint.rect over_right ~x:8 ~y:2 ~w:5 ~h:2 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the right: the last column is drawn" white
     (Framebuffer.pixel over_right ~x:9 ~y:2);
   (* If the clip were missing, the overflow would land at the start of the next
@@ -77,15 +77,14 @@ let a_rectangle_is_clipped_to_the_buffer () =
     (Framebuffer.pixel over_right ~x:0 ~y:3);
 
   let over_bottom = buffer () in
-  Paint.rect over_bottom ~x:2 ~y:6 ~w:2 ~h:5
-    ~color:(Color.rgb 255 255 255) ~alpha:255;
+  Paint.rect over_bottom ~x:2 ~y:6 ~w:2 ~h:5 ~color:(Color.rgb 255 255 255)
+    ~alpha:255;
   Alcotest.check color "off the bottom: the last row is drawn" white
     (Framebuffer.pixel over_bottom ~x:2 ~y:7);
 
   let over_corner = buffer () in
   Paint.rect over_corner ~x:(-2) ~y:(-2) ~w:4 ~h:4
-    ~color:(Color.rgb 255 255 255)
-    ~alpha:255;
+    ~color:(Color.rgb 255 255 255) ~alpha:255;
   Alcotest.check color "off a corner: the quarter that shows" white
     (Framebuffer.pixel over_corner ~x:0 ~y:0);
   Alcotest.check color "off a corner: and no more" black
@@ -227,13 +226,15 @@ let a_sub_rectangle_before_the_picture_is_clipped_too () =
 let a_tint_multiplies_the_picture () =
   let fb = buffer () in
   let img =
-    Image.make ~width:2 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255)) in
+    Image.make ~width:2 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
   Paint.image ~tint:(Color.rgb 100 200 50) fb img ~x:0 ~y:0;
   Alcotest.check color "white takes the tint exactly" (Color.rgb 100 200 50)
     (Framebuffer.pixel fb ~x:0 ~y:0);
   let fb = buffer () in
   let half =
-    Image.make ~width:2 (fun ~u:_ ~v:_ -> (Color.rgb 128 128 128, 255)) in
+    Image.make ~width:2 (fun ~u:_ ~v:_ -> (Color.rgb 128 128 128, 255))
+  in
   Paint.image ~tint:(Color.rgb 200 200 200) fb half ~x:0 ~y:0;
   Alcotest.check color "and a grey halves it"
     (Color.rgb (128 * 200 / 255) (128 * 200 / 255) (128 * 200 / 255))

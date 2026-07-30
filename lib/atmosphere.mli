@@ -15,8 +15,8 @@ type t = private {
           portal recursion could not reach, and the band where the eye looks
           past both the floor and the ceiling *)
   fog_distance : float;
-      (** where the fade has fully arrived, in cells; finite and above [0.] —
-          it is the divisor in {!fog} *)
+      (** where the fade has fully arrived, in cells; finite and above [0.] — it
+          is the divisor in {!fog} *)
   min_brightness : float;
       (** the floor of the fade, a fraction from [0.] to [1.] *)
   light : Vec.t;
@@ -25,9 +25,8 @@ type t = private {
       (** the brightness a surface has facing away from the light, a fraction
           from [0.] to [1.] *)
   directional : float;
-      (** how much more it has facing squarely into it, a fraction from [0.]
-          to [1.]. Keep [ambient +. directional] at or below [1.] — see
-          {!make}. *)
+      (** how much more it has facing squarely into it, a fraction from [0.] to
+          [1.]. Keep [ambient +. directional] at or below [1.] — see {!make}. *)
 }
 (** Private: read every field, but build one with {!make}.
 
@@ -46,31 +45,30 @@ val make :
   ?directional:float ->
   unit ->
   t
-(** The air with those six properties, each defaulting to {!default}'s value,
-    so a caller says only what makes their place different. The six, their
-    units, their ranges, and what each defaults to:
+(** The air with those six properties, each defaulting to {!default}'s value, so
+    a caller says only what makes their place different. The six, their units,
+    their ranges, and what each defaults to:
 
     - [haze], the colour distance fades to. Default: [Color.rgb 24 24 32], a
       dark blue-grey.
-    - [fog_distance], how many cells the fade takes to fully arrive; finite
-      and above [0.], being the divisor in {!fog}. Default: [12.].
+    - [fog_distance], how many cells the fade takes to fully arrive; finite and
+      above [0.], being the divisor in {!fog}. Default: [12.].
     - [min_brightness], the floor the fade stops at, from [0.] (fades all the
       way to the haze) to [1.] (no fade at all). Default: [0.25].
-    - [light], the direction the light comes from. Default: from the
-      north-west, [Vec.make (-0.4) (-0.9)].
+    - [light], the direction the light comes from. Default: from the north-west,
+      [Vec.make (-0.4) (-0.9)].
     - [ambient], the brightness of a surface facing away from the light, from
       [0.] to [1.]. Default: [0.6].
-    - [directional], how much more a surface facing squarely into the light
-      has, from [0.] to [1.]. Default: [0.4].
+    - [directional], how much more a surface facing squarely into the light has,
+      from [0.] to [1.]. Default: [0.4].
 
-    {b Keep [ambient +. directional] at or below [1.].} Their sum is the top
-    of {!face_shading}'s band — what a surface square to the light is
-    multiplied by — and a sum above [1.] over-brightens every such surface,
-    clamped back per channel only after the damage is uniform. Every
-    atmosphere in this repository keeps the sum at exactly [1.]; it is a
-    convention rather than a check, because refusing it here would make
-    [make ~directional:0.9 ()] raise on account of a default the caller never
-    wrote.
+    {b Keep [ambient +. directional] at or below [1.].} Their sum is the top of
+    {!face_shading}'s band — what a surface square to the light is multiplied by
+    — and a sum above [1.] over-brightens every such surface, clamped back per
+    channel only after the damage is uniform. Every atmosphere in this
+    repository keeps the sum at exactly [1.]; it is a convention rather than a
+    check, because refusing it here would make [make ~directional:0.9 ()] raise
+    on account of a default the caller never wrote.
 
     [light] need not arrive normalised; it is only ever used for the cosine
     against a wall's normal, so it is normalised here once. It must point
@@ -87,16 +85,16 @@ val make :
     @raise Invalid_argument
       if [light] has no finite positive length — the zero vector, or one whose
       coordinates are [nan] or infinite; if [fog_distance] is not a finite
-      positive distance, it being a divisor; or if any of the three fractions
-      is outside [0. .. 1.]. Every test is the negation of the passing
-      condition, so a [nan] fails it rather than slipping through to be
-      divided by a frame later. *)
+      positive distance, it being a divisor; or if any of the three fractions is
+      outside [0. .. 1.]. Every test is the negation of the passing condition,
+      so a [nan] fails it rather than slipping through to be divided by a frame
+      later. *)
 
 val default : t
-(** The air of an unremarkable, mildly hazy day: [make ()]. Dark blue-grey
-    haze arriving over twelve cells, light from the north-west, and a
-    [0.6 .. 1.0] shading band. The value to start from and perturb — every
-    number in it is the one the demos settled on. *)
+(** The air of an unremarkable, mildly hazy day: [make ()]. Dark blue-grey haze
+    arriving over twelve cells, light from the north-west, and a [0.6 .. 1.0]
+    shading band. The value to start from and perturb — every number in it is
+    the one the demos settled on. *)
 
 val fog : t -> float -> float
 (** [fog air distance] is how much of a surface's own colour survives at that

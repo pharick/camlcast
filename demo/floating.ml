@@ -94,7 +94,8 @@ let world =
     Room.make ~thresholds:[ hall_onward ]
       ~floor:(Room.floor ~plane:hall_floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.roof ~plane:(Plane.above hall_floor height)
+        (Room.roof
+           ~plane:(Plane.above hall_floor height)
            ~material:Surfaces.soffit)
       ~sprites:still
       (hall_jambs
@@ -111,7 +112,8 @@ let world =
     Room.make ~thresholds:[ annex_back ]
       ~floor:(Room.floor ~plane:annex_floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.roof ~plane:(Plane.above annex_floor height)
+        (Room.roof
+           ~plane:(Plane.above annex_floor height)
            ~material:Surfaces.soffit)
       ~sprites:[ cloud ~base:1.9 (Vec.make 4. 0.) ]
       (annex_jambs

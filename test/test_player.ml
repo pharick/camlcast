@@ -138,8 +138,7 @@ let spawn_faces_where_it_is_told () =
     (Player.spawn two_rooms).Player.dir;
   let angle = Float.pi /. 2. in
   Alcotest.check vec "an angle is faced on Vec.of_angle's reckoning"
-    (Vec.of_angle angle)
-    (Player.spawn ~angle two_rooms).Player.dir
+    (Vec.of_angle angle) (Player.spawn ~angle two_rooms).Player.dir
 
 let walking_through_a_doorway () =
   let start = Player.make ~room:0 ~pos:(Vec.make 3.8 2.) ~angle:0. in

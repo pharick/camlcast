@@ -24,8 +24,7 @@ let rooms ?door ?lintel ?(bare = false) ?(near = []) ?(far = []) () =
     else
       match lintel with
       | None -> t
-      | Some material ->
-          Room.with_lintel t (Some { Room.top = 3.; material })
+      | Some material -> Room.with_lintel t (Some { Room.top = 3.; material })
   in
   let first_jambs, east =
     Room.doorway ~name:"east" ?door ~width:1. ~opening:2. ~height:3.
@@ -480,7 +479,8 @@ let a_wall_can_be_marked_where_the_crosshair_is () =
     Player.make ~room:0 ~pos:(Vec.make 2. 2.) ~angle:(-.Float.pi /. 2.)
   in
   let mark =
-    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255)) in
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 240 240 240, 255))
+  in
   match Sight.look world aim with
   | Some { Sight.kind = Sight.Wall w; room; _ } ->
       Alcotest.(check (option int)) "bare wall to begin with" None w.decal;

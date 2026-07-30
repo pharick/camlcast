@@ -141,10 +141,7 @@ type t = {
 
 let floor_plane t = t.floor.plane
 let floor_material t = t.floor.material
-
-let ceiling_surface t =
-  match t.ceiling with Roof s -> Some s | Open _ -> None
-
+let ceiling_surface t = match t.ceiling with Roof s -> Some s | Open _ -> None
 let ceiling_plane t = Option.map (fun s -> s.plane) (ceiling_surface t)
 let sky t = match t.ceiling with Open s -> Some s | Roof _ -> None
 

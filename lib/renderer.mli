@@ -165,8 +165,7 @@ val render :
     This is the loop's seam and not a game's: {!Camlcast.Engine.run} calls it
     once a frame, and a game reaches the overlay through the callback of the
     same name on {!Camlcast.Engine.type-game}. It is the only thing here that
-    touches
-    SDL. *)
+    touches SDL. *)
 
 val draw_frame : Framebuffer.t -> World.t -> Player.t -> unit
 (** Fill the whole framebuffer from the player's point of view: the backgrounds
