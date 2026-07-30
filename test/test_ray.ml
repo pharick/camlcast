@@ -95,6 +95,33 @@ let origin_on_a_wall () =
   Alcotest.(check bool)
     "distance stays a usable divisor" true (hit.Ray.distance > 0.)
 
+(* The parallel test is the sine of the angle between ray and wall, so it holds
+   at every length. Scaled by neither, it would have been an area, and a wall
+   short enough would have failed it head-on and gone unrendered — while
+   [Room.passable] went on colliding with it, which is the one pairing a wall is
+   never allowed to have. A tenth of a picometre is well past anything worth
+   authoring; the point is that no length is short enough to break the test. *)
+let a_wall_far_shorter_than_a_pixel_is_still_found () =
+  let sliver =
+    Room.wall ~height:3. ~material:dim
+      (Vec.make 3. (2. -. 5e-14))
+      (Vec.make 3. (2. +. 5e-14))
+  in
+  let room =
+    Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+      (List.init (Room.wall_count room) (Room.wall_at room) @ [ sliver ])
+  in
+  let hit = nearest_hit room ~origin:centre ~direction:(Vec.make 1. 0.) in
+  Alcotest.(check bool)
+    "the ray finds it rather than passing through" true
+    (hit.Ray.wall.Room.material == dim);
+  Alcotest.check close "and at the distance it stands at" 1. hit.Ray.distance;
+  (* The half the renderer answers now agrees with the half collision always
+     did: both say something is there. *)
+  Alcotest.(check bool)
+    "and collision agrees there is something there" false
+    (Room.passable room ~from:centre ~dest:(Vec.make 3.5 2.))
+
 let () =
   Alcotest.run "Ray"
     [
@@ -113,5 +140,10 @@ let () =
           case "openings are found like walls" openings_are_found_like_walls;
         ] );
       ("texturing", [ case "along stays on the wall" along_stays_on_the_wall ]);
-      ("edge cases", [ case "origin on a wall" origin_on_a_wall ]);
+      ( "edge cases",
+        [
+          case "origin on a wall" origin_on_a_wall;
+          case "a wall far shorter than a pixel is still found"
+            a_wall_far_shorter_than_a_pixel_is_still_found;
+        ] );
     ]

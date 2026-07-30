@@ -58,9 +58,20 @@ type opening = { distance : float; along : float; index : int }
     the hit is turned into a wall height. *)
 let min_distance = 1e-4
 
-let segment ~origin ~direction ~a ~edge =
+(* The cross product below is |direction| * |edge| * sin of the angle between
+   them — an area, not an angle — so testing it against a fixed figure would
+   read as a parallel test and behave as a length one: a wall short enough
+   would fail it whatever angle the ray met it at, and go unrendered while
+   Room.passable went on colliding with it. Scaled by both lengths, what is
+   left is the sine, and the test says what it looks like it says. Neither
+   length costs anything to come by: the caller has the edge's already, since
+   Room.wall works it out once and keeps it, and the direction's is one square
+   root for a whole ray rather than one per wall. *)
+let parallel = 1e-12
+
+let segment ~origin ~direction ~scale ~a ~edge ~length =
   let denom = Vec.cross direction edge in
-  if Float.abs denom < 1e-12 then None
+  if Float.abs denom < parallel *. scale *. length then None
   else
     let ao = Vec.sub a origin in
     let t = Vec.cross ao edge /. denom in
@@ -69,9 +80,12 @@ let segment ~origin ~direction ~a ~edge =
 
 let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
   let hits = ref [] in
+  let scale = Vec.length direction in
   for index = 0 to Room.wall_count world - 1 do
     let (w : Room.wall) = Room.wall_at world index in
-    match segment ~origin ~direction ~a:w.a ~edge:w.edge with
+    match
+      segment ~origin ~direction ~scale ~a:w.a ~edge:w.edge ~length:w.length
+    with
     | Some (t, s) ->
         hits :=
           { distance = t; along = s *. w.length; wall = w; index } :: !hits
@@ -84,9 +98,13 @@ let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
     hits
 
 let openings (room : Room.t) ~origin ~direction =
+  let scale = Vec.length direction in
   List.init (Room.threshold_count room) (fun index ->
       let (threshold : Room.threshold) = Room.threshold_at room index in
-      match segment ~origin ~direction ~a:threshold.a ~edge:threshold.edge with
+      match
+        segment ~origin ~direction ~scale ~a:threshold.a ~edge:threshold.edge
+          ~length:threshold.length
+      with
       | Some (distance, s) ->
           Some { distance; along = s *. threshold.length; index }
       | None -> None)

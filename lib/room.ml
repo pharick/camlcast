@@ -168,12 +168,21 @@ let threshold_wall (t : threshold) ~height ~material : wall =
    and Atmosphere.face_shading, side_of and every decal placed along it read
    exactly that. Nothing downstream refuses it a second time: Ray.segment finds
    no intersection with a zero edge and distance_to_segment degrades to a point,
-   so it would stand there as an invisible collision blocker. *)
+   so it would stand there as an invisible collision blocker.
+
+   The height buys the same thing at the other end of the wall.
+   Renderer.draw_wall works out a top of floor_z +. height and draws nothing at
+   all unless it clears the floor, while blocked and passable never read the
+   height in the first place — so a wall that does not rise is the same
+   invisible blocker by another route, and a nan one is too, that comparison
+   being false as well. *)
 let wall ~height ~material ?(decals = []) a b =
   let edge = Vec.sub b a in
   let length = Vec.length edge in
   if not (Float.is_finite length && length > 0.) then
     invalid_arg "Room.wall: the two ends have to be apart";
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg "Room.wall: the wall has to rise above the floor";
   {
     a;
     b;
@@ -187,12 +196,25 @@ let wall ~height ~material ?(decals = []) a b =
 
 (* The same refusal on the same terms, and the stakes are higher: a threshold's
    normal is what Transform.between turns into a portal's frame change, and its
-   length is the first thing World.pair measures. *)
+   length is the first thing World.pair measures. The height carries one stake
+   of its own: World.passable is flat and never reads it, so an opening that
+   does not rise is walked through all the same while the renderer draws it as a
+   sliver or as nothing. And a lintel is by definition the strip above the
+   opening — one hanging below it describes a wall that cannot be drawn. *)
 let threshold ~name ~height ?door ?lintel a b =
   let edge = Vec.sub b a in
   let length = Vec.length edge in
   if not (Float.is_finite length && length > 0.) then
     invalid_arg ("Room.threshold: the two ends have to be apart: " ^ name);
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg
+      ("Room.threshold: the opening has to rise above the floor: " ^ name);
+  Option.iter
+    (fun (l : lintel) ->
+      if not (Float.is_finite l.top && l.top >= height) then
+        invalid_arg
+          ("Room.threshold: the lintel has to sit above the opening: " ^ name))
+    lintel;
   {
     name;
     a;
@@ -290,6 +312,8 @@ let path ?(closed = false) ~height ~material points =
   let n = Array.length arr in
   if closed && n < 3 then
     invalid_arg "Room.path: a closed path has to have at least three points";
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg "Room.path: the walls have to rise above the floor";
   let last = if closed then n - 1 else n - 2 in
   (* Refused here rather than left to {!wall}, so that the habit a closed path
      invites — repeating the first point at the end to shut the loop — is
@@ -307,12 +331,22 @@ let path ?(closed = false) ~height ~material points =
 let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
-  if not (span > 0.) then
+  if not (Float.is_finite span && span > 0.) then
     invalid_arg ("Room.doorway: no wall to cut a doorway into: " ^ name);
-  if not (width > 0.) then
+  if not (Float.is_finite width && width > 0.) then
     invalid_arg ("Room.doorway: a doorway has to have a width: " ^ name);
   if not (width <= span) then
     invalid_arg ("Room.doorway: wider than the wall it is cut into: " ^ name);
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg ("Room.doorway: the wall has to rise above the floor: " ^ name);
+  (* The opening becomes the threshold's height and the wall's becomes the
+     lintel over it, so an opening taller than its wall is a lintel hanging
+     below its own doorway. Refused here, in the words the caller wrote, rather
+     than left to {!threshold} to refuse in words about a lintel they never
+     mentioned. Negated, so a nan opening is refused with the too-tall ones;
+     [height] is finite by the line above. *)
+  if not (opening > 0. && opening <= height) then
+    invalid_arg ("Room.doorway: the opening has to fit under the wall: " ^ name);
   let half = Vec.scale edge (width /. (2. *. span)) in
   let middle = Vec.scale (Vec.add a b) 0.5 in
   let p = Vec.sub middle half and q = Vec.add middle half in
@@ -335,6 +369,8 @@ let rectangle ~height ~material c1 c2 =
   (* Negated, so a nan corner is refused with the flat ones. *)
   if not (x0 < x1 && y0 < y1) then
     invalid_arg "Room.rectangle: the corners have to span an area";
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg "Room.rectangle: the walls have to rise above the floor";
   (* Wound per the Room winding rule so every wall's normal faces inward
      (on the screen map with y down, this loop appears clockwise). *)
   path ~closed:true ~height ~material
@@ -371,6 +407,8 @@ let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
     invalid_arg "Room.regular_polygon: the rotation has to be a number";
   if not (Float.is_finite center.Vec.x && Float.is_finite center.Vec.y) then
     invalid_arg "Room.regular_polygon: the center has to be a point";
+  if not (Float.is_finite height && height > 0.) then
+    invalid_arg "Room.regular_polygon: the walls have to rise above the floor";
   path ~closed:true ~height ~material
     (List.init sides (fun k ->
          let angle =

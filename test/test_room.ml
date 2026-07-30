@@ -398,21 +398,40 @@ let a_doorway_that_could_not_be_cut_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
   in
-  let cut ~width a b =
+  let cut ?(opening = 2.) ?(height = 3.) ~width a b =
    fun () ->
     ignore
-      (Room.doorway ~name:"gate" ~width ~opening:2. ~height:3. ~material:pale a
-         b)
+      (Room.doorway ~name:"gate" ~width ~opening ~height ~material:pale a b)
   in
-  raises "a wall with no length"
-    "Room.doorway: no wall to cut a doorway into: gate"
+  let a = Vec.make 0. 0. and b = Vec.make 4. 0. in
+  let no_wall = "Room.doorway: no wall to cut a doorway into: gate" in
+  raises "a wall with no length" no_wall
     (cut ~width:1. (Vec.make 2. 2.) (Vec.make 2. 2.));
+  (* An infinite end used to pass this and surface from [threshold] instead,
+     under a name the caller never wrote. *)
+  raises "a wall running off to infinity" no_wall
+    (cut ~width:1. (Vec.make 0. 0.) (Vec.make Float.infinity 0.));
   raises "an opening with no width"
-    "Room.doorway: a doorway has to have a width: gate"
-    (cut ~width:0. (Vec.make 0. 0.) (Vec.make 4. 0.));
+    "Room.doorway: a doorway has to have a width: gate" (cut ~width:0. a b);
   raises "wider than the wall"
-    "Room.doorway: wider than the wall it is cut into: gate"
-    (cut ~width:5. (Vec.make 0. 0.) (Vec.make 4. 0.))
+    "Room.doorway: wider than the wall it is cut into: gate" (cut ~width:5. a b);
+  raises "a wall that does not rise"
+    "Room.doorway: the wall has to rise above the floor: gate"
+    (cut ~width:1. ~height:0. a b);
+  let no_fit = "Room.doorway: the opening has to fit under the wall: gate" in
+  raises "an opening of no height" no_fit (cut ~width:1. ~opening:0. a b);
+  raises "an opening taller than its wall" no_fit
+    (cut ~width:1. ~opening:4. ~height:3. a b);
+  raises "a nan opening" no_fit (cut ~width:1. ~opening:Float.nan a b);
+  (* An opening exactly as tall as its wall is allowed, and leaves a lintel of
+     no depth — the same way a doorway as wide as its wall leaves no jamb. *)
+  let _, threshold =
+    Room.doorway ~name:"gate" ~width:1. ~opening:3. ~height:3. ~material:pale a
+      b
+  in
+  Alcotest.(check (float 1e-9))
+    "an opening flush with the top of its wall is allowed" 3.
+    threshold.Room.height
 
 (* A doorway exactly as wide as the wall it is cut into is allowed — a whole
    side of a room that is one opening — and leaves nothing standing either side
@@ -618,7 +637,20 @@ let a_flat_rectangle_is_refused () =
   raises "no width" (Vec.make 0. 3.);
   raises "no height" (Vec.make 3. 0.);
   raises "no extent at all" (Vec.make 0. 0.);
-  raises "a nan corner" (Vec.make Float.nan 2.)
+  raises "a nan corner" (Vec.make Float.nan 2.);
+  (* Under [rectangle]'s own name, not [wall]'s or [path]'s — the caller wrote
+     this one. *)
+  let raises what height =
+    Alcotest.check_raises what
+      (Invalid_argument "Room.rectangle: the walls have to rise above the floor")
+      (fun () ->
+        ignore
+          (Room.rectangle ~height ~material:pale (Vec.make 0. 0.)
+             (Vec.make 3. 3.)))
+  in
+  raises "walls of no height" 0.;
+  raises "walls below the floor" (-2.);
+  raises "a nan height" Float.nan
 
 (* A wall between two points that are the same has a normal [Vec.normalize]
    could not scale, and it hands one it cannot scale straight back — so the
@@ -649,6 +681,59 @@ let a_wall_or_threshold_with_no_length_is_refused () =
   raises "a threshold with a nan end" no_length
     (threshold (Vec.make 0. 0.) (Vec.make 0. Float.nan))
 
+(* The same invisible blocker reached from the other end of the wall. The
+   renderer takes a wall's top to be the floor plus its height and draws nothing
+   unless that clears the floor, while [blocked] and [passable] never read the
+   height at all — so a wall that does not rise is walked into and never seen.
+   A threshold that does not rise is worse still: [World.passable] is flat and
+   never consults the height, so the opening is walked through while the
+   renderer draws it as a sliver or as nothing. Negated, so [nan] and infinity
+   fail with the flat ones. *)
+let a_wall_or_threshold_that_does_not_rise_is_refused () =
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let a = Vec.make 0. 0. and b = Vec.make 4. 0. in
+  let wall height () = ignore (Room.wall ~height ~material:pale a b) in
+  let threshold height () = ignore (Room.threshold ~name:"gate" ~height a b) in
+  let flat = "Room.wall: the wall has to rise above the floor" in
+  raises "no height at all" flat (wall 0.);
+  raises "a height below the floor" flat (wall (-1.));
+  raises "a nan height" flat (wall Float.nan);
+  raises "an infinite height" flat (wall Float.infinity);
+  let flat = "Room.threshold: the opening has to rise above the floor: gate" in
+  raises "an opening of no height" flat (threshold 0.);
+  raises "an opening below the floor" flat (threshold (-2.));
+  raises "a nan opening" flat (threshold Float.nan)
+
+(* A lintel is the strip of wall above an opening, so one whose top does not
+   reach the opening it stands over describes a wall that cannot be drawn.
+   [doorway] cannot produce one — it takes the wall's own height for the
+   lintel and refuses an opening taller than it — so this is about the
+   threshold built by hand. *)
+let a_lintel_below_its_opening_is_refused () =
+  let raises what top =
+    Alcotest.check_raises what
+      (Invalid_argument
+         "Room.threshold: the lintel has to sit above the opening: gate")
+      (fun () ->
+        ignore
+          (Room.threshold ~name:"gate" ~height:2.
+             ~lintel:{ Room.top; material = pale }
+             (Vec.make 0. 0.) (Vec.make 4. 0.)))
+  in
+  raises "a lintel below its opening" 1.;
+  raises "a lintel at the floor" 0.;
+  raises "a nan lintel" Float.nan;
+  let flush =
+    Room.threshold ~name:"gate" ~height:2.
+      ~lintel:{ Room.top = 2.; material = pale }
+      (Vec.make 0. 0.) (Vec.make 4. 0.)
+  in
+  Alcotest.(check bool)
+    "a lintel flush with the top of its opening is allowed" true
+    (Option.is_some flush.Room.lintel)
+
 (* Shutting a closed loop by repeating the first point at the end is the natural
    way to write one down, and exactly the mistake: [closed] already joins them,
    so the repeated pair is a wall of no length. Refused under [path]'s own name
@@ -671,7 +756,16 @@ let a_path_that_stands_still_is_refused () =
       ignore (Room.path ~closed:true ~height:1. ~material:pale [ a; b ]));
   Alcotest.(check int)
     "an open run too short to have a wall in it is empty" 0
-    (List.length (Room.path ~height:1. ~material:pale [ a ]))
+    (List.length (Room.path ~height:1. ~material:pale [ a ]));
+  (* Under [path]'s own name for the same reason the repeated point is. *)
+  let raises what height =
+    Alcotest.check_raises what
+      (Invalid_argument "Room.path: the walls have to rise above the floor")
+      (fun () -> ignore (Room.path ~height ~material:pale [ a; b; c ]))
+  in
+  raises "walls of no height" 0.;
+  raises "walls below the floor" (-1.);
+  raises "a nan height" Float.nan
 
 (* Two sides are a pair of coincident walls wound against each other, one is a
    wall of no length, none is a room with no boundary at all, and a negative
@@ -680,10 +774,10 @@ let a_path_that_stands_still_is_refused () =
    negation of what would pass, so a [nan] argument fails with the flat ones. *)
 let a_polygon_that_is_not_one_is_refused () =
   let polygon ?(center = Vec.make 0. 0.) ?(radius = 2.) ?(sides = 6)
-      ?(rotation = 0.) () =
+      ?(rotation = 0.) ?(height = 3.) () =
    fun () ->
     ignore
-      (Room.regular_polygon ~center ~radius ~sides ~rotation ~height:3.
+      (Room.regular_polygon ~center ~radius ~sides ~rotation ~height
          ~material:pale)
   in
   let raises what message body =
@@ -703,7 +797,12 @@ let a_polygon_that_is_not_one_is_refused () =
     "Room.regular_polygon: the rotation has to be a number"
     (polygon ~rotation:Float.nan ());
   raises "a nan center" "Room.regular_polygon: the center has to be a point"
-    (polygon ~center:(Vec.make Float.nan 0.) ())
+    (polygon ~center:(Vec.make Float.nan 0.) ());
+  (* Under [regular_polygon]'s own name, not the [path] it delegates to. *)
+  let flat = "Room.regular_polygon: the walls have to rise above the floor" in
+  raises "walls of no height" flat (polygon ~height:0. ());
+  raises "walls below the floor" flat (polygon ~height:(-3.) ());
+  raises "a nan height" flat (polygon ~height:Float.nan ())
 
 (* [across] is [Transform.between] with the endpoint pairing already right —
    the same pairing {!World.make} uses for a link, which is the fact a game
@@ -832,6 +931,10 @@ let () =
           case "a flat rectangle is refused" a_flat_rectangle_is_refused;
           case "a wall or threshold with no length is refused"
             a_wall_or_threshold_with_no_length_is_refused;
+          case "a wall or threshold that does not rise is refused"
+            a_wall_or_threshold_that_does_not_rise_is_refused;
+          case "a lintel below its opening is refused"
+            a_lintel_below_its_opening_is_refused;
           case "a path that stands still is refused"
             a_path_that_stands_still_is_refused;
           case "a polygon that is not one is refused"

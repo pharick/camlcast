@@ -491,9 +491,14 @@ val wall :
       every decal placed along [length] read it anyway. Nothing downstream
       refuses it a second time: {!Ray.cast} finds no intersection with an edge
       of no length and {!distance_to_wall} degrades to a point, so it would
-      stand in the room as a collision blocker nobody can see. The test is
-      written as the negation of the passing condition, so a [nan] end fails it
-      rather than slipping through. *)
+      stand in the room as a collision blocker nobody can see. Or if [height] is
+      not a positive finite number, which is that same blocker reached from the
+      other end of the wall: {!Renderer} takes a wall's top to be the floor
+      under it plus its height and draws nothing at all unless that clears the
+      floor, while {!blocked} and {!passable} never read the height in the first
+      place — so a wall that does not rise is walked into and never seen. Both
+      tests are written as the negation of the passing condition, so a [nan]
+      fails them rather than slipping through. *)
 
 val threshold :
   name:string ->
@@ -510,9 +515,15 @@ val threshold :
       on the same terms as {!val-wall}, and for more: a threshold's [normal] is
       what {!Transform.between} turns into the frame change a portal carries a
       player through, and its [length] is the first thing {!World.make}
-      measures. Most thresholds arrive through {!doorway}, which cuts one out of
-      a wall it has already refused to cut into; this catches one built any
-      other way. *)
+      measures. The [height] carries a stake of its own, since {!World.passable}
+      is flat and never consults it — an opening that does not rise is walked
+      through all the same, while {!Renderer} draws it as a sliver a row deep or
+      as no opening at all. And if a [lintel] is given, its [top] has to be
+      finite and to reach at least the [height] it stands over: a lintel is the
+      strip of wall above an opening, so one hanging below its own opening
+      describes a wall that cannot be drawn. Most thresholds arrive through
+      {!doorway}, which cuts one out of a wall it has already refused to cut
+      into; this catches one built any other way. *)
 
 val make :
   ?thresholds:threshold list ->
@@ -676,8 +687,10 @@ val rectangle :
 
     @raise Invalid_argument
       if the corners do not span an area in both axes — a flat rectangle has
-      walls of no length, whose normals could not be computed. Negated, so a
-      [nan] coordinate is refused with it. *)
+      walls of no length, whose normals could not be computed — or if [height]
+      is not a positive finite number, which would give four walls that block
+      the way and are never drawn. Both negated, so a [nan] coordinate or height
+      is refused with the flat ones. *)
 
 val path :
   ?closed:bool -> height:float -> material:Material.t -> Vec.t list -> wall list
@@ -693,7 +706,9 @@ val path :
       saying twice: shutting a loop by repeating the first point at the end is
       the natural way to write one down, and it is exactly the mistake, since
       [closed] already joins them. A closed run also has to have at least three
-      points, there being no polygon in fewer. *)
+      points, there being no polygon in fewer, and [height] has to be a positive
+      finite number, on the same terms and for the same reason as the points:
+      {!val-wall} would refuse it under a name the caller never wrote. *)
 
 val doorway :
   name:string ->
@@ -719,16 +734,22 @@ val doorway :
     keeps a room's boundary and its thresholds honest about each other.
 
     @raise Invalid_argument
-      on any of three authoring mistakes, refused here rather than left to
-      spread. A wall with no length has no middle to cut, and the division would
-      hand back a threshold whose every coordinate is [nan] — refused again by
-      {!val-threshold} on its own account, and a third time by {!World.make} if
-      one ever reached a world, because each of those tests is written the way
-      this one is. A doorway of no width is not a doorway. And one wider than
-      the wall it is cut into leaves jambs wound backwards, which is the one
-      thing every transform derived from the opening depends on. Each test is
-      written as the negation of the passing condition, so a [nan] argument
-      fails it rather than slipping through. *)
+      on any of five authoring mistakes, refused here rather than left to
+      spread. A wall with no length, or one running off to infinity, has no
+      middle to cut, and the division would hand back a threshold whose every
+      coordinate is [nan] — refused again by {!val-threshold} on its own
+      account, and a third time by {!World.make} if one ever reached a world,
+      because each of those tests is written the way this one is. A doorway of
+      no width is not a doorway. One wider than the wall it is cut into leaves
+      jambs wound backwards, which is the one thing every transform derived from
+      the opening depends on. A wall that does not rise above its floor is the
+      blocker nobody can see that {!val-wall} exists to refuse. And an [opening]
+      taller than the [height] it is cut into would become a threshold under a
+      lintel hanging below it, since the wall's height is what the lintel takes
+      — refused here, in the terms the caller wrote, rather than left to
+      {!val-threshold} to refuse in terms of a lintel they never mentioned. Each
+      test is written as the negation of the passing condition, so a [nan]
+      argument fails it rather than slipping through. *)
 
 val regular_polygon :
   center:Vec.t ->
@@ -743,9 +764,11 @@ val regular_polygon :
     direction.
 
     @raise Invalid_argument
-      if there are fewer than three sides, or the radius is not a positive
-      finite number, or the rotation or the center is not finite. Two sides are
-      a pair of coincident walls wound against each other, one is a wall of no
-      length, none is a room with no boundary at all, and a negative count would
-      reach [List.init] and be refused under its name rather than this one. All
-      four are negated, so a [nan] fails them with the flat ones. *)
+      if there are fewer than three sides, or the radius or the height is not a
+      positive finite number, or the rotation or the center is not finite. Two
+      sides are a pair of coincident walls wound against each other, one is a
+      wall of no length, none is a room with no boundary at all, and a negative
+      count would reach [List.init] and be refused under its name rather than
+      this one; a polygon of no height is a ring of walls that block the way and
+      are never drawn. All five are negated, so a [nan] fails them with the flat
+      ones. *)
