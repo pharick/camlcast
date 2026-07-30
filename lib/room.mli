@@ -632,7 +632,12 @@ val blocked : t -> Vec.t -> bool
 val segments_cross : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> bool
 (** Do the two segments [a1..a2] and [b1..b2] cross? Solved with the same cross
     product as {!Ray.cast}: the crossing exists when both parameters land in
-    [0, 1].
+    [0, 1], and — as there — whether it exists at all is asked with both lengths
+    scaled out of the product, because the product is an area and only the sine
+    left after dividing them out is a fact about being parallel. Here it is a
+    step that gets short: movement clips a leg where it meets a doorway and asks
+    again about the remainder, and a remainder called parallel is a doorway not
+    reported and a room not entered.
 
     That solution does not exist for parallel segments, but two of them can
     still lie on the same line and overlap — a step taken straight along a wall

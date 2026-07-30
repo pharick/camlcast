@@ -91,6 +91,38 @@ let names_are_distinct () =
     "and nothing else can" true
     (Catalogue.find "no-such-demo" = None)
 
+(* {!Catalogue.attempt} is the seam between the demos' two ways of failing, and
+   the only part of the launcher reachable without a window. Above it,
+   bin/demo.ml turns a [`Msg] into "camlcast-demo: " and an exit code of 1; below
+   it the asset loaders raise, because a demo already inside a frame has nowhere
+   to put a result. With nothing in between, a missing picture printed OCaml's
+   own fatal-error banner and stopped with its own code — past both of this
+   program's conventions at once. What matters is that the message survives the
+   trip, since naming the file is the whole reason the loaders can afford to
+   raise at all. *)
+let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
+  let ran : (Engine.ending, [ `Msg of string ]) result =
+    Catalogue.attempt (fun () -> Ok Engine.Left)
+  in
+  Alcotest.(check bool)
+    "an ending is passed through untouched" true (ran = Ok Engine.Left);
+  let refused : (Engine.ending, [ `Msg of string ]) result =
+    Catalogue.attempt (fun () -> Error (`Msg "no window"))
+  in
+  Alcotest.(check bool)
+    "and so is the error channel it already had" true
+    (refused = Error (`Msg "no window"));
+  let broken : (Engine.ending, [ `Msg of string ]) result =
+    Catalogue.attempt (fun () ->
+        failwith "the loading demo could not read its art: assets/tiles.png")
+  in
+  match broken with
+  | Ok _ -> Alcotest.fail "a demo that could not read its art came back Ok"
+  | Error (`Msg message) ->
+      Alcotest.(check bool)
+        "a raised failure arrives as a message that still names the file" true
+        (mentions message "assets/tiles.png")
+
 (* Growing is where a world is most easily broken, because open_doorway and
    link are checking invariants the generator has to keep by hand. Walk the
    corridor by growing from the far end over and over, and the result has to
@@ -499,6 +531,8 @@ let () =
       ( "the catalogue",
         [
           case "names are distinct" names_are_distinct;
+          case "a demo that cannot read its art is reported and not a crash"
+            a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash;
           case "growing leaves a world that still works"
             growing_leaves_a_world_that_still_works;
           case "the trail demo unwinds its own route"

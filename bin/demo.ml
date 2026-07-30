@@ -30,7 +30,7 @@ let rec browse ?from window =
   | Error _ as error -> error
   | Ok None -> Ok ()
   | Ok (Some (demo : Catalogue.t)) -> (
-      match demo.Catalogue.run window with
+      match Catalogue.attempt (fun () -> demo.Catalogue.run window) with
       | Error _ as error -> error
       | Ok Camlcast.Engine.Closed -> Ok ()
       | Ok Camlcast.Engine.Left -> browse ~from:demo window)
@@ -41,8 +41,9 @@ let () =
       match Camlcast.Engine.with_window (fun window -> browse window) with
       | Ok () -> ()
       | Error (`Msg message) ->
-          (* A window is what was asked for, so say why there is none and then
-             fall back to the listing rather than leaving an empty terminal. *)
+          (* Whatever it was — a window SDL would not open, or a demo whose art
+             is not on the disk — say so, and then fall back to the listing
+             rather than leaving an empty terminal. *)
           prerr_endline ("camlcast-demo: " ^ message ^ "\n");
           listing ();
           exit 1)
@@ -56,10 +57,13 @@ let () =
       | Some demo -> (
           (* Named on the command line, a demo is the whole program: however it
              ends, there is nothing to come back to. *)
-          match Camlcast.Engine.with_window demo.Catalogue.run with
+          match
+            Camlcast.Engine.with_window (fun window ->
+                Catalogue.attempt (fun () -> demo.Catalogue.run window))
+          with
           | Ok _ -> ()
           | Error (`Msg message) ->
-              prerr_endline ("SDL error: " ^ message);
+              prerr_endline ("camlcast-demo: " ^ message);
               exit 1))
   | _ ->
       prerr_endline "camlcast-demo: one demo at a time\n";

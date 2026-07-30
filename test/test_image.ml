@@ -164,6 +164,22 @@ let an_image_of_no_size_is_refused () =
     (Invalid_argument "Image.make: an image must have a positive size")
     (fun () -> ignore (Image.make ~width:0 (fun ~u:_ ~v:_ -> Image.clear)))
 
+(* A positive size is not on its own enough: it is [width * height] that the two
+   arrays are as long as, and past the longest array that product wraps instead
+   of growing — [max_int] by [max_int] is [1] — so without the check a picture
+   would keep the size it was written down with while holding a pixel of it, and
+   the mistake would surface as {!Image.sample} indexing off the end of an array
+   in some later frame. Only the refusing is asserted; the size just inside the
+   limit is one no machine should be asked to allocate to prove a point. *)
+let an_image_too_big_for_an_array_is_refused () =
+  List.iter
+    (fun (w, h) ->
+      Alcotest.check_raises (Printf.sprintf "%dx%d" w h)
+        (Invalid_argument
+           "Image.make: an image that size does not fit in an array") (fun () ->
+          ignore (Image.make ~height:h ~width:w (fun ~u:_ ~v:_ -> Image.clear))))
+    [ (max_int, max_int); (8, (Sys.max_array_length / 8) + 1) ]
+
 let () =
   Alcotest.run "Image"
     [
@@ -176,6 +192,8 @@ let () =
             a_generator_that_overshoots_is_clamped;
           case "images carry their own size" images_carry_their_own_size;
           case "an image of no size is refused" an_image_of_no_size_is_refused;
+          case "an image too big for an array is refused"
+            an_image_too_big_for_an_array_is_refused;
         ] );
       ( "loading",
         [

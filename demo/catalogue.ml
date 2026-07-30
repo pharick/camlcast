@@ -166,3 +166,25 @@ let demos =
   ]
 
 let find name = List.find_opt (fun demo -> demo.name = name) demos
+
+(** Run one demo, turning the only exception its art can raise back into the
+    [`Msg] channel the launcher answers on.
+
+    A world read off the disk is forced inside {!t.run} — deep in a frame, where
+    a result would have nowhere to go — so {!Loading} and {!Typeface} [failwith]
+    instead, and {!Camlcast.Result_ext.with_resource} deliberately lets an
+    exception through rather than making an [Error] of it. Between the two the
+    launcher had nothing to say: a missing picture printed OCaml's own
+    fatal-error banner and stopped with its exit code, past the [camlcast-demo:]
+    prefix every other failure wears and past the code that goes with it. This
+    is where the raising side ends and the reporting side starts, and it takes a
+    thunk rather than wrapping {!t.run} so that the seam can be tested without a
+    window.
+
+    Only [Failure] is caught, which is what those loaders raise.
+    [Invalid_argument] is the other kind of mistake — a world that does not join
+    up, a font atlas the wrong shape — and stopping with it named is the honest
+    report of one. The cost of drawing the line there is that [Failure] is not
+    only ours: a [List.nth] off the end of a list would arrive here dressed as a
+    demo whose art could not be read. *)
+let attempt f = try f () with Failure message -> Error (`Msg message)

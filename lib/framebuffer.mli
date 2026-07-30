@@ -40,7 +40,12 @@ val make :
   Tsdl.Sdl.renderer -> width:int -> height:int -> (t, [ `Msg of string ]) result
 (** A buffer of that size with a streaming texture behind it, ready to be shown.
     Needs a live SDL renderer, which is why the tests use {!offscreen} instead.
-    Free it with {!destroy}. *)
+    Free it with {!destroy}.
+
+    The [result] is the renderer's: a texture SDL would not make. A size no
+    buffer could have had is the other kind of mistake and raises, on the terms
+    {!offscreen} sets out — and raises before the texture is asked for, so there
+    is never one left over with nobody holding it to free. *)
 
 val offscreen : width:int -> height:int -> t
 (** A buffer with no window behind it: the same pixels and the same depth, drawn
@@ -54,7 +59,17 @@ val offscreen : width:int -> height:int -> t
     is true, so it is the only part that is optional.
 
     Pair it with {!Renderer.draw_frame} and {!pixel} to test drawing without
-    opening anything. *)
+    opening anything.
+
+    @raise Invalid_argument
+      if either extent is not positive, or if [width * height] is longer than a
+      [float array] can be. The record keeps the extents it was asked for while
+      the pixels and the depth are only as long as their product came out, and
+      that product is the whole of the arithmetic {!set} and {!blend} do without
+      checking. Two negative extents multiply to a positive product, and a large
+      enough pair wraps to a small one; either way the buffer comes back
+      claiming a size it never allocated, and every write to it lands outside
+      its own memory. *)
 
 val destroy : t -> unit
 (** Free the texture behind a buffer, if it has one. An {!offscreen} buffer has

@@ -51,6 +51,37 @@ let crossing_changes_frame () =
        ~dest:(Vec.make 2. 2.)
     = None)
 
+(* The same crossing, cut down to a whisker. {!World.crossing} asks
+   {!Room.segments_cross} first, so a step that came out parallel is a doorway
+   that goes unreported — and {!World.passable} says yes to it anyway, both of
+   its ends being within the padding of the threshold plane. The player used to
+   arrive at [dest] still standing in the room behind it, a hair outside that
+   room's own east wall, and every step after that has [entering] negative and
+   reports nothing either: out of the world for good, walking on the floor of
+   the room it never left. A step this short is what movement itself makes, from
+   the remainder of a leg clipped almost exactly on the opening.
+
+   The whisker is a power of two so that both ends of the step are exact and the
+   opening is met exactly halfway. Written as a decimal it would straddle a
+   binade — the spacing below [4.] is half the spacing above it — and the two
+   halves of the step would come out a percent apart. *)
+let a_crossing_is_reported_however_short_the_step_is () =
+  let whisker = Float.ldexp 1. (-44) in
+  let dest = Vec.make (4. +. whisker) 2. in
+  let slot, portal, at =
+    Option.get
+      (World.crossing two_rooms ~room:0
+         ~from:(Vec.make (4. -. whisker) 2.)
+         ~dest)
+  in
+  Alcotest.(check int) "through the room's only doorway" 0 slot;
+  Alcotest.(check int) "crosses into second" 1 portal.to_room;
+  Alcotest.check close "met halfway along the step" 0.5 at;
+  (* And the remainder is resolved in the neighbour's coordinates, the same as
+     for a step of any other size. *)
+  Alcotest.check vec "point lands inside neighbour" (Vec.make whisker 2.)
+    (Transform.point portal.onto dest)
+
 (* Nothing of this room stops a step taken through its own doorway, so a step
    angled through the opening can be flush against something standing just
    inside the next room. The room alone says yes; the world has to say no. *)
@@ -810,6 +841,8 @@ let () =
         [
           case "resolve by name" links_resolve;
           case "crossing changes frame" crossing_changes_frame;
+          case "a crossing is reported however short the step is"
+            a_crossing_is_reported_however_short_the_step_is;
           case "a step into the neighbour is refused"
             a_step_into_the_neighbour_is_refused;
           case "the neighbour's own exterior does not block"

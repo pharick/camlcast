@@ -75,9 +75,14 @@ val make : ?height:int -> width:int -> (u:int -> v:int -> Color.t * int) -> t
     above 255 there weighs the destination negatively and wraps.
 
     @raise Invalid_argument
-      if [width] or [height] is not positive. A picture of no size is an
-      authoring mistake and not a condition to handle: nothing can be drawn from
-      it, and everything that measures one divides by a side of it. *)
+      if [width] or [height] is not positive, or if [width * height] is longer
+      than an array can be. A picture of no size is an authoring mistake and not
+      a condition to handle: nothing can be drawn from it, and everything that
+      measures one divides by a side of it. One too large is the same mistake
+      wearing a plausible number — past the longest array the product wraps
+      rather than growing, and the picture would keep the size it was written
+      down with while holding a fraction of the pixels, which {!index} works out
+      and {!sample} reads without checking. *)
 
 val index : t -> u:int -> v:int -> int
 (** The flat array index of pixel [(u, v)]; the caller has already clamped them

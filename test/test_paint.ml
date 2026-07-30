@@ -32,6 +32,41 @@ let a_fresh_buffer_is_black () =
     done
   done
 
+(* A buffer is refused where it is allocated rather than where it is written to.
+   The record keeps the extents it was asked for while the pixels and the depth
+   are only as long as their product came out — and that product is the whole of
+   the arithmetic {!Framebuffer.set} does without checking, so a buffer whose
+   extents and allocation disagree writes outside its own memory on the first
+   call every test in this file makes. Two negatives multiply to a positive
+   product, which is how one used to get built.
+
+   {!Framebuffer.make} refuses the same pairs on the same terms, before it asks
+   SDL for the texture it would otherwise leave behind, but a live renderer is
+   exactly what nothing here has. *)
+let a_buffer_of_no_size_is_refused () =
+  List.iter
+    (fun (width, height) ->
+      Alcotest.check_raises (Printf.sprintf "%dx%d" width height)
+        (Invalid_argument
+           "Framebuffer.offscreen: a buffer must have positive extents")
+        (fun () -> ignore (Framebuffer.offscreen ~width ~height)))
+    [ (0, 8); (10, 0); (0, 0); (-1, -1); (10, -8) ]
+
+(* Positive extents are not on their own enough: it is [width * height] that the
+   depth array is as long as, and past the longest array that product wraps
+   instead of growing — [max_int] by [max_int] is [1] — so without the check a
+   buffer would come back reporting extents with a single pixel behind them.
+   Only the refusing is asserted; the pair just inside the limit is one no
+   machine should be asked to allocate to prove a point. *)
+let a_buffer_too_big_for_an_array_is_refused () =
+  List.iter
+    (fun (width, height) ->
+      Alcotest.check_raises (Printf.sprintf "%dx%d" width height)
+        (Invalid_argument
+           "Framebuffer.offscreen: a buffer that size does not fit in an array")
+        (fun () -> ignore (Framebuffer.offscreen ~width ~height)))
+    [ (max_int, max_int); (8, (Sys.max_floatarray_length / 8) + 1) ]
+
 let a_rectangle_fills_what_it_covers () =
   let fb = buffer () in
   Paint.rect fb ~x:2 ~y:3 ~w:3 ~h:2 ~color:(Color.rgb 255 255 255) ~alpha:255;
@@ -327,6 +362,9 @@ let () =
       ( "the buffer",
         [
           case "a fresh buffer is black" a_fresh_buffer_is_black;
+          case "a buffer of no size is refused" a_buffer_of_no_size_is_refused;
+          case "a buffer too big for an array is refused"
+            a_buffer_too_big_for_an_array_is_refused;
           case "a rectangle fills what it covers"
             a_rectangle_fills_what_it_covers;
           case "a crosshair crosses in the middle"

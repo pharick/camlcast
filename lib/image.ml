@@ -11,10 +11,20 @@ type t = {
 
 let clamp v = Int.min 255 (Int.max 0 v)
 
+(* Whether [width * height] is a length an array can have, the same division as
+   {!Texture.fits} and for the same reason: multiplied out, the check would
+   overflow exactly where the thing it is checking for does. Past the bound the
+   product wraps rather than growing, and the record would keep the size it was
+   asked for while its two arrays came out shorter — which [index] does not
+   check and [sample] reads on its word. *)
+let fits ~width ~height = height <= Sys.max_array_length / width
+
 let make ?height ~width f =
   let height = Option.value height ~default:width in
   if width <= 0 || height <= 0 then
     invalid_arg "Image.make: an image must have a positive size";
+  if not (fits ~width ~height) then
+    invalid_arg "Image.make: an image that size does not fit in an array";
   let n = width * height in
   let pixels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
   for v = 0 to height - 1 do

@@ -55,13 +55,17 @@ Which one you get says what kind of mistake it was.
     {!Camlcast.Font.make}, {!Camlcast.Atmosphere.make}, {!Camlcast.Sky.make},
     {!Camlcast.Room.rectangle}, {!Camlcast.Transform.between},
     {!Camlcast.Texture.noise}, {!Camlcast.Texture.generate},
+    {!Camlcast.Image.make}, {!Camlcast.Framebuffer.offscreen},
     {!Camlcast.Key.of_scancode}, {!Camlcast.Player.make},
     {!Camlcast.Player.turn}, {!Camlcast.Player.pitch_by},
     {!Camlcast.Player.traverse}. A doorway linked to nothing, two rooms with the
     same name, a doorway wider than the wall it is cut into, air lit from
-    nowhere, a camera facing a [nan] — these are bugs in the level or in the
-    game, not conditions to handle, and they stop the program with a message
-    naming what was wrong.}}
+    nowhere, a camera facing a [nan], a buffer with no size — these are bugs in
+    the level or in the game, not conditions to handle, and they stop the
+    program with a message naming what was wrong.}}
+
+{!Camlcast.Framebuffer.make} is on both lists, and honestly: the result is the
+renderer's, the raise is yours.
 
 So [World.make] crashing is the engine telling you the level is malformed. Read
 the message; it names the room and the doorway.

@@ -16,6 +16,31 @@ type t = {
   height : int;
 }
 
+(* Whether [width * height] is a length an array can have. Divided rather than
+   multiplied, so the check itself cannot overflow the thing it is checking for:
+   for positive extents this is false exactly when the product would exceed the
+   bound. The bound is the [float array] one, the tighter of the two the record
+   holds — [depth] is one float per pixel, while [pixels] is a bigarray, outside
+   the heap, where only memory limits it — and four times it is nowhere near
+   [max_int] at either word size, so a product that fits here cannot wrap when
+   the byte count multiplies it by four either. Past the bound it would, and the
+   record would claim extents its two buffers cannot answer for, which is the
+   one piece of arithmetic [set] and [blend] trust without checking. *)
+let fits ~width ~height = height <= Sys.max_floatarray_length / width
+
+(* Shared by the two ways in, so that each refusal names the function the caller
+   wrote rather than the private allocator underneath. Positive first, because
+   [fits] is only a check about positive extents: a [width] of zero divides by
+   zero inside the test meant to explain itself, and a negative [height] sails
+   straight through it. Today a pair of negatives is the quiet one — their
+   product is positive, so both buffers allocate, and what comes back reports a
+   size in pixels it has four bytes of. *)
+let extents who ~width ~height =
+  if width <= 0 || height <= 0 then
+    invalid_arg (who ^ ": a buffer must have positive extents");
+  if not (fits ~width ~height) then
+    invalid_arg (who ^ ": a buffer that size does not fit in an array")
+
 (* The buffer itself, zeroed. Rendering a frame covers every pixel before
     anything reads one, so the clearing is not for the renderer's benefit — it
     is so that a buffer nobody has drawn into yet is black rather than whatever
@@ -34,14 +59,20 @@ let buffer ~width ~height =
     height;
   }
 
+(* Refused before the texture is asked for: inside the [let+] below, the raise
+   would leave a texture nobody holds and nothing will ever [destroy]. *)
 let make sdl ~width ~height =
+  extents "Framebuffer.make" ~width ~height;
   let+ texture =
     Sdl.create_texture sdl pixel_format Sdl.Texture.access_streaming ~w:width
       ~h:height
   in
   { (buffer ~width ~height) with texture = Some texture }
 
-let offscreen ~width ~height = buffer ~width ~height
+let offscreen ~width ~height =
+  extents "Framebuffer.offscreen" ~width ~height;
+  buffer ~width ~height
+
 let destroy t = Option.iter Sdl.destroy_texture t.texture
 let clear_depth t = Array.fill t.depth 0 (Array.length t.depth) infinity
 

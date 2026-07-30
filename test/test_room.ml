@@ -294,6 +294,27 @@ let collinear_segments_still_cross () =
     "nor does a parallel one off to the side" false
     (crosses (Vec.make 0. 1.) (Vec.make 4. 1.))
 
+(* The parallel test is an area — both lengths times the sine between them — so
+   scaled by neither it holds for a crossing at any angle, provided one of the
+   two segments is short enough. The one that gets short is the step: movement
+   clips a leg where it meets a doorway and asks again about the remainder,
+   which lands here as a whisker. A tenth of a picometre is far past anything a
+   player could walk on purpose; the point is that no length is short enough to
+   break the test. *)
+let a_step_far_shorter_than_a_pixel_still_crosses () =
+  let b1 = Vec.make 2. 0. and b2 = Vec.make 2. 4. in
+  let crosses a1 a2 = Room.segments_cross ~a1 ~a2 ~b1 ~b2 in
+  let sliver = 5e-14 in
+  Alcotest.(check bool)
+    "a whisker of a step across a wall crosses it" true
+    (crosses (Vec.make (2. -. sliver) 2.) (Vec.make (2. +. sliver) 2.));
+  Alcotest.(check bool)
+    "one of the same length stopping short of it does not" false
+    (crosses (Vec.make (2. -. (3. *. sliver)) 2.) (Vec.make (2. -. sliver) 2.));
+  Alcotest.(check bool)
+    "and one taken along it still overlaps as collinear" true
+    (crosses (Vec.make 2. 2.) (Vec.make 2. (2. +. sliver)))
+
 let a_step_along_a_wall_is_refused () =
   let level =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
@@ -916,6 +937,8 @@ let () =
         [
           case "blocked within the padding" blocked_within_the_padding;
           case "collinear segments still cross" collinear_segments_still_cross;
+          case "a step far shorter than a pixel still crosses"
+            a_step_far_shorter_than_a_pixel_still_crosses;
           case "a step along a wall is refused" a_step_along_a_wall_is_refused;
           case "distance between two segments" distance_between_two_segments;
           case "a step clipping a wall end is refused"
