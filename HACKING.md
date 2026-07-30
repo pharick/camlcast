@@ -13,8 +13,8 @@ Then, from the checkout:
 
 ```sh
 opam switch create . 5.5.0 --no-install
+eval $(opam env --switch=. --set-switch)
 opam install . --deps-only --with-test --with-doc --with-dev-setup
-eval $(opam env)
 dune build && dune runtest
 ```
 

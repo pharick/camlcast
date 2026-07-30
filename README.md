@@ -66,8 +66,8 @@ sudo apt install libsdl2-dev libsdl2-image-dev   # Debian / Ubuntu
 brew install sdl2 sdl2_image                     # macOS — and see the note below
 
 opam switch create . 5.5.0 --no-install          # this repo uses a local switch
+eval $(opam env --switch=. --set-switch)
 opam install . --deps-only --with-test --with-doc
-eval $(opam env)
 ```
 
 **macOS:** add `--no-depexts` to the `opam install` line. Homebrew ships
@@ -90,8 +90,9 @@ Run with no arguments, `camlcast-demo` opens a menu of every demo, drawn over
 one slowly turning room: the arrow keys move the highlight, Enter (or Space)
 runs it, Escape comes back to the list. Run with a demo's name, it launches
 straight into that demo — Escape then ends the program, because there is no
-menu behind it to come back to. (In a later shell, `eval $(opam env)` from the
-repository puts the switch back on your path.)
+menu behind it to come back to. (In a later shell,
+`eval $(opam env --switch=. --set-switch)` from the repository puts the switch
+back on your path.)
 
 The demos that read art from files find it relative to the executable, which
 under dune is `_build/default/assets/` — `dune build` puts it there. Installed,

@@ -108,7 +108,9 @@ The engine is not on opam yet, so pin it from git.
 
 {@sh[
 mkdir mygame && cd mygame
-opam switch create . 5.5.0        # or use a switch you already have
+opam switch create . 5.5.0                # or use a switch you already have
+eval $(opam env --switch=. --set-switch)  # so the pin lands in it, whatever
+                                          # OPAMSWITCH was pointing at before
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ]}
 

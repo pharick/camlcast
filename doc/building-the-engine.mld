@@ -39,7 +39,7 @@ Then, in an empty directory:
 
 {@sh[
 opam switch create . 5.5.0
-eval $(opam env)
+eval $(opam env --switch=. --set-switch)
 opam install dune tsdl        # add --no-depexts on macOS
 dune --version                # you should get 3.21 or later
 ]}
