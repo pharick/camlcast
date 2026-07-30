@@ -193,10 +193,9 @@ let hall () =
   let wall material a b = Room.wall ~height ~material a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ onward ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     (jambs
     @ [
         wall Surfaces.stone hall_sw hall_se;
@@ -214,10 +213,9 @@ let hall () =
 
 let back =
   Room.make ~thresholds:[ back_here ]
-    ~floor:{ Room.plane = Plane.horizontal 0.; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.horizontal height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
     ~sprites:[ Room.sprite ~size:1.7 ~image:Pictures.figure (Vec.make 4. 0.) ]
     (back_jambs
     @ [

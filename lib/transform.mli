@@ -102,7 +102,8 @@ val between : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> t
     identity and drop the player back outside B, on the wrong side of its wall.
 
     So the {b authoring rule} for a {!Room.type-threshold} is: give its
-    endpoints in the same winding direction as the room's own boundary walls.
+    endpoints in the same winding direction as the room's own boundary walls —
+    the winding rule itself is stated once, at the top of {!Room}.
 
     {1 The derivation}
 

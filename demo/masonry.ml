@@ -26,10 +26,9 @@ let world =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       (wall Surfaces.brick sw se :: wall Surfaces.panel se ne
      :: wall Surfaces.stone ne nw
       :: wall Surfaces.tile nw sw

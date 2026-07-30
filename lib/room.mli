@@ -13,7 +13,24 @@
     A room knows nothing of any other room, or of the {!World} it is in. Every
     coordinate here is its own, and the only thing that ever relates two rooms
     is a {!World} link between a {!type-threshold} of each. That is what lets
-    rooms be authored — or generated — one at a time, in any order. *)
+    rooms be authored — or generated — one at a time, in any order.
+
+    {1 The winding rule}
+
+    This is the one statement of it; everything else refers here. {b A room's
+    boundary is wound so that, walking a wall from [a] to [b], the inside of
+    the room is on the side {!Vec.perp} of the walk direction points.} The
+    demos and these pages call that counter-clockwise — the word it earns on
+    paper, with y up. On the screen's map, where y grows downward, the same
+    loop reads clockwise to the eye: trust the rule, not the picture.
+
+    Each wall's [normal] is that same [perp], so for a boundary wound this way
+    every normal faces {e into} the room — which is what makes [Front] the
+    inside, shading face the light, and a doorway's {!Transform.between}
+    pairing come out right. Wind a room the other way and every normal faces
+    out: the symptom is a room that is {b black from the inside}. Reverse the
+    walls. {!rectangle} and {!regular_polygon} cannot be wound wrong; {!path}
+    and hand-written walls can. *)
 
 (** {1 Surfaces} *)
 

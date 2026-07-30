@@ -40,10 +40,9 @@ let chamber () =
   in
   let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
   Room.make ~thresholds:[ threshold ]
-    ~floor:{ Room.plane = Plane.horizontal 0.; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.horizontal height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
     ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 0. 6.5) ]
     (jambs @ [ wall se ne; wall ne nw; wall nw sw ])
 
@@ -64,10 +63,9 @@ let world =
   in
   let hub =
     Room.make ~thresholds:[ right; left ]
-      ~floor:{ Room.plane = Plane.horizontal 0.; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.horizontal height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
       (List.concat [ right_jambs; left_jambs; List.map side [ 1; 2; 3; 4 ] ])
   in
   World.make

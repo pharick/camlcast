@@ -44,8 +44,8 @@ let yard ~sky ~column =
   let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
   let floor = Plane.horizontal 0. in
   Room.make ~thresholds:[ threshold ]
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
-    ~ceiling:(Room.Open sky)
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
+    ~ceiling:(Room.open_sky sky)
     (jambs @ [ wall sw se; wall ne nw; wall nw sw ] @ column)
 
 let column ~at =

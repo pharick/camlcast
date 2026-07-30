@@ -102,10 +102,9 @@ let world =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:(motes ~t:0.)
       [
         wall Surfaces.stone sw se;

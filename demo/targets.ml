@@ -75,9 +75,8 @@ let world =
   let wall material a b = Room.wall ~height ~material a b in
   let floor = Plane.horizontal 0. in
   let surfaces plane =
-    ( { Room.plane; material = Surfaces.ground },
-      Room.Roof
-        { Room.plane = Plane.above plane height; material = Surfaces.soffit } )
+    ( Room.floor ~plane ~material:Surfaces.ground,
+      Room.roof ~plane:(Plane.above plane height) ~material:Surfaces.soffit )
   in
   let ground, roof = surfaces floor in
   let near =

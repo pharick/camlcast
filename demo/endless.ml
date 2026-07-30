@@ -61,10 +61,9 @@ let segment ~index ~back ~onward =
            (if back then [ back_door ] else []);
            (if onward then [ on_door ] else []);
          ])
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     (List.concat
        [
          [ wall sw se ];

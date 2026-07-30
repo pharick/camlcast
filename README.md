@@ -297,7 +297,7 @@ Each module is self-contained and depends only on the ones above it.
 | `Transform`   | rigid rotations and translations between room-local coordinate frames                                                      |
 | `Plane`       | an inclined floor/ceiling plane, and the per-pixel casting equation                                                        |
 | `Color`       | 8-bit RGB, shading and blending                                                                                            |
-| `Surface`     | decoding a PNG or JPEG into plain bytes: the one place pixel formats appear                                                |
+| `Bitmap`      | decoding a PNG or JPEG into plain bytes: the one place pixel formats appear                                                |
 | `Asset`       | where a file is, searched relative to the executable rather than to a source tree                                          |
 | `Texture`     | colour surface patterns, generated or loaded, and the wrapping value noise they are built from                             |
 | `Material`    | what a surface is made of: its pattern, and so whether you see through it                                                  |

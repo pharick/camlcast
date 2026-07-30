@@ -46,10 +46,9 @@ let world =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.) ]
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
@@ -64,8 +63,7 @@ let world =
 let font =
   lazy
     (match
-       let* path = Asset.path "assets/font.png" in
-       let+ atlas = Image.load path in
+       let+ atlas = Image.of_asset "assets/font.png" in
        Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
      with
     | Ok font -> font

@@ -40,17 +40,11 @@ open Result_ext
 
 let height = 4.
 
-(** Both loaders want a path first, and finding one can fail for its own reasons
-    — the file is not there, or is not anywhere this program thought to look —
-    so the two failures thread together and whichever happened is the one that
-    gets reported. *)
-let pattern name =
-  let* path = Asset.path name in
-  Texture.load path
-
-let picture name =
-  let* path = Asset.path name in
-  Image.load path
+(* {!Camlcast.Texture.of_asset} and {!Camlcast.Image.of_asset} find the file
+   and read it in one step; the names here just say which kind this demo
+   means. *)
+let pattern = Texture.of_asset
+let picture = Image.of_asset
 
 (** Air clearer than the other demos', with the fog pushed back past the far
     wall. This is a room to look closely at things in, and the usual twelve-cell
@@ -88,10 +82,9 @@ let build () =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       ~sprites:
         [
           Room.sprite ~size:1.9 ~image:figure (Vec.make 0.5 (-2.));

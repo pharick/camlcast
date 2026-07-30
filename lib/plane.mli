@@ -12,12 +12,13 @@ type t = { a : float; b : float; c : float }
 *)
 
 val make : a:float -> b:float -> c:float -> t
-(** The plane [z = a*x + b*y + c]. [a] and [b] are the rise per unit travelled
-    along each axis, so both zero is horizontal; [c] is the height over the
-    origin. Nothing is checked or normalised — any three floats are a plane. *)
+(** The plane [z = a*x + b*y + c], every number in cells. [a] and [b] are the
+    rise per cell travelled along each axis, so both zero is horizontal; [c]
+    is the height over the origin. Nothing is checked or normalised — any
+    three floats are a plane. *)
 
 val horizontal : float -> t
-(** [horizontal z] is the flat plane at constant height [z], which is
+(** [horizontal z] is the flat plane at constant height [z] cells, which is
     [make ~a:0. ~b:0. ~c:z]. *)
 
 val elevation : t -> Vec.t -> float
@@ -32,8 +33,8 @@ val gradient : t -> Vec.t -> float
     — so this is rise per [dir], not rise per unit distance. *)
 
 val above : t -> float -> t
-(** [above plane height] is the plane parallel to [plane] and [height] world
-    units above it — a ceiling that follows the slope of the floor it roofs,
+(** [above plane height] is the plane parallel to [plane] and [height] cells
+    above it — a ceiling that follows the slope of the floor it roofs,
     rather than closing in on it at one end. A negative [height] puts it below.
     Only [c] moves; the two gradients stay equal, which is what parallel means
     here. *)

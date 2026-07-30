@@ -48,12 +48,6 @@ let period = 7.
 
 type t = { elapsed : float; player : Player.t }
 
-(* The transform the link will be given, exactly as {!Camlcast.World.make} is
-   about to derive it, so the annex's floor can be carried across the doorway
-   rather than restated — the seam argument is {!Slopes}'. *)
-let across (a : Room.threshold) (b : Room.threshold) =
-  Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b
-
 let hall_sw = Vec.make (-2.) (-6.)
 let hall_se = Vec.make 13. (-6.)
 let hall_ne = Vec.make 13. 6.
@@ -93,18 +87,15 @@ let world =
       ~material:Surfaces.brick annex_nw annex_sw
   in
   let hall_floor = Plane.make ~a:0.07 ~b:0. ~c:0. in
-  let onward = across hall_onward annex_back in
+  let onward = Room.across hall_onward annex_back in
   let annex_floor = Plane.through onward hall_floor in
   let stone a b = Room.wall ~height ~material:Surfaces.stone a b in
   let hall =
     Room.make ~thresholds:[ hall_onward ]
-      ~floor:{ Room.plane = hall_floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:hall_floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           {
-             Room.plane = Plane.above hall_floor height;
-             material = Surfaces.soffit;
-           })
+        (Room.roof ~plane:(Plane.above hall_floor height)
+           ~material:Surfaces.soffit)
       ~sprites:still
       (hall_jambs
       @ [
@@ -118,13 +109,10 @@ let world =
         ])
   and annex =
     Room.make ~thresholds:[ annex_back ]
-      ~floor:{ Room.plane = annex_floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:annex_floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           {
-             Room.plane = Plane.above annex_floor height;
-             material = Surfaces.soffit;
-           })
+        (Room.roof ~plane:(Plane.above annex_floor height)
+           ~material:Surfaces.soffit)
       ~sprites:[ cloud ~base:1.9 (Vec.make 4. 0.) ]
       (annex_jambs
       @ [

@@ -57,10 +57,9 @@ let chamber ~index =
     ~thresholds:
       (List.concat
          [ (if first then [] else [ back ]); (if last then [] else [ on ]) ])
-    ~floor:{ Room.plane = floor; material = Surfaces.ground }
+    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
     ~ceiling:
-      (Room.Roof
-         { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
     ~sprites:
       (if last then
          [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]

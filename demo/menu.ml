@@ -32,10 +32,9 @@ let backdrop =
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = Surfaces.ground }
+      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
       ~ceiling:
-        (Room.Roof
-           { Room.plane = Plane.above floor height; material = Surfaces.soffit })
+        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
       [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
   in
   World.make
