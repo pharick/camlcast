@@ -35,8 +35,8 @@
     so a frame is two phases: first the backgrounds and opaque walls above, per
     column; then everything translucent — the {b sprites} ({!Room.type-sprite}s
     drawn as billboards that always face the player) and the
-    {b see-through walls} (grilles and windows, {!Texture.val-alpha}) —
-    composited over them.
+    {b see-through walls} (grilles and windows, {!Texture.alpha}) — composited
+    over them.
 
     The translucent things are drawn in one combined pass, farthest first, each
     still hidden — per pixel — by a nearer opaque wall, so a short wall in front

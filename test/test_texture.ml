@@ -26,8 +26,8 @@ let texels_are_bytes () =
         Color.rgb ((u * 40) - 400) (v * 30) (600 - (u * 12)))
   in
   let worst = ref 128 in
-  for v = 0 to Texture.size - 1 do
-    for u = 0 to Texture.size - 1 do
+  for v = 0 to Texture.default_size - 1 do
+    for u = 0 to Texture.default_size - 1 do
       let c = Texture.sample wild ~u ~v in
       List.iter
         (fun k -> if k < 0 || k > 255 then worst := k)
@@ -62,16 +62,17 @@ let sampling_is_row_major () =
 let offsets_map_into_the_texture () =
   Alcotest.(check int) "the left edge" 0 (Texture.column_of_offset checker 0.);
   Alcotest.(check int)
-    "just inside the right edge" (Texture.size - 1)
+    "just inside the right edge" (Texture.default_size - 1)
     (Texture.column_of_offset checker 0.999);
   Alcotest.(check int)
-    "a corner hit clamps" (Texture.size - 1)
+    "a corner hit clamps" (Texture.default_size - 1)
     (Texture.column_of_offset checker 1.0);
   Alcotest.(check int)
     "and so does anything below zero" 0
     (Texture.column_of_offset checker (-0.5));
   Alcotest.(check int)
-    "the middle of the face is the middle of the texture" (Texture.size / 2)
+    "the middle of the face is the middle of the texture"
+    (Texture.default_size / 2)
     (Texture.column_of_offset checker 0.5);
   (* The offset is a fraction of one world cell and the texture is however many
      texels it says it is, so a denser pattern lands further along for the same
@@ -83,8 +84,10 @@ let offsets_map_into_the_texture () =
     (Texture.column_of_offset dense 0.5)
 
 let generate_masked_flags_transparency () =
-  Alcotest.(check bool) "a solid pattern is opaque" true checker.Texture.opaque;
-  Alcotest.(check bool) "one with holes in it is not" false holes.Texture.opaque;
+  Alcotest.(check bool)
+    "a solid pattern is opaque" true (Texture.opaque checker);
+  Alcotest.(check bool)
+    "one with holes in it is not" false (Texture.opaque holes);
   Alcotest.(check int)
     "a bar texel is solid" 255
     (Texture.alpha holes ~u:0 ~v:0);
@@ -96,7 +99,7 @@ let generate_masked_flags_transparency () =
   in
   Alcotest.(check bool)
     "a masked pattern with no holes is still opaque" true
-    solid_but_masked.Texture.opaque
+    (Texture.opaque solid_but_masked)
 
 (* A pattern of no size is refused at the generator, because [size] is what
    every reader of one divides and clamps by: {!Texture.column_of_offset} would
@@ -121,9 +124,9 @@ let a_pattern_of_no_size_is_refused () =
 
 let noise_stays_in_band () =
   let low = ref 255 and high = ref 0 in
-  for v = 0 to Texture.size - 1 do
-    for u = 0 to Texture.size - 1 do
-      let n = Texture.noise ~size:Texture.size ~seed:3 ~cell:8 ~u ~v in
+  for v = 0 to Texture.default_size - 1 do
+    for u = 0 to Texture.default_size - 1 do
+      let n = Texture.noise ~size:Texture.default_size ~seed:3 ~cell:8 ~u ~v in
       if n < !low then low := n;
       if n > !high then high := n
     done
@@ -170,7 +173,8 @@ let noise_wraps_without_a_seam ~size () =
 let noise_seeds_are_independent () =
   let fingerprint seed =
     List.map
-      (fun (u, v) -> Texture.noise ~size:Texture.size ~seed ~cell:8 ~u ~v)
+      (fun (u, v) ->
+        Texture.noise ~size:Texture.default_size ~seed ~cell:8 ~u ~v)
       [ (0, 0); (5, 11); (32, 32); (63, 1) ]
   in
   let fingerprints = List.map fingerprint [ 0; 1; 2; 3 ] in
@@ -191,7 +195,8 @@ let noise_refuses_a_lattice_that_cannot_wrap () =
       Alcotest.check_raises (Printf.sprintf "cell = %d" cell)
         (Invalid_argument "Texture.noise: cell must divide the pattern size")
         (fun () ->
-          ignore (Texture.noise ~size:Texture.size ~seed:0 ~cell ~u:0 ~v:0)))
+          ignore
+            (Texture.noise ~size:Texture.default_size ~seed:0 ~cell ~u:0 ~v:0)))
     [ 0; -4; 7; 48 ];
   (* And the divisor is the size actually being built, not the default one: 48
      does not divide 64 — it is in the list above — but it does divide 96. *)
@@ -207,7 +212,7 @@ let noise_refuses_a_lattice_that_cannot_wrap () =
    resolution, so it may be denser than the default without anything else in the
    engine changing. *)
 let patterns_carry_their_own_size () =
-  Alcotest.(check int) "the default" 64 checker.Texture.size;
+  Alcotest.(check int) "the default" 64 (Texture.size checker);
   (* One texel marked, far enough into the pattern that reading it at the wrong
      stride lands somewhere else entirely: at a stride of 64 rather than 128,
      (5, 3) would be flat index 197, which is (69, 1) and not marked. *)
@@ -216,10 +221,12 @@ let patterns_carry_their_own_size () =
     Texture.generate ~size:128 (fun ~u ~v ->
         if u = 5 && v = 3 then marked else ground)
   in
-  Alcotest.(check int) "and one that says otherwise" 128 dense.Texture.size;
-  Alcotest.(check int)
-    "which has that many texels" (128 * 128)
-    (Array.length dense.Texture.texels);
+  Alcotest.(check int) "and one that says otherwise" 128 (Texture.size dense);
+  (* Which is what makes the far corner readable at all: [sample] does not
+     bounds-check, so a pattern that said 128 and held 64 x 64 texels would read
+     off the end of its own array here rather than answer. *)
+  Alcotest.check color "and has that many texels to sample" ground
+    (Texture.sample dense ~u:127 ~v:127);
   Alcotest.check color "and is sampled at its own stride" marked
     (Texture.sample dense ~u:5 ~v:3)
 
@@ -234,8 +241,8 @@ let load_keeps_the_colour_of_the_file () =
   match Texture.load "fixtures/tile.png" with
   | Error (`Msg m) -> Alcotest.fail m
   | Ok t ->
-      Alcotest.(check int) "the size comes from the file" 8 t.Texture.size;
-      Alcotest.(check bool) "and it is solid throughout" true t.Texture.opaque;
+      Alcotest.(check int) "the size comes from the file" 8 (Texture.size t);
+      Alcotest.(check bool) "and it is solid throughout" true (Texture.opaque t);
       Alcotest.check color "green arrives green" (Color.rgb 0 255 0)
         (Texture.sample t ~u:0 ~v:0);
       Alcotest.check color "red arrives red" (Color.rgb 255 0 0)
@@ -260,7 +267,7 @@ let load_keeps_transparency () =
   | Error (`Msg m) -> Alcotest.fail m
   | Ok t ->
       Alcotest.(check bool)
-        "a file with holes is not opaque" false t.Texture.opaque;
+        "a file with holes is not opaque" false (Texture.opaque t);
       Alcotest.(check int) "a solid texel" 255 (Texture.alpha t ~u:0 ~v:0);
       Alcotest.(check int) "a clear one" 0 (Texture.alpha t ~u:6 ~v:6)
 
@@ -297,7 +304,7 @@ let () =
         [
           case "stays in band" noise_stays_in_band;
           case "wraps without a seam"
-            (noise_wraps_without_a_seam ~size:Texture.size);
+            (noise_wraps_without_a_seam ~size:Texture.default_size);
           (* And at a size that is not the default, which is the case a wrapping
              lattice left behind at 64 would fail. *)
           case "wraps without a seam at 128"

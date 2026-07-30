@@ -402,9 +402,9 @@ turning stays exact; [pitch] (look up/down) comes in Phase 5.
 
 {@ocaml[
 type t = { pos : Vec.t; dir : Vec.t; right : Vec.t; pitch : float }
-let create ~pos ~angle =
+let make ~pos ~angle =
   let dir = Vec.of_angle angle in { pos; dir; right = Vec.perp dir; pitch = 0. }
-let spawn room = create ~pos:room.Room.spawn ~angle:0.
+let spawn room = make ~pos:room.Room.spawn ~angle:0.
 let turn p ~radians =
   { p with dir = Vec.rotate p.dir radians; right = Vec.rotate p.right radians }
 ]}
@@ -426,7 +426,7 @@ type t = { width : int; height : int; half_width : float; projection : float;
 
 let vertical_half_extent = Float.tan (Config.fov /. 2.) /. Config.reference_aspect
 
-let create ~pitch ~eye_z ~width ~height =
+let make ~pitch ~eye_z ~width ~height =
   let width = Int.max 1 width and height = Int.max 1 height in
   let projection = float_of_int height /. 2. /. vertical_half_extent in
   { width; height; projection; eye_z;
@@ -487,7 +487,7 @@ type t = {
 let pixel_format =
   if Sys.big_endian then Sdl.Pixel.format_bgra8888 else Sdl.Pixel.format_argb8888
 
-let create sdl ~width ~height =
+let make sdl ~width ~height =
   let+ texture = Sdl.create_texture sdl pixel_format
                    Sdl.Texture.access_streaming ~w:width ~h:height in
   { texture;
@@ -737,11 +737,12 @@ what keeps it a pure testable function of [u] and [v]; [Texture.load] reads one
 from a PNG or JPEG instead, once you have art to read. [lib/texture.ml]:
 
 {@ocaml[
-let size = 64                        (* what a generator makes unless told otherwise *)
+let default_size = 64                (* what a generator makes unless told otherwise *)
 type t = { size : int; texels : Color.t array; alpha : int array; opaque : bool }
+let size t = t.size
 let sample t ~u ~v = t.texels.((v * t.size) + u)
 
-let generate f =                     (* a solid pattern from a colour fn *)
+let generate ?(size = default_size) f =   (* a solid pattern from a colour fn *)
   { size;
     texels = Array.init (size*size) (fun i ->
       f ~u:(i mod size) ~v:(i / size));
@@ -770,7 +771,7 @@ to go as they arrive. [lib/material.ml]:
 {@ocaml[
 type t = { pattern : Texture.t }
 let make ~pattern = { pattern }
-let opaque t = t.pattern.Texture.opaque
+let opaque t = Texture.opaque t.pattern
 ]}
 
 Now add [material : Material.t] to [Room.wall] and give [Room.wall] a
@@ -795,11 +796,12 @@ looks at and take the fractional cell:
 (* inside the per-pixel wall loop, distance d, wall foot at floor_z: *)
 let z = viewport.eye_z -. ((float_of_int y -. viewport.horizon) *. d /. viewport.projection) in
 let tile = let h = z -. floor_z in h -. Float.floor h in       (* 0 at cell bottom .. 1 at top *)
-let v = int_of_float ((1. -. tile) *. float_of_int (Texture.size - 1)) in
+let pattern = wall.Room.material.Material.pattern in
+let v = int_of_float ((1. -. tile) *. float_of_int (Texture.size pattern - 1)) in
 (* The texel is already the colour. All that is left is the light on it: how
    squarely this wall faces the lamp multiplies it, and how far away it is
    blends it towards the colour of the air. *)
-let texel = Texture.sample wall.Room.material.Material.pattern ~u ~v in
+let texel = Texture.sample pattern ~u ~v in
 let lit = Color.lerp
     (Color.shade texel (Atmosphere.face_shading air wall.Room.normal))
     air.Atmosphere.haze
@@ -906,8 +908,8 @@ point, colour it, fade by fog. [eye_z = floor_z(player) + eye_height].
 let draw_planes fb viewport room air (player : Player.t) ~column ~dir =
   let open Viewport in
   let px = player.pos.x and py = player.pos.y and dx = dir.x and dy = dir.y in
-  let floor_base = Plane.elevation room.floor player.pos in
-  let gf = Plane.gradient room.floor dir in
+  let floor_base = Plane.elevation room.floor.plane player.pos in
+  let gf = Plane.gradient room.floor.plane dir in
   for y = 0 to fb.Framebuffer.height - 1 do
     let r = row_factor viewport ~row:y in
     let dn = r +. gf in
@@ -935,7 +937,7 @@ never pokes through:
 
 {@ocaml[
 let hit_point = Vec.make (px +. d*.dx) (py +. d*.dy) in
-let floor_z = Plane.elevation room.floor hit_point in
+let floor_z = Plane.elevation room.floor.plane hit_point in
 let top_z = match room.ceiling with
   | Room.Roof c -> Float.min (floor_z +. w.height) (Plane.elevation c.plane hit_point)
   | Room.Open _ -> floor_z +. w.height in   (* under sky it rises to its full height *)
@@ -1160,15 +1162,19 @@ depth; the final [depth.(index)] is the nearest opaque wall covering that pixel
 {2 Step 6.2 — Transparent walls}
 
 Give [Texture] a per-texel {b alpha} and an [opaque] flag; add
-[generate_masked f] where [f] returns {e (brightness, alpha)}, and patterns like a
+[generate_masked f] where [f] returns {e (colour, alpha)}, and patterns like a
 grille (solid bars, clear gaps) and glass (translucent panes):
 
 {@ocaml[
+let iron = Color.rgb 90 88 84 and pane = Color.rgb 200 225 235
 let bars = generate_masked (fun ~u ~v ->
-  if u mod 16 < 5 || v mod 16 < 5 then (80, 255) else (0, 0))     (* holes *)
+  if u mod 16 < 5 || v mod 16 < 5 then (Color.level iron 80, 255)
+  else (Color.rgb 0 0 0, 0))                                       (* holes *)
 let glass = generate_masked (fun ~u ~v ->
-  let mullion = u<2||u>=size-2||v<2||v>=size-2||abs(u-size/2)<2||abs(v-size/2)<2 in
-  if mullion then (150, 255) else (235, 80))                       (* translucent panes *)
+  let s = default_size in
+  let mullion = u<2||u>=s-2||v<2||v>=s-2||abs(u-s/2)<2||abs(v-s/2)<2 in
+  if mullion then (Color.level iron 150, 255)
+  else (Color.level pane 235, 80))                                 (* translucent panes *)
 ]}
 
 Framebuffer gains an alpha blend ([src·a + dst·(255−a)] per channel):
@@ -1190,22 +1196,23 @@ whatever is behind them is already on screen to show through.
 
 {2 Step 6.3 — Decals (pictures on walls)}
 
-Decals are colourful, so they use a new {b RGBA [Image]} type (full colour +
-alpha, unlike greyscale [Texture]) — a framed painting, a poster. Generate one
+Decals are pictures rather than surfaces, so they use a new {b [Image]} type —
+colour and alpha like a [Texture], but rectangular and indexed by its own two
+sides rather than tiled — a framed painting, a poster. Generate one
 in code as below, or read one with [Image.load]. It is a rectangle rather than
 a square, because a poster is: [height] defaults to [width] when you do not say.
 [lib/image.ml]:
 
 {@ocaml[
 type t = { width : int; height : int; pixels : Color.t array; alpha : int array }
-let make ?height width f =
+let make ?height ~width f =
   let height = Option.value height ~default:width in
   let n = width*height in
   let pixels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in
   for v = 0 to height-1 do for u = 0 to width-1 do
     let c, a = f ~u ~v in let i = v*width+u in pixels.(i) <- c; alpha.(i) <- a
-  done done; { size; pixels; alpha }
-let index t ~u ~v = (v * t.size) + u
+  done done; { width; height; pixels; alpha }
+let index t ~u ~v = (v * t.width) + u
 ]}
 
 A wall carries a [decals] list — each decal a picture at a position [along] the
@@ -1565,7 +1572,9 @@ let rec loop ctx ~player ~fullscreen ~previous =
         set_fullscreen ctx.window (not fullscreen)
       else Ok fullscreen in
     let now = seconds () in
-    let player = step ctx.world player (Input.motion ~dt:(frame_time ~previous ~now)) in
+    let dt = frame_time ~previous ~now in
+    let motion = Binding.motion ctx.bindings ctx.actions ~dt in
+    let player = step ctx.world player motion in
     let* () = Renderer.render ctx.renderer ctx.framebuffer ctx.world player in
     Sdl.delay (Int32.of_float (idle_time ~spent:(seconds () -. now) *. 1000.));
     (* Timed start to start, so the sleep counts towards the next frame. *)
@@ -1602,7 +1611,8 @@ module, sharing fixtures (a hand-checkable 4×4 room). Good things to pin:
 }
 
 [Input], [Framebuffer] and [Renderer] need a live SDL surface, so test their
-{e pure} pieces (in [Plane], [Viewport], [Palette], [Sky], [Image]) instead.
+{e pure} pieces (in [Plane], [Viewport], [Color], [Texture], [Sky], [Image])
+instead.
 
 Document modules with [(** ... *)] and build HTML with [odoc] ([dune build @doc];
 the library needs a [public_name]). Put derivations in the docstrings.

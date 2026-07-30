@@ -120,8 +120,8 @@ let panel_is_bevelled () =
 let plain_is_flat () =
   let first = plain ~u:0 ~v:0 in
   let flat = ref true in
-  for v = 0 to Texture.size - 1 do
-    for u = 0 to Texture.size - 1 do
+  for v = 0 to Texture.default_size - 1 do
+    for u = 0 to Texture.default_size - 1 do
       if plain ~u ~v <> first then flat := false
     done
   done;
@@ -145,14 +145,15 @@ let solid_patterns_are_opaque () =
   List.iter
     (fun (name, f) ->
       Alcotest.(check bool)
-        (name ^ " is opaque") true (Texture.generate f).Texture.opaque)
+        (name ^ " is opaque") true
+        (Texture.opaque (Texture.generate f)))
     patterns
 
 let see_through_patterns_are_not () =
   let bars = Texture.generate_masked bars
   and glass = Texture.generate_masked glass in
-  Alcotest.(check bool) "bars is not opaque" false bars.Texture.opaque;
-  Alcotest.(check bool) "glass is not opaque" false glass.Texture.opaque;
+  Alcotest.(check bool) "bars is not opaque" false (Texture.opaque bars);
+  Alcotest.(check bool) "glass is not opaque" false (Texture.opaque glass);
   Alcotest.(check int) "a bar texel is solid" 255 (Texture.alpha bars ~u:0 ~v:0);
   Alcotest.(check int)
     "a gap between bars is clear" 0

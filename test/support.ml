@@ -96,7 +96,7 @@ let room =
     the walls behind a near one. *)
 let room_with_pillar =
   Room.make ~floor:flat_floor ~ceiling:flat_ceiling
-    (Array.to_list room.Room.walls
+    (List.init (Room.wall_count room) (Room.wall_at room)
     @ [ Room.wall ~height:1. ~material:dim (Vec.make 3. 1.5) (Vec.make 3. 2.5) ]
     )
 

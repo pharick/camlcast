@@ -49,10 +49,11 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
   let eye_z = viewport.eye_z in
   let px = player.Player.pos.Vec.x and py = player.Player.pos.Vec.y in
   let dx = dir.Vec.x and dy = dir.Vec.y in
-  let floor = room.Room.floor in
+  let floor_plane = Room.floor_plane room
+  and floor_material = Room.floor_material room in
   let haze = air.Atmosphere.haze in
-  let floor_base = Plane.elevation floor.Room.plane player.Player.pos in
-  let gf = Plane.gradient floor.Room.plane dir in
+  let floor_base = Plane.elevation floor_plane player.Player.pos in
+  let gf = Plane.gradient floor_plane dir in
   (* Paint one floor/ceiling pixel: the surface's material at the world point it
      casts to, tinted by its colour, and with distance traded for the haze the
      air is full of — {!Atmosphere.fog} of the surface plus what is left of the
@@ -80,7 +81,7 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
      the picture: taken out before the two planes are compared, so that a floor
      clipped away still lets the ceiling behind it be drawn. *)
   let beyond d = if d > near then d else infinity in
-  match room.Room.ceiling with
+  match Room.ceiling room with
   | Room.Roof ceiling ->
       let ceil_base = Plane.elevation ceiling.Room.plane player.Player.pos in
       let gc = Plane.gradient ceiling.Room.plane dir in
@@ -96,7 +97,7 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
           if dn < -1e-9 then (eye_z -. ceil_base) /. dn else infinity
         in
         let df = beyond cast_f and dc = beyond cast_c in
-        if Float.is_finite df && df <= dc then surface y df floor.Room.material
+        if Float.is_finite df && df <= dc then surface y df floor_material
         else if Float.is_finite dc then surface y dc ceiling.Room.material
         else if not (Float.is_finite cast_f || Float.is_finite cast_c) then
           (* Neither plane is in view here, so there is no surface to keep any
@@ -115,7 +116,7 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
         let dn = r +. gf in
         if dn > 1e-9 then begin
           let d = (eye_z -. floor_base) /. dn in
-          if d > near then surface y d floor.Room.material
+          if d > near then surface y d floor_material
         end
         else
           let s = Sky.color sky ~azimuth ~up:(-.r) in
@@ -128,7 +129,7 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
     The wall stands on the floor at its hit point and rises to its height —
     capped at the ceiling, if the level has one, so it never draws over the
     ceiling in front of it. Its texture repeats every cell of height and is
-    sampled per pixel; where that texel is not solid ({!Texture.val-alpha}) the
+    sampled per pixel; where that texel is not solid ({!Texture.alpha}) the
     wall is blended rather than written, so a grille or a window unveils what is
     behind. Decals — pictures placed by {!Room.along} and height — are blended
     over the wall's own texture, in the same light. *)
@@ -147,7 +148,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
   (* The wall rises to its own height, but a roof caps it so it never draws over
      the ceiling in front of it; with open sky there is nothing to cap against. *)
   let top_z =
-    match room.Room.ceiling with
+    match Room.ceiling room with
     | Room.Roof ceiling ->
         Float.min (floor_z +. w.Room.height)
           (Plane.elevation ceiling.Room.plane hit_point)
@@ -188,7 +189,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     let level = clamp8 (int_of_float (light *. 255.)) in
     let veil = Color.shade air.Atmosphere.haze (1. -. fog) in
     let pattern = w.Room.material.Material.pattern in
-    let rows = pattern.Texture.size in
+    let rows = Texture.size pattern in
     let u =
       Texture.column_of_offset pattern
         (hit.Ray.along -. Float.floor hit.Ray.along)
@@ -514,7 +515,7 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
          either, which would blank rows that belong to the room in front. *)
       | Ray.Opening opening when opening.Ray.distance <= near -> ()
       | Ray.Opening opening -> (
-          let threshold = current.Room.thresholds.(opening.Ray.index) in
+          let threshold = Room.threshold_at current opening.Ray.index in
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
           let floor_z = Plane.elevation (Room.floor_plane current) hit_point in
@@ -546,31 +547,32 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                     pose
                 in
                 let mask = Within { column; first; last } in
-                Array.iter
-                  (fun sprite ->
-                    (* Named apart from [distance], which is this doorway's, and
+                let there = World.room world portal.World.to_room in
+                for s = 0 to Room.sprite_count there - 1 do
+                  let sprite = Room.sprite_at there s in
+                  (* Named apart from [distance], which is this doorway's, and
                        is what a sprite of the far room standing in front of it
                        has to clear. The two are the same measurement: the ray's
                        direction is [dir + right * k] with [right] across the
                        view, so its parameter is already the distance along
                        [dir] that this dot product is. *)
-                    let depth_s =
-                      Vec.dot
-                        (Vec.sub sprite.Room.pos nested.Player.pos)
-                        nested.Player.dir
-                    in
-                    if depth_s > Config.sprite_near_clip && depth_s > distance
-                    then
-                      translucent :=
-                        {
-                          distance = depth_s;
-                          pose = nested;
-                          room = portal.World.to_room;
-                          mask;
-                          what = Sprite sprite;
-                        }
-                        :: !translucent)
-                  (World.room world portal.World.to_room).Room.sprites;
+                  let depth_s =
+                    Vec.dot
+                      (Vec.sub sprite.Room.pos nested.Player.pos)
+                      nested.Player.dir
+                  in
+                  if depth_s > Config.sprite_near_clip && depth_s > distance
+                  then
+                    translucent :=
+                      {
+                        distance = depth_s;
+                        pose = nested;
+                        room = portal.World.to_room;
+                        mask;
+                        what = Sprite sprite;
+                      }
+                      :: !translucent
+                done;
                 draw_room_column fb viewport world ~room:portal.World.to_room
                   ~pose:nested ~column
                   ~dir:(Transform.direction portal.World.onto dir)
@@ -652,20 +654,20 @@ let draw_frame fb world (player : Player.t) =
   in
   Framebuffer.clear_depth fb;
   let translucent = ref [] in
-  Array.iter
-    (fun sprite ->
-      let distance = Vec.dot (Vec.sub sprite.Room.pos player.pos) player.dir in
-      if distance > Config.sprite_near_clip then
-        translucent :=
-          {
-            distance;
-            pose = player;
-            room = player.room;
-            mask = Full;
-            what = Sprite sprite;
-          }
-          :: !translucent)
-    current.Room.sprites;
+  for s = 0 to Room.sprite_count current - 1 do
+    let sprite = Room.sprite_at current s in
+    let distance = Vec.dot (Vec.sub sprite.Room.pos player.pos) player.dir in
+    if distance > Config.sprite_near_clip then
+      translucent :=
+        {
+          distance;
+          pose = player;
+          room = player.room;
+          mask = Full;
+          what = Sprite sprite;
+        }
+        :: !translucent
+  done;
   for column = 0 to width - 1 do
     let dir = Viewport.ray_direction viewport player ~column in
     draw_room_column fb viewport world ~room:player.room ~pose:player ~column

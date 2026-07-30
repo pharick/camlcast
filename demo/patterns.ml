@@ -34,7 +34,7 @@ let hash = Texture.hash
     see the wall was built out of. *)
 let brick ~color ~mortar ~u ~v =
   let course = v / 16 in
-  let u = (u + if course land 1 = 0 then 0 else 16) mod Texture.size in
+  let u = (u + if course land 1 = 0 then 0 else 16) mod Texture.default_size in
   let in_mortar = v mod 16 < 2 || u mod 32 < 2 in
   if in_mortar then Color.level mortar 210
   else Color.level color (225 + (hash (u / 32) course mod 30))
@@ -58,7 +58,9 @@ let door ~color ~u ~v =
     {!brick} the courses do not repeat in step with each other. *)
 let stone ~color ~u ~v =
   let course = v / 16 in
-  let u = (u + (hash course 7 mod Texture.size)) mod Texture.size in
+  let u =
+    (u + (hash course 7 mod Texture.default_size)) mod Texture.default_size
+  in
   let in_joint = v mod 16 < 2 || u mod 21 < 2 in
   Color.level color
     (if in_joint then 120 else 200 + (hash (u / 21) course mod 45))
@@ -82,7 +84,7 @@ let bars ~color ~u ~v =
     a dark grey and the glass a pale blue-green, which is two materials and so
     two colours. *)
 let glass ~lead ~pane ~u ~v =
-  let size = Texture.size in
+  let size = Texture.default_size in
   let mullion =
     u < 2
     || u >= size - 2

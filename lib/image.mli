@@ -29,11 +29,14 @@ type t = private {
 }
 (** A picture: how big it is, and its colour and opacity at every pixel of it.
 
-    Private rather than abstract, because the fields have to stay readable.
-    {!Paint.sub} and {!Renderer} index [pixels] and [alpha] directly in their
-    inner loops — once per pixel of every sprite and every decal on the screen —
-    and an accessor call there would be paid on all of them, which is the whole
-    reason {!index} exists apart from {!sample}.
+    Private rather than abstract, where {!Texture.t} and {!Room.t} are abstract,
+    and the difference is what a picture costs to read. {!Paint.sub} and
+    {!Renderer} index [pixels] and [alpha] directly in their inner loops — once
+    per pixel of every sprite and every decal on the screen — and an accessor
+    call there would be paid on all of them, which is the whole reason {!index}
+    exists apart from {!sample}. A pattern is asked its size once per wall per
+    column and a room is walked a part at a time; a picture is read per pixel,
+    and that is the loop the frame is spent in.
 
     What private buys is the other half: {!make} and {!load} become the only
     ways to arrive at one, so the invariants below hold of every picture that
@@ -43,7 +46,19 @@ type t = private {
     [height] are both positive, which is what lets anything divide by them. A
     hand-written record with an array of the wrong length reads off the end of
     it, and one of no size divides by zero somewhere in a frame — see
-    {!Room.sprite_half_width}, which divides by [height]. *)
+    {!Room.sprite_half_width}, which divides by [height].
+
+    {b What it does not buy.} Private stops a picture being built by hand; it
+    cannot stop a caller writing into the two arrays it can read, so
+    [img.Image.pixels.(0) <- c] type-checks and the sentence above about every
+    picture that exists is a sentence about how every picture {e arrives}. That
+    is affordable here and it is not everywhere: the worst a written-into
+    picture can do is draw wrong wherever it is drawn, since nothing is derived
+    from the pixels and nothing else holds a fact about them. A {!Texture.t}
+    carries [opaque], which a write would make a lie and the renderer would act
+    on; a {!Room.t} is held by a {!World.t} in a row parallel to its thresholds,
+    shared with every world grown from it. Both are abstract for that reason,
+    and neither is read per pixel. *)
 
 val make : ?height:int -> width:int -> (u:int -> v:int -> Color.t * int) -> t
 (** Build a [width] x [height] image from a function of the pixel coordinates,

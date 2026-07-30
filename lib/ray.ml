@@ -69,14 +69,14 @@ let segment ~origin ~direction ~a ~edge =
 
 let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
   let hits = ref [] in
-  Array.iteri
-    (fun index (w : Room.wall) ->
-      match segment ~origin ~direction ~a:w.a ~edge:w.edge with
-      | Some (t, s) ->
-          hits :=
-            { distance = t; along = s *. w.length; wall = w; index } :: !hits
-      | None -> ())
-    world.walls;
+  for index = 0 to Room.wall_count world - 1 do
+    let (w : Room.wall) = Room.wall_at world index in
+    match segment ~origin ~direction ~a:w.a ~edge:w.edge with
+    | Some (t, s) ->
+        hits :=
+          { distance = t; along = s *. w.length; wall = w; index } :: !hits
+    | None -> ()
+  done;
   let hits = !hits in
   (* Farthest first: the order the painter's-algorithm renderer draws in. *)
   List.sort
@@ -84,16 +84,12 @@ let cast (world : Room.t) ~(origin : Vec.t) ~(direction : Vec.t) =
     hits
 
 let openings (room : Room.t) ~origin ~direction =
-  Array.to_list
-    (Array.mapi
-       (fun index (threshold : Room.threshold) ->
-         match
-           segment ~origin ~direction ~a:threshold.a ~edge:threshold.edge
-         with
-         | Some (distance, s) ->
-             Some { distance; along = s *. threshold.length; index }
-         | None -> None)
-       room.thresholds)
+  List.init (Room.threshold_count room) (fun index ->
+      let (threshold : Room.threshold) = Room.threshold_at room index in
+      match segment ~origin ~direction ~a:threshold.a ~edge:threshold.edge with
+      | Some (distance, s) ->
+          Some { distance; along = s *. threshold.length; index }
+      | None -> None)
   |> List.filter_map Fun.id
   |> List.sort (fun (a : opening) b -> Float.compare b.distance a.distance)
 

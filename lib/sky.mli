@@ -1,5 +1,4 @@
-(** The open sky drawn where a room has no roof ({!Room.field-ceiling} is
-    [Open]).
+(** The open sky drawn where a room has no roof ({!Room.val-ceiling} is [Open]).
 
     A sky is an infinitely far backdrop, so its colour depends only on the
     direction it is looked in — the azimuth of the column's ray, and how high up

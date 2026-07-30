@@ -17,7 +17,9 @@ let links_resolve () =
           Alcotest.(check string)
             "portals run parallel to thresholds" t.Room.name
             (portal two_rooms ~room ~index).World.threshold.Room.name)
-        (World.room two_rooms room).Room.thresholds)
+        (Array.init
+           (Room.threshold_count (World.room two_rooms room))
+           (Room.threshold_at (World.room two_rooms room))))
     (List.init (World.room_count two_rooms) Fun.id)
 
 (* Each room is authored in its own coordinates, both here occupying the same
@@ -174,13 +176,16 @@ let invalid_worlds_are_refused () =
         (World.make
            ~rooms:[ ("a", square ~thresholds:[ gate (); gate () ] ()) ]
            ~links:[] ~atmosphere:air ~spawn:("a", centre)));
+  (* Not zero, which {!Room.threshold} refuses before a world ever sees it:
+     [epsilon] is what a world means by no length, and a gap this small is
+     positive enough to be built and far too small to walk through. *)
   raises "no length" "World.make: threshold has no length: a.gate" (fun () ->
       ignore
         (World.make
            ~rooms:
              [
-               ("a", square ~thresholds:[ gate ~length:0. () ] ());
-               ("b", square ~thresholds:[ gate ~length:0. () ] ());
+               ("a", square ~thresholds:[ gate ~length:1e-9 () ] ());
+               ("b", square ~thresholds:[ gate ~length:1e-9 () ] ());
              ]
            ~links:[ (("a", "gate"), ("b", "gate")) ]
            ~atmosphere:air ~spawn:("a", centre)));
@@ -238,25 +243,29 @@ let invalid_worlds_are_refused () =
            ~rooms:[ ("a", square ~thresholds:[ gate () ] ()) ]
            ~links:[] ~atmosphere:air ~spawn:("a", centre)))
 
-(* {!Room.doorway} refuses the degenerate wall a [nan] threshold comes from, but
-   a threshold can be built by hand, and a length of [nan] would slip past every
-   check written the natural way round: it is not at or below the minimum, and
-   not far enough from its twin's to differ, because an ordered comparison
-   against [nan] is false however it is asked. The checks are written as the
-   negation of what would pass, which is what makes this the length it does not
-   have rather than a world whose every transform is [nan]. *)
+(* {!Room.doorway} refuses the degenerate wall a threshold with no length would
+   come from, and {!Room.threshold} refuses one built by hand out of two points
+   that are the same or not finite — so what reaches a world is always a
+   positive finite number. This is the last of the three: a length positive
+   enough to build and far too small to be a doorway, which nothing before here
+   has any reason to object to.
+
+   The check is still written as the negation of what would pass, and that is
+   what makes this refuse rather than accept: a length below the minimum is not
+   caught by asking whether it is above one, because [1e-9 > epsilon] and
+   [nan > epsilon] are both false and only the first is a number. Written the
+   other way round the world would be built and its every transform would be
+   arithmetic on a gap nine orders of magnitude too small. *)
 let a_threshold_of_no_real_length_is_refused () =
-  let nowhere = Vec.make Float.nan Float.nan in
-  let broken () =
-    square
-      ~thresholds:[ Room.threshold ~name:"gate" ~height:2. nowhere nowhere ]
-      ()
-  in
-  raises "a threshold measuring nan"
+  raises "a threshold too small to be a doorway"
     "World.make: threshold has no length: a.gate" (fun () ->
       ignore
         (World.make
-           ~rooms:[ ("a", broken ()); ("b", broken ()) ]
+           ~rooms:
+             [
+               ("a", square ~thresholds:[ gate ~length:1e-9 () ] ());
+               ("b", square ~thresholds:[ gate ~length:1e-9 () ] ());
+             ]
            ~links:[ (("a", "gate"), ("b", "gate")) ]
            ~atmosphere:air ~spawn:("a", centre)))
 
@@ -292,7 +301,7 @@ let a_world_can_grow () =
   in
   Alcotest.(check int)
     "the doorway is there" 1
-    (Array.length (World.room world 0).Room.thresholds);
+    (Room.threshold_count (World.room world 0));
   Alcotest.(check bool)
     "and leads nowhere yet" true
     (World.portal world ~room:0 ~threshold:0 = None);
@@ -320,9 +329,15 @@ let growing_never_disturbs_an_index () =
   let opened =
     Room.make
       ~thresholds:
-        (Array.to_list (World.room before 0).Room.thresholds @ [ extra ])
+        (List.init
+           (Room.threshold_count (World.room before 0))
+           (Room.threshold_at (World.room before 0))
+        @ [ extra ])
       ~floor:flat_floor ~ceiling:flat_ceiling
-      (Array.to_list (World.room before 0).Room.walls @ jambs)
+      (List.init
+         (Room.wall_count (World.room before 0))
+         (Room.wall_at (World.room before 0))
+      @ jambs)
   in
   let after = World.open_doorway before ~room:0 ~opened in
   Alcotest.(check int)
@@ -330,13 +345,13 @@ let growing_never_disturbs_an_index () =
     (portal after ~room:0 ~index:0).World.to_room;
   Alcotest.(check string)
     "and still the same one" "east"
-    (World.room after 0).Room.thresholds.(0).Room.name;
+    (Room.threshold_at (World.room after 0) 0).Room.name;
   Alcotest.(check bool)
     "the neighbour's twin still points at it" true
     ((portal after ~room:1 ~index:0).World.twin = 0);
   Alcotest.(check int)
     "the new one went on the end" 2
-    (Array.length (World.room after 0).Room.thresholds)
+    (Room.threshold_count (World.room after 0))
 
 (* Nothing forces a link to agree with the path that already runs between two
    rooms — there is no global frame for it to contradict. Joining a room back to
@@ -346,9 +361,11 @@ let a_loop_may_contradict_itself () =
   let jambs, back = cut ~name:"back" (Vec.make 4. 4.) (Vec.make 0. 4.) in
   let opened room name =
     Room.make
-      ~thresholds:(Array.to_list room.Room.thresholds @ [ back ])
+      ~thresholds:
+        (List.init (Room.threshold_count room) (Room.threshold_at room)
+        @ [ back ])
       ~floor:flat_floor ~ceiling:flat_ceiling
-      (Array.to_list room.Room.walls @ jambs)
+      (List.init (Room.wall_count room) (Room.wall_at room) @ jambs)
     |> fun r -> (r, name)
   in
   let first, _ = opened (World.room two_rooms 0) "first" in
@@ -481,12 +498,13 @@ let invalid_growth_is_refused () =
              (Room.make
                 ~thresholds:
                   [
-                    Room.with_door first.Room.thresholds.(0)
+                    Room.with_door
+                      (Room.threshold_at first 0)
                       (Some (Door.make pale));
                     extra;
                   ]
                 ~floor:flat_floor ~ceiling:flat_ceiling
-                (Array.to_list first.Room.walls @ jambs))));
+                (List.init (Room.wall_count first) (Room.wall_at first) @ jambs))));
   raises "an unlinked doorway"
     "World.check: nothing links threshold start.north" (fun () ->
       World.check grown);
@@ -507,11 +525,12 @@ let a_room_can_be_replaced () =
   let before = World.room two_rooms 0 in
   let replacement =
     Room.make
-      ~thresholds:(Array.to_list before.Room.thresholds)
+      ~thresholds:
+        (List.init (Room.threshold_count before) (Room.threshold_at before))
       ~floor:{ Room.plane = Plane.horizontal 0.5; material = dim }
       ~ceiling:open_sky
       ~sprites:[ Room.sprite ~size:1. ~image:poster centre ]
-      (Array.to_list before.Room.walls
+      (List.init (Room.wall_count before) (Room.wall_at before)
       @ [
           Room.wall ~height:1. ~material:mesh (Vec.make 1. 1.) (Vec.make 2. 1.);
         ])
@@ -521,23 +540,22 @@ let a_room_can_be_replaced () =
   let now = World.room after 0 in
   Alcotest.(check int)
     "the new wall is there"
-    (Array.length before.Room.walls + 1)
-    (Array.length now.Room.walls);
-  Alcotest.(check int) "and the sprite" 1 (Array.length now.Room.sprites);
+    (Room.wall_count before + 1)
+    (Room.wall_count now);
+  Alcotest.(check int) "and the sprite" 1 (Room.sprite_count now);
   Alcotest.(check bool)
     "the roof came off" true
-    (match now.Room.ceiling with Room.Open _ -> true | Room.Roof _ -> false);
+    (match Room.ceiling now with Room.Open _ -> true | Room.Roof _ -> false);
   Alcotest.check close "and the floor moved" 0.5
-    (Plane.elevation now.Room.floor.Room.plane centre);
+    (Plane.elevation (Room.floor_plane now) centre);
   Alcotest.(check int)
     "the room next door is untouched"
-    (Array.length (World.room two_rooms 1).Room.walls)
-    (Array.length (World.room after 1).Room.walls);
+    (Room.wall_count (World.room two_rooms 1))
+    (Room.wall_count (World.room after 1));
   (* The world is persistent, so the one it was made from still stands. *)
   Alcotest.(check int)
-    "and so is the world it was made from"
-    (Array.length before.Room.walls)
-    (Array.length (World.room two_rooms 0).Room.walls)
+    "and so is the world it was made from" (Room.wall_count before)
+    (Room.wall_count (World.room two_rooms 0))
 
 (* What the rest of the world holds is a portal: a room index, a twin index and
    a transform, none of which is re-derived when a room is replaced. So they
@@ -550,7 +568,8 @@ let replacing_never_disturbs_a_portal () =
     (* Not one wall left, which the checks permit: nothing outside a room refers
        to its walls. *)
     Room.make
-      ~thresholds:(Array.to_list before.Room.thresholds)
+      ~thresholds:
+        (List.init (Room.threshold_count before) (Room.threshold_at before))
       ~floor:flat_floor ~ceiling:flat_ceiling []
   in
   let after = World.replace_room two_rooms ~room:0 ~replacement:stripped in
@@ -582,9 +601,12 @@ let a_door_takes_two_replacements () =
              (List.map
                 (fun (x : Room.threshold) ->
                   Room.with_door x (Some (Door.make pale)))
-                (Array.to_list before.Room.thresholds))
-           ~floor:before.Room.floor ~ceiling:before.Room.ceiling
-           (Array.to_list before.Room.walls))
+                (List.init
+                   (Room.threshold_count before)
+                   (Room.threshold_at before)))
+           ~floor:(Room.floor_surface before)
+           ~ceiling:(Room.ceiling before)
+           (List.init (Room.wall_count before) (Room.wall_at before)))
   in
   let half = hang two_rooms ~room:0 in
   raises "one side only"
@@ -594,14 +616,14 @@ let a_door_takes_two_replacements () =
   World.check both;
   Alcotest.(check bool)
     "a leaf hangs on both sides now" true
-    ((World.room both 0).Room.thresholds.(0).Room.door <> None
-    && (World.room both 1).Room.thresholds.(0).Room.door <> None)
+    ((Room.threshold_at (World.room both 0) 0).Room.door <> None
+    && (Room.threshold_at (World.room both 1) 0).Room.door <> None)
 
 let invalid_replacement_is_refused () =
   let first = World.room two_rooms 0 in
   let like thresholds =
     Room.make ~thresholds ~floor:flat_floor ~ceiling:flat_ceiling
-      (Array.to_list first.Room.walls)
+      (List.init (Room.wall_count first) (Room.wall_at first))
   in
   raises "a doorway dropped"
     "World.replace_room: first has 1 thresholds and its replacement has 0"
@@ -630,9 +652,11 @@ let invalid_replacement_is_refused () =
     World.open_doorway two_rooms ~room:0
       ~opened:
         (Room.make
-           ~thresholds:(Array.to_list first.Room.thresholds @ [ extra ])
+           ~thresholds:
+             (List.init (Room.threshold_count first) (Room.threshold_at first)
+             @ [ extra ])
            ~floor:flat_floor ~ceiling:flat_ceiling
-           (Array.to_list first.Room.walls @ jambs))
+           (List.init (Room.wall_count first) (Room.wall_at first) @ jambs))
   in
   raises "the order changed"
     "World.replace_room: first moved or reordered its threshold extra"
@@ -641,16 +665,16 @@ let invalid_replacement_is_refused () =
         (World.replace_room two ~room:0
            ~replacement:
              (Room.make
-                ~thresholds:[ extra; first.Room.thresholds.(0) ]
+                ~thresholds:[ extra; Room.threshold_at first 0 ]
                 ~floor:flat_floor ~ceiling:flat_ceiling
-                (Array.to_list first.Room.walls @ jambs))))
+                (List.init (Room.wall_count first) (Room.wall_at first) @ jambs))))
 
 (* A door is one thing seen from two rooms, and the two have to agree about what
    it is doing — a door open from one side and locked from the other is one the
    player could walk through in one direction only. set_door is the only way to
    change one, precisely so that the disagreeing world never exists. *)
 let state_of world ~room ~threshold =
-  match (World.room world room).Room.thresholds.(threshold).Room.door with
+  match (Room.threshold_at (World.room world room) threshold).Room.door with
   | Some d -> Some d.Door.state
   | None -> None
 
@@ -707,8 +731,8 @@ let a_door_can_be_worked_repeatedly () =
     && state_of world ~room:1 ~threshold:twin = Some Door.Open);
   Alcotest.(check bool)
     "the opening never moved" true
-    (let now = (World.room world 0).Room.thresholds.(0)
-     and then_ = (World.room two_rooms_closed 0).Room.thresholds.(0) in
+    (let now = Room.threshold_at (World.room world 0) 0
+     and then_ = Room.threshold_at (World.room two_rooms_closed 0) 0 in
      now.Room.a = then_.Room.a && now.Room.b = then_.Room.b
      && now.Room.height = then_.Room.height);
   Alcotest.(check int)

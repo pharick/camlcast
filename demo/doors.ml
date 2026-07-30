@@ -142,7 +142,8 @@ let nearest (world : World.t) (player : Player.t) =
 
 let state_of world (player : Player.t) threshold =
   match
-    (World.room world player.Player.room).Room.thresholds.(threshold).Room.door
+    (Room.threshold_at (World.room world player.Player.room) threshold)
+      .Room.door
   with
   | Some door -> Some door.Door.state
   | None -> None

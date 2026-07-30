@@ -29,6 +29,8 @@ can walk through. The nav above goes back to the engine's own pages.
   you see
 - {!Camlcast_demo.Doors} — doors that open and shut, on both sides of the link
   at once
+- {!Camlcast_demo.Barred} — doors you can see through: a grille and a leaded
+  transom, each shut and transparent at once
 - {!Camlcast_demo.Targets} — what the crosshair is on, through a doorway
 - {!Camlcast_demo.Trail} — traversal traces, as a return route
 - {!Camlcast_demo.Endless} — the [extend] hook: a corridor built as you walk it

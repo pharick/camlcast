@@ -1,9 +1,11 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Camlcast.Engine.run_world} takes an [extend] callback and calls it
-    whenever the player goes through a doorway, with the world and where they
+    {!Camlcast.Engine.run_world} takes an [extend] callback and calls it on a
+    frame the player went through a doorway on, with the world and where they
     now are; whatever it returns is the world drawn from then on. It runs on a
-    crossing and not per frame, so a generator may take its time.
+    frame that crossed and not on every frame, so a generator may take its time
+    — and once per such frame however many doorways it crossed, which is why
+    what arrives is a room to build ahead of and not a doorway to build at.
 
     What it does here is build ahead of the player, using the three primitives a
     world grows by and nothing else:
@@ -76,9 +78,13 @@ let named index = Printf.sprintf "segment-%d" index
 
 (* Does this room already have a way on, and if so which threshold is it? *)
 let way_on (room : Room.t) =
-  Array.find_index
-    (fun (t : Room.threshold) -> String.equal t.Room.name "on")
-    room.Room.thresholds
+  let rec search index =
+    if index >= Room.threshold_count room then None
+    else if String.equal (Room.threshold_at room index).Room.name "on" then
+      Some index
+    else search (index + 1)
+  in
+  search 0
 
 (** Build [depth] segments beyond [room], following the ones that are there
     already and adding the ones that are not. *)

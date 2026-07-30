@@ -63,20 +63,21 @@ type t
 (** A world: its rooms, what each was authored as, how they are joined, the air
     they are seen through, and where the player starts.
 
-    Abstract, where a {!Room.t} is merely private, and the difference between
-    them is what each is for. A room is {e walked}: {!Renderer} runs down its
-    walls and its thresholds once per screen column, so those have to stay field
-    reads. A world is {e asked}: three lookups per column and one per doorway,
-    and every one of them is named below.
+    Abstract, as a {!Room.t} is, and for the same reason: the arrays underneath
+    cannot leave. They must not. {!open_doorway}, {!link} and {!replace_room}
+    copy one level and share the rest, so a write into a row a caller had been
+    handed would reach not only this world but the world it was grown from and
+    every world grown beside it. A game holding two generations of a level at
+    once — and [demo/endless.ml] holds several — would find the older ones
+    changing under it. The invariant that [portals] runs parallel to each room's
+    own thresholds is the one this exists to keep, and it would be worth little
+    here if a room reached out through {!val-room} handed its thresholds back.
 
-    What being abstract buys is that the arrays underneath cannot leave. They
-    must not: {!open_doorway}, {!link} and {!replace_room} copy one level and
-    share the rest, so a write into a row a caller had been handed would reach
-    not only this world but the world it was grown from and every world grown
-    beside it. A game holding two generations of a level at once — and
-    [demo/endless.ml] holds several — would find the older ones changing under
-    it. The invariant that [portals] runs parallel to each room's own thresholds
-    is the one this exists to keep.
+    What the two are for still differs, and it shows in how they are read. A
+    room is {e walked}: {!Renderer} runs down its walls and its thresholds once
+    per screen column, a part at a time through {!Room.wall_at} and
+    {!Room.threshold_at}. A world is {e asked}: three lookups per column and one
+    per doorway, and every one of them is named below.
 
     Build one with {!make} and change it with the functions below. *)
 

@@ -2,7 +2,7 @@
 
 open Result_ext
 
-let size = 64
+let default_size = 64
 
 type t = {
   size : int;
@@ -11,6 +11,8 @@ type t = {
   opaque : bool;
 }
 
+let size t = t.size
+let opaque t = t.opaque
 let sample t ~u ~v = t.texels.((v * t.size) + u)
 let alpha t ~u ~v = t.alpha.((v * t.size) + u)
 
@@ -22,7 +24,7 @@ let column_of_offset t offset =
 
 let clamp v = Int.min 255 (Int.max 0 v)
 
-let generate ?(size = size) f =
+let generate ?(size = default_size) f =
   if size <= 0 then
     invalid_arg "Texture.generate: a pattern must have a positive size";
   {
@@ -34,7 +36,7 @@ let generate ?(size = size) f =
     opaque = true;
   }
 
-let generate_masked ?(size = size) f =
+let generate_masked ?(size = default_size) f =
   if size <= 0 then
     invalid_arg "Texture.generate_masked: a pattern must have a positive size";
   let n = size * size in

@@ -383,40 +383,84 @@ val roof : plane:Plane.t -> material:Material.t -> ceiling
 val open_sky : Sky.t -> ceiling
 (** Nothing overhead, and which {!Sky} shows instead: [Open sky]. *)
 
-type t = private {
-  walls : wall array;
-  thresholds : threshold array;
-  floor : surface;
-  ceiling : ceiling;
-  sprites : sprite array;
-}
+type t
 (** A whole room: its boundary, the doorways cut into it, what is underfoot and
     overhead, and whatever stands in it.
 
-    Private, not abstract: {!Renderer} walks [walls] and [thresholds] per screen
-    column, {!Sight} and {!World} index into both by the position a ray reports,
-    and all of that has to stay a field read. What being private buys is that
-    {!make} and the three functions under {e Changing a room} are the only ways
-    to arrive at one, so a room's arrays are always the ones some constructor
-    built — which is what {!World} relies on when it holds a portal row parallel
-    to [thresholds].
+    Abstract, and for the reason {!World.t} is. Three of the five things a room
+    holds are arrays, and a private record would hand those out: private stops a
+    room being {e built} by hand, so {!make} and the three functions under
+    {e Changing a room} stay the only ways to arrive at one, but it cannot stop
+    a caller writing into an array it can read. {!World} holds a portal row
+    running parallel to each room's thresholds and reaches its rooms out through
+    {!World.val-room}, so a threshold moved after the fact would be a doorway
+    the world still thinks it knows where to find — and because a world shares
+    every level it does not replace with the world it was grown from, the write
+    would reach those too. [demo/endless.ml] holds several generations of a
+    level at once.
 
     The arrays are not mutated. A room that changes is a room built again, and
-    the functions below share everything they do not replace. *)
+    the functions below share everything they do not replace — which is a claim
+    worth making only if nothing outside here can write into one.
+
+    {2 Reading a room's parts}
+
+    Rooms are read a part at a time rather than by the array, because handing
+    the array back is the hole this closes and handing a copy back would
+    allocate once per screen column. A count and an index apiece, exactly as
+    {!World.room_count} and {!World.val-room} do it — the [_at] on each is only
+    because {!val-wall}, {!val-threshold} and {!val-sprite} already name the
+    constructors. *)
+
+val wall_count : t -> int
+(** How many walls the boundary is made of. *)
+
+val wall_at : t -> int -> wall
+(** One of them, by the index {!Ray.cast} reports a hit at.
+
+    @raise Invalid_argument if there is no wall with that index. *)
+
+val threshold_count : t -> int
+(** How many doorways are cut into it. *)
+
+val threshold_at : t -> int -> threshold
+(** One of them, by the index {!Ray.openings} and {!World.val-portal} number it
+    by.
+
+    @raise Invalid_argument if there is no threshold with that index. *)
+
+val sprite_count : t -> int
+(** How many billboards stand in it. *)
+
+val sprite_at : t -> int -> sprite
+(** One of them, by the index {!Sight} names it by.
+
+    @raise Invalid_argument if there is no sprite with that index. *)
 
 (** {2 Reading a room's bounds}
 
     A floor is always a {!type-surface} and a ceiling only sometimes is, and a
-    field read that has to say so — [room.Room.floor.Room.plane], a [match] on
-    the ceiling — is longhand at every place that only wanted the plane. These
-    answer the common questions directly; exactly one of {!ceiling_surface} and
-    {!sky} answers [Some] for any room. *)
+    read that has to say so — the floor's plane, a [match] on the ceiling — is
+    longhand at every place that only wanted the plane. These answer the common
+    questions directly; exactly one of {!ceiling_surface} and {!sky} answers
+    [Some] for any room. *)
+
+val floor_surface : t -> surface
+(** What is underfoot, plane and material together, for the caller rebuilding a
+    room around it — {!make} takes one of these. The two below answer the
+    commoner questions without the field read. *)
 
 val floor_plane : t -> Plane.t
 (** The plane underfoot. *)
 
 val floor_material : t -> Material.t
 (** What the floor is made of. *)
+
+val ceiling : t -> ceiling
+(** What is overhead, roof or sky, for the caller that has to tell them apart —
+    {!Renderer} does, once per column, because a roof is cast and a sky is
+    looked up. The three below answer the commoner questions without the
+    [match]. *)
 
 val ceiling_surface : t -> surface option
 (** The roof overhead — [None] under the open sky. *)
@@ -437,7 +481,19 @@ val wall :
   Vec.t ->
   wall
 (** Build a wall between two points, precomputing the quantities the renderer
-    and the ray caster would otherwise recompute every frame. *)
+    and the ray caster would otherwise recompute every frame.
+
+    @raise Invalid_argument
+      if the two ends are the same point, or either is not finite. Both leave
+      {!Vec.normalize} nothing to work with, and it hands a vector it cannot
+      scale straight back — so [normal] would be neither a unit vector nor
+      perpendicular to anything, and {!Atmosphere.face_shading}, {!side_of} and
+      every decal placed along [length] read it anyway. Nothing downstream
+      refuses it a second time: {!Ray.cast} finds no intersection with an edge
+      of no length and {!distance_to_wall} degrades to a point, so it would
+      stand in the room as a collision blocker nobody can see. The test is
+      written as the negation of the passing condition, so a [nan] end fails it
+      rather than slipping through. *)
 
 val threshold :
   name:string ->
@@ -448,7 +504,15 @@ val threshold :
   Vec.t ->
   threshold
 (** Build a doorway between two points, precomputing the same quantities as
-    {!type-wall} — a threshold is intersected by exactly the same ray test. *)
+    {!type-wall} — a threshold is intersected by exactly the same ray test.
+
+    @raise Invalid_argument
+      on the same terms as {!val-wall}, and for more: a threshold's [normal] is
+      what {!Transform.between} turns into the frame change a portal carries a
+      player through, and its [length] is the first thing {!World.make}
+      measures. Most thresholds arrive through {!doorway}, which cuts one out of
+      a wall it has already refused to cut into; this catches one built any
+      other way. *)
 
 val make :
   ?thresholds:threshold list ->
@@ -511,9 +575,9 @@ val with_thresholds : t -> threshold array -> t
     and the caller's array does not have to, so a room that kept it would be a
     room somebody else could still write into — and a threshold moved after the
     fact would slip past {!World.replace_room}, which matches a doorway by where
-    it is. Being private stops a room being {e built} by hand; it cannot stop a
-    constructor keeping what it was handed, so this one does not. One copy per
-    door opening, and none per frame. *)
+    it is. Being abstract is what keeps the arrays a room already holds out of
+    anyone's reach; it cannot say anything about one handed in, which is what
+    this copy is for. One copy per door opening, and none per frame. *)
 
 val add_decal : t -> wall:int -> decal -> t
 (** The same room with one more {!type-decal} on one of its walls.
@@ -618,7 +682,18 @@ val rectangle :
 val path :
   ?closed:bool -> height:float -> material:Material.t -> Vec.t list -> wall list
 (** Walls following a run of points; [closed] joins the last point back to the
-    first, turning a polyline into a polygon. *)
+    first, turning a polyline into a polygon. An open run of fewer than two
+    points has no wall in it and comes back empty.
+
+    @raise Invalid_argument
+      if two points in a row are the same or either is not finite — the
+      {!val-wall} that would be built between them is one this refuses on its
+      own account, and it is refused here so that it carries the name of the
+      function the caller actually wrote. [closed] is what makes this worth
+      saying twice: shutting a loop by repeating the first point at the end is
+      the natural way to write one down, and it is exactly the mistake, since
+      [closed] already joins them. A closed run also has to have at least three
+      points, there being no polygon in fewer. *)
 
 val doorway :
   name:string ->
@@ -631,8 +706,11 @@ val doorway :
   Vec.t ->
   wall list * threshold
 (** Cut a doorway into the wall that would otherwise run from [a] to [b]: the
-    two jambs left either side of a gap [width] wide in the middle, and the
-    {!type-threshold} filling that gap, [opening] tall.
+    jambs left either side of a gap [width] wide in the middle, and the
+    {!type-threshold} filling that gap, [opening] tall. Usually two jambs, but a
+    doorway as wide as the wall it is cut into is allowed and leaves none — the
+    ends that came to nothing are dropped rather than handed back as walls of no
+    length, which {!val-wall} refuses.
 
     The threshold comes out wound the same way as the wall it replaces, which is
     the winding rule {!Transform.between} depends on, and it takes the wall's
@@ -643,13 +721,14 @@ val doorway :
     @raise Invalid_argument
       on any of three authoring mistakes, refused here rather than left to
       spread. A wall with no length has no middle to cut, and the division would
-      hand back a threshold whose every coordinate is [nan] — which
-      {!World.make} would then accept, because [nan] answers false to every
-      ordered comparison it is asked. A doorway of no width is not a doorway.
-      And one wider than the wall it is cut into leaves jambs wound backwards,
-      which is the one thing every transform derived from the opening depends
-      on. Each test is written as the negation of the passing condition, so a
-      [nan] argument fails it rather than slipping through. *)
+      hand back a threshold whose every coordinate is [nan] — refused again by
+      {!val-threshold} on its own account, and a third time by {!World.make} if
+      one ever reached a world, because each of those tests is written the way
+      this one is. A doorway of no width is not a doorway. And one wider than
+      the wall it is cut into leaves jambs wound backwards, which is the one
+      thing every transform derived from the opening depends on. Each test is
+      written as the negation of the passing condition, so a [nan] argument
+      fails it rather than slipping through. *)
 
 val regular_polygon :
   center:Vec.t ->
@@ -661,4 +740,12 @@ val regular_polygon :
   wall list
 (** A regular polygon of [sides] walls, [radius] from [center], turned by
     [rotation]. A cheap way to draw rooms and pillars whose walls face every
-    direction. *)
+    direction.
+
+    @raise Invalid_argument
+      if there are fewer than three sides, or the radius is not a positive
+      finite number, or the rotation or the center is not finite. Two sides are
+      a pair of coincident walls wound against each other, one is a wall of no
+      length, none is a room with no boundary at all, and a negative count would
+      reach [List.init] and be refused under its name rather than this one. All
+      four are negated, so a [nan] fails them with the flat ones. *)

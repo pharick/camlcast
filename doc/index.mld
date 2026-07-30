@@ -12,8 +12,9 @@ open {!Camlcast.Sky}; walls carry their own heights and {!Camlcast.Material}s,
 can be see-through, and can be hung with decals; {!Camlcast.Image} sprites stand
 in the world facing the player; and there is mouse look with pitch. Each frame is
 drawn into a CPU pixel buffer: the floor, ceiling and sky are cast per pixel, the
-opaque walls (with their decals) are painted over them, then the sprites, then
-the see-through walls last so the room behind shows through. Surfaces take their
+opaque walls (with their decals) are painted over them, and then the sprites and
+the see-through walls together, farthest first, so that a sprite can stand in
+front of a window and be seen through one behind it. Surfaces take their
 patterns from a procedural {!Camlcast.Texture} and their colour from their
 material, dimmed by the world's {!Camlcast.Atmosphere}. The buffer is then
 scaled to the window by the GPU.
@@ -82,8 +83,9 @@ where a second kind of device would arrive.
 
 {!Camlcast.Engine.run_world} is that loop over a bare {!Camlcast.World} and the
 player walking it, plus an optional [extend : World.t -> Player.t -> World.t],
-which it calls whenever the player crosses into another room. A program with
-only one world to show has no use for the ending and can [ignore] it.
+which it calls on any frame the player crossed into another room on — once per
+such frame, with where they ended up, however many doorways that took. A program
+with only one world to show has no use for the ending and can [ignore] it.
 
 A game that builds its world as the player explores it uses [extend] to stay far
 enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}

@@ -139,8 +139,10 @@ type t = {
   sprites : sprite array;
 }
 
+let floor_surface t = t.floor
 let floor_plane t = t.floor.plane
 let floor_material t = t.floor.material
+let ceiling t = t.ceiling
 let ceiling_surface t = match t.ceiling with Roof s -> Some s | Open _ -> None
 let ceiling_plane t = Option.map (fun s -> s.plane) (ceiling_surface t)
 let sky t = match t.ceiling with Open s -> Some s | Roof _ -> None
@@ -157,8 +159,21 @@ let threshold_wall (t : threshold) ~height ~material : wall =
     normal = t.normal;
   }
 
+(* The length is enough to check on its own, the way Transform.between explains:
+   Vec.length folds every bad coordinate into it, so a nan end gives a nan
+   length and an infinite one a length whose reciprocal is 0. Negated, so both
+   are refused with the coincident ends. What the check buys is the normal —
+   Vec.normalize hands a zero vector back unchanged, so a wall of no length
+   would carry one that is neither a unit vector nor perpendicular to anything,
+   and Atmosphere.face_shading, side_of and every decal placed along it read
+   exactly that. Nothing downstream refuses it a second time: Ray.segment finds
+   no intersection with a zero edge and distance_to_segment degrades to a point,
+   so it would stand there as an invisible collision blocker. *)
 let wall ~height ~material ?(decals = []) a b =
   let edge = Vec.sub b a in
+  let length = Vec.length edge in
+  if not (Float.is_finite length && length > 0.) then
+    invalid_arg "Room.wall: the two ends have to be apart";
   {
     a;
     b;
@@ -166,12 +181,18 @@ let wall ~height ~material ?(decals = []) a b =
     material;
     decals;
     edge;
-    length = Vec.length edge;
+    length;
     normal = Vec.normalize (Vec.perp edge);
   }
 
+(* The same refusal on the same terms, and the stakes are higher: a threshold's
+   normal is what Transform.between turns into a portal's frame change, and its
+   length is the first thing World.pair measures. *)
 let threshold ~name ~height ?door ?lintel a b =
   let edge = Vec.sub b a in
+  let length = Vec.length edge in
+  if not (Float.is_finite length && length > 0.) then
+    invalid_arg ("Room.threshold: the two ends have to be apart: " ^ name);
   {
     name;
     a;
@@ -180,7 +201,7 @@ let threshold ~name ~height ?door ?lintel a b =
     door;
     lintel;
     edge;
-    length = Vec.length edge;
+    length;
     normal = Vec.normalize (Vec.perp edge);
   }
 
@@ -193,6 +214,12 @@ let make ?(thresholds = []) ?(sprites = []) ~floor ~ceiling walls =
     sprites = Array.of_list sprites;
   }
 
+let wall_count t = Array.length t.walls
+let wall_at t index = t.walls.(index)
+let threshold_count t = Array.length t.thresholds
+let threshold_at t index = t.thresholds.(index)
+let sprite_count t = Array.length t.sprites
+let sprite_at t index = t.sprites.(index)
 let with_sprites t sprites = { t with sprites = Array.of_list sprites }
 let with_thresholds t thresholds = { t with thresholds = Array.copy thresholds }
 
@@ -261,7 +288,18 @@ let passable t ~from ~dest =
 let path ?(closed = false) ~height ~material points =
   let arr = Array.of_list points in
   let n = Array.length arr in
+  if closed && n < 3 then
+    invalid_arg "Room.path: a closed path has to have at least three points";
   let last = if closed then n - 1 else n - 2 in
+  (* Refused here rather than left to {!wall}, so that the habit a closed path
+     invites — repeating the first point at the end to shut the loop — is
+     refused under the name the caller wrote and not under one they never
+     called. Negated, so a nan point is refused with the repeated ones. *)
+  for i = 0 to last do
+    let step = Vec.length (Vec.sub arr.((i + 1) mod n) arr.(i)) in
+    if not (Float.is_finite step && step > 0.) then
+      invalid_arg "Room.path: two points in a row are the same"
+  done;
   List.init
     (Int.max 0 (last + 1))
     (fun i -> wall ~height ~material arr.(i) arr.((i + 1) mod n))
@@ -278,7 +316,14 @@ let doorway ~name ?door ~width ~opening ~height ~material a b =
   let half = Vec.scale edge (width /. (2. *. span)) in
   let middle = Vec.scale (Vec.add a b) 0.5 in
   let p = Vec.sub middle half and q = Vec.add middle half in
-  ( [ wall ~height ~material a p; wall ~height ~material q b ],
+  (* A doorway exactly as wide as its wall is allowed above, and leaves no jamb
+     at either end. Those ends are dropped rather than built, because a wall of
+     no length is the one thing {!wall} refuses. *)
+  let jamb (x, y) =
+    if Vec.length (Vec.sub y x) > 0. then Some (wall ~height ~material x y)
+    else None
+  in
+  ( List.filter_map jamb [ (a, p); (q, b) ],
     threshold ~name ?door ~height:opening ~lintel:{ top = height; material } p q
   )
 
@@ -311,6 +356,21 @@ let nearest_threshold ?(within = infinity) ?(where = fun _ -> true) t
   Option.map snd !best
 
 let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
+  (* Refused here and not left to {!path}, which would name a function the
+     caller never called and, for a negative count, not get that far: List.init
+     raises under its own name first. Fewer than three sides is not a polygon —
+     two are a pair of coincident walls wound against each other, one is a wall
+     of no length, none is a room with no boundary at all. Negated, so a nan
+     radius, rotation or center is refused with the flat ones. *)
+  if not (sides >= 3) then
+    invalid_arg
+      "Room.regular_polygon: a polygon has to have at least three sides";
+  if not (Float.is_finite radius && radius > 0.) then
+    invalid_arg "Room.regular_polygon: a polygon has to have a radius";
+  if not (Float.is_finite rotation) then
+    invalid_arg "Room.regular_polygon: the rotation has to be a number";
+  if not (Float.is_finite center.Vec.x && Float.is_finite center.Vec.y) then
+    invalid_arg "Room.regular_polygon: the center has to be a point";
   path ~closed:true ~height ~material
     (List.init sides (fun k ->
          let angle =

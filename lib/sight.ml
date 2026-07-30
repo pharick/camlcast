@@ -96,10 +96,10 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
   and billboards =
     List.filter_map
       (fun i ->
-        let away = ahead pose here.Room.sprites.(i) in
+        let away = ahead pose (Room.sprite_at here i) in
         if away > Config.sprite_near_clip then Some (away, Billboard i)
         else None)
-      (List.init (Array.length here.Room.sprites) Fun.id)
+      (List.init (Room.sprite_count here) Fun.id)
   in
   (* Everything nearer than the doorway this room is being looked at through is
      dropped before any of it is considered. Along one ray the side of that
@@ -118,7 +118,7 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
   let rec first = function
     | [] -> None
     | (d, Billboard i) :: rest ->
-        let sprite = here.Room.sprites.(i) in
+        let sprite = Room.sprite_at here i in
         if touches pose sprite ~floor:(floor_at sprite.Room.pos) ~z:(z_at d)
         then found d (Sprite { index = i })
         else first rest
@@ -158,7 +158,7 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
         first rest
     | (d, Met (Ray.Opening opening)) :: rest -> (
         let index = opening.Ray.index in
-        let threshold = here.Room.thresholds.(index) in
+        let threshold = Room.threshold_at here index in
         let foot = floor_at (point_at d) in
         let z = z_at d in
         (* On through the doorway, which is where the renderer has drawn the

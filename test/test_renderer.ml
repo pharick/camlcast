@@ -308,10 +308,11 @@ let roofed world material =
   World.replace_room world ~room:1
     ~replacement:
       (Room.make
-         ~thresholds:(Array.to_list before.Room.thresholds)
-         ~floor:before.Room.floor
+         ~thresholds:
+           (List.init (Room.threshold_count before) (Room.threshold_at before))
+         ~floor:(Room.floor_surface before)
          ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
-         (Array.to_list before.Room.walls))
+         (List.init (Room.wall_count before) (Room.wall_at before)))
 
 (* Through the bars of a shut grille door, a sprite standing in the next room.
    Behind a solid leaf the same sprite is not drawn at all — the recursion never
@@ -811,7 +812,7 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
      Note where the fog is and is not. It is the {e amount} of the blend and not
      part of the shade: [Color.shade texel (face_shading *. fog)] followed by a
      blend would apply it twice. *)
-  let wall = (World.room world 0).Room.walls.(1) in
+  let wall = Room.wall_at (World.room world 0) 1 in
   let texel = Texture.sample wall.Room.material.Material.pattern ~u:0 ~v:0 in
   let predicted =
     (Color.lerp

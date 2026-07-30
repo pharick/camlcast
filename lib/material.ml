@@ -1,7 +1,7 @@
 type t = { pattern : Texture.t }
 
 let make ~pattern = { pattern }
-let opaque t = t.pattern.Texture.opaque
+let opaque t = Texture.opaque t.pattern
 
 let plane_texel t ~x ~y =
   let frac v = v -. Float.floor v in

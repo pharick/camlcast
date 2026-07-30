@@ -218,7 +218,7 @@ let a_see_through_leaf_does_not_stop_it () =
   is "sprite 0 of room 1" (Sight.look barred (looking_east ()));
   Alcotest.(check bool)
     "and it is still a door to walk into" true
-    (Room.shut (World.room barred 0).Room.thresholds.(0))
+    (Room.shut (Room.threshold_at (World.room barred 0) 0))
 
 (* The same of a glazed transom. Looking over the opening, an opaque strip of
    wall is what the ray meets; one you can see through is looked past, into the
@@ -259,9 +259,12 @@ let a_wall_occludes_and_names_itself () =
       ~replacement:
         (let before = World.room world 0 in
          Room.make
-           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~thresholds:
+             (List.init
+                (Room.threshold_count before)
+                (Room.threshold_at before))
            ~floor:flat_floor ~ceiling:flat_ceiling
-           (Array.to_list before.Room.walls
+           (List.init (Room.wall_count before) (Room.wall_at before)
            @ [
                Room.wall ~height:3. ~material:pale (Vec.make 3. 1.)
                  (Vec.make 3. 3.);
@@ -287,9 +290,12 @@ let a_see_through_wall_does_not_occlude () =
       ~replacement:
         (let before = World.room world 0 in
          Room.make
-           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~thresholds:
+             (List.init
+                (Room.threshold_count before)
+                (Room.threshold_at before))
            ~floor:flat_floor ~ceiling:flat_ceiling
-           (Array.to_list before.Room.walls
+           (List.init (Room.wall_count before) (Room.wall_at before)
            @ [
                Room.wall ~height:3. ~material:mesh (Vec.make 3. 1.)
                  (Vec.make 3. 3.);
@@ -433,9 +439,12 @@ let a_decal_on_a_see_through_wall_is_picked () =
       ~replacement:
         (let before = World.room plain 0 in
          Room.make
-           ~thresholds:(Array.to_list before.Room.thresholds)
+           ~thresholds:
+             (List.init
+                (Room.threshold_count before)
+                (Room.threshold_at before))
            ~floor:flat_floor ~ceiling:flat_ceiling
-           (Array.to_list before.Room.walls
+           (List.init (Room.wall_count before) (Room.wall_at before)
            @ [
                Room.wall ~height:3. ~material:mesh ~decals (Vec.make 3. 1.)
                  (Vec.make 3. 3.);
@@ -501,7 +510,7 @@ let a_wall_can_be_marked_where_the_crosshair_is () =
       (* From the other face of that wall there is nothing to find. The wall
          here is a room boundary, so getting behind it means asking Room
          directly — which is the same question the renderer asks. *)
-      let wall = (World.room marked room).Room.walls.(w.index) in
+      let wall = Room.wall_at (World.room marked room) w.index in
       let behind = if w.facing = Room.Front then Room.Back else Room.Front in
       Alcotest.(check (option int))
         "and nothing of it from behind" None
@@ -525,7 +534,7 @@ let a_target_can_be_found_on_the_screen () =
             (Plane.elevation flat_floor.Room.plane centre +. Config.eye_height)
           ~width:640 ~height:400
       in
-      let sprite = (World.room world room).Room.sprites.(s.index) in
+      let sprite = Room.sprite_at (World.room world room) s.index in
       let left, top, right, bottom =
         Viewport.sprite_box viewport pose
           ~floor_z:(Plane.elevation flat_floor.Room.plane sprite.Room.pos)

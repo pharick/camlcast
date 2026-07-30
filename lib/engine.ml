@@ -250,14 +250,18 @@ let run window (game : 'a game) state =
   ignore (Input.mouse_delta ());
   loop window game ~state ~actions ~previous:(Clock.now ())
 
-let run_world window ?(extend = fun world _ -> world)
+let grow ?(extend = fun world _ -> world) world player motion =
+  let moved = move world player motion in
+  let player = moved.Player.player in
+  (* Once, on the whole frame. Every frame that crosses nothing is a look at an
+     empty list, which is almost all of them; a frame that crosses several is
+     still one look and one call, with the pose it finished in. *)
+  ((if Player.crossed moved then extend world player else world), player)
+
+let run_world window ?extend
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) world =
   let update (world, player) ~dt:_ ~motion ~actions:_ =
-    let moved = move world player motion in
-    let player = moved.Player.player in
-    (* Every frame that crosses nothing is a look at an empty list, which is
-       almost all of them. *)
-    ((if Player.crossed moved then extend world player else world), player)
+    grow ?extend world player motion
   in
   let+ _, ending =
     run window

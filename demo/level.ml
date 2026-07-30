@@ -374,7 +374,9 @@ let mote ~t k =
     it: hand it only the motes and the figure standing down there disappears,
     which looks like a fault in the renderer rather than a fault here. The
     {!Dust} demo never meets this, its chamber having nothing else in it. *)
-let cellar_sprites = Array.to_list (World.room default cellar_room).Room.sprites
+let cellar_sprites =
+  let here = World.room default cellar_room in
+  List.init (Room.sprite_count here) (Room.sprite_at here)
 
 let dusty world ~t =
   World.replace_room world ~room:cellar_room
@@ -424,7 +426,9 @@ let update state ~dt ~motion ~actions =
   | true, Some threshold ->
       let next =
         match
-          (World.room state.world player.Player.room).Room.thresholds.(threshold)
+          (Room.threshold_at
+             (World.room state.world player.Player.room)
+             threshold)
             .Room.door
         with
         | Some { Door.state = Door.Closed; _ } -> Door.Open

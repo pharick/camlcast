@@ -176,7 +176,7 @@ let ringed fb (state : t) (seen : Sight.t option) =
   let viewport =
     Viewport.make ~pitch:state.player.Player.pitch
       ~eye_z:
-        (Plane.elevation here.Room.floor.Room.plane state.player.Player.pos
+        (Plane.elevation (Room.floor_plane here) state.player.Player.pos
         +. Config.eye_height)
       ~width:fb.Framebuffer.width ~height:fb.Framebuffer.height
   in
@@ -184,17 +184,17 @@ let ringed fb (state : t) (seen : Sight.t option) =
   match seen with
   | Some { Sight.kind = Sight.Sprite s; room; pose; distance; _ } ->
       let there = World.room world room in
-      let sprite = there.Room.sprites.(s.index) in
+      let sprite = Room.sprite_at there s.index in
       let left, top, right, bottom =
         Viewport.sprite_box viewport pose
-          ~floor_z:(Plane.elevation there.Room.floor.Room.plane sprite.Room.pos)
+          ~floor_z:(Plane.elevation (Room.floor_plane there) sprite.Room.pos)
           ~distance sprite
       in
       Some [ (left, top); (right, top); (right, bottom); (left, bottom) ]
   | Some { Sight.kind = Sight.Wall { index; decal = Some d; _ }; room; pose; _ }
     ->
       let there = World.room world room in
-      let wall = there.Room.walls.(index) in
+      let wall = Room.wall_at there index in
       let decal = List.nth wall.Room.decals d in
       (* Where along the wall the picture starts and stops, as points on it. *)
       let at along =
@@ -206,7 +206,7 @@ let ringed fb (state : t) (seen : Sight.t option) =
       (* A decal hangs above the floor under the wall, so on a sloped one its
          two ends are at different elevations — measured at each end, not once. *)
       let corner point up =
-        let foot = Plane.elevation there.Room.floor.Room.plane point in
+        let foot = Plane.elevation (Room.floor_plane there) point in
         Viewport.project_point viewport pose ~point
           ~z:(foot +. decal.Room.z +. (up *. decal.Room.half_height))
       in

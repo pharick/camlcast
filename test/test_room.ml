@@ -78,9 +78,9 @@ let front_is_the_side_the_normal_points_to () =
      counter-clockwise, and its centre is at the front of every one of them. *)
   Alcotest.(check bool)
     "the inside of a counter-clockwise room is Front of all four walls" true
-    (Array.for_all
+    (List.for_all
        (fun w -> Room.side_of w centre = Room.Front)
-       room.Room.walls);
+       (List.init (Room.wall_count room) (Room.wall_at room)));
   (* Which is what makes [Front] the right default: it is where you stand. *)
   Alcotest.(check bool)
     "and a decal says so unless told otherwise" true
@@ -120,7 +120,7 @@ let a_decal_is_only_on_the_face_it_was_drawn_on () =
 let a_decal_can_be_added_to_a_wall () =
   let before =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
-      (Array.to_list room.Room.walls)
+      (List.init (Room.wall_count room) (Room.wall_at room))
   in
   let mark along =
     Room.decal ~along ~z:1.2 ~half_width:0.3 ~half_height:0.3 poster
@@ -129,29 +129,29 @@ let a_decal_can_be_added_to_a_wall () =
   let twice = Room.add_decal after ~wall:1 (mark 3.) in
   Alcotest.(check int)
     "the wall asked for has it" 1
-    (List.length after.Room.walls.(1).Room.decals);
+    (List.length (Room.wall_at after 1).Room.decals);
   Alcotest.(check int)
     "and no other wall does" 0
-    (List.length after.Room.walls.(0).Room.decals);
+    (List.length (Room.wall_at after 0).Room.decals);
   Alcotest.(check int)
     "a second goes on too" 2
-    (List.length twice.Room.walls.(1).Room.decals);
+    (List.length (Room.wall_at twice 1).Room.decals);
   Alcotest.check close "and on the end, which is the top of the pile" 3.
-    (List.nth twice.Room.walls.(1).Room.decals 1).Room.along;
+    (List.nth (Room.wall_at twice 1).Room.decals 1).Room.along;
   (* Nothing else is rebuilt: the other three walls are the very same values,
      and the room it came from never gained anything. *)
   Alcotest.(check bool)
     "the untouched walls are the same values" true
-    (after.Room.walls.(0) == before.Room.walls.(0)
-    && after.Room.walls.(2) == before.Room.walls.(2)
-    && after.Room.walls.(3) == before.Room.walls.(3));
+    (Room.wall_at after 0 == Room.wall_at before 0
+    && Room.wall_at after 2 == Room.wall_at before 2
+    && Room.wall_at after 3 == Room.wall_at before 3);
   Alcotest.(check bool)
     "and both planes" true
-    (after.Room.floor == before.Room.floor
-    && after.Room.ceiling == before.Room.ceiling);
+    (Room.floor_surface after == Room.floor_surface before
+    && Room.ceiling after == Room.ceiling before);
   Alcotest.(check int)
     "the room it was added to is unchanged" 0
-    (List.length before.Room.walls.(1).Room.decals)
+    (List.length (Room.wall_at before 1).Room.decals)
 
 (* The sprite half of the same idea. [sprite_column] and [sprite_row] are what
    Viewport.sprite_box is built from and what Sight.touches asks, so they are
@@ -219,7 +219,7 @@ let replacing_the_sprites_keeps_the_rest () =
   let before =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
       ~sprites:[ Room.sprite ~size:1. ~image (Vec.make 1. 1.) ]
-      (Array.to_list room.Room.walls)
+      (List.init (Room.wall_count room) (Room.wall_at room))
   in
   let after =
     Room.with_sprites before
@@ -228,24 +228,28 @@ let replacing_the_sprites_keeps_the_rest () =
         Room.sprite ~size:1. ~image (Vec.make 2. 2.);
       ]
   in
-  Alcotest.(check int)
-    "the new sprites are there" 2
-    (Array.length after.Room.sprites);
+  Alcotest.(check int) "the new sprites are there" 2 (Room.sprite_count after);
   Alcotest.check close "and are the ones asked for" 2.
-    after.Room.sprites.(0).Room.base;
+    (Room.sprite_at after 0).Room.base;
+  (* The walls are the very same values, one by one — which is what sharing
+     means from outside, the array itself no longer being anybody's to compare.
+     A [with_sprites] that rebuilt them would cost a {!Room.wall} per wall per
+     frame, each one normalizing a vector to arrive back where it started. *)
   Alcotest.(check bool)
-    "the walls are the very same array" true
-    (after.Room.walls == before.Room.walls);
-  Alcotest.(check bool)
-    "so are the thresholds" true
-    (after.Room.thresholds == before.Room.thresholds);
+    "the walls are the very same values" true
+    (Room.wall_count after = Room.wall_count before
+    && List.for_all
+         (fun i -> Room.wall_at after i == Room.wall_at before i)
+         (List.init (Room.wall_count after) Fun.id));
+  Alcotest.(check int)
+    "and so are the thresholds, there being none either way" 0
+    (Room.threshold_count after + Room.threshold_count before);
   Alcotest.(check bool)
     "and both planes" true
-    (after.Room.floor == before.Room.floor
-    && after.Room.ceiling == before.Room.ceiling);
+    (Room.floor_surface after == Room.floor_surface before
+    && Room.ceiling after == Room.ceiling before);
   Alcotest.(check int)
-    "the room it came from is untouched" 1
-    (Array.length before.Room.sprites)
+    "the room it came from is untouched" 1 (Room.sprite_count before)
 
 let distance_to_a_wall () =
   let w =
@@ -410,6 +414,20 @@ let a_doorway_that_could_not_be_cut_is_refused () =
     "Room.doorway: wider than the wall it is cut into: gate"
     (cut ~width:5. (Vec.make 0. 0.) (Vec.make 4. 0.))
 
+(* A doorway exactly as wide as the wall it is cut into is allowed — a whole
+   side of a room that is one opening — and leaves nothing standing either side
+   of it. Those ends are dropped rather than handed back as walls of no length,
+   which {!Room.wall} refuses. *)
+let a_doorway_as_wide_as_its_wall_leaves_no_jamb () =
+  let jambs, t =
+    Room.doorway ~name:"whole" ~width:4. ~opening:2. ~height:3. ~material:pale
+      (Vec.make 0. 0.) (Vec.make 4. 0.)
+  in
+  Alcotest.(check int) "no jamb is left standing" 0 (List.length jambs);
+  Alcotest.check close "the opening is the whole wall" 4. t.Room.length;
+  Alcotest.check vec "from one end of it" (Vec.make 0. 0.) t.Room.a;
+  Alcotest.check vec "to the other" (Vec.make 4. 0.) t.Room.b
+
 (* The same argument as the doorway above, one type down. A decal of no width
    and a sprite of no size both survive being written and both fail later,
    inside a frame: {!Room.decal_column} divides by twice the half width,
@@ -506,21 +524,27 @@ let with_thresholds_keeps_a_copy () =
     Room.make ~thresholds:[ threshold ] ~floor:flat_floor ~ceiling:flat_ceiling
       jambs
   in
-  let handed = Array.copy before.Room.thresholds in
+  let handed =
+    Array.init (Room.threshold_count before) (Room.threshold_at before)
+  in
   let after = Room.with_thresholds before handed in
-  Alcotest.(check bool)
-    "the room did not keep the array it was given" true
-    (after.Room.thresholds != handed);
+  (* The room being abstract is what puts its own array out of reach; what this
+     has to show is the other half, that the one handed in was not adopted.
+     Writing into it afterwards is the whole test, and a sharper one than
+     comparing the two arrays would have been. *)
   handed.(0) <-
     snd
       (Room.doorway ~name:"elsewhere" ~width:1. ~opening:2. ~height:3.
          ~material:pale (Vec.make 0. 4.) (Vec.make 4. 4.));
   Alcotest.(check string)
-    "so writing into it afterwards changes nothing" "gate"
-    after.Room.thresholds.(0).Room.name;
+    "writing into the array afterwards changes nothing" "gate"
+    (Room.threshold_at after 0).Room.name;
   Alcotest.(check bool)
     "the walls are still shared, as everything unreplaced is" true
-    (after.Room.walls == before.Room.walls)
+    (Room.wall_count after = Room.wall_count before
+    && List.for_all
+         (fun i -> Room.wall_at after i == Room.wall_at before i)
+         (List.init (Room.wall_count after) Fun.id))
 
 (* The constructors and the accessors are two ends of the same statement: what
    goes in through [floor]/[roof]/[open_sky] is what comes back out of the
@@ -595,6 +619,91 @@ let a_flat_rectangle_is_refused () =
   raises "no height" (Vec.make 3. 0.);
   raises "no extent at all" (Vec.make 0. 0.);
   raises "a nan corner" (Vec.make Float.nan 2.)
+
+(* A wall between two points that are the same has a normal [Vec.normalize]
+   could not scale, and it hands one it cannot scale straight back — so the
+   normal is neither a unit vector nor perpendicular to anything, which is what
+   [side_of] and [Atmosphere.face_shading] read. Nothing downstream objects
+   either: [Ray.cast] finds no intersection with an edge of no length, so the
+   wall is invisible, while [distance_to_wall] degrades to a point and blocks
+   whoever walks into it. A threshold is the same mistake with more resting on
+   it, its normal being what [Transform.between] turns into a portal's frame
+   change. Both tests are the negation of the passing condition, so an end that
+   is [nan] or infinite fails with the coincident ones — a length folds every
+   bad coordinate into one number. *)
+let a_wall_or_threshold_with_no_length_is_refused () =
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let wall a b () = ignore (Room.wall ~height:3. ~material:pale a b) in
+  let threshold a b () = ignore (Room.threshold ~name:"gate" ~height:2. a b) in
+  let no_length = "Room.wall: the two ends have to be apart" in
+  raises "the same point twice" no_length
+    (wall (Vec.make 2. 2.) (Vec.make 2. 2.));
+  raises "a nan end" no_length (wall (Vec.make 0. 0.) (Vec.make Float.nan 1.));
+  raises "an infinite end" no_length
+    (wall (Vec.make 0. 0.) (Vec.make Float.infinity 1.));
+  let no_length = "Room.threshold: the two ends have to be apart: gate" in
+  raises "a threshold of no length" no_length
+    (threshold (Vec.make 2. 2.) (Vec.make 2. 2.));
+  raises "a threshold with a nan end" no_length
+    (threshold (Vec.make 0. 0.) (Vec.make 0. Float.nan))
+
+(* Shutting a closed loop by repeating the first point at the end is the natural
+   way to write one down, and exactly the mistake: [closed] already joins them,
+   so the repeated pair is a wall of no length. Refused under [path]'s own name
+   rather than left to [wall], because the wall it would have built is one the
+   caller never wrote. *)
+let a_path_that_stands_still_is_refused () =
+  let raises what ~closed points =
+    Alcotest.check_raises what
+      (Invalid_argument "Room.path: two points in a row are the same")
+      (fun () -> ignore (Room.path ~closed ~height:1. ~material:pale points))
+  in
+  let a = Vec.make 0. 0. and b = Vec.make 1. 0. and c = Vec.make 1. 1. in
+  raises "a point repeated in the middle" ~closed:false [ a; b; b; c ];
+  raises "a closed loop shut by hand" ~closed:true [ a; b; c; a ];
+  raises "the wrap of a closed run" ~closed:true [ a; b; c; c ];
+  raises "a nan point" ~closed:false [ a; Vec.make Float.nan 0.; c ];
+  Alcotest.check_raises "a closed run of two points"
+    (Invalid_argument
+       "Room.path: a closed path has to have at least three points") (fun () ->
+      ignore (Room.path ~closed:true ~height:1. ~material:pale [ a; b ]));
+  Alcotest.(check int)
+    "an open run too short to have a wall in it is empty" 0
+    (List.length (Room.path ~height:1. ~material:pale [ a ]))
+
+(* Two sides are a pair of coincident walls wound against each other, one is a
+   wall of no length, none is a room with no boundary at all, and a negative
+   count would reach [List.init] and be refused under its name rather than this
+   one. A radius of nothing stacks every side on the center. All four are the
+   negation of what would pass, so a [nan] argument fails with the flat ones. *)
+let a_polygon_that_is_not_one_is_refused () =
+  let polygon ?(center = Vec.make 0. 0.) ?(radius = 2.) ?(sides = 6)
+      ?(rotation = 0.) () =
+   fun () ->
+    ignore
+      (Room.regular_polygon ~center ~radius ~sides ~rotation ~height:3.
+         ~material:pale)
+  in
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let too_few =
+    "Room.regular_polygon: a polygon has to have at least three sides"
+  in
+  raises "two sides" too_few (polygon ~sides:2 ());
+  raises "one side" too_few (polygon ~sides:1 ());
+  raises "no sides" too_few (polygon ~sides:0 ());
+  raises "fewer than none" too_few (polygon ~sides:(-1) ());
+  let no_radius = "Room.regular_polygon: a polygon has to have a radius" in
+  raises "no radius" no_radius (polygon ~radius:0. ());
+  raises "a nan radius" no_radius (polygon ~radius:Float.nan ());
+  raises "a nan rotation"
+    "Room.regular_polygon: the rotation has to be a number"
+    (polygon ~rotation:Float.nan ());
+  raises "a nan center" "Room.regular_polygon: the center has to be a point"
+    (polygon ~center:(Vec.make Float.nan 0.) ())
 
 (* [across] is [Transform.between] with the endpoint pairing already right —
    the same pairing {!World.make} uses for a link, which is the fact a game
@@ -721,6 +830,12 @@ let () =
           case "a rectangle is wound inward from either corner pair"
             a_rectangle_is_wound_inward_from_either_corner_pair;
           case "a flat rectangle is refused" a_flat_rectangle_is_refused;
+          case "a wall or threshold with no length is refused"
+            a_wall_or_threshold_with_no_length_is_refused;
+          case "a path that stands still is refused"
+            a_path_that_stands_still_is_refused;
+          case "a polygon that is not one is refused"
+            a_polygon_that_is_not_one_is_refused;
         ] );
       ( "bounds",
         [
@@ -733,6 +848,8 @@ let () =
             a_doorway_splits_the_wall_it_is_cut_into;
           case "a doorway that could not be cut is refused"
             a_doorway_that_could_not_be_cut_is_refused;
+          case "a doorway as wide as its wall leaves no jamb"
+            a_doorway_as_wide_as_its_wall_leaves_no_jamb;
           case "a doorway can hang a door" a_doorway_can_hang_a_door;
           case "with_thresholds keeps a copy" with_thresholds_keeps_a_copy;
           case "a door's state decides what is seen and what is felt"

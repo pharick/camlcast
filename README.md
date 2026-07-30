@@ -181,8 +181,8 @@ let () = ignore (Engine.with_window (fun window -> Engine.run_world window world
 `Engine.with_window` opens the window and closes it again when the function it
 is given is done with it. `Engine.run_world` is the loop over the only state the
 engine holds by itself: a world and the player walking it, plus an optional
-`extend : World.t -> Player.t -> World.t` called whenever the player goes
-through a doorway. A game that keeps anything else — phases, doors, a journal, a
+`extend : World.t -> Player.t -> World.t` called once on any frame the player
+went through a doorway on, with where they ended up. A game that keeps anything else — phases, doors, a journal, a
 score, a random seed — uses `Engine.run` instead, which runs a state of whatever
 type it likes and asks six things of it: `update`, `view`, `overlay`,
 `pointing`, `finished` and `bindings` — the last being what the player's

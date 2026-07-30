@@ -242,7 +242,7 @@ let hash = Texture.hash
    paler brick — which is the whole reason a texel carries a colour. *)
 let brick ~color ~mortar ~u ~v =
   let course = v / 16 in
-  let u = (u + if course land 1 = 0 then 0 else 16) mod Texture.size in
+  let u = (u + if course land 1 = 0 then 0 else 16) mod Texture.default_size in
   if v mod 16 < 2 || u mod 32 < 2 then Color.level mortar 210
   else Color.level color (225 + (hash (u / 32) course mod 30))
 
@@ -662,7 +662,7 @@ let bars ~color ~u ~v =
 
 (* Solid lead, translucent panes: alpha 80 rather than 0 or 255. *)
 let glass ~lead ~pane ~u ~v =
-  let size = Texture.size in
+  let size = Texture.default_size in
   let mullion =
     u < 2 || u >= size - 2 || v < 2 || v >= size - 2
     || abs (u - (size / 2)) < 2
@@ -1187,9 +1187,11 @@ Between cutting a doorway and linking it, the doorway leads nowhere: the rendere
 fills it with haze and collision treats it as solid. {b A half-built world is a
 playable one}, rather than a crash waiting for someone to walk towards it.
 
-The [extend] hook runs whenever the player goes {e through} a doorway — not every
-frame, so a generator may take its time — and returns the world to draw from now
-on:
+The [extend] hook runs on a frame the player went {e through} a doorway on — not
+every frame, so a generator may take its time — and returns the world to draw
+from now on. Once per such frame rather than once per doorway: a fast step can
+cross several, and what the hook is handed is the room the player finished in,
+which is the one to build ahead of.
 
 {@ocaml[
 let rec build world ~room ~ahead =

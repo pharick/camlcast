@@ -185,6 +185,46 @@ let a_round_trip_still_grows () =
   Alcotest.(check bool)
     "so the world is grown all the same" true (Player.crossed moved)
 
+(* And it is grown {e once}, which is the half [Player.crossed] being a boolean
+   already implies and nothing asserted. A step is clipped at each opening and
+   the rest of it carried through, up to [Config.max_crossings_per_step] times
+   per axis, so a frame can go through several doorways — and a generator hears
+   about that frame once, with the pose it finished in. Building ahead of where
+   the player now stands covers every room they passed through on the way, the
+   renderer looking no deeper from there either; calling per doorway would ask
+   for the same rooms over again with the same pose each time. *)
+let extend_runs_once_a_frame_however_many_it_crossed () =
+  let calls = ref 0 and asked = ref [] in
+  let extend world (p : Player.t) =
+    incr calls;
+    asked := p.Player.room :: !asked;
+    world
+  in
+  (* The round trip above, taken as a frame rather than a raw slide: facing
+     along it so that [forward] alone is the step, since [Player.traverse]
+     clamps a delta made of both to the longer of the two and would reshape it
+     into something else. *)
+  let leg = Vec.make 4. 2.5 in
+  let start =
+    Player.make ~room:0 ~pos:centre ~angle:(Float.atan2 leg.Vec.y leg.Vec.x)
+  in
+  let far = { Input.still with Input.forward = Vec.length leg } in
+  let moved = Engine.move loop start far in
+  Alcotest.(check bool)
+    "the frame goes through more than one doorway" true
+    (List.length moved.Player.crossings > 1);
+  let _, after = Engine.grow ~extend loop start far in
+  Alcotest.(check int)
+    "the generator is asked once, not once per doorway" 1 !calls;
+  Alcotest.(check int)
+    "and asked about the room the frame finished in" after.Player.room
+    (List.hd !asked);
+  (* And a frame that crossed nothing does not ask at all. *)
+  calls := 0;
+  ignore
+    (Engine.grow ~extend loop start { Input.still with Input.forward = 0.5 });
+  Alcotest.(check int) "a frame that crossed nothing asks nothing" 0 !calls
+
 let () =
   Alcotest.run "Engine"
     [
@@ -213,5 +253,7 @@ let () =
           case "a frame that crosses nothing does not grow"
             a_frame_that_crosses_nothing_does_not_grow;
           case "a round trip still grows" a_round_trip_still_grows;
+          case "extend runs once a frame however many it crossed"
+            extend_runs_once_a_frame_however_many_it_crossed;
         ] );
     ]

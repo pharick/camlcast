@@ -47,13 +47,13 @@ let door_state (t : Room.threshold) =
 (* Refuse two thresholds of one room sharing a name: no link could tell them
     apart, and {!link} resolves by name. *)
 let check_names ~who ~room name (r : Room.t) =
-  let seen = Hashtbl.create (Array.length r.Room.thresholds) in
-  Array.iter
-    (fun (t : Room.threshold) ->
-      if Hashtbl.mem seen t.Room.name then
-        invalid_arg (who ^ ": two thresholds named " ^ name ^ "." ^ t.Room.name);
-      Hashtbl.add seen t.Room.name ())
-    r.Room.thresholds;
+  let seen = Hashtbl.create (Room.threshold_count r) in
+  for i = 0 to Room.threshold_count r - 1 do
+    let (t : Room.threshold) = Room.threshold_at r i in
+    if Hashtbl.mem seen t.Room.name then
+      invalid_arg (who ^ ": two thresholds named " ^ name ^ "." ^ t.Room.name);
+    Hashtbl.add seen t.Room.name ()
+  done;
   ignore room
 
 (* Refuse two rooms of one world sharing a name, for the same reason as the
@@ -96,8 +96,10 @@ let check_room_names ~who names =
     given: written the other way round a threshold of length [nan] would be
     neither long enough to reject nor different enough from its twin to reject,
     and the world would be built out of a transform that was [nan] throughout.
-    {!Room.doorway} refuses the degenerate wall such a threshold comes from, and
-    this catches one built any other way. {!Transform.between} refuses it a
+    {!Room.doorway} refuses the degenerate wall such a threshold comes from and
+    {!Room.threshold} refuses one built by hand, so what reaches here is always
+    a positive finite number; what this adds is [epsilon], a length too small to
+    be a doorway rather than no length at all. {!Transform.between} refuses it a
     third time, on its own account: a length of zero is the one thing that would
     let it hand back something that was not a rotation, so it does not rely on
     being called from here. What is only checked here is the {e agreement}
@@ -138,21 +140,22 @@ let make ~rooms ~links ~atmosphere ~spawn =
     (fun room r -> check_names ~who:"World.make" ~room names.(room) r)
     values;
   let find_threshold room name =
-    let thresholds = values.(room).Room.thresholds in
-    match
-      Array.find_index
-        (fun (t : Room.threshold) -> String.equal t.name name)
-        thresholds
-    with
-    | Some index -> (index, thresholds.(index))
-    | None -> invalid_arg ("World.make: no threshold " ^ describe room name)
+    let r = values.(room) in
+    let rec search index =
+      if index >= Room.threshold_count r then
+        invalid_arg ("World.make: no threshold " ^ describe room name)
+      else
+        let (t : Room.threshold) = Room.threshold_at r index in
+        if String.equal t.Room.name name then (index, t) else search (index + 1)
+    in
+    search 0
   in
   (* One slot per threshold, filled as the links are read: a slot filled twice
      is a threshold linked twice, and one left empty is a threshold linked to
      nothing. *)
   let slots =
     Array.map
-      (fun (r : Room.t) -> Array.make (Array.length r.thresholds) None)
+      (fun (r : Room.t) -> Array.make (Room.threshold_count r) None)
       values
   in
   let fill room index name portal =
@@ -178,9 +181,10 @@ let make ~rooms ~links ~atmosphere ~spawn =
       Array.iteri (fun index -> function
         | Some _ -> ()
         | None ->
-            let t = values.(room).Room.thresholds.(index) in
+            let t = Room.threshold_at values.(room) index in
             invalid_arg
-              ("World.make: nothing links threshold " ^ describe room t.name)))
+              ("World.make: nothing links threshold "
+             ^ describe room t.Room.name)))
     slots;
   let spawn_room, spawn_pos = spawn in
   {
@@ -204,21 +208,21 @@ let same_opening (x : Room.threshold) (y : Room.threshold) =
 
 let open_doorway t ~room ~opened =
   let before = t.rooms.(room) in
-  let n = Array.length before.Room.thresholds in
+  let n = Room.threshold_count before in
   let where = t.names.(room) in
-  if Array.length opened.Room.thresholds <> n + 1 then
+  if Room.threshold_count opened <> n + 1 then
     invalid_arg
       (Printf.sprintf
          "World.open_doorway: %s must gain exactly one threshold, from %d to %d"
          where n
-         (Array.length opened.Room.thresholds));
-  Array.iteri
-    (fun i (t : Room.threshold) ->
-      if i < n && not (same_opening t before.Room.thresholds.(i)) then
-        invalid_arg
-          ("World.open_doorway: " ^ where ^ " moved its existing threshold "
-         ^ t.Room.name))
-    opened.Room.thresholds;
+         (Room.threshold_count opened));
+  for i = 0 to n - 1 do
+    let (x : Room.threshold) = Room.threshold_at opened i in
+    if not (same_opening x (Room.threshold_at before i)) then
+      invalid_arg
+        ("World.open_doorway: " ^ where ^ " moved its existing threshold "
+       ^ x.Room.name)
+  done;
   check_names ~who:"World.open_doorway" ~room where opened;
   let rooms = Array.copy t.rooms and portals = Array.copy t.portals in
   rooms.(room) <- opened;
@@ -234,22 +238,21 @@ let add_room t ~name room =
       rooms = Array.append t.rooms [| room |];
       names = Array.append t.names [| name |];
       portals =
-        Array.append t.portals
-          [| Array.make (Array.length room.Room.thresholds) None |];
+        Array.append t.portals [| Array.make (Room.threshold_count room) None |];
     },
     Array.length t.rooms )
 
 let link t (room_a, name_a) (room_b, name_b) =
   let find room name =
-    let thresholds = t.rooms.(room).Room.thresholds in
-    match
-      Array.find_index
-        (fun (x : Room.threshold) -> String.equal x.Room.name name)
-        thresholds
-    with
-    | Some index -> (index, thresholds.(index))
-    | None ->
+    let r = t.rooms.(room) in
+    let rec search index =
+      if index >= Room.threshold_count r then
         invalid_arg ("World.link: no threshold " ^ t.names.(room) ^ "." ^ name)
+      else
+        let (x : Room.threshold) = Room.threshold_at r index in
+        if String.equal x.Room.name name then (index, x) else search (index + 1)
+    in
+    search 0
   in
   let describe room (x : Room.threshold) = t.names.(room) ^ "." ^ x.Room.name in
   let ja, a = find room_a name_a and jb, b = find room_b name_b in
@@ -277,21 +280,21 @@ let link t (room_a, name_a) (room_b, name_b) =
 
 let replace_room t ~room ~replacement =
   let before = t.rooms.(room) in
-  let n = Array.length before.Room.thresholds in
+  let n = Room.threshold_count before in
   let where = t.names.(room) in
-  if Array.length replacement.Room.thresholds <> n then
+  if Room.threshold_count replacement <> n then
     invalid_arg
       (Printf.sprintf
          "World.replace_room: %s has %d thresholds and its replacement has %d"
          where n
-         (Array.length replacement.Room.thresholds));
-  Array.iteri
-    (fun i (x : Room.threshold) ->
-      if not (same_opening x before.Room.thresholds.(i)) then
-        invalid_arg
-          ("World.replace_room: " ^ where ^ " moved or reordered its threshold "
-         ^ x.Room.name))
-    replacement.Room.thresholds;
+         (Room.threshold_count replacement));
+  for i = 0 to n - 1 do
+    let (x : Room.threshold) = Room.threshold_at replacement i in
+    if not (same_opening x (Room.threshold_at before i)) then
+      invalid_arg
+        ("World.replace_room: " ^ where ^ " moved or reordered its threshold "
+       ^ x.Room.name)
+  done;
   let rooms = Array.copy t.rooms in
   rooms.(room) <- replacement;
   { t with rooms }
@@ -299,18 +302,20 @@ let replace_room t ~room ~replacement =
 let set_door t ~room ~threshold state =
   let hang world ~room ~threshold =
     let before = world.rooms.(room) in
-    if threshold < 0 || threshold >= Array.length before.Room.thresholds then
+    if threshold < 0 || threshold >= Room.threshold_count before then
       invalid_arg
         (Printf.sprintf "World.set_door: %s has no threshold %d"
            world.names.(room) threshold);
-    let x = before.Room.thresholds.(threshold) in
+    let x = Room.threshold_at before threshold in
     match x.Room.door with
     | None ->
         invalid_arg
           ("World.set_door: no door hangs in " ^ world.names.(room) ^ "."
          ^ x.Room.name)
     | Some door ->
-        let thresholds = Array.copy before.Room.thresholds in
+        let thresholds =
+          Array.init (Room.threshold_count before) (Room.threshold_at before)
+        in
         thresholds.(threshold) <-
           Room.with_door x (Some (Door.set_state door state));
         (* Through {!replace_room}, so that a door changed here is held to the
@@ -333,7 +338,7 @@ let check t =
       Array.iteri
         (fun index -> function
           | None ->
-              let x = t.rooms.(room).Room.thresholds.(index) in
+              let x = Room.threshold_at t.rooms.(room) index in
               invalid_arg
                 ("World.check: nothing links threshold " ^ t.names.(room) ^ "."
                ^ x.Room.name)
@@ -348,19 +353,16 @@ let check t =
               | _ ->
                   invalid_arg
                     ("World.check: twin does not lead back: " ^ describe));
+              let mine = Room.threshold_at t.rooms.(room) index in
               if
-                door_state t.rooms.(room).Room.thresholds.(index)
+                door_state mine
                 <> door_state
-                     t.rooms.(portal.to_room).Room.thresholds.(portal.twin)
+                     (Room.threshold_at t.rooms.(portal.to_room) portal.twin)
               then
                 invalid_arg
                   ("World.check: linked thresholds disagree about a door: "
                  ^ describe);
-              if
-                not
-                  (same_opening portal.threshold
-                     t.rooms.(room).Room.thresholds.(index))
-              then
+              if not (same_opening portal.threshold mine) then
                 invalid_arg
                   ("World.check: portal and threshold disagree: " ^ describe))
         row)
@@ -422,8 +424,8 @@ let passable t ~room:index ~from ~dest =
       | Some portal -> (not (near threshold)) || beyond portal threshold
   in
   let rec every j =
-    j >= Array.length here.Room.thresholds
-    || (clear j here.Room.thresholds.(j) && every (j + 1))
+    j >= Room.threshold_count here
+    || (clear j (Room.threshold_at here j) && every (j + 1))
   in
   Room.passable here ~from ~dest && every 0
 

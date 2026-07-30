@@ -142,13 +142,23 @@ val run_world :
     world says — {!Player.spawn}, which is the [~spawn] given to {!World.make} —
     since a bare world has nobody in it yet.
 
-    [extend] is called whenever the player goes through a doorway, with the
-    world and the player's new position, and returns the world to draw from now
+    [extend] is called on a frame the player went through a doorway on, with the
+    world and where the player ended up, and returns the world to draw from now
     on. Left out, the world never changes. A level that is generated as it is
     explored uses it to build far enough ahead that the player never sees the
     edge — {!Config.max_portal_depth} doorways, since that is exactly how deep
-    the renderer looks. It runs on a crossing and not per frame, so a generator
-    may take its time.
+    the renderer looks. It runs on a frame that crossed and not on every frame,
+    which is almost all of them, so a generator may take its time.
+
+    {b Once per frame, not once per doorway.} A single step can go through
+    several — {!Player.slide} clips its leg at each opening and carries the rest
+    of it through, up to {!Config.max_crossings_per_step} times per axis — and
+    all of them are one call, with the pose the player finished in and the room
+    they finished in. That is what a generator wants: building ahead of where
+    they now stand covers every room they passed through to get there, since the
+    renderer looks no deeper than [max_portal_depth] from there either. A game
+    that needs each crossing in turn — a trail of the way home, say — wants the
+    list itself, which is {!move}'s [crossings] and what [demo/trail.ml] uses.
 
     Going through a doorway is the one moment the horizon can have moved, and
     {!Player.crossed} is what says whether a frame did — not the room the player
@@ -183,6 +193,25 @@ val move : World.t -> Player.t -> Input.motion -> Player.movement
     {!Player.traverse} itself: it is a rule about a frame, and there should be
     one copy of it. Ask {!Player.crossed} of what comes back to know whether the
     frame went through a doorway. *)
+
+val grow :
+  ?extend:(World.t -> Player.t -> World.t) ->
+  World.t ->
+  Player.t ->
+  Input.motion ->
+  World.t * Player.t
+(** {!move} and then the growing rule: one frame of a world that builds itself,
+    the world and the player as they now are. This is exactly what
+    {!run_world}'s own [update] is, and it is here because a game that has
+    outgrown that wrapper — because it keeps a score, or doors, or a phase —
+    still wants the rule rather than a second copy of it, and because a rule
+    about a frame can then be driven through {!simulate} in a test with no
+    window open.
+
+    [extend] runs once on a frame that went through at least one doorway, and
+    not at all on one that went through none. Not once per doorway: a step can
+    clip its way through several, and the pose handed over is the one the frame
+    finished in. What that is worth is in {!run_world}. *)
 
 val simulate :
   'a game ->

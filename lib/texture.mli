@@ -55,38 +55,44 @@
     being testable — it is a pure function of [u] and [v] — and a loaded one has
     the advantage of having been drawn. *)
 
-val size : int
+val default_size : int
 (** Texels per side of a pattern that does not say otherwise: what the
     generators below make when they are not told, and what every pattern in the
     engine's own demos is. A power of two, and small enough that the whole set
     stays comfortably in cache. *)
 
-type t = private {
-  size : int;  (** texels per side, and so per world unit of surface *)
-  texels : Color.t array;  (** row major *)
-  alpha : int array;  (** row major, opacity 0 (clear) .. 255 (solid) *)
-  opaque : bool;  (** whether every texel is fully solid *)
-}
+type t
 (** A built pattern: how densely it is written down, its colour and its opacity
     at every texel of it, and whether any of that opacity is worth asking about.
 
-    Private rather than abstract, because the fields have to stay readable.
-    {!Renderer} reads [size] to work out how far down a strip each pixel of a
-    wall falls, and {!Material.opaque} reads [opaque] to decide whether that
-    wall is painted straight over the column or held back for the translucent
-    pass — both once per wall per column, so an accessor call in either place is
-    paid on every column of every frame.
+    Abstract, because two of the four things it holds are arrays, and a private
+    record would hand those out. A private record cannot be built by hand, which
+    is what makes {!generate}, {!generate_masked} and {!load} the only ways to
+    arrive at a pattern; it cannot stop a caller writing into an array it can
+    read. That is the difference between an invariant that holds of every
+    pattern and one that holds until somebody indexes it.
 
-    What private buys is the other half: {!generate}, {!generate_masked} and
-    {!load} become the only ways to arrive at one, so the invariants below hold
-    of every pattern that exists rather than of every pattern built the
-    recommended way. [size] is positive; [texels] and [alpha] are both exactly
-    [size * size] long and both row major, which is the one piece of arithmetic
-    {!val-sample} and {!val-alpha} do and the reason neither bounds-checks what
-    it is handed; and [opaque] agrees with [alpha], so a wall that says it is
-    solid is. A hand-written record of no size sends {!column_of_offset} to [-1]
-    — it clamps against [size - 1] — and every sample after it off the front of
-    an array that was never there. *)
+    The invariants are these. [size] is positive. The colour and the opacity are
+    both exactly [size * size] long and both row major, which is the one piece
+    of arithmetic {!sample} and {!alpha} do and the reason neither bounds-checks
+    what it is handed. And {!opaque} agrees with the opacity it is worked out
+    from, so a wall that says it is solid is — which is the one a writable array
+    would break in silence, leaving {!Renderer} painting a see-through wall
+    straight over its column and never reaching the translucent pass at all.
+
+    What it costs is a call where a field read used to be: {!Renderer} asks
+    {!val-size} to work out how far down a strip each pixel of a wall falls, and
+    {!Material.opaque} asks {!opaque} whether the wall is painted over the
+    column or held back, both once per wall per column. That is a call per
+    column of every frame and no allocation, which is affordable, and a pattern
+    that lies about being solid is not. *)
+
+val size : t -> int
+(** Texels per side, and so per world unit of surface. *)
+
+val opaque : t -> bool
+(** Whether every texel is fully solid — worked out when the pattern is built,
+    not asked of the texels here. *)
 
 val sample : t -> u:int -> v:int -> Color.t
 (** The colour of texel [(u, v)]. The caller has already clamped both into
@@ -113,7 +119,7 @@ val generate : ?size:int -> (u:int -> v:int -> Color.t) -> t
 val generate_masked : ?size:int -> (u:int -> v:int -> Color.t * int) -> t
 (** A pattern that can see through itself: [f] returns a colour {e and} an alpha
     for each texel, so a wall wearing it unveils whatever is behind. The alpha
-    is clamped alongside the colour, and [opaque] is worked out from what
+    is clamped alongside the colour, and {!opaque} is worked out from what
     arrives rather than taken on trust.
 
     @raise Invalid_argument

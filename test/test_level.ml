@@ -5,7 +5,7 @@ open Support
 let link = portal
 
 let ceiling_is_open (r : Room.t) =
-  match r.Room.ceiling with Room.Open _ -> true | Room.Roof _ -> false
+  match Room.ceiling r with Room.Open _ -> true | Room.Roof _ -> false
 
 (* Stepping through a doorway lands you behind the neighbour's own copy of it,
    so anything that then looks or walks forward meets that opening again
@@ -43,11 +43,11 @@ let the_default_world_is_playable () =
       Alcotest.(check bool)
         (World.name Level.default i ^ " is walled all round")
         true
-        (Array.length r.Room.walls >= 4))
+        (Room.wall_count r >= 4))
     (rooms Level.default);
   Alcotest.(check int)
     "the plaza's ring, pillars and furniture" 42
-    (Array.length (World.room Level.default 0).Room.walls)
+    (Room.wall_count (World.room Level.default 0))
 
 let the_default_world_is_connected () =
   let seen = Array.make (World.room_count Level.default) false in
@@ -85,17 +85,17 @@ let the_default_world_is_varied () =
     "and every door in the level stands open, so nothing is sealed off" true
     (List.for_all
        (fun (r : Room.t) ->
-         Array.for_all
+         List.for_all
            (fun (t : Room.threshold) -> not (Room.shut t))
-           r.Room.thresholds)
+           (List.init (Room.threshold_count r) (Room.threshold_at r)))
        all);
   Alcotest.(check bool)
     "every doorway knows the wall above it" true
     (List.for_all
        (fun (r : Room.t) ->
-         Array.for_all
+         List.for_all
            (fun (t : Room.threshold) -> t.Room.lintel <> None)
-           r.Room.thresholds)
+           (List.init (Room.threshold_count r) (Room.threshold_at r)))
        all);
   (* Doorways cut into three different sides of the plaza's ring, so the links
      are genuine rotations and not merely translations. *)
@@ -109,8 +109,8 @@ let the_default_world_is_varied () =
     "some room's floor is inclined" true
     (List.exists
        (fun (r : Room.t) ->
-         Plane.elevation r.Room.floor.Room.plane (Vec.make 0. 0.)
-         <> Plane.elevation r.Room.floor.Room.plane (Vec.make 1. 0.))
+         Plane.elevation (Room.floor_plane r) (Vec.make 0. 0.)
+         <> Plane.elevation (Room.floor_plane r) (Vec.make 1. 0.))
        all)
 
 (* The hall's cellar door is the one solid leaf in the level, and a leaf has to
@@ -122,7 +122,7 @@ let the_default_world_is_varied () =
 let the_cellar_door_can_be_walked_through () =
   let hall = 1 in
   let room = World.room Level.default hall in
-  let door = room.Room.thresholds.(1) in
+  let door = Room.threshold_at room 1 in
   Alcotest.(check string)
     "the second doorway of the hall" "cellar" door.Room.name;
   Alcotest.(check bool) "has a leaf hanging in it" true (door.Room.door <> None);

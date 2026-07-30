@@ -34,7 +34,7 @@ let is_walkable (demo : Catalogue.t) =
       Alcotest.(check bool)
         (World.name world i ^ " is walled all round")
         true
-        (Array.length room.Room.walls >= 3))
+        (Room.wall_count room >= 3))
     (rooms world)
 
 let is_consistent (demo : Catalogue.t) =
@@ -170,23 +170,27 @@ let the_loading_demo_reads_its_art () =
   let room = World.room world 0 in
   let pattern (w : Room.wall) = w.Room.material.Material.pattern in
   let sized n =
-    Array.exists (fun w -> (pattern w).Texture.size = n) room.Room.walls
+    List.exists
+      (fun w -> Texture.size (pattern w) = n)
+      (List.init (Room.wall_count room) (Room.wall_at room))
   in
   Alcotest.(check bool) "a 128-texel pattern came off the disk" true (sized 128);
   Alcotest.(check bool)
-    "beside a 64-texel generated one" true (sized Texture.size);
+    "beside a 64-texel generated one" true
+    (sized Texture.default_size);
   (* grille.png has square holes cut out of it, and nothing told Material so:
      the alpha came out of the file and Material.opaque read it. *)
   Alcotest.(check bool)
     "and a loaded pattern carries the alpha it was drawn with" true
-    (Array.exists
+    (List.exists
        (fun (w : Room.wall) ->
-         (pattern w).Texture.size = 64
+         Texture.size (pattern w) = 64
          && (not (Material.opaque w.Room.material))
          && w.Room.height = 2.6)
-       room.Room.walls);
+       (List.init (Room.wall_count room) (Room.wall_at room)));
   let decals =
-    Array.to_list room.Room.walls |> List.concat_map (fun w -> w.Room.decals)
+    List.init (Room.wall_count room) (Room.wall_at room)
+    |> List.concat_map (fun w -> w.Room.decals)
   in
   Alcotest.(check bool)
     "the poster is 96 x 64, and stayed that shape" true
@@ -199,7 +203,7 @@ let the_loading_demo_reads_its_art () =
     (List.exists
        (fun (s : Room.sprite) ->
          s.Room.image.Image.width = 96 && s.Room.image.Image.height = 96)
-       (Array.to_list room.Room.sprites))
+       (List.init (Room.sprite_count room) (Room.sprite_at room)))
 
 (* The floating demo is where a sprite leaves the floor and a billboard stops
    being square. Both are properties of the world it is built from, so both are
@@ -207,8 +211,12 @@ let the_loading_demo_reads_its_art () =
 let the_floating_demo_lifts_its_sprites () =
   let world = Floating.world in
   let sprites =
-    Array.to_list (World.room world 0).Room.sprites
-    @ Array.to_list (World.room world 1).Room.sprites
+    List.init
+      (Room.sprite_count (World.room world 0))
+      (Room.sprite_at (World.room world 0))
+    @ List.init
+        (Room.sprite_count (World.room world 1))
+        (Room.sprite_at (World.room world 1))
   in
   Alcotest.(check bool)
     "some of them float" true
@@ -254,7 +262,11 @@ let the_dust_demo_moves_without_making_anything () =
     fst (Dust.view { Dust.elapsed = t; player = Player.spawn Dust.world })
   in
   let early = at 0.4 and late = at 3.1 in
-  let sprites world = Array.to_list (World.room world 0).Room.sprites in
+  let sprites world =
+    List.init
+      (Room.sprite_count (World.room world 0))
+      (Room.sprite_at (World.room world 0))
+  in
   Alcotest.(check int) "every mote is there" 70 (List.length (sprites early));
   Alcotest.(check bool)
     "each one's picture came out of the precomputed strip" true
@@ -276,12 +288,15 @@ let the_dust_demo_moves_without_making_anything () =
   (* The geometry is shared, not rebuilt. *)
   let authored = World.room Dust.world 0 and moved = World.room late 0 in
   Alcotest.(check bool)
-    "the walls are the very same array" true
-    (moved.Room.walls == authored.Room.walls);
+    "the walls are the very same values" true
+    (Room.wall_count moved = Room.wall_count authored
+    && List.for_all
+         (fun i -> Room.wall_at moved i == Room.wall_at authored i)
+         (List.init (Room.wall_count moved) Fun.id));
   Alcotest.(check bool)
     "and both planes the very same values" true
-    (moved.Room.floor == authored.Room.floor
-    && moved.Room.ceiling == authored.Room.ceiling)
+    (Room.floor_surface moved == Room.floor_surface authored
+    && Room.ceiling moved == Room.ceiling authored)
 
 (* The chalk demo, driven the way a player drives it: stand somewhere, aim, and
    call the same {!Chalk.place} the C key calls. Every claim below is one §13.5
@@ -344,8 +359,12 @@ let the_chalk_demo_keeps_its_marks_through_a_rebuild () =
     "so not one wall of the room is the value it was" true
     (Array.for_all2
        (fun a b -> a != b)
-       (World.room (Chalk.dressed later) 0).Room.walls
-       (World.room (Chalk.dressed marked) 0).Room.walls);
+       (Array.init
+          (Room.wall_count (World.room (Chalk.dressed later) 0))
+          (Room.wall_at (World.room (Chalk.dressed later) 0)))
+       (Array.init
+          (Room.wall_count (World.room (Chalk.dressed marked) 0))
+          (Room.wall_at (World.room (Chalk.dressed marked) 0))));
   (* The lamp is two things. The materials are what force the rebuild above; the
      air is what reaches the chalk, since a decal is fogged like the wall it is
      on. A lamp that moved only the first would leave the marks bright in the
@@ -432,8 +451,9 @@ let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
   (* The lamp is the atmosphere and only the atmosphere: nothing about the room
      it lights depends on it. Two very different brightnesses, same materials. *)
   let hall_at t =
-    (World.room (Chalk.dressed { Chalk.start with Chalk.elapsed = t }) 0)
-      .Room.walls.(2)
+    (Room.wall_at
+       (World.room (Chalk.dressed { Chalk.start with Chalk.elapsed = t }) 0)
+       2)
       .Room.material
   in
   Alcotest.(check bool)
