@@ -290,8 +290,8 @@ let rectangle ~height ~material c1 c2 =
   (* Negated, so a nan corner is refused with the flat ones. *)
   if not (x0 < x1 && y0 < y1) then
     invalid_arg "Room.rectangle: the corners have to span an area";
-  (* Counterclockwise with y down, so every wall's normal faces inward,
-     whichever two opposite corners were given. *)
+  (* Wound per the Room winding rule so every wall's normal faces inward
+     (on the screen map with y down, this loop appears clockwise). *)
   path ~closed:true ~height ~material
     [ Vec.make x0 y0; Vec.make x1 y0; Vec.make x1 y1; Vec.make x0 y1 ]
 

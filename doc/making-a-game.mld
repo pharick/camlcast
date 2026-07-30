@@ -396,7 +396,7 @@ from [a] to [b], and hands back {b both} the two jambs left either side {b and}
 the threshold that fills the gap. Taking them together is what stops a boundary
 and its openings from drifting apart:
 
-With [ground] and [air] as in step 1, [brick] as in step 2, and [soffit] any
+With [ground] and [stone] as in step 1, [red] as in step 2, and [soffit] any
 material you like the ceiling in (the demos keep one by that name — the
 underside of a roof is a soffit):
 
@@ -413,12 +413,11 @@ let chamber () =
   and ne = Vec.make 3.5 9.
   and nw = Vec.make (-3.5) 9. in
   let jambs, back =
-    Room.doorway ~name:"back" ~width:2.6 ~opening:3. ~height ~material:brick
-      sw se
+    Room.doorway ~name:"back" ~width:2.6 ~opening:3. ~height ~material:red sw se
   in
   (* Partial application is the wall-list idiom: fix what the walls share,
      write only their endpoints. *)
-  let wall = Room.wall ~height ~material:brick in
+  let wall = Room.wall ~height ~material:red in
   Room.make ~thresholds:[ back ]
     ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:ground)
     ~ceiling:(Room.roof ~plane:(Plane.horizontal height) ~material:soffit)
@@ -452,7 +451,7 @@ let world =
     ~links:
       [ (("hub", "right"), ("east", "back"));
         (("hub", "left"), ("west", "back")) ]
-    ~atmosphere:air
+    ~atmosphere:Atmosphere.default
     ~spawn:("hub", Vec.make (-6.) 0.)
 ]}
 
