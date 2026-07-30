@@ -17,7 +17,19 @@ the world facing the player; and there is mouse look with pitch. The floor,
 ceiling and sky are cast per pixel by a small software renderer and the walls are
 painted over them back to front.
 
-This repository is the engine and the demos it is written against.
+This repository is the engine and the demos it is written against. Where to
+start depends on what you came for:
+
+- **Play the demos** — [Running](#running) below, or download a
+  [bundle](#bundles) and install nothing.
+- **Build a game on the engine** —
+  [Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html):
+  from an empty directory to a game, one feature at a time.
+- **Learn how a raycaster draws** —
+  [Building the engine from scratch](https://pharick.github.io/camlcast/building-the-engine.html):
+  the picture rebuilt by hand, every derivation written out.
+- **Hack on the engine itself** — [the modules](#the-engine-in-one-page),
+  [Tests](#tests), and [HACKING.md](HACKING.md).
 
 ## What it looks like
 
@@ -46,18 +58,40 @@ This repository is the engine and the demos it is written against.
 
 ## Running
 
+From a fresh clone, once. The system libraries come first — SDL2 and its image
+codecs are the one dependency opam cannot build for you:
+
 ```sh
-eval $(opam env --switch=. --set-switch)   # this repo uses a local switch
+sudo apt install libsdl2-dev libsdl2-image-dev   # Debian / Ubuntu
+brew install sdl2 sdl2_image                     # macOS — and see the note below
+
+opam switch create . 5.5.0 --no-install          # this repo uses a local switch
+opam install . --deps-only --with-test --with-doc
+eval $(opam env)
+```
+
+**macOS:** add `--no-depexts` to the `opam install` line. Homebrew ships
+`sdl2-compat` under the name `sdl2`, which opam's dependency check cannot see;
+installing the libraries yourself and telling opam to stop looking is the whole
+fix. **Windows:** use the MSYS2 environment. Step 0 of
+[the guide](https://pharick.github.io/camlcast/making-a-game.html) has the
+longer story on both.
+
+Then:
+
+```sh
 dune exec camlcast-demo                    # the list, on screen
 dune exec camlcast-demo -- --list          # the same list, printed
 dune exec camlcast-demo portals            # straight to one of them
 dune test                                  # all suites
 ```
 
-Named nothing, it opens the list in a window: arrow keys to move through it,
-Enter to run what is highlighted, Escape to come back, over one slowly turning
-room. Named a demo, it runs that one and nothing else — Escape then ends the
-program, because there is nothing to come back to.
+Run with no arguments, `camlcast-demo` opens a menu of every demo, drawn over
+one slowly turning room: the arrow keys move the highlight, Enter (or Space)
+runs it, Escape comes back to the list. Run with a demo's name, it launches
+straight into that demo — Escape then ends the program, because there is no
+menu behind it to come back to. (In a later shell, `eval $(opam env)` from the
+repository puts the switch back on your path.)
 
 The demos that read art from files find it relative to the executable, which
 under dune is `_build/default/assets/` — `dune build` puts it there. Installed,
@@ -128,67 +162,82 @@ off the disk has to carry wherever it is installed.
 
 ## Using the engine
 
-Pin it, since it is not on opam:
+Pin it, since it is not on opam yet, and add `(libraries camlcast)` to your
+`dune`:
 
 ```sh
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ```
 
-The demos are the second package and depend on the first, so a copy of them
-wants both pinned — `opam install .` from a checkout does that in one step,
-which is also what makes `camlcast-demo` resolve `camlcast` at all.
+(The demos are the second package and depend on the first, so a copy of them
+wants both pinned — `opam install .` from a checkout does that in one step.)
 
-then `(libraries camlcast)` in your `dune`. A level is OCaml code rather than a
-file in some format, so the smallest complete game is one room, a window and a
-call:
+A level is OCaml code rather than a file in some format, so the smallest
+complete game is one room, a window and a call. This is
+[`examples/room.ml`](examples/room.ml), compiled with the rest of the tree so
+that it cannot drift from the engine:
 
 ```ocaml
 open Camlcast
 
-(* The engine ships no content, so a game brings its own: a pattern, the
-   materials wearing it, and the air the world is seen through. *)
+(* A pattern is a pure function from a texel coordinate to a colour. This one is
+   a check; Color.level scales all three channels together, so it moves the
+   brightness without touching the hue. Both coordinates and the levels are
+   0 .. 255 — the range every pattern computes in. *)
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
 
-let dressed c = Material.make ~pattern:(Texture.generate (checker ~color:c))
-let stone = dressed (Color.rgb 150 150 160)
-and ground = dressed (Color.rgb 116 110 98)
+let stone =
+  Material.make
+    ~pattern:(Texture.generate (checker ~color:(Color.rgb 150 150 160)))
 
-let air =
-  Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
-    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
-    ~directional:0.4
+let ground =
+  Material.make
+    ~pattern:(Texture.generate (checker ~color:(Color.rgb 116 110 98)))
 
 let world =
   let height = 4. in
-  (* Counterclockwise, so every wall's normal faces into the room. *)
-  let sw = Vec.make (-6.) (-6.) and se = Vec.make 6. (-6.)
-  and ne = Vec.make 6. 6. and nw = Vec.make (-6.) 6. in
-  let wall a b = Room.wall ~height ~material:stone a b in
+  (* Distances are in cells: one cell is one texture repeat, and the eye
+     stands half a cell up, so a 12-cell room under a 4-cell ceiling reads as
+     a hall. *)
   let floor = Plane.horizontal 0. in
   let room =
     Room.make
-      ~floor:{ Room.plane = floor; material = ground }
-      ~ceiling:(Room.Roof { Room.plane = Plane.above floor height; material = stone })
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
+      ~floor:(Room.floor ~plane:floor ~material:ground)
+      ~ceiling:(Room.roof ~plane:(Plane.above floor height) ~material:stone)
+      (* The axis-aligned box, from two opposite corners. *)
+      (Room.rectangle ~height ~material:stone (Vec.make (-6.) (-6.))
+         (Vec.make 6. 6.))
   in
-  World.make ~rooms:[ ("room", room) ] ~links:[] ~atmosphere:air
+  (* The air of an unremarkable day. Step 3 of the guide is about your own. *)
+  World.make
+    ~rooms:[ ("room", room) ]
+    ~links:[] ~atmosphere:Atmosphere.default
     ~spawn:("room", Vec.make (-4.5) 0.)
 
-let () = ignore (Engine.with_window (fun window -> Engine.run_world window world))
+let () =
+  (* [with_window] opens the window, hands it over, and closes it again when
+     this is done with it — on the way out of an error just the same. *)
+  match Engine.with_window (fun window -> Engine.run_world window world) with
+  (* How the run ended matters only to a program that plays a second one.
+     This one has the single room above and nothing to go back to. *)
+  | Ok _ending -> ()
+  | Error (`Msg m) ->
+      prerr_endline m;
+      exit 1
 ```
 
 `Engine.with_window` opens the window and closes it again when the function it
 is given is done with it. `Engine.run_world` is the loop over the only state the
 engine holds by itself: a world and the player walking it, plus an optional
 `extend : World.t -> Player.t -> World.t` called once on any frame the player
-went through a doorway on, with where they ended up. A game that keeps anything else — phases, doors, a journal, a
-score, a random seed — uses `Engine.run` instead, which runs a state of whatever
-type it likes and asks six things of it: `update`, `view`, `overlay`,
-`pointing`, `finished` and `bindings` — the last being what the player's
-controls are for, since the engine holds no keys any more than it holds colours.
-Everything else stays on the game's side of the line, and the engine stays a
-pure function of what it is handed.
+went through a doorway on, with where they ended up. A game that keeps anything
+else — phases, doors, a journal, a score, a random seed — uses `Engine.run`
+instead, which runs a state of whatever type it likes and asks six things of it:
+`update`, `view`, `overlay`, `pointing`, `finished` and `bindings` — the last
+being what the player's controls are for, since the engine holds no keys any
+more than it holds colours. Everything else stays on the game's side of the
+line, and the engine stays a pure function of what it is handed.
 
 A window and a run are two lifetimes and not one, which is why they are two
 calls. A game with a single world to show never notices the difference. A
@@ -198,7 +247,9 @@ and coming back at the size it first had.
 
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
 walks through all of that a feature at a time, with the demo that isolates each
-one.
+one. The complete programs beside `room.ml` — a hub with two doorways, a game
+state with phases, a rebound walking table — are in
+[`examples/`](examples/).
 
 ## Controls
 
@@ -206,39 +257,51 @@ The engine names no key of its own. Walking, looking, fullscreen and leaving the
 run all come out of a `Binding.t` the game hands to `Engine.run`;
 `Binding.default` is what the demos walk on, and it is a default and not a rule.
 
-| key / device | action                                 |
-| ------------ | -------------------------------------- |
-| `W` / `S`    | walk forward / back                    |
-| `A` / `D`    | strafe left / right                    |
-| mouse        | look around (yaw and pitch)            |
-| `←` / `→`    | turn left / right (keyboard fallback)  |
-| `↑` / `↓`    | look up / down (keyboard fallback)     |
-| `F11`        | toggle fullscreen                      |
-| `Esc`        | leave the run (asked for, not default) |
+| key / device | action                                |
+| ------------ | ------------------------------------- |
+| `W` / `S`    | walk forward / back                   |
+| `A` / `D`    | strafe left / right                   |
+| mouse        | look around (yaw and pitch)           |
+| `←` / `→`    | turn left / right (keyboard fallback) |
+| `↑` / `↓`    | look up / down (keyboard fallback)    |
+| `F11`        | toggle fullscreen                     |
+| `Esc`        | leave the run (see below)             |
 
-Rebinding is a value:
+That last row is the one the engine will not assume. `Binding.default` binds
+_no_ key that ends a run, because a game with screens in it wants `Esc` for
+closing them; `Engine.run_world` adds it itself, since a bare world has nothing
+else to end it with.
+
+Rebinding is a value — [`examples/rebind.ml`](examples/rebind.ml) moves walking
+onto `I` and `K` and adds Escape as the way out, leaving everything unsaid as
+the default has it:
 
 ```ocaml
 let bindings =
   Binding.make
-    ~forward:{ Binding.speed = 4.; terms = [ { source = Hold (Input.Key Key.i); weight = 1. } ] }
+    ~forward:
+      {
+        Binding.speed = 3.6 (* cells a second at full ask *);
+        terms =
+          [
+            { Binding.source = Binding.Hold (Input.Key Key.i); weight = 1. };
+            { Binding.source = Binding.Hold (Input.Key Key.k); weight = -1. };
+          ];
+      }
     ~leave:[ Input.Key Key.escape ]
     ()
 ```
 
-An axis adds up terms, and a term is a source and a signed weight. A held key or
-a stick is a **rate** — how hard the player is asking, between −1 and 1 — summed,
-clamped, and paid out at the axis's speed over the frame. The mouse is a
-**displacement**: it reports how far it has already moved, so it is added as it
-stands rather than scaled by the frame again. That distinction is the seam a
-gamepad would arrive through.
+An axis adds up terms, and the two kinds of term are added differently: a held
+key is a **rate**, summed and paid out at the axis's speed over the frame, while
+the mouse is a **displacement**, added as it stands. That distinction — and the
+seam a gamepad would arrive through — is step 13 of
+[the guide](https://pharick.github.io/camlcast/making-a-game.html).
 
-That last row is the one the engine will not assume. `Binding.default` binds _no_
-key that ends a run, because a game with screens in it wants `Esc` for closing
-them; `Engine.run_world` asks for it, since a bare world has nothing else to end it
-with. Three demos add keys of their own — `phases` starts on `space`, `chalk`
-marks on `C`, and `controls` binds a second set of walking keys and prints them
-with `Key.name` — each says so at the top of its own file.
+Some demos bind keys of their own beyond the table: `phases` starts on Space;
+`chalk` marks on `C` and picks the mark with `1` and `2`; `doors`, `targets`
+and the showcase put `E` to work on whatever is at hand; `controls` binds a
+second full set of walking keys and prints them with `Key.name`.
 
 The mouse is captured in relative mode, so the cursor is hidden and never reaches
 a screen edge.
@@ -260,65 +323,30 @@ A bundle opens on the list of demos, since a window that was double-clicked has
 no command line behind it — that is the whole reason the list is drawn as well as
 printed.
 
-How old a Mac the `.app` runs on is decided by the machine that built it, not
-chosen: the bundled libraries are Homebrew bottles, built for the runner's own
-macOS. `bundle-macos.sh` reads the answer back out of the finished bundle and
-records it as `LSMinimumSystemVersion`, so the exact version is in the `.app`'s
-`Info.plist` and in the build log, rather than being promised here.
-
-The Linux tarball has the same question and answers it the other way, by
-choosing. It carries SDL2 and the image codecs but deliberately not glibc or the
-dynamic loader — a binary has to use the loader it was built against — so the
-runner's glibc is the floor for everyone who downloads it. The release job is
-therefore pinned to a runner image rather than tracking the newest one, and the
-tarball needs **glibc 2.39 or newer** (Ubuntu 24.04, Debian 13, Fedora 40). That
-floor moves only when the pin in `.github/workflows/release.yml` does.
-
-The `.app` is signed ad-hoc — which is what lets it run at all on Apple silicon,
-where the kernel refuses an unsigned binary — but it is not notarized, so a Mac
-that downloaded it refuses the first launch. Open System Settings → Privacy &
-Security and choose "Open Anyway"; the Control-click trick that used to work was
-removed in macOS 15. Or, once:
+The Linux tarball needs **glibc 2.39 or newer** (Ubuntu 24.04, Debian 13,
+Fedora 40). The `.app` is signed ad-hoc but not notarized, so a Mac that
+downloaded it refuses the first launch: open System Settings → Privacy &
+Security and choose "Open Anyway" — the Control-click trick that used to work
+was removed in macOS 15 — or, once:
 
 ```sh
 xattr -dr com.apple.quarantine camlcast-demo.app
 ```
 
-## Modules
+Why the glibc floor is what it is, and how a `.app` decides how old a macOS it
+runs on, is in [HACKING.md](HACKING.md).
 
-Each module is self-contained and depends only on the ones above it.
+## The engine in one page
 
-| module        | responsibility                                                                                                             |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `Config`      | all tunable constants                                                                                                      |
-| `Result_ext`  | `let*` / `let+` for chaining fallible SDL calls, and acquire/use/release                                                   |
-| `Key`         | the keyboard, named by the engine: a binding is a place on the board, not a letter                                         |
-| `Vec`         | immutable 2-D vectors, with the dot and cross products the geometry needs                                                  |
-| `Transform`   | rigid rotations and translations between room-local coordinate frames                                                      |
-| `Plane`       | an inclined floor/ceiling plane, and the per-pixel casting equation                                                        |
-| `Color`       | 8-bit RGB, shading and blending                                                                                            |
-| `Bitmap`      | decoding a PNG or JPEG into plain bytes: the one place pixel formats appear                                                |
-| `Asset`       | where a file is, searched relative to the executable rather than to a source tree                                          |
-| `Texture`     | colour surface patterns, generated or loaded, and the wrapping value noise they are built from                             |
-| `Material`    | what a surface is made of: its pattern, and so whether you see through it                                                  |
-| `Door`        | a leaf hung in a doorway: open or closed, and what it is made of                                                           |
-| `Atmosphere`  | the air a world is seen through: its fog, its haze, and where its light comes from                                         |
-| `Sky`         | the open sky drawn where a room has no roof — a directional gradient with a sun                                            |
-| `Image`       | full-colour images with alpha, for wall decals and sprites                                                                 |
-| `Paint`       | clipped rectangles, lines and pictures drawn over a finished frame                                                         |
-| `Font`        | a bitmap font on a fixed grid: cell lookup, measuring, wrapping and drawing                                                |
-| `Room`        | one independently-authored level: walls, thresholds, surfaces, ceiling or sky, sprites and collision                       |
-| `World`       | named rooms, linked portals, the world's air and spawn, and the three primitives a world grows by                          |
-| `Ray`         | ray-versus-segment intersection; every wall the ray crosses, farthest first                                                |
-| `Player`      | camera pose: `pos` + unit `dir` + unit `right` + `pitch`; movement with wall sliding                                       |
-| `Viewport`    | window size → camera geometry, projection, eye height and the pitch shear; the resize rules                                |
-| `Sight`       | what the crosshair is on, traced through doorways and named by index                                                       |
-| `Input`       | the keyboard and the mouse as they are: controls, their edges and holds, and what the analog sources read                  |
-| `Binding`     | what those controls are for — the game's table, and the one pure function that turns a frame of them into a movement       |
-| `Framebuffer` | a CPU pixel buffer (with alpha blending) and per-pixel depth, and the streaming texture it uploads through                 |
-| `Renderer`    | the software renderer: floor/ceiling/sky, opaque walls with decals, then sprites and see-through walls composited by depth |
-| `Engine`      | window lifetime, fullscreen state, and the game loop played on one                                                         |
-| `Clock`       | the pacing arithmetic the loop measures its frames by, apart from any window                                               |
+Twenty-nine modules, each depending only on the ones before it: `Config`,
+`Key` and `Vec` at the bottom, `Room`, `World` and `Ray` in the middle,
+`Renderer`, `Clock` and `Engine` on top. The annotated list — every module and
+what it is for — is the
+**[documentation landing page](https://pharick.github.io/camlcast/)**, and the
+maths lives in the module docs themselves: `Ray` for why the distance it
+reports is free of fish-eye, `Plane` for the equation that casts a sloped floor
+per pixel, `Viewport` for the projection and the resize rules, `Transform` for
+why linked doorways pair in reverse, `World` for the portal machinery.
 
 ## Documentation
 
@@ -341,42 +369,25 @@ python3 tools/pages-site.py  # lays the tree out, and copies doc/images/ in
 open _site/index.html
 ```
 
-The second step is what CI publishes from, and it is needed rather than optional:
+`tools/pages-site.py` is what CI publishes from, and it is needed rather than
+optional:
 dune's `documentation` stanza has no way to carry assets, so the screenshots the
 guides are illustrated with reach the site through `tools/pages-site.py` and not
-through `@doc`. Opening `_build/default/_doc/_html/index.html` directly still
-works, with every picture in it broken.
-
-`doc/index.mld` is the landing page and the two guides are `.mld` pages beside
-it; `doc/demo/index.mld` is the demos' own, in its own directory because it
-belongs to the other package — a `.mld` page can only name what its package's
-libraries bring in scope, and the engine does not depend on the demos. Both
-libraries have a public name, which is what makes `@doc` pick their modules up
-(odoc skips private libraries), so odoc writes one directory per package and
-`tools/pages-site.py` roots the site at `camlcast` and carries `camlcast-demo`
-across beneath it.
+through `@doc`. Building `@doc` also prints a small **expected** set of
+warnings — one per `@raise` tag naming a standard-library exception;
+[HACKING.md](HACKING.md) has why they cannot be silenced, and why anything else
+in that output is a reference that has gone stale.
 
 The pictures the guides and this file are illustrated with live in `doc/images/`.
 
-`@doc` prints a warning for every `@raise` tag naming a standard-library
-exception — `Invalid_argument` wherever one is refused, and
-`Fun.Finally_raised` in `Result_ext`. odoc reads a `@raise` argument as a
-reference, and the classic
-`@doc` alias puts only this project's packages and their direct dependencies on
-its resolution path, so nothing in `Stdlib` can resolve there; writing
-`Stdlib.Invalid_argument` does not help, and `[Invalid_argument]` silences it
-only by demoting the tag to a code span and losing the raise contract with it.
-The site builds and every link inside it resolves. **That set of warnings is the
-expected output** — anything else in it is a real reference that has gone stale.
-`@doc-new`, the odoc 3 driver alias that would put `Stdlib` in scope, does not
-build in this tree.
-
 ## Tests
 
-[Alcotest](https://github.com/mirage/alcotest), one executable per module in
-`test/`, covering both libraries. They share `Support`, a small library of its
-own in the same directory, which holds a hand-checkable 4x4 square room, a pair
-of rooms joined through a doorway, and the custom testables — a failing `Vec`
+[Alcotest](https://github.com/mirage/alcotest), a suite per engine module —
+near enough: `Config` is constants, and `Door` and `Framebuffer` are exercised
+through the modules built on them — plus suites for the demo package's own
+machinery, all in `test/`. They share `Support`, a small library of its own in
+the same directory, which holds a hand-checkable 4x4 square room, a pair of
+rooms joined through a doorway, and the custom testables — a failing `Vec`
 check prints `(3, 2.5)` rather than a bare `false`.
 
 The suites are two stanzas, one per package, so that each package's tests build
@@ -398,6 +409,12 @@ only in the arithmetic that feeds them.
 `test_level.ml` is the closest thing to an integration test: it checks the
 showcase world the way a player meets it, so an engine change that breaks
 portals, sloped floors or the sky fails there rather than in a unit suite.
+
+## Hacking
+
+[HACKING.md](HACKING.md) is the contributor's page: the development setup in
+full, the formatting pin, what CI checks, the expected `@doc` warnings, how the
+release bundles are put together, and the four places a new demo has to appear.
 
 ## License
 
