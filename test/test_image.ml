@@ -2,7 +2,7 @@ open Camlcast
 open Support
 
 let make_builds_a_square () =
-  let img = Image.make 4 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let img = Image.make ~width:4 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   Alcotest.(check int) "the width is kept" 4 img.Image.width;
   Alcotest.(check int) "and squared for the height" 4 img.Image.height;
   Alcotest.check color "and pixels are addressable" (Color.rgb 3 2 0)
@@ -13,7 +13,8 @@ let make_builds_a_square () =
    way through: a picture that came back square would be a mirror of itself
    along the diagonal, which is a wrong picture and not an error. *)
 let make_builds_a_rectangle () =
-  let img = Image.make ~height:2 5 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let img =
+    Image.make ~height:2 ~width:5 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   Alcotest.(check int) "the width" 5 img.Image.width;
   Alcotest.(check int) "the height" 2 img.Image.height;
   Alcotest.(check int) "and that many pixels" 10 (Array.length img.Image.pixels);
@@ -31,7 +32,8 @@ let index_agrees_with_sample () =
   (* Non-square on purpose: a square image agrees with itself under a width and
      height swapped over, and that is the mistake this test is here to catch. *)
   let img =
-    Image.make ~height:5 8 (fun ~u ~v -> (Color.rgb (u * 8) (v * 8) 0, u + v))
+    Image.make ~height:5 ~width:8
+      (fun ~u ~v -> (Color.rgb (u * 8) (v * 8) 0, u + v))
   in
   List.iter
     (fun (u, v) ->
@@ -53,7 +55,7 @@ let index_agrees_with_sample () =
    Texture.generate_masked does. *)
 let a_generator_that_overshoots_is_clamped () =
   let wild =
-    Image.make ~height:2 2 (fun ~u ~v ->
+    Image.make ~height:2 ~width:2 (fun ~u ~v ->
         (* (0, 0) is under the floor in every channel and (1, 1) over the
            ceiling, so one image catches both ends. *)
         let f x = if x = 0 then -400 else 600 in
@@ -75,7 +77,7 @@ let images_carry_their_own_size () =
   List.iter
     (fun (w, h) ->
       let img =
-        Image.make ~height:h w (fun ~u:_ ~v:_ -> (Color.rgb 1 2 3, 255))
+        Image.make ~height:h ~width:w (fun ~u:_ ~v:_ -> (Color.rgb 1 2 3, 255))
       in
       Alcotest.(check int)
         (Printf.sprintf "a %dx%d image's width" w h)
@@ -129,16 +131,16 @@ let a_file_without_alpha_is_solid () =
 let disc_is_a_circle () =
   Alcotest.(check bool)
     "the centre is inside" true
-    (Image.disc ~cx:8. ~cy:8. ~r:4. 8 8);
+    (Image.disc ~cx:8. ~cy:8. ~r:4. ~u:8 ~v:8);
   Alcotest.(check bool)
     "just inside the rim" true
-    (Image.disc ~cx:8. ~cy:8. ~r:4. 11 8);
+    (Image.disc ~cx:8. ~cy:8. ~r:4. ~u:11 ~v:8);
   Alcotest.(check bool)
     "just outside it" false
-    (Image.disc ~cx:8. ~cy:8. ~r:4. 12 8);
+    (Image.disc ~cx:8. ~cy:8. ~r:4. ~u:12 ~v:8);
   Alcotest.(check bool)
     "and the corner of its box is outside" false
-    (Image.disc ~cx:8. ~cy:8. ~r:4. 11 11)
+    (Image.disc ~cx:8. ~cy:8. ~r:4. ~u:11 ~v:11)
 
 let clear_is_invisible () =
   Alcotest.(check int) "nothing shows through it" 0 (snd Image.clear)
@@ -154,12 +156,12 @@ let an_image_of_no_size_is_refused () =
       Alcotest.check_raises (Printf.sprintf "%dx%d" w h)
         (Invalid_argument "Image.make: an image must have a positive size")
         (fun () ->
-          ignore (Image.make ~height:h w (fun ~u:_ ~v:_ -> Image.clear))))
+          ignore (Image.make ~height:h ~width:w (fun ~u:_ ~v:_ -> Image.clear))))
     [ (0, 4); (4, 0); (0, 0); (-1, 4); (4, -1) ];
   (* The default height is the width, so one argument refuses both. *)
   Alcotest.check_raises "a square of no size"
     (Invalid_argument "Image.make: an image must have a positive size")
-    (fun () -> ignore (Image.make 0 (fun ~u:_ ~v:_ -> Image.clear)))
+    (fun () -> ignore (Image.make ~width:0 (fun ~u:_ ~v:_ -> Image.clear)))
 
 let () =
   Alcotest.run "Image"

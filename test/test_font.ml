@@ -18,7 +18,7 @@ let cell_h = 10
 let columns = 16
 
 let atlas =
-  Image.make ~height:60 96 (fun ~u ~v ->
+  Image.make ~height:60 ~width:96 (fun ~u ~v ->
       let n = (v / cell_h * columns) + (u / cell_w) in
       (Color.rgb n n n, 255))
 
@@ -209,7 +209,8 @@ let drawing_puts_the_right_cell_in_the_right_place () =
    for. *)
 let drawing_tints_the_atlas () =
   let white =
-    Image.make ~height:60 96 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+    Image.make ~height:60 ~width:96
+      (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
   in
   let font = Font.make ~atlas:white ~width:cell_w ~height:cell_h ~first:32 () in
   let fb = Framebuffer.offscreen ~width:20 ~height:20 in

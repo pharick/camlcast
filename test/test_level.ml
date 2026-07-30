@@ -50,11 +50,11 @@ let the_default_world_is_playable () =
     (Array.length (World.room Level.default 0).Room.walls)
 
 let the_default_world_is_connected () =
-  let seen = Array.make (World.rooms Level.default) false in
+  let seen = Array.make (World.room_count Level.default) false in
   let rec visit i =
     if not seen.(i) then begin
       seen.(i) <- true;
-      for threshold = 0 to World.doorways Level.default i - 1 do
+      for threshold = 0 to World.doorway_count Level.default ~room:i - 1 do
         visit
           (Option.get (World.portal Level.default ~room:i ~threshold))
             .World.to_room
@@ -136,7 +136,7 @@ let the_cellar_door_can_be_walked_through () =
   let middle = Vec.scale (Vec.add door.Room.a door.Room.b) 0.5 in
   let inward = Vec.scale door.Room.normal 0.3 in
   let start =
-    Player.create ~room:hall ~pos:(Vec.add middle inward)
+    Player.make ~room:hall ~pos:(Vec.add middle inward)
       ~angle:(Float.atan2 (-.inward.Vec.y) (-.inward.Vec.x))
   in
   Alcotest.(check bool)
@@ -183,7 +183,7 @@ let a_diagonal_through_a_turning_doorway_keeps_its_shape () =
     (Float.abs west.World.onto.Transform.sin > 1e-6);
   (* Facing the doorway from a short step inside the hall, then a diagonal: the
      first leg crosses, the second is taken in the plaza. *)
-  let start = Player.create ~room:hall ~pos:(Vec.make 0.3 0.) ~angle:Float.pi in
+  let start = Player.make ~room:hall ~pos:(Vec.make 0.3 0.) ~angle:Float.pi in
   let moved =
     (Player.traverse Level.default start ~forward:0.5 ~strafe:0.3).Player.player
   in

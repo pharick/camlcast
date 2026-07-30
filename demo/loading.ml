@@ -58,7 +58,7 @@ let picture name =
 let air =
   Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:26.
     ~min_brightness:0.45 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.7
-    ~directional:0.3
+    ~directional:0.3 ()
 
 let build () =
   let* tiles = pattern "assets/tiles.png" in

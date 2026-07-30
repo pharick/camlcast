@@ -52,8 +52,8 @@ let generate_masked ?(size = size) f =
    the wrong shape or no size comes back as an [Error] rather than as
    [generate]'s [Invalid_argument]. *)
 let load path =
-  let* s = Surface.read path in
-  let w = s.Surface.width and h = s.Surface.height in
+  let* s = Bitmap.load path in
+  let w = s.Bitmap.width and h = s.Bitmap.height in
   if w <> h then
     Error
       (`Msg
@@ -68,7 +68,7 @@ let load path =
     for v = 0 to w - 1 do
       for u = 0 to w - 1 do
         let i = (v * w) + u in
-        let color, a = Surface.sample s ~x:u ~y:v in
+        let color, a = Bitmap.sample s ~u ~v in
         texels.(i) <- color;
         alpha.(i) <- a;
         if a < 255 then opaque := false

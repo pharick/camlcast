@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast.Surface}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Bitmap}; the interface carries the prose. *)
 
 open Tsdl
 open Result_ext
@@ -64,7 +64,7 @@ let pixels surface =
       done;
       Ok { width; height; rgba })
 
-let read path =
+let load path =
   let* () = ready () in
   with_resource
     (fun () -> Tsdl_image.Image.load path)
@@ -83,7 +83,7 @@ let channel t i = Char.code (Bytes.unsafe_get t.rgba i)
     been converted to one that has, and arrives fully solid throughout. *)
 let alpha t ~x ~y = channel t (offset t ~x ~y + 3)
 
-let sample t ~x ~y =
-  let i = offset t ~x ~y in
+let sample t ~u ~v =
+  let i = offset t ~x:u ~y:v in
   ( Color.rgb (channel t i) (channel t (i + 1)) (channel t (i + 2)),
     channel t (i + 3) )

@@ -83,7 +83,7 @@ type t = {
 let vertical_half_extent =
   Float.tan (Config.fov /. 2.) /. Config.reference_aspect
 
-let create ~pitch ~eye_z ~width ~height =
+let make ~pitch ~eye_z ~width ~height =
   (* A minimised window reports a zero size; clamp so the maths stays finite
      and the frame is merely pointless rather than full of NaNs. *)
   let width = Int.max 1 width and height = Int.max 1 height in

@@ -48,7 +48,7 @@ Which one you get says what kind of mistake it was.
     [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.with_window},
     {!Camlcast.Engine.run_world}, {!Camlcast.Engine.run},
     {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
-    {!Camlcast.Framebuffer.create}. A missing file is one of these.}
+    {!Camlcast.Framebuffer.make}. A missing file is one of these.}
 {li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
     {!Camlcast.World.link}, {!Camlcast.World.add_room},
     {!Camlcast.World.open_doorway}, {!Camlcast.Room.doorway},
@@ -1095,7 +1095,7 @@ let rec build world ~room ~ahead =
         let world =
           World.open_doorway world ~room ~opened:(segment ~onward:true room)
         in
-        let index = World.rooms world in
+        let index = World.room_count world in
         let world, next =
           World.add_room world ~name:(named index) (segment ~onward:false index)
         in

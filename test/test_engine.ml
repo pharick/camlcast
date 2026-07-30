@@ -6,7 +6,7 @@
 open Camlcast
 open Support
 
-let player () = Player.create ~room:0 ~pos:centre ~angle:0.
+let player () = Player.make ~room:0 ~pos:centre ~angle:0.
 let step motion = Engine.step world (player ()) motion
 let heading (p : Player.t) = Float.atan2 p.dir.y p.dir.x
 
@@ -174,7 +174,7 @@ let a_frame_that_crosses_nothing_does_not_grow () =
    exactly the case the old test missed — and a generator still has to hear
    about it. *)
 let a_round_trip_still_grows () =
-  let start = Player.create ~room:0 ~pos:centre ~angle:0. in
+  let start = Player.make ~room:0 ~pos:centre ~angle:0. in
   let moved = Player.slide loop start (Vec.make 4. 2.5) in
   Alcotest.(check int)
     "it ends in the room it set out from" start.Player.room

@@ -23,7 +23,7 @@ let length = 90.
 let fog =
   Atmosphere.make ~haze:(Color.rgb 38 44 58) ~fog_distance:13.
     ~min_brightness:0.15 ~light:(Vec.make (-0.5) (-0.85)) ~ambient:0.35
-    ~directional:0.65
+    ~directional:0.65 ()
 
 let world =
   (* The colonnade runs east, which is the way you are facing when you arrive. *)

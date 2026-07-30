@@ -49,7 +49,7 @@ val resolve :
   exe:string ->
   override:string option ->
   string ->
-  (string, [> `Msg of string ]) result
+  (string, [ `Msg of string ]) result
 (** [resolve ~exists ~exe ~override name] is the first root of
     [roots ~exe ~override] under which [name] is present, joined to it — or an
     error naming every root tried, because the only useful thing to say about a
@@ -60,7 +60,7 @@ val resolve :
     there is a file there; in a program it is [Sys.file_exists], and a test
     passes its own to describe a disk that is not on this machine. *)
 
-val path : string -> (string, [> `Msg of string ]) result
+val path : string -> (string, [ `Msg of string ]) result
 (** [path name] is {!resolve} for that asset, asking the running program where
     it is and the environment whether it disagrees — [Sys.executable_name],
     {!variable} and the real disk, supplied for you. This is the one a game

@@ -11,7 +11,7 @@ type t = {
 
 let clamp v = Int.min 255 (Int.max 0 v)
 
-let make ?height width f =
+let make ?height ~width f =
   let height = Option.value height ~default:width in
   if width <= 0 || height <= 0 then
     invalid_arg "Image.make: an image must have a positive size";
@@ -34,8 +34,8 @@ let sample t ~u ~v =
   (t.pixels.(i), t.alpha.(i))
 
 let load path =
-  let* s = Surface.read path in
-  let w = s.Surface.width and h = s.Surface.height in
+  let* s = Bitmap.load path in
+  let w = s.Bitmap.width and h = s.Bitmap.height in
   (* A file is a run-time failure and not an authoring mistake, so an empty one
      comes back as an [Error] rather than as [make]'s [Invalid_argument]. *)
   if w <= 0 || h <= 0 then
@@ -44,13 +44,13 @@ let load path =
          (Printf.sprintf
             "%s: a picture must have a positive size, and this one is %dx%d"
             path w h))
-  else Ok (make ~height:h w (fun ~u ~v -> Surface.sample s ~x:u ~y:v))
+  else Ok (make ~height:h ~width:w (fun ~u ~v -> Bitmap.sample s ~u ~v))
 
 let of_asset name =
   let* path = Asset.path name in
   load path
 
-let disc ~cx ~cy ~r u v =
+let disc ~cx ~cy ~r ~u ~v =
   let du = float_of_int u -. cx and dv = float_of_int v -. cy in
   (du *. du) +. (dv *. dv) < r *. r
 

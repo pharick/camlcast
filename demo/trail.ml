@@ -120,19 +120,21 @@ let overlay fb state =
       Paint.rect fb
         ~x:((2 * unit) + ((depth - 1 - i) * 3 * unit))
         ~y:(height - (5 * unit))
-        ~w:(2 * unit) ~h:(3 * unit) ~r:235 ~g:200 ~b:110 ~alpha:255)
+        ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 235 200 110) ~alpha:255)
     state.stack;
   if depth = 0 then
     (* Home: a single dim tick, so the row never disappears entirely. *)
     Paint.rect fb ~x:(2 * unit)
       ~y:(height - (5 * unit))
-      ~w:(2 * unit) ~h:(3 * unit) ~r:70 ~g:80 ~b:95 ~alpha:255;
-  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+      ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 70 80 95) ~alpha:255;
+  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update
-      ~view:(fun state -> (world, state.player))
-      ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update
+         ~view:(fun state -> (world, state.player))
+         ~overlay ())
+      start
   in
   ending

@@ -59,11 +59,11 @@ let has_no_seams (demo : Catalogue.t) =
    nobody can get to. *)
 let is_connected (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
-  let seen = Array.make (World.rooms world) false in
+  let seen = Array.make (World.room_count world) false in
   let rec visit i =
     if not seen.(i) then begin
       seen.(i) <- true;
-      for threshold = 0 to World.doorways world i - 1 do
+      for threshold = 0 to World.doorway_count world ~room:i - 1 do
         visit (Option.get (World.portal world ~room:i ~threshold)).World.to_room
       done
     end
@@ -97,13 +97,13 @@ let names_are_distinct () =
    still be a world every time. *)
 let growing_leaves_a_world_that_still_works () =
   let world = ref Endless.world in
-  let count () = World.rooms !world in
+  let count () = World.room_count !world in
   let before = count () in
   for _ = 1 to 8 do
     let far = count () - 1 in
     world :=
       Endless.extend !world
-        (Player.create ~room:far ~pos:(Vec.make 0. 2.) ~angle:0.);
+        (Player.make ~room:far ~pos:(Vec.make 0. 2.) ~angle:0.);
     World.check !world;
     List.iter
       (fun (room, _, p) ->
@@ -295,7 +295,7 @@ let the_dust_demo_moves_without_making_anything () =
 let facing_the_partition ?(from = Vec.make 0.5 (-0.5)) (state : Chalk.t) =
   {
     state with
-    Chalk.player = Player.create ~room:0 ~pos:from ~angle:(Float.pi /. 2.);
+    Chalk.player = Player.make ~room:0 ~pos:from ~angle:(Float.pi /. 2.);
   }
 
 let decal_under (state : Chalk.t) =
@@ -320,7 +320,7 @@ let the_chalk_demo_marks_what_the_crosshair_is_on () =
     {
       marked with
       Chalk.player =
-        Player.create ~room:0 ~pos:(Vec.make 0.5 2.5) ~angle:(-.Float.pi /. 2.);
+        Player.make ~room:0 ~pos:(Vec.make 0.5 2.5) ~angle:(-.Float.pi /. 2.);
     }
   in
   Alcotest.(check (option int))
@@ -387,7 +387,7 @@ let the_chalk_demo_runs_out_of_chalk () =
       Chalk.start with
       Chalk.player =
         Player.pitch_by
-          (Player.create ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.)
+          (Player.make ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.)
           ~radians:0.3;
     }
   in

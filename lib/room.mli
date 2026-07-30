@@ -148,7 +148,7 @@ val decal_row : decal -> above:float -> int option
 
 (** {1 Walls} *)
 
-type wall = {
+type wall = private {
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
   height : float;  (** how far the wall rises above the floor, in cells *)
@@ -163,19 +163,18 @@ type wall = {
     {b The last three fields are derived from the first two, and nothing
        recomputes them.} [edge] is [b - a], [length] is [|edge|], and [normal]
     is [edge] turned a quarter turn to its left and normalised. {!val-wall}
-    computes all three at once and is the only thing that should.
-    [{ w with Room.a = ... }] moves an endpoint and leaves all three describing
-    the wall it used to be — silently, and each of them is something else's
-    measurement: {!Ray.cast} intersects against [edge], a decal is placed along
-    a [length] that no longer matches, and {!Atmosphere.face_shading} and
-    {!side_of} both work off a [normal] that has turned. A functional update of
-    [height], [material] or [decals] touches nothing derived and is safe;
-    {!add_decal} is exactly that.
+    computes all three at once, and each of them is something else's
+    measurement: {!Ray.cast} intersects against [edge], a decal is placed
+    along [length], and {!Atmosphere.face_shading} and {!side_of} both work
+    off [normal].
 
-    Concrete rather than private in spite of all that, because {!Renderer}
-    builds one: a door's leaf and the strip of wall above an opening are both
-    drawn as though they were walls, and it copies [edge], [length] and [normal]
-    across from the threshold together, for precisely the reason above. *)
+    Private for exactly that reason. Every field stays readable — the
+    renderer and the ray caster read them per column — but
+    [{ w with Room.a = ... }] would move an endpoint and leave all three
+    describing the wall it used to be, silently, so the update is refused at
+    the type. The one wall anything ever built by hand was {!Renderer}'s — a
+    door's leaf and the lintel strip are drawn as though they were walls —
+    and {!threshold_wall} is that record literal, written down once. *)
 
 val side_of : wall -> Vec.t -> side
 (** Which side of a wall a point is on. A point exactly on the line counts as
@@ -280,7 +279,7 @@ type lintel = { top : float; material : Material.t }
     Open, like a {!type-surface} and for the same reason: two independent fields
     written as a literal wherever one is wanted. *)
 
-type threshold = {
+type threshold = private {
   name : string;  (** what a {!World} link refers to it by *)
   a : Vec.t;  (** one endpoint *)
   b : Vec.t;  (** the other *)
@@ -308,11 +307,12 @@ type threshold = {
     same question the renderer asks of a wall. A door standing [Open] is neither
     drawn nor felt, so it behaves exactly as an opening with no door in it.
 
-    [edge], [length] and [normal] are derived from [a] and [b] exactly as on a
-    {!type-wall}, and the same warning applies: {!val-threshold} and {!doorway}
-    are what compute them, and moving an endpoint by hand leaves all three
-    behind. [door] and [lintel] are derived from nothing, and updating either is
-    what the engine itself does — {!World.set_door} hangs a state that way. *)
+    [edge], [length] and [normal] are derived from [a] and [b] exactly as on
+    a {!type-wall}, and private for the same reason: {!val-threshold} and
+    {!doorway} are what compute them, and moving an endpoint by hand would
+    leave all three behind. [door] and [lintel] are derived from nothing and
+    changing them is routine — {!with_door} and {!with_lintel} are the two
+    functional updates, sharing everything else. *)
 
 val leaf : threshold -> Material.t option
 (** What is drawn across this opening, if anything — {!Door.leaf} of whatever
@@ -435,9 +435,9 @@ val threshold :
 
 val make :
   ?thresholds:threshold list ->
+  ?sprites:sprite list ->
   floor:surface ->
   ceiling:ceiling ->
-  ?sprites:sprite list ->
   wall list ->
   t
 (** Assemble a room from its parts: the [walls] of its boundary, the
@@ -537,7 +537,7 @@ val blocked : t -> Vec.t -> bool
     small disc of radius {!Config.collision_padding}, so it stops a little short
     of a wall rather than pressing its nose flat against it. *)
 
-val segments_cross : Vec.t -> Vec.t -> Vec.t -> Vec.t -> bool
+val segments_cross : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> bool
 (** Do the two segments [a1..a2] and [b1..b2] cross? Solved with the same cross
     product as {!Ray.cast}: the crossing exists when both parameters land in
     [0, 1].
@@ -547,7 +547,8 @@ val segments_cross : Vec.t -> Vec.t -> Vec.t -> Vec.t -> bool
     — which counts as a crossing just as much. Those are settled separately, by
     projecting [b1..b2] onto [a1..a2] and asking whether the two spans meet. *)
 
-val distance_between_segments : Vec.t -> Vec.t -> Vec.t -> Vec.t -> float
+val distance_between_segments :
+  a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> float
 (** Shortest distance between the segments [a1..a2] and [b1..b2]. Segments that
     cross are no distance apart at all; for two that miss, the closest pair of
     points must include an endpoint of one of them — slide along either segment

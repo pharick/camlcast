@@ -102,36 +102,21 @@ val with_window :
 *)
 
 val run :
-  window ->
-  update:('a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a) ->
-  view:('a -> World.t * Player.t) ->
-  ?overlay:(Framebuffer.t -> 'a -> unit) ->
-  ?pointing:('a -> bool) ->
-  ?finished:('a -> bool) ->
-  ?bindings:Binding.t ->
-  'a ->
-  ('a * ending, [ `Msg of string ]) result
-(** Run a state through the loop on a window, returning what it has become when
-    the game says it is finished or the player quits.
+  window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
+(** [run window game state] runs a state through the loop on a window,
+    returning what it has become when the game says it is finished or the
+    player quits.
 
-    The engine knows nothing about the state but these callbacks. [update] is
-    given the frame's length, the movement asked for over it and the one-off
-    actions that arrived with it, and returns the next state. [view] says which
-    world and which player to draw the frame from — a game keeps a great deal
-    more than those two, and this is the part of it the renderer understands.
-    [overlay] draws over the finished world before it reaches the screen, and
-    draws nothing if it is not given. [pointing] says whether the mouse is
-    working a cursor over what the game has drawn instead of looking around, and
-    the engine releases and recaptures the cursor to match; omitted, the mouse
-    always looks. [finished] is asked after every update, and omitted, the run
-    never ends of its own accord.
+    The game is the {!type-game} record, usually built with {!val-game} — the
+    engine knows nothing about the state but its six callbacks, and the record
+    is the same one {!simulate} reads, so the loop and a test drive one
+    description of the game rather than two spellings of it.
 
-    [bindings] is what the player's controls are for, {!Binding.default} unless
-    a game says otherwise. Note what that default does {e not} include: no key
-    ends the run. A run with no other way out has to ask for one — see
-    {!Binding.default} for why the engine will not assume it, and {!run_world}
-    for the one place it does. Omitting both [finished] and a leaving key is a
-    window the player can only close.
+    Note what {!val-game}'s defaults do {e not} include: no key ends the run.
+    A run with no other way out has to ask for one — see {!Binding.default}
+    for why the engine will not assume it, and {!run_world} for the one place
+    it does. Omitting both [finished] and a leaving key is a window the player
+    can only close.
 
     The window may have been played on already, so a run does not assume it
     arrives at a fresh one. It takes the mouse as this game wants it, from

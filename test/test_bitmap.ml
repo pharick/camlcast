@@ -15,10 +15,10 @@ open Camlcast
 open Support
 
 let read path =
-  match Surface.read path with Ok s -> s | Error (`Msg m) -> Alcotest.fail m
+  match Bitmap.load path with Ok s -> s | Error (`Msg m) -> Alcotest.fail m
 
 let fails path =
-  match Surface.read path with
+  match Bitmap.load path with
   | Ok _ -> Alcotest.fail (path ^ " decoded, and should not have")
   | Error (`Msg m) -> m
 
@@ -26,11 +26,11 @@ let fails path =
    the endianness of the conversion format exists to pass. *)
 let channels_arrive_in_order () =
   let s = read "fixtures/swatch.png" in
-  Alcotest.(check int) "the width" 4 s.Surface.width;
-  Alcotest.(check int) "the height" 3 s.Surface.height;
+  Alcotest.(check int) "the width" 4 s.Bitmap.width;
+  Alcotest.(check int) "the height" 3 s.Bitmap.height;
   List.iter
     (fun (x, y, r, g, b, a) ->
-      let c, alpha = Surface.sample s ~x ~y in
+      let c, alpha = Bitmap.sample s ~u:x ~v:y in
       Alcotest.check color (Printf.sprintf "(%d, %d)" x y) (Color.rgb r g b) c;
       Alcotest.(check int) (Printf.sprintf "(%d, %d) alpha" x y) a alpha)
     [
@@ -49,7 +49,7 @@ let channels_arrive_in_order () =
    from, which are the decoder's own business. *)
 let rows_are_laid_out_by_width () =
   let s = read "fixtures/swatch.png" in
-  let at x y = fst (Surface.sample s ~x ~y) in
+  let at x y = fst (Bitmap.sample s ~u:x ~v:y) in
   (* The swatch's four corners are four distinct colours, so a picture read
      transposed, or a row out, could not answer all of them. *)
   Alcotest.check color "the origin" (Color.rgb 10 100 200) (at 0 0);
@@ -70,17 +70,17 @@ let rows_are_laid_out_by_width () =
    which would hold if two of them had been swapped. *)
 let a_format_without_alpha_arrives_solid () =
   let s = read "fixtures/swatch.jpg" in
-  Alcotest.(check int) "the width" 4 s.Surface.width;
-  Alcotest.(check int) "the height" 3 s.Surface.height;
+  Alcotest.(check int) "the width" 4 s.Bitmap.width;
+  Alcotest.(check int) "the height" 3 s.Bitmap.height;
   for y = 0 to 2 do
     for x = 0 to 3 do
       Alcotest.(check int)
         (Printf.sprintf "(%d, %d) is solid" x y)
         255
-        (snd (Surface.sample s ~x ~y))
+        (snd (Bitmap.sample s ~u:x ~v:y))
     done
   done;
-  let at x y = fst (Surface.sample s ~x ~y) in
+  let at x y = fst (Bitmap.sample s ~u:x ~v:y) in
   Alcotest.(check bool)
     "red climbs across the picture" true
     ((at 0 0).Color.r < (at 3 0).Color.r);
@@ -103,7 +103,7 @@ let a_file_that_is_not_a_picture_is_an_error () =
   ignore (fails "fixtures/notanimage.txt")
 
 let () =
-  Alcotest.run "Surface"
+  Alcotest.run "Bitmap"
     [
       ( "decoding",
         [

@@ -113,7 +113,7 @@ Each depends only on the ones above it.
 - {!Camlcast.Transform} — rigid motions between room-local coordinate frames
 - {!Camlcast.Plane} — an inclined floor/ceiling plane and its casting equation
 - {!Camlcast.Color} — 8-bit RGB, shading and blending
-- {!Camlcast.Surface} — decoding a PNG or JPEG into plain bytes: the one place
+- {!Camlcast.Bitmap} — decoding a PNG or JPEG into plain bytes: the one place
   pixel formats appear
 - {!Camlcast.Asset} — where a file is, searched relative to the executable
   rather than to a source tree

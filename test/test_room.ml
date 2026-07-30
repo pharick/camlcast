@@ -33,7 +33,8 @@ let a_wall_can_wear_decals () =
    swapped over, so the picture here is deliberately not square: 12 wide and 3
    high, hung in a space four times as wide as it is tall. *)
 let a_decal_is_indexed_by_width_across_and_height_down () =
-  let image = Image.make ~height:3 12 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let image =
+    Image.make ~height:3 ~width:12 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   let dec = Room.decal ~along:2. ~z:1. ~half_width:2. ~half_height:0.5 image in
   let column at = Room.decal_column dec ~seen_from:Room.Front ~along:at
   and row at = Room.decal_row dec ~above:at in
@@ -156,7 +157,8 @@ let a_decal_can_be_added_to_a_wall () =
    where a billboard's width and its two vertical bounds are decided once. The
    picture is again deliberately not square. *)
 let a_sprite_is_indexed_by_width_across_and_height_down () =
-  let image = Image.make ~height:4 16 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let image =
+    Image.make ~height:4 ~width:16 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   let s = Room.sprite ~size:1. ~image (Vec.make 0. 0.) in
   (* Four times as wide as it is tall, so a sprite one cell tall is four cells
      across and reaches two either side. *)
@@ -182,7 +184,7 @@ let a_sprite_is_indexed_by_width_across_and_height_down () =
 (* A base lifts both bounds and nothing else, and it is measured from the floor
    given rather than from zero — the same rule a decal's [z] follows. *)
 let a_base_lifts_a_sprite_off_the_floor_it_is_given () =
-  let image = Image.make 8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let image = Image.make ~width:8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   let ground = Room.sprite ~size:2. ~image (Vec.make 0. 0.)
   and lifted = Room.sprite ~base:1.5 ~size:2. ~image (Vec.make 0. 0.) in
   Alcotest.check close "on the floor, the foot is the floor" 0.
@@ -211,7 +213,7 @@ let a_base_lifts_a_sprite_off_the_floor_it_is_given () =
    cheap way of doing it has to keep everything else exactly as it was — not
    equal to it, the same. *)
 let replacing_the_sprites_keeps_the_rest () =
-  let image = Image.make 8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
+  let image = Image.make ~width:8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   let before =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
       ~sprites:[ Room.sprite ~size:1. ~image (Vec.make 1. 1.) ]
@@ -272,7 +274,7 @@ let blocked_within_the_padding () =
    and comes out the far side. *)
 let collinear_segments_still_cross () =
   let a1 = Vec.make 0. 0. and a2 = Vec.make 4. 0. in
-  let crosses = Room.segments_cross a1 a2 in
+  let crosses b1 b2 = Room.segments_cross ~a1 ~a2 ~b1 ~b2 in
   Alcotest.(check bool)
     "overlapping collinear segments cross" true
     (crosses (Vec.make 1. 0.) (Vec.make 6. 0.));
@@ -301,7 +303,7 @@ let a_step_along_a_wall_is_refused () =
 (* Two segments that miss each other are as far apart as the nearest of their
    endpoints is from the other segment. *)
 let distance_between_two_segments () =
-  let d = Room.distance_between_segments in
+  let d a1 a2 b1 b2 = Room.distance_between_segments ~a1 ~a2 ~b1 ~b2 in
   Alcotest.check close "parallel segments are their offset apart" 2.
     (d (Vec.make 0. 0.) (Vec.make 4. 0.) (Vec.make 1. 2.) (Vec.make 3. 2.));
   Alcotest.check close "past the end it is endpoint to endpoint" 5.
@@ -418,7 +420,8 @@ let a_decal_or_sprite_of_no_size_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
   in
-  let poster = Image.make 4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255)) in
+  let poster =
+    Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255)) in
   let mark ?glow ~half_width ~half_height () =
    fun () ->
     ignore (Room.decal ?glow ~along:1. ~z:1. ~half_width ~half_height poster)

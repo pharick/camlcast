@@ -11,7 +11,7 @@
     the inner loop, and the texture format is picked to match that byte order.
 
     A game meets one of these through the [overlay] callback of
-    {!Camlcast.Engine.game}, which is handed the finished frame before it
+    {!Camlcast.Engine.type-game}, which is handed the finished frame before it
     reaches the screen. What a game wants from it is almost always {!t.width}
     and {!t.height} — the coordinates its overlay draws in, which are the
     buffer's and not the window's — and then {!Paint} or {!Font} to draw with.
@@ -34,9 +34,9 @@ type t = private {
     and {!Renderer} reads [depth] per pixel — while building one from outside is
     closed off. A buffer owns an SDL texture and a bigarray sized to match its
     extents, and a hand-written record could pair either with the wrong other
-    half. {!create} and {!offscreen} are the two ways to get one. *)
+    half. {!make} and {!offscreen} are the two ways to get one. *)
 
-val create :
+val make :
   Tsdl.Sdl.renderer -> width:int -> height:int -> (t, [ `Msg of string ]) result
 (** A buffer of that size with a streaming texture behind it, ready to be shown.
     Needs a live SDL renderer, which is why the tests use {!offscreen} instead.
@@ -73,8 +73,8 @@ val set : t -> x:int -> y:int -> r:int -> g:int -> b:int -> unit
     everything else in the inner loop — which is what {!Paint} exists to do for
     a caller that has not clipped. *)
 
-val blend : t -> x:int -> y:int -> r:int -> g:int -> b:int -> a:int -> unit
-(** Blend one pixel over what is already there with opacity [a] (0 leaves the
+val blend : t -> x:int -> y:int -> r:int -> g:int -> b:int -> alpha:int -> unit
+(** Blend one pixel over what is already there with opacity [alpha] (0 leaves the
     pixel untouched, 255 replaces it). This is how a translucent wall, a decal
     or a sprite lets the background — already painted, since everything is drawn
     back to front — show through. Unchecked, on the same terms as {!set}. *)

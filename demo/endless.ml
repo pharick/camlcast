@@ -98,7 +98,7 @@ let rec build world ~room ~ahead =
           World.open_doorway world ~room
             ~opened:(segment ~index:room ~back:true ~onward:true)
         in
-        let index = World.rooms world in
+        let index = World.room_count world in
         let world, next =
           World.add_room world ~name:(named index)
             (segment ~index ~back:true ~onward:false)

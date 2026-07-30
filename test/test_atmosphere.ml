@@ -4,7 +4,7 @@ open Support
 let daylight =
   Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
     ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
-    ~directional:0.4
+    ~directional:0.4 ()
 
 (* The default is the air above, the one every demo settled on — pinned so
    that a change to it is a decision and not a drift. *)
@@ -57,7 +57,7 @@ let a_sourceless_atmosphere_flattens_orientation () =
   let dark =
     Atmosphere.make ~haze:(Color.rgb 8 8 9) ~fog_distance:9.
       ~min_brightness:0.06 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:1.
-      ~directional:0.
+      ~directional:0. ()
   in
   let a = Atmosphere.face_shading dark (Vec.of_angle 0.)
   and b = Atmosphere.face_shading dark (Vec.of_angle 1.3) in
@@ -81,7 +81,7 @@ let a_closer_atmosphere_fades_sooner () =
   let close_in =
     Atmosphere.make ~haze:(Color.rgb 8 8 9) ~fog_distance:9.
       ~min_brightness:0.06 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.85
-      ~directional:0.15
+      ~directional:0.15 ()
   in
   Alcotest.(check bool)
     "the same wall is dimmer in the closer air" true
@@ -95,7 +95,9 @@ let a_closer_atmosphere_fades_sooner () =
 let make_normalises_the_light () =
   let stretched =
     Atmosphere.make ~haze:(Color.rgb 0 0 0) ~fog_distance:10.
-      ~min_brightness:0.1 ~light:(Vec.make 0. 40.) ~ambient:0.5 ~directional:0.5
+      ~min_brightness:0.1
+      ~light:(Vec.make 0. 40.)
+      ~ambient:0.5 ~directional:0.5 ()
   in
   Alcotest.check close "the light is a unit vector" 1.
     (Vec.length stretched.Atmosphere.light);
@@ -120,11 +122,43 @@ let a_light_that_points_nowhere_is_refused () =
       (fun () ->
         ignore
           (Atmosphere.make ~haze:(Color.rgb 0 0 0) ~fog_distance:10.
-             ~min_brightness:0.1 ~light ~ambient:0.5 ~directional:0.5))
+             ~min_brightness:0.1 ~light ~ambient:0.5 ~directional:0.5 ()))
   in
   refused "the zero vector" (Vec.make 0. 0.);
   refused "one that is nan" (Vec.make Float.nan 1.);
   refused "one that is infinite" (Vec.make Float.infinity 1.)
+
+(* Every number make takes now states its range, and make holds each one to
+   it. fog_distance is the divisor in fog, so zero would be a quiet infinity;
+   the three fractions bound the two fades. Each test is the negation of the
+   passing condition, so the nan cases fail with the out-of-range ones. *)
+let out_of_range_air_is_refused () =
+  let refused what message build =
+    Alcotest.check_raises what (Invalid_argument message) (fun () ->
+        ignore (build ()))
+  in
+  List.iter
+    (fun d ->
+      refused
+        (Printf.sprintf "fog_distance %f" d)
+        "Atmosphere.make: fog_distance is a distance in cells, above 0"
+        (fun () -> Atmosphere.make ~fog_distance:d ()))
+    [ 0.; -1.; Float.nan; Float.infinity ];
+  List.iter
+    (fun v ->
+      refused
+        (Printf.sprintf "min_brightness %f" v)
+        "Atmosphere.make: min_brightness is a fraction from 0 to 1" (fun () ->
+          Atmosphere.make ~min_brightness:v ());
+      refused
+        (Printf.sprintf "ambient %f" v)
+        "Atmosphere.make: ambient is a fraction from 0 to 1" (fun () ->
+          Atmosphere.make ~ambient:v ());
+      refused
+        (Printf.sprintf "directional %f" v)
+        "Atmosphere.make: directional is a fraction from 0 to 1" (fun () ->
+          Atmosphere.make ~directional:v ()))
+    [ -0.1; 1.1; Float.nan ]
 
 let () =
   Alcotest.run "Atmosphere"
@@ -141,6 +175,7 @@ let () =
           case "a light that points nowhere is refused"
             a_light_that_points_nowhere_is_refused;
           case "the default is the settled air" the_default_is_the_settled_air;
+          case "out of range air is refused" out_of_range_air_is_refused;
         ] );
       ( "fog",
         [

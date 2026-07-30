@@ -2,7 +2,7 @@ open Camlcast
 open Support
 
 let at ?(pitch = 0.) ?(eye_z = 0.5) ~width ~height () =
-  Viewport.create ~pitch ~eye_z ~width ~height
+  Viewport.make ~pitch ~eye_z ~width ~height
 
 let reference = at ~width:800 ~height:600 ()
 
@@ -122,7 +122,7 @@ let pitch_shears_the_horizon () =
    window. An even width has no middle column at all: the middle falls between
    two, and the most that can be asked is that neither is favoured. *)
 let the_centre_column_looks_straight_ahead () =
-  let player = Player.create ~room:0 ~pos:centre ~angle:0.7 in
+  let player = Player.make ~room:0 ~pos:centre ~angle:0.7 in
   List.iter
     (fun width ->
       let v = at ~width ~height:600 () in
@@ -146,7 +146,7 @@ let a_flat_wall_stays_flat () =
   List.iter
     (fun (width, height) ->
       let v = at ~width ~height () in
-      let player = Player.create ~room:0 ~pos:centre ~angle:0. in
+      let player = Player.make ~room:0 ~pos:centre ~angle:0. in
       List.iter
         (fun column ->
           let direction = Viewport.ray_direction v player ~column in
@@ -169,7 +169,7 @@ let a_column_projects_back_to_its_own_centre () =
   List.iter
     (fun (width, height) ->
       let v = at ~width ~height () in
-      let pose = Player.create ~room:0 ~pos:centre ~angle:0.7 in
+      let pose = Player.make ~room:0 ~pos:centre ~angle:0.7 in
       List.iter
         (fun column ->
           let direction = Viewport.ray_direction v pose ~column in
@@ -194,11 +194,11 @@ let a_column_projects_back_to_its_own_centre () =
    recomputing [width / 2], so this fails if either module moves and the other
    does not. *)
 let the_crosshair_sits_on_the_centre_ray () =
-  let player = Player.create ~room:0 ~pos:centre ~angle:0.7 in
+  let player = Player.make ~room:0 ~pos:centre ~angle:0.7 in
   List.iter
     (fun (width, height) ->
       let fb = Framebuffer.offscreen ~width ~height in
-      Paint.crosshair fb ~r:255 ~g:255 ~b:255;
+      Paint.crosshair fb ~color:(Color.rgb 255 255 255);
       let lit ~x ~y = (Framebuffer.pixel fb ~x ~y).Color.r > 0 in
       (* The arms cross on one pixel, so the row carrying the horizontal arm has
          more lit pixels in it than any other and likewise the column carrying
@@ -262,13 +262,13 @@ let the_crosshair_sits_on_the_centre_ray () =
    above the floor and a width from its own picture — are asserted here, on the
    rectangle, rather than only on the pixels in test_renderer. *)
 
-let facing_east = Player.create ~room:0 ~pos:(Vec.make 0. 0.) ~angle:0.
+let facing_east = Player.make ~room:0 ~pos:(Vec.make 0. 0.) ~angle:0.
 
 (* A square picture is what every sprite used to be, and it comes out square. *)
 let a_square_picture_is_as_wide_as_it_is_tall () =
   let s =
     Room.sprite ~size:1.5
-      ~image:(Image.make 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+      ~image:(Image.make ~width:16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
       (Vec.make 4. 0.)
   in
   List.iter
@@ -288,7 +288,8 @@ let a_square_picture_is_as_wide_as_it_is_tall () =
 let a_wide_picture_is_as_wide_as_its_picture () =
   let s =
     Room.sprite ~size:1.5
-      ~image:(Image.make ~height:8 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+      ~image:
+        (Image.make ~height:8 ~width:16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
       (Vec.make 4. 0.)
   in
   List.iter
@@ -308,7 +309,7 @@ let a_wide_picture_is_as_wide_as_its_picture () =
 let a_base_raises_both_edges_together () =
   let at base =
     Room.sprite ~base ~size:1.5
-      ~image:(Image.make 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
+      ~image:(Image.make ~width:16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)))
       (Vec.make 4. 0.)
   in
   let ground =
@@ -331,7 +332,7 @@ let a_base_raises_both_edges_together () =
    through it. Raising the floor by a cell and raising the base by a cell are
    the same picture. *)
 let a_base_is_measured_from_the_floor () =
-  let image = Image.make 16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)) in
+  let image = Image.make ~width:16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)) in
   let on_a_high_floor =
     Viewport.sprite_box reference facing_east ~floor_z:1. ~distance:4.
       (Room.sprite ~size:1.5 ~image (Vec.make 4. 0.))

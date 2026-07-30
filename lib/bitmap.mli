@@ -16,8 +16,8 @@
 
     This is an engine seam rather than a game's: a game reaches a picture
     through {!Image.load} or {!Texture.load}, both of which are a short loop
-    over what {!read} returns. Nothing below takes or returns an SDL value, and
-    the codecs are started on the first {!read} and never again. *)
+    over what {!load} returns. Nothing below takes or returns an SDL value, and
+    the codecs are started on the first {!load} and never again. *)
 
 type t = private { width : int; height : int; rgba : Bytes.t }
 (** A decoded picture: [width * height] pixels, row major, four bytes each in
@@ -25,12 +25,12 @@ type t = private { width : int; height : int; rgba : Bytes.t }
     a caller reads every channel exactly once and then throws this away — the
     long-lived arrays are {!Image}'s and {!Texture}'s.
 
-    Private: the three fields stay readable, and {!read} is the only thing that
+    Private: the three fields stay readable, and {!load} is the only thing that
     can put a picture together — a hand-written record with [rgba] the wrong
     length for its [width] and [height] would read off the end of it. *)
 
-val read : string -> (t, [ `Msg of string ]) result
-(** [read path] decodes the picture at [path], converting whatever format it was
+val load : string -> (t, [ `Msg of string ]) result
+(** [load path] decodes the picture at [path], converting whatever format it was
     stored in to one known byte order. Both SDL surfaces are freed however this
     returns, including if a caller's loop over the result raises.
 
@@ -38,12 +38,12 @@ val read : string -> (t, [ `Msg of string ]) result
     file that is not a picture both arrive this way, since neither is something
     the engine can tell apart before trying. *)
 
-val sample : t -> x:int -> y:int -> Color.t * int
-(** [sample picture ~x ~y] is the colour of that pixel and how solid it is, the
+val sample : t -> u:int -> v:int -> Color.t * int
+(** [sample picture ~u ~v] is the colour of that pixel and how solid it is, the
     alpha being 0 for fully clear and 255 for fully solid. A file with no alpha
     channel of its own has been converted to one that has, and arrives solid
     throughout.
 
-    Unchecked: [x] must be below [width] and [y] below [height]. A caller is
+    Unchecked: [u] must be below [width] and [v] below [height]. A caller is
     walking the whole rectangle it just read, and the bounds test would be paid
     once per pixel of every picture the game loads. *)

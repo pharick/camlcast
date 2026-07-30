@@ -167,6 +167,8 @@ let view state =
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view ())
+      start
   in
   ending

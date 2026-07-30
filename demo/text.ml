@@ -94,7 +94,7 @@ let overlay fb (_ : Player.t) =
   Paint.rect fb ~x:pad ~y:pad
     ~w:(tw + (2 * pad))
     ~h:(th + (2 * pad))
-    ~r:12 ~g:14 ~b:22 ~alpha:190;
+    ~color:(Color.rgb 12 14 22) ~alpha:190;
   Font.draw fb font body ~x:(2 * pad) ~y:(2 * pad) ~color:ink;
   (* The same atlas in three colours, and every printable character in it. *)
   let y = th + (4 * pad) in
@@ -123,14 +123,16 @@ let overlay fb (_ : Player.t) =
   in
   let nw, nh = Font.measure font note in
   Font.draw fb font note ~x:(width - nw - pad) ~y:(height - nh - pad) ~color:dim;
-  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable
-      ~update:(fun player ~dt:_ ~motion ~actions:_ ->
-        Engine.step world player motion)
-      ~view:(fun player -> (world, player))
-      ~overlay (Player.spawn world)
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable
+         ~update:(fun player ~dt:_ ~motion ~actions:_ ->
+           Engine.step world player motion)
+         ~view:(fun player -> (world, player))
+         ~overlay ())
+      (Player.spawn world)
   in
   ending

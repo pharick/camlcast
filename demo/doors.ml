@@ -197,15 +197,19 @@ let overlay fb state =
         ~y:(height - (5 * unit))
         ~w:(width / 3) ~h:(2 * unit)
         ~fraction:(if shut then 1. else 0.06)
-        ~r:(if refusing then 235 else 210)
-        ~g:(if refusing then 80 else if shut then 170 else 220)
-        ~b:(if refusing then 70 else if shut then 90 else 130));
-  Paint.crosshair fb ~r:245 ~g:245 ~b:245
+        ~color:
+          (Color.rgb
+             (if refusing then 235 else 210)
+             (if refusing then 80 else if shut then 170 else 220)
+             (if refusing then 70 else if shut then 90 else 130)));
+  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update
-      ~view:(fun state -> (state.world, state.player))
-      ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update
+         ~view:(fun state -> (state.world, state.player))
+         ~overlay ())
+      start
   in
   ending

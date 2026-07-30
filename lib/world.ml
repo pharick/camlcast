@@ -23,10 +23,10 @@ type t = {
 }
 
 let room t index = t.rooms.(index)
-let rooms t = Array.length t.rooms
+let room_count t = Array.length t.rooms
 let name t index = t.names.(index)
 let named t name = Array.find_index (String.equal name) t.names
-let doorways t index = Array.length t.portals.(index)
+let doorway_count t ~room = Array.length t.portals.(room)
 let portal t ~room ~threshold = t.portals.(room).(threshold)
 let atmosphere t = t.atmosphere
 let with_atmosphere t atmosphere = { t with atmosphere }
@@ -369,7 +369,8 @@ let check t =
 let passable t ~room:index ~from ~dest =
   let here = t.rooms.(index) in
   let near (threshold : Room.threshold) =
-    Room.distance_between_segments from dest threshold.Room.a threshold.Room.b
+    Room.distance_between_segments ~a1:from ~a2:dest ~b1:threshold.Room.a
+      ~b2:threshold.Room.b
     < Config.collision_padding
   in
   (* How far a point stands on this room's side of a threshold. The normal is
@@ -441,8 +442,8 @@ let crossing t ~room ~from ~dest =
       let best =
         match row.(slot) with
         | Some (portal : portal)
-          when Room.segments_cross from dest portal.threshold.a
-                 portal.threshold.b -> (
+          when Room.segments_cross ~a1:from ~a2:dest ~b1:portal.threshold.a
+                 ~b2:portal.threshold.b -> (
             let entering = side portal.threshold from
             and leaving = side portal.threshold dest in
             if entering < 0. || leaving >= 0. then best

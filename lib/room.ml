@@ -187,7 +187,7 @@ let threshold ~name ~height ?door ?lintel a b =
     normal = Vec.normalize (Vec.perp edge);
   }
 
-let make ?(thresholds = []) ~floor ~ceiling ?(sprites = []) walls =
+let make ?(thresholds = []) ?(sprites = []) ~floor ~ceiling walls =
   {
     walls = Array.of_list walls;
     thresholds = Array.of_list thresholds;
@@ -228,7 +228,7 @@ let blocked t (p : Vec.t) =
     (fun w -> distance_to_wall w p < Config.collision_padding)
     t.walls
 
-let segments_cross a1 a2 b1 b2 =
+let segments_cross ~a1 ~a2 ~b1 ~b2 =
   let d1 = Vec.sub a2 a1 and d2 = Vec.sub b2 b1 in
   let denom = Vec.cross d1 d2 in
   let off = Vec.sub b1 a1 in
@@ -246,8 +246,8 @@ let segments_cross a1 a2 b1 b2 =
     let t = Vec.cross off d2 /. denom and u = Vec.cross off d1 /. denom in
     t >= 0. && t <= 1. && u >= 0. && u <= 1.
 
-let distance_between_segments a1 a2 b1 b2 =
-  if segments_cross a1 a2 b1 b2 then 0.
+let distance_between_segments ~a1 ~a2 ~b1 ~b2 =
+  if segments_cross ~a1 ~a2 ~b1 ~b2 then 0.
   else
     let to_b p = distance_to_segment p ~a:b1 ~b:b2
     and to_a p = distance_to_segment p ~a:a1 ~b:a2 in
@@ -257,7 +257,8 @@ let passable t ~from ~dest =
   not
     (Array.exists
        (fun (w : wall) ->
-         distance_between_segments from dest w.a w.b < Config.collision_padding)
+         distance_between_segments ~a1:from ~a2:dest ~b1:w.a ~b2:w.b
+         < Config.collision_padding)
        t.walls)
 
 let path ?(closed = false) ~height ~material points =

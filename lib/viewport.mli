@@ -3,7 +3,7 @@
     The window is resizable and can go fullscreen between any two frames, so
     the projection cannot be baked into constants: each frame asks SDL for the
     size of the drawing surface and builds one of these from it, with
-    {!create}. Nothing outside a frame keeps one.
+    {!make}. Nothing outside a frame keeps one.
 
     Two rules decide what a resize does. {b Pixels stay square}: a wall one
     cell wide and one cell tall covers the same number of pixels in both
@@ -33,10 +33,10 @@ type t = {
   horizon : float;  (** the screen row the eye looks straight along *)
 }
 (** Concrete, though [half_width] and [projection] are derived: a viewport is
-    built by {!create} at the top of a frame, read everywhere, and thrown away
+    built by {!make} at the top of a frame, read everywhere, and thrown away
     with the frame, so there is no time for one to drift out of true. *)
 
-val create : pitch:float -> eye_z:float -> width:int -> height:int -> t
+val make : pitch:float -> eye_z:float -> width:int -> height:int -> t
 (** The viewport for a drawing surface of that size, seen by an eye at that
     elevation, tipped by [pitch] — the window-height fraction {!Player.t}
     carries. Level, the horizon is the middle row; pitch shears it away from

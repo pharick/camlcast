@@ -22,7 +22,7 @@
     a fraction that {!Viewport} shears the image by. Keeping it here, clamped,
     just lets the game loop carry it alongside the rest of the pose. *)
 
-type t = {
+type t = private {
   room : int;  (** the index of the room the player is standing in *)
   pos : Vec.t;  (** where they stand, in that room's own coordinates *)
   dir : Vec.t;  (** where the camera looks; unit length *)
@@ -32,15 +32,20 @@ type t = {
           [-Config.max_pitch .. Config.max_pitch] *)
 }
 
-val create : room:int -> pos:Vec.t -> angle:float -> t
+val make : room:int -> pos:Vec.t -> angle:float -> t
 (** A pose standing at [pos] in the room with that index, facing [angle]
     radians on {!Vec.of_angle}'s reckoning, looking level. [dir] and [right]
     are both derived from [angle], so they start unit and perpendicular, which
-    every rotation after preserves. *)
+    every rotation after preserves — and which is why the record is private:
+    a [dir] written by hand is a [dir] whose [right] no longer agrees with
+    it, silently, and every column of every frame is built from the pair. *)
 
-val spawn : World.t -> t
+val spawn : ?angle:float -> World.t -> t
 (** The pose a world says to start in: {!World.spawn}'s room and position,
-    facing an angle of [0.]. *)
+    facing [angle] radians on {!Vec.of_angle}'s reckoning — and facing [0.]
+    if you do not say. The angle is the player's to choose rather than the
+    world's to dictate, which is why it is not part of {!World.make}'s
+    [spawn]. *)
 
 val through : Transform.t -> room:int -> t -> t
 (** Carry the pose into a neighbouring room's frame: the position moves with

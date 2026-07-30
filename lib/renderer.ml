@@ -262,7 +262,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
           if occlude then depth.(index) <- d
         end
         else if a > 0 then
-          Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~a;
+          Framebuffer.blend fb ~x:column ~y ~r:cr ~g:cg ~b:cb ~alpha:a;
         List.iter
           (fun ((dec : Room.decal), ui, lit, veil) ->
             (* A decal hangs a height above the {e floor} under the wall, not at
@@ -290,7 +290,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
                       (clamp8
                          (int_of_float (float_of_int c.Color.b *. lit)
                          + veil.Color.b))
-                    ~a:da)
+                    ~alpha:da)
           decals
       end
     done
@@ -385,7 +385,7 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
             ~b:
               (clamp8
                  (int_of_float (float_of_int c.Color.b *. f) + veil.Color.b))
-            ~a
+            ~alpha:a
       end
     done
   done
@@ -650,7 +650,7 @@ let draw_frame fb world (player : Player.t) =
     +. Config.eye_height
   in
   let viewport =
-    Viewport.create ~pitch:player.Player.pitch ~eye_z ~width ~height
+    Viewport.make ~pitch:player.Player.pitch ~eye_z ~width ~height
   in
   Framebuffer.clear_depth fb;
   let translucent = ref [] in
@@ -684,7 +684,7 @@ let ensure sdl fb_ref ~width ~height =
   if current.Framebuffer.width = width && current.Framebuffer.height = height
   then Ok ()
   else
-    let+ next = Framebuffer.create sdl ~width ~height in
+    let+ next = Framebuffer.make sdl ~width ~height in
     Framebuffer.destroy current;
     fb_ref := next
 

@@ -24,15 +24,11 @@ let noon = Surfaces.day
 (** Dusk: the same sky wound on a few hours. A warmer, tighter gradient, and a
     bigger, redder sun sitting on the horizon behind you. *)
 let dusk =
-  {
-    Sky.horizon = Color.rgb 236 152 96;
-    zenith = Color.rgb 28 30 78;
-    sun = Color.rgb 255 214 150;
-    sun_azimuth = 2.7;
-    sun_height = 0.06;
-    sun_radius = 1.2;
-    gradient = 4.5;
-  }
+  Sky.make
+    ~horizon:(Color.rgb 236 152 96)
+    ~zenith:(Color.rgb 28 30 78)
+    ~sun:(Color.rgb 255 214 150)
+    ~sun_azimuth:2.7 ~sun_height:0.06 ~sun_radius:1.2 ~gradient:4.5 ()
 
 (* A walled yard, open overhead, with a doorway in the wall you face on the way
    in. Something tall stands in it to catch the light against the sky. *)

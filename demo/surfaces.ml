@@ -43,17 +43,9 @@ let ground = solid (Patterns.checker ~color:(Color.rgb 116 110 98))
 let soffit = solid (Patterns.panel ~color:(Color.rgb 92 92 112))
 
 (** A clear afternoon: a pale horizon deepening to a blue zenith, with the sun
-    low in the west. *)
-let day =
-  {
-    Sky.horizon = Color.rgb 176 196 222;
-    zenith = Color.rgb 40 62 126;
-    sun = Color.rgb 255 246 216;
-    sun_azimuth = -0.9;
-    sun_height = 0.5;
-    sun_radius = 0.55;
-    gradient = 2.2;
-  }
+    low in the west — which is {!Camlcast.Sky.default}, named for what it is
+    here. *)
+let day = Sky.default
 
 (** The other end of the same afternoon: the sun gone round to the east and
     almost down, so its disc sits near the horizon and the warmth is all in the
@@ -76,20 +68,14 @@ let day =
     a glance at the top of the frame, which is all a room this enclosed gives
     you. *)
 let dusk =
-  {
-    Sky.horizon = Color.rgb 240 156 96;
-    zenith = Color.rgb 74 48 108;
-    sun = Color.rgb 255 226 170;
-    sun_azimuth = 2.1;
-    sun_height = 0.34;
-    sun_radius = 0.5;
-    gradient = 1.1;
-  }
+  Sky.make
+    ~horizon:(Color.rgb 240 156 96)
+    ~zenith:(Color.rgb 74 48 108)
+    ~sun:(Color.rgb 255 226 170)
+    ~sun_azimuth:2.1 ~sun_height:0.34 ~sun_radius:0.5 ~gradient:1.1 ()
 
 (** Daylight air: a long, gentle fade to a blue-grey haze, and enough
-    directional light that walls at different angles read as different surfaces.
-*)
-let air =
-  Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:12.
-    ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
-    ~directional:0.4
+    directional light that walls at different angles read as different
+    surfaces. {!Camlcast.Atmosphere.default} is exactly that air, so the name
+    here only says what the demos mean by it. *)
+let air = Atmosphere.default

@@ -69,7 +69,7 @@ let air ~light =
     ~min_brightness:(0.04 +. (0.21 *. light))
     ~light:(Vec.make (-0.4) (-0.9))
     ~ambient:(0.08 +. (0.52 *. light))
-    ~directional:(0.08 +. (0.32 *. light))
+    ~directional:(0.08 +. (0.32 *. light)) ()
 
 let update state ~dt ~motion ~actions =
   let player = Engine.step world state.player motion in
@@ -95,8 +95,10 @@ let view state =
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view
-      ~finished:(fun state -> state.phase = Done)
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view
+         ~finished:(fun state -> state.phase = Done)
+         ())
       start
   in
   ending

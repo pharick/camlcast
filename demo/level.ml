@@ -468,10 +468,12 @@ let overlay fb state =
     | Some _ -> (235, 195, 100)
     | None -> (245, 245, 245)
   in
-  Paint.crosshair fb ~r ~g ~b
+  Paint.crosshair fb ~color:(Color.rgb r g b)
 
 let run window =
   let+ _, ending =
-    Engine.run window ~bindings:Bindings.escapable ~update ~view ~overlay start
+    Engine.run window
+      (Engine.game ~bindings:Bindings.escapable ~update ~view ~overlay ())
+      start
   in
   ending
