@@ -300,6 +300,49 @@ let the_world_it_makes =
                   P.camera ~room:"west" ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
                   P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
                 ])));
+    case "and an overruled one is not judged on the room it names" (fun () ->
+        (* Host looks the last camera's room up and drops the rest without
+           reading them, so this one's "cellar" is never looked for and nothing
+           is broken by it. What there is to say is that the camera does
+           nothing — not that the nothing it does is in the wrong place. *)
+        let two_cameras =
+          P.world ~atmosphere:Atmosphere.default
+            ~spawn:("west", Vec.make (-3.) 0.)
+            [
+              P.room ~name:"west" ~floor ~ceiling [ west_side (); west_door () ];
+              P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ];
+              P.link ("west", "east") ("east", "west");
+              P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ();
+              P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
+            ]
+        in
+        Alcotest.check lines "the overruling, and only that"
+          [ "this camera is overruled by a later one" ]
+          (summaries two_cameras);
+        Alcotest.check lines "and nothing here is broken" [ "warning" ]
+          (severities two_cameras));
+    case "which leaves the world buildable, and so still checked" (fun () ->
+        (* The room check used to error here, and an error stops the tiers
+           below it — so a dead camera naming a typo took the geometry checks
+           down with it. This world's spawn is in a wall, and that is what a
+           report of it has to be able to reach. *)
+        Alcotest.check lines "the camera, and the thing behind it"
+          [
+            "the player starts inside a wall";
+            "this camera is overruled by a later one";
+          ]
+          (summaries
+             (P.world ~atmosphere:Atmosphere.default
+                ~spawn:("west", Vec.make (-6.) 0.)
+                [
+                  P.room ~name:"west" ~floor ~ceiling
+                    [ west_side (); west_door () ];
+                  P.room ~name:"east" ~floor ~ceiling
+                    [ east_side; east_door () ];
+                  P.link ("west", "east") ("east", "west");
+                  P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ();
+                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
+                ])));
     case "two children under one key are reported, not thrown" (fun () ->
         (* Reconciling refuses this outright, which is a crash where a check is
            supposed to be a report. *)

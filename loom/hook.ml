@@ -201,7 +201,20 @@ let run ~slots ~pending ~at ~env ~invalidate render =
                        is assembled, and a render must stay pure. *)
                     let schedule cell =
                       pending.setups <-
-                        (fun () -> cell.value <- Obj.repr (deps, start ()))
+                        (fun () ->
+                          (* Written before [start] runs and not only after it.
+                             A setup that raises has taken nothing, and what the
+                             slot is holding at that moment is the previous
+                             run's cleanup — already called, at the top of this
+                             same flush. Left there it would be handed out again
+                             by the next unmount or the next change of deps, and
+                             a cleanup that closes one open thing would close it
+                             twice. So the slot says "attempted, nothing owed"
+                             first, and only a setup that returns gets to say
+                             what it took. *)
+                          cell.value <-
+                            Obj.repr (deps, (None : (unit -> unit) option));
+                          cell.value <- Obj.repr (deps, start ()))
                         :: pending.setups
                     in
                     let cell, fresh =

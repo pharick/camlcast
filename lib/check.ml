@@ -315,25 +315,32 @@ let naming rooms =
    made — a link, a spawn, a camera — so the same sentence under it. *)
 let no_such_room = "There is no room by that name in this world."
 
-(* Every camera but the last, because the last is the one {!Host} takes. The
-   complaint goes on the ones that are not being listened to rather than on the
-   one that is: "this camera does nothing" is what there is to act on, and the
-   winner is not itself wrong. A warning and not an error — the world builds,
-   and one of the cameras is even obeyed. *)
-let overruled_cameras cameras =
+(* The one {!Host} takes, and the ones it drops. Host keeps the camera it saw
+   last and overwrites as it goes, so it is the final one written that is obeyed
+   and the rest are never read at all — not even for the room they name. Both of
+   the things there are to say about a description with more than one camera are
+   said from here, so neither can drift from the other or from the engine. *)
+let camera_taken cameras =
   match List.rev cameras with
-  | [] | [ _ ] -> []
-  | _ :: earlier ->
-      List.rev_map
-        (fun (_, at) ->
-          warning at "this camera is overruled by a later one"
-            ~detail:
-              [
-                "A world is drawn from one eye. Where a description places it \
-                 more than once, the last one written is the one taken and the \
-                 others are dropped.";
-              ])
-        earlier
+  | [] -> (None, [])
+  | last :: earlier -> (Some last, List.rev earlier)
+
+(* Every camera but the last. The complaint goes on the ones that are not being
+   listened to rather than on the one that is: "this camera does nothing" is
+   what there is to act on, and the winner is not itself wrong. A warning and
+   not an error — the world builds, and one of the cameras is even obeyed. *)
+let overruled_cameras cameras =
+  let _, earlier = camera_taken cameras in
+  List.map
+    (fun (_, at) ->
+      warning at "this camera is overruled by a later one"
+        ~detail:
+          [
+            "A world is drawn from one eye. Where a description places it more \
+             than once, the last one written is the one taken and the others \
+             are dropped.";
+          ])
+    earlier
 
 let linking rooms links =
   let problems = ref [] in
@@ -480,17 +487,21 @@ let of_forest forest =
       in
       (* The camera's own words are Host's, which raises on this from deep inside
          assembling the world. Caught here instead, where the component that wrote
-         the camera can be named. *)
+         the camera can be named.
+
+         Only the camera Host takes, because only that one's room is ever looked
+         for. An overruled camera may name anything it likes and the world will
+         still build; what is wrong with it is that it does nothing, which it is
+         already told. *)
       let camera_room =
-        List.filter_map
-          (fun (room_name, at) ->
-            if names_a_room room_name then None
-            else
-              Some
-                (error at
-                   (Printf.sprintf "the camera is in a room called %S" room_name)
-                   ~detail:[ no_such_room ]))
-          cameras
+        match camera_taken cameras with
+        | Some (room_name, at), _ when not (names_a_room room_name) ->
+            [
+              error at
+                (Printf.sprintf "the camera is in a room called %S" room_name)
+                ~detail:[ no_such_room ];
+            ]
+        | Some _, _ | None, _ -> []
       in
       let linked = linking rooms links in
       if spawn_room <> [] || camera_room <> [] || linked <> [] then

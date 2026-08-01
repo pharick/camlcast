@@ -99,4 +99,11 @@ val use_selector :
     and again on a render that hands over a different store — so a component
     that varies its selector between renders will keep comparing with the one it
     subscribed with. Selectors are normally top-level functions, and this is one
-    more reason to keep them that way. *)
+    more reason to keep them that way.
+
+    The subscription compares once on the way in as well as on every dispatch
+    after it. A component reads the store during its render but is not listening
+    until its effect runs, and between the two lies a whole flush that another
+    component's effect is free to dispatch from. That dispatch is not heard by a
+    subscription that does not exist yet, so the slice is read again the moment
+    one does, and a frame asked for if it has moved. *)

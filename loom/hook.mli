@@ -100,7 +100,12 @@ val use_effect :
     seam where a component is allowed to reach outside that.
 
     [~deps:()] is the common case of "once, on mount". To run every frame
-    instead, pass [~equal:(fun _ _ -> false)]. *)
+    instead, pass [~equal:(fun _ _ -> false)].
+
+    An [f] that raises is taken to have taken nothing: no cleanup is held for
+    it, not even the one the run before it gave back, which by then has already
+    been called. It is not tried again for those deps — the raise comes back out
+    of the render that flushed it, and that is the report. *)
 
 val use_context : 'a Context.t -> 'a
 (** The value the nearest enclosing {!Element.provide} bound for this context,

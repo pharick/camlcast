@@ -84,6 +84,8 @@ let brittle =
   Hook.use_effect ~deps:() (fun () -> Some (fun () -> raise Broken));
   Element.prim "brittle"
 
+exception Balked
+
 let mounting =
   [
     case "a tree of primitives becomes a forest" (fun () ->
@@ -425,6 +427,18 @@ let effects =
         Some (fun () -> note ("stop " ^ tag)));
     Element.prim tag
   in
+  (* The same, except that it will not start under one particular tag. A setup
+     that raises is the awkward case because of when it raises: the cleanup of
+     the run before it has already been called, at the top of this same flush,
+     so what the slot is holding at that moment is a cleanup nobody owes. *)
+  let balky =
+    Element.declare ~name:"balky" @@ fun (tag : string) ->
+    Hook.use_effect ~deps:tag (fun () ->
+        if tag = "no" then raise Balked;
+        note ("start " ^ tag);
+        Some (fun () -> note ("stop " ^ tag)));
+    Element.prim tag
+  in
   [
     case "an effect runs after the frame it was described in" (fun () ->
         let root = R.create () in
@@ -504,6 +518,44 @@ let effects =
           "everything owed ran: the cleanups either side, then the new setup"
           [ "stop a"; "stop c"; "start d" ]
           (read ()));
+    (* A setup can go wrong too, and it leaves a subtler mess than a cleanup
+       does. The cleanup it replaces has already run by then, so a slot still
+       holding it is holding something owed to nobody. *)
+    case "a setup that raises leaves no cleanup behind it" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (balky "a"));
+        Alcotest.check_raises "the one that would not start says so" Balked
+          (fun () -> ignore (run root (balky "no")));
+        (* "stop a" ran on the way in to that flush. Taking the root down must
+           not run it again — it would be a second close of one open thing. *)
+        R.destroy root;
+        Alcotest.check
+          Alcotest.(list string)
+          "started once, stopped once" [ "start a"; "stop a" ] (read ()));
+    case "nor a claim on the deps it failed under" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (balky "a"));
+        Alcotest.check_raises "once" Balked (fun () ->
+            ignore (run root (balky "no")));
+        (* The same deps, so there is nothing new to try: the raise came back
+           out of the render that flushed it, and that was the report. A slot
+           left holding the old deps would read this as a change and take the
+           spent cleanup out again. *)
+        ignore (run root (balky "no"));
+        Alcotest.check
+          Alcotest.(list string)
+          "the second attempt is not made" [ "start a"; "stop a" ] (read ()));
+    case "and a setup that raises on mount takes nothing" (fun () ->
+        let root = R.create () in
+        journal := [];
+        Alcotest.check_raises "the raise comes back out of the render" Balked
+          (fun () -> ignore (run root (balky "no")));
+        R.destroy root;
+        Alcotest.check
+          Alcotest.(list string)
+          "so there is nothing to give back" [] (read ()));
   ]
 
 (* The other end of a mount. A root that is only ever rendered into runs a
@@ -778,6 +830,17 @@ let pause_light =
   let paused = Store.use_selector game (fun s -> s.paused) in
   Element.prim (if paused then "paused" else "running")
 
+(* A component that dispatches from its effect, which {!Store.dispatch} says is
+   a thing an effect may do. Described before the scoreboard below, so its setup
+   runs first — while the scoreboard has read the store but not yet subscribed
+   to it. *)
+let bell =
+  Element.declare ~name:"bell" @@ fun (game : (game, action) Store.t) ->
+  Hook.use_effect ~deps:game ~equal:( == ) (fun () ->
+      Store.dispatch game (Scored 7);
+      None);
+  Element.prim "bell"
+
 let fresh () = Store.create ~reducer ~initial:{ score = 0; paused = false }
 
 let store =
@@ -809,6 +872,21 @@ let store =
         Store.dispatch game Toggle_pause;
         Alcotest.(check bool)
           "and this one never touched it" false (R.dirty root));
+    case "a dispatch made while a selector is still subscribing is not lost"
+      (fun () ->
+        let game = fresh () and root = R.create () in
+        (* Setups run one at a time, and the bell's is ahead of the
+           scoreboard's. So this dispatch is made to a list the scoreboard is
+           not on yet: the notification it would have woken on never comes. *)
+        Alcotest.check scene "the frame shows what the render read"
+          "room\n  bell\n  score=0"
+          (scene_of root (room [ bell game; scoreboard game ]));
+        Alcotest.(check int)
+          "while the store has moved past it" 7 (Store.state game).score;
+        Alcotest.(check bool) "so a frame is owed" true (R.dirty root);
+        Alcotest.check scene "and it catches up" "room\n  bell\n  score=7"
+          (scene_of root (room [ bell game; scoreboard game ]));
+        Alcotest.(check bool) "settled" false (R.dirty root));
     case "the tree does not leak subscriptions" (fun () ->
         let game = fresh () and root = R.create () in
         Alcotest.(check int) "nothing yet" 0 (Store.subscriber_count game);

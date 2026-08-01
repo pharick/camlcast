@@ -42,7 +42,16 @@ let use_selector ?(equal = ( = )) store select =
      compared: two stores are the same store when they are the same store, and
      the default equality would walk a record of closures and raise. *)
   Hook.use_effect ~deps:store ~equal:( == ) (fun () ->
-      Some
-        (subscribe store (fun () ->
-             if not (equal !rendered (select store.state)) then invalidate ())));
+      let notify () =
+        if not (equal !rendered (select store.state)) then invalidate ()
+      in
+      let unsubscribe = subscribe store notify in
+      (* Asked once more, now that there is something here to ask. Between the
+         render above and this setup runs a flush: every cleanup the frame owed
+         and every setup described before this one, any of which may dispatch —
+         to a list this component was not yet on. So the notification that would
+         have come is made here instead, against the same slice, and is silent
+         when nothing moved. *)
+      notify ();
+      Some unsubscribe);
   selected
