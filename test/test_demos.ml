@@ -9,6 +9,7 @@
 
 open Camlcast
 open Camlcast_demo
+open Camlcast_stage
 open Support
 
 let each name check =
@@ -521,10 +522,22 @@ let the_controls_demo_binds_a_second_set_of_walking_keys () =
     (Binding.taken Controls.bindings.Binding.leave
        (frame [ Input.Key Key.escape ]))
 
+(* The declarative layer's checker, pointed at twenty-odd worlds that are known
+   to be right. Every complaint it can make is one of these worlds' invariants
+   said another way, so silence here is what says the checker agrees with the
+   suite above rather than merely running. A demo added to the catalogue is
+   added to this too. *)
+let passes_the_checker (demo : Catalogue.t) =
+  let world = Lazy.force demo.Catalogue.world in
+  match Check.world world with
+  | [] -> ()
+  | found -> Alcotest.failf "%s" (Check.format found)
+
 let () =
   Alcotest.run "Demos"
     [
       ("walkable", each "is walkable" is_walkable);
+      ("checked", each "passes the checker" passes_the_checker);
       ("consistent", each "is consistent" is_consistent);
       ("seams", each "has no seams" has_no_seams);
       ("connected", each "is connected" is_connected);
