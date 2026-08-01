@@ -16,62 +16,64 @@
     width of the screen, because both are measured from the buffer it is handed.
 *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
 
 let height = 4.
 let period = 10.
+let flat = Plane.horizontal 0.
+let sw = Vec.make (-7.) (-7.)
+let se = Vec.make 7. (-7.)
+let ne = Vec.make 7. 7.
+let nw = Vec.make (-7.) 7.
 
-type t = { elapsed : float; player : Player.t }
+(** The layer, as a function of how far round the cycle it is and how big the
+    buffer turned out to be.
 
-let world =
-  let sw = Vec.make (-7.) (-7.)
-  and se = Vec.make 7. (-7.)
-  and ne = Vec.make 7. 7.
-  and nw = Vec.make (-7.) 7. in
-  let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      ~sprites:
-        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 0.) ]
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
-  in
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make (-4.5) 0.)
-
-let start = { elapsed = 0.; player = Player.spawn world }
-
-let update state ~dt ~motion ~actions:_ =
-  {
-    elapsed = Float.rem (state.elapsed +. dt) period;
-    player = Engine.step world state.player motion;
-  }
-
-let overlay fb state =
-  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
+    The old version drew this with a callback handed the framebuffer. It is part
+    of the description now, and {!Camlcast.Events.use_viewport} is how it still
+    knows the size — which is not the window's: the engine renders at whatever
+    whole-number fraction of it stays under [max_render_height] and stretches
+    the result. *)
+let meter ~fraction ~viewport:(width, height) =
   let margin = width / 12 in
   let bar_h = Int.max 4 (height / 60) in
   let bar_y = height - (height / 8) in
-  (* A band behind the meter, blended so the world shows through it. *)
-  Paint.rect fb ~x:0 ~y:(bar_y - bar_h) ~w:width ~h:(bar_h * 4)
-    ~color:(Color.rgb 10 12 20) ~alpha:110;
-  Paint.bar fb ~x:margin ~y:bar_y
-    ~w:(width - (2 * margin))
-    ~h:bar_h ~fraction:(state.elapsed /. period) ~color:(Color.rgb 230 190 90);
-  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
+  P.
+    [
+      (* A band behind the meter, blended so the world shows through it. *)
+      rect ~x:0 ~y:(bar_y - bar_h) ~w:width ~h:(bar_h * 4)
+        ~color:(Color.rgb 10 12 20) ~alpha:110 ();
+      bar ~x:margin ~y:bar_y
+        ~w:(width - (2 * margin))
+        ~h:bar_h ~fraction ~color:(Color.rgb 230 190 90) ();
+      crosshair ~color:(Color.rgb 245 245 245) ();
+    ]
 
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update
-         ~view:(fun state -> (world, state.player))
-         ~overlay ())
-      start
-  in
-  ending
+let at ~fraction ~viewport =
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:("room", Vec.make (-4.5) 0.)
+      [
+        room ~name:"room"
+          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+          ~ceiling:
+            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          [
+            outline ~height ~material:Surfaces.brick [ sw; se; ne; nw ];
+            sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
+              (Vec.make 2.5 0.);
+          ];
+        hud (meter ~fraction ~viewport);
+      ])
+
+let filling =
+  Element.declare ~name:"filling" @@ fun () ->
+  let elapsed, set_elapsed = Hook.use_state 0. in
+  Events.use_frame (fun ~dt -> set_elapsed (Float.rem (elapsed +. dt) period));
+  at ~fraction:(elapsed /. period) ~viewport:(Events.use_viewport ())
+
+let world =
+  (Mount.build (at ~fraction:0. ~viewport:Events.still.Events.viewport))
+    .Scene.world
+
+let run window = Run.on window ~bindings:Bindings.escapable (filling ())

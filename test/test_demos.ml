@@ -279,21 +279,23 @@ let the_floating_demo_lifts_its_sprites () =
        Pictures.motes)
 
 (* The dust demo is the frames half at the scale a game wants it: seventy motes,
-   every one of them somewhere else each frame. Two things have to be true of
-   that, and neither is visible in a screenshot.
+   every one of them somewhere else each frame.
 
-   The first is §15's rule, and it is asserted by {e physical} equality: every
-   mote's picture must be one of the images Pictures built when it loaded, not
-   an equal one made during the frame. A version that generated a picture per
-   mote per frame would draw exactly the same thing and fail here.
+   The rule asserted here is §15's, by {e physical} equality: every mote's
+   picture must be one of the images Pictures built when it loaded, not an equal
+   one made during the frame. A version that generated a picture per mote per
+   frame would draw exactly the same thing and fail here.
 
-   The second is what makes it cheap: a moving room shares the room it moved
-   from. The walls and both planes have to be the very same values, or seventy
-   motes would be dragging four walls behind them sixty times a second. *)
+   This used to assert a second thing — that a moving room shared the walls of
+   the room it moved from, so that seventy motes were not dragging four walls
+   behind them sixty times a second. A described world has no such sharing: it
+   is built from nothing every frame, on purpose, and bench/frame.exe is where
+   that was measured and found to cost a seventh of one percent of drawing the
+   frame it is for. What is asserted instead is what a reader of the demo
+   actually cares about, which is that the room stands still while the dust
+   falls. *)
 let the_dust_demo_moves_without_making_anything () =
-  let at t =
-    fst (Dust.view { Dust.elapsed = t; player = Player.spawn Dust.world })
-  in
+  let at t = (Mount.build (Dust.at ~t)).Scene.world in
   let early = at 0.4 and late = at 3.1 in
   let sprites world =
     List.init
@@ -318,18 +320,18 @@ let the_dust_demo_moves_without_making_anything () =
     "and they are spread through the room, not stacked at one height" true
     (List.exists (fun (s : Room.sprite) -> s.Room.base < 1.) (sprites early)
     && List.exists (fun (s : Room.sprite) -> s.Room.base > 3.) (sprites early));
-  (* The geometry is shared, not rebuilt. *)
-  let authored = World.room Dust.world 0 and moved = World.room late 0 in
+  (* And the room they fall in does not move with them. *)
+  let walls world =
+    List.init
+      (Room.wall_count (World.room world 0))
+      (fun index ->
+        let w = Room.wall_at (World.room world 0) index in
+        (w.Room.a, w.Room.b, w.Room.height))
+  in
+  Alcotest.(check int) "four walls, still" 4 (List.length (walls early));
   Alcotest.(check bool)
-    "the walls are the very same values" true
-    (Room.wall_count moved = Room.wall_count authored
-    && List.for_all
-         (fun i -> Room.wall_at moved i == Room.wall_at authored i)
-         (List.init (Room.wall_count moved) Fun.id));
-  Alcotest.(check bool)
-    "and both planes the very same values" true
-    (Room.floor_surface moved == Room.floor_surface authored
-    && Room.ceiling moved == Room.ceiling authored)
+    "and in the same places both times" true
+    (walls early = walls late)
 
 (* The chalk demo, driven the way a player drives it: stand somewhere, aim, and
    call the same {!Chalk.place} the C key calls. Every claim below is one §13.5
