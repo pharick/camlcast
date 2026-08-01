@@ -32,30 +32,15 @@
     the window and the text keeps its place and its size relative to the screen,
     and gets blockier or crisper with it. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
+open Camlcast_core.Result_ext
 
 let height = 4.
-
-let world =
-  let sw = Vec.make (-7.) (-7.)
-  and se = Vec.make 7. (-7.)
-  and ne = Vec.make 7. 7.
-  and nw = Vec.make (-7.) 7. in
-  let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.) ]
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
-  in
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make (-4.5) 0.)
+let flat = Plane.horizontal 0.
+let sw = Vec.make (-7.) (-7.)
+let se = Vec.make 7. (-7.)
+let ne = Vec.make 7. 7.
+let nw = Vec.make (-7.) 7.
 
 (** The typeface, read once. [\127] is the atlas's 96th cell, a hollow box, and
     naming it as the fallback is what puts something visible in the place of a
@@ -78,8 +63,11 @@ let ink = Color.rgb 236 232 224
 let dim = Color.rgb 150 156 170
 let warn = Color.rgb 232 176 96
 
-let overlay fb (_ : Player.t) =
-  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
+(** The page, as a function of the buffer it has to fit in. Every measurement
+    here is Font's rather than a number written down, which is the point: the
+    panel is measured from the text and the count in the corner places itself by
+    its own size. *)
+let page ~viewport:(width, height) =
   let font = Lazy.force font in
   let lh = font.Font.height in
   let pad = 6 in
@@ -89,48 +77,66 @@ let overlay fb (_ : Player.t) =
   let lines = Font.wrap font paragraph ~width:column in
   let body = String.concat "\n" lines in
   let tw, th = Font.measure font body in
-  Paint.rect fb ~x:pad ~y:pad
-    ~w:(tw + (2 * pad))
-    ~h:(th + (2 * pad))
-    ~color:(Color.rgb 12 14 22) ~alpha:190;
-  Font.draw fb font body ~x:(2 * pad) ~y:(2 * pad) ~color:ink;
-  (* The same atlas in three colours, and every printable character in it. *)
   let y = th + (4 * pad) in
-  Font.draw fb font "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ~x:(2 * pad) ~y ~color:ink;
-  Font.draw fb font "abcdefghijklmnopqrstuvwxyz gjpqy" ~x:(2 * pad) ~y:(y + lh)
-    ~color:dim;
-  Font.draw fb font "0123456789 !?.,:;()[]{}<>+-*/=@#$%&" ~x:(2 * pad)
-    ~y:(y + (2 * lh))
-    ~color:warn;
-  (* Clipped, not truncated: this line is longer than the screen and nothing
-     here knows or cares where the screen ends. *)
-  Font.draw fb font
-    "This line is longer than the buffer is wide and is cut by the clipping in \
-     Paint, not by anything that measured it first."
-    ~x:(2 * pad)
-    ~y:(y + (4 * lh))
-    ~color:ink;
-  (* A character the grid has no cell for, keeping its place. *)
-  Font.draw fb font "a missing glyph:\208 keeps its space" ~x:(2 * pad)
-    ~y:(y + (5 * lh))
-    ~color:dim;
-  (* And the count, bottom right, to show measure placing something by its own
-     size rather than by a number written down here. *)
   let note =
     Printf.sprintf "%d lines wrapped to %dpx" (List.length lines) column
   in
   let nw, nh = Font.measure font note in
-  Font.draw fb font note ~x:(width - nw - pad) ~y:(height - nh - pad) ~color:dim;
-  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
+  P.
+    [
+      rect ~x:pad ~y:pad
+        ~w:(tw + (2 * pad))
+        ~h:(th + (2 * pad))
+        ~color:(Color.rgb 12 14 22) ~alpha:190 ();
+      text ~font ~x:(2 * pad) ~y:(2 * pad) ~color:ink body;
+      (* The same atlas in three colours, and every printable character in
+         it. *)
+      text ~font ~x:(2 * pad) ~y ~color:ink "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      text ~font ~x:(2 * pad) ~y:(y + lh) ~color:dim
+        "abcdefghijklmnopqrstuvwxyz gjpqy";
+      text ~font ~x:(2 * pad)
+        ~y:(y + (2 * lh))
+        ~color:warn "0123456789 !?.,:;()[]{}<>+-*/=@#$%&";
+      (* Clipped, not truncated: this line is longer than the screen and nothing
+         here knows or cares where the screen ends. *)
+      text ~font ~x:(2 * pad)
+        ~y:(y + (4 * lh))
+        ~color:ink
+        "This line is longer than the buffer is wide and is cut by the \
+         clipping in Paint, not by anything that measured it first.";
+      (* A character the grid has no cell for, keeping its place. *)
+      text ~font ~x:(2 * pad)
+        ~y:(y + (5 * lh))
+        ~color:dim "a missing glyph:\208 keeps its space";
+      (* And the count, bottom right, placed by measure rather than by a number
+         written down here. *)
+      text ~font ~x:(width - nw - pad) ~y:(height - nh - pad) ~color:dim note;
+      crosshair ~color:(Color.rgb 245 245 245) ();
+    ]
 
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable
-         ~update:(fun player ~dt:_ ~motion ~actions:_ ->
-           Engine.step world player motion)
-         ~view:(fun player -> (world, player))
-         ~overlay ())
-      (Player.spawn world)
-  in
-  ending
+let chamber =
+  P.(
+    room ~name:"room"
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      [
+        outline ~height ~material:Surfaces.brick [ sw; se; ne; nw ];
+        sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
+      ])
+
+let spawn = ("room", Vec.make (-4.5) 0.)
+
+let printed =
+  Element.declare ~name:"printed" @@ fun () ->
+  P.(
+    world ~atmosphere:Surfaces.air ~spawn
+      [ chamber; hud (page ~viewport:(Events.use_viewport ())) ])
+
+(* The room alone, for the catalogue and the suites: they ask what world this
+   demo is, and the page over it is not part of that answer — nor should
+   building one make them read a font off the disk. *)
+let world =
+  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn [ chamber ]))
+    .Scene.world
+
+let run window = Run.on window ~bindings:Bindings.escapable (printed ())

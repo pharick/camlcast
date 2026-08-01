@@ -34,171 +34,150 @@
     The meter along the bottom is the nearest door: empty when it is open, full
     when it is shut, red for a moment when this demo refuses to work it. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
 
 let height = 4.
 let oak = Surfaces.oak
 let iron = Surfaces.solid (Patterns.door ~color:(Color.rgb 96 104 118))
+let flat = Plane.horizontal 0.
 
-(** The doorways this demo will not open, as [(room, threshold)] pairs — both
-    sides of the one iron door. Keeping the two in step is the bookkeeping a
-    game takes on in exchange for the engine not carrying a [Locked] state. *)
-let locked = [ (0, 2); (3, 0) ]
+(** The doorway this demo will not open, by the name both its sides share.
 
-type t = {
-  world : World.t;
-  player : Player.t;
-  refused : float;  (** seconds left of the "that one will not open" flash *)
-}
+    It used to be a pair of [(room, threshold)] indices, one for each side, and
+    keeping the two in step was the bookkeeping a game took on in exchange for
+    the engine not carrying a [Locked] state. A description names its doorways,
+    so there is one name for one door and nothing to keep in step. *)
+let locked = [ "sealed" ]
 
-(* The hall you arrive in: a wide room whose east wall is three doorways. *)
-let hall =
-  let sw = Vec.make (-10.) (-7.)
-  and se = Vec.make 0. (-7.)
-  and ne = Vec.make 0. 7.
-  and nw = Vec.make (-10.) 7. in
-  let cut name ~door a b =
-    Room.doorway ~name ?door ~width:2.4 ~opening:3. ~height
-      ~material:Surfaces.brick a b
-  in
-  (* All three in the east wall, cut south to north so the wall's winding is
-     unbroken: bare, workable, sealed. *)
-  let bare_jambs, bare = cut "bare" ~door:None se (Vec.make 0. (-2.4))
-  and worked_jambs, worked =
-    cut "worked"
-      ~door:(Some (Door.make oak))
-      (Vec.make 0. (-2.4)) (Vec.make 0. 2.4)
-  and sealed_jambs, sealed =
-    cut "sealed" ~door:(Some (Door.make iron)) (Vec.make 0. 2.4) ne
-  in
-  let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
-  let floor = Plane.horizontal 0. in
-  Room.make ~thresholds:[ bare; worked; sealed ]
-    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-    ~ceiling:
-      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-    (List.concat
-       [
-         bare_jambs;
-         worked_jambs;
-         sealed_jambs;
-         [ wall sw se; wall ne nw; wall nw sw ];
-       ])
+(* The hall you arrive in: a wide room whose east wall is three doorways. All
+   three cut south to north, so the wall's winding is unbroken. *)
+let hall_sw = Vec.make (-10.) (-7.)
+let hall_se = Vec.make 0. (-7.)
+let hall_ne = Vec.make 0. 7.
+let hall_nw = Vec.make (-10.) 7.
+let south = Vec.make 0. (-2.4)
+let north = Vec.make 0. 2.4
+
+(** What hangs in a doorway: nothing if it has no leaf, nothing if it has been
+    opened, and the leaf otherwise. Both sides of a link ask this with the same
+    name, so they cannot disagree — which is the whole of what
+    {!Camlcast_core.World.set_door} used to have to keep in step. *)
+let leaf ~opened name =
+  match name with
+  | _ when List.mem name opened -> None
+  | "worked" -> Some (Door.make oak)
+  | "sealed" -> Some (Door.make iron)
+  | _ -> None
 
 (* What is behind each of them: the same small chamber three times over, each
-   with its own way back — and its own copy of whatever hangs in it, because
-   both sides of a link must agree about a door. *)
-let chamber ~door =
+   with its own way back, and its own copy of whatever hangs in it. *)
+let chamber =
+  Element.declare ~name:"chamber" @@ fun (name, door, reacts) ->
   let sw = Vec.make 0. (-3.)
   and se = Vec.make 7. (-3.)
   and ne = Vec.make 7. 3.
   and nw = Vec.make 0. 3. in
-  let jambs, back =
-    Room.doorway ~name:"back" ?door ~width:2.4 ~opening:3. ~height
-      ~material:Surfaces.brick nw sw
+  let on_gaze, on_use = reacts in
+  P.(
+    room ~name:("behind-" ^ name)
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      [
+        path ~height ~material:Surfaces.brick [ sw; se; ne; nw ];
+        doorway ~name:"back" ?door ~on_gaze ~on_use ~width:2.4 ~opening:3.
+          ~height ~material:Surfaces.brick nw sw;
+        sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.);
+      ])
+
+let ways =
+  [
+    ("bare", hall_se, south);
+    ("worked", south, north);
+    ("sealed", north, hall_ne);
+  ]
+
+(* Not (width, height): a local open of P is about to put a wall's height in
+   scope, and a buffer's is a different number. *)
+let at ~opened ~refused ~aimed ~viewport:(across, down) ~reacts =
+  let unit = Int.max 3 (down / 60) in
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:("hall", Vec.make (-6.) 0.)
+      ([
+         room ~name:"hall"
+           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+           ~ceiling:
+             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+           (List.map
+              (fun (name, a, b) ->
+                let on_gaze, on_use = reacts name in
+                doorway ~name ?door:(leaf ~opened name) ~on_gaze ~on_use
+                  ~width:2.4 ~opening:3. ~height ~material:Surfaces.brick a b)
+              ways
+           @ [
+               wall ~height ~material:Surfaces.stone hall_sw hall_se;
+               wall ~height ~material:Surfaces.stone hall_ne hall_nw;
+               wall ~height ~material:Surfaces.stone hall_nw hall_sw;
+             ]);
+       ]
+      @ List.map
+          (fun (name, _, _) ->
+            chamber ~key:name (name, leaf ~opened name, reacts name))
+          ways
+      @ List.map
+          (fun (name, _, _) -> link ("hall", name) ("behind-" ^ name, "back"))
+          ways
+      @ [
+          hud
+            ((match aimed with
+               | None -> []
+               | Some name ->
+                   let shut = Option.is_some (leaf ~opened name) in
+                   let refusing = refused > 0. in
+                   [
+                     bar ~x:(2 * unit)
+                       ~y:(down - (5 * unit))
+                       ~w:(across / 3) ~h:(2 * unit)
+                       ~fraction:(if shut then 1. else 0.06)
+                       ~color:
+                         (Color.rgb
+                            (if refusing then 235 else 210)
+                            (if refusing then 80 else if shut then 170 else 220)
+                            (if refusing then 70 else if shut then 90 else 130))
+                       ();
+                   ])
+            @ [ crosshair ~color:(Color.rgb 245 245 245) () ]);
+        ]))
+
+let working =
+  Element.declare ~name:"working" @@ fun () ->
+  let opened, set_opened = Hook.use_state [] in
+  let refused, set_refused = Hook.use_state 0. in
+  let aimed, set_aimed = Hook.use_state None in
+  Events.use_frame (fun ~dt ->
+      if refused > 0. then set_refused (Float.max 0. (refused -. dt)));
+  (* One pair of handlers per doorway name, given to both of its sides. Which
+     is what the old version could not do: it found the nearest opening with a
+     door in it and worked that, because there was nothing to hang a handler on.
+     Now the doorway itself is told. *)
+  let reacts name =
+    ( (fun here -> set_aimed (if here then Some name else None)),
+      fun _ ->
+        if List.mem name locked then
+          (* This demo's rule, and the whole of it. The door is perfectly
+             workable as far as the engine is concerned. *)
+          set_refused 0.9
+        else if List.mem name opened then
+          set_opened (List.filter (fun other -> other <> name) opened)
+        else set_opened (name :: opened) )
   in
-  let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
-  let floor = Plane.horizontal 0. in
-  Room.make ~thresholds:[ back ]
-    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-    ~ceiling:
-      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-    ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.) ]
-    (jambs @ [ wall sw se; wall se ne; wall ne nw ])
+  at ~opened ~refused ~aimed ~viewport:(Events.use_viewport ()) ~reacts
 
 let world =
-  World.make
-    ~rooms:
-      [
-        ("hall", hall);
-        ("behind-bare", chamber ~door:None);
-        ("behind-worked", chamber ~door:(Some (Door.make oak)));
-        ("behind-sealed", chamber ~door:(Some (Door.make iron)));
-      ]
-    ~links:
-      [
-        (("hall", "bare"), ("behind-bare", "back"));
-        (("hall", "worked"), ("behind-worked", "back"));
-        (("hall", "sealed"), ("behind-sealed", "back"));
-      ]
-    ~atmosphere:Surfaces.air
-    ~spawn:("hall", Vec.make (-6.) 0.)
+  (Mount.build
+     (at ~opened:[] ~refused:0. ~aimed:None
+        ~viewport:Events.still.Events.viewport ~reacts:(fun _ ->
+          ((fun _ -> ()), fun _ -> ()))))
+    .Scene.world
 
-let start = { world; player = Player.spawn world; refused = 0. }
-
-(** The doorway with a door in it that the player is nearest to, if they are
-    near enough to reach one. A game would find this by looking where the player
-    is pointing — that is E6 — so this stands in for it: nearest wins, within
-    arm's reach of the opening's middle.
-
-    Openings with nothing hanging in them are skipped, there being nothing there
-    to work. *)
-let nearest (world : World.t) (player : Player.t) =
-  Room.nearest_threshold ~within:3.5
-    ~where:(fun t -> t.Room.door <> None)
-    (World.room world player.Player.room)
-    player.Player.pos
-
-let state_of world (player : Player.t) threshold =
-  match
-    (Room.threshold_at (World.room world player.Player.room) threshold)
-      .Room.door
-  with
-  | Some door -> Some door.Door.state
-  | None -> None
-
-let update state ~dt ~motion ~actions =
-  let player = Engine.step state.world state.player motion in
-  let fade = Float.max 0. (state.refused -. dt) in
-  let tried = Input.pressed actions (Input.Key Key.e) in
-  match (tried, nearest state.world player) with
-  | false, _ | _, None -> { state with player; refused = fade }
-  | true, Some threshold ->
-      if List.mem (player.Player.room, threshold) locked then
-        (* This demo's rule, and the whole of it. The door is perfectly workable
-           as far as the engine is concerned. *)
-        { state with player; refused = 0.9 }
-      else
-        let next =
-          match state_of state.world player threshold with
-          | Some Door.Closed -> Door.Open
-          | _ -> Door.Closed
-        in
-        {
-          world =
-            World.set_door state.world ~room:player.Player.room ~threshold next;
-          player;
-          refused = fade;
-        }
-
-let overlay fb state =
-  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
-  let unit = Int.max 3 (height / 60) in
-  (match nearest state.world state.player with
-  | None -> ()
-  | Some threshold ->
-      let shut =
-        state_of state.world state.player threshold = Some Door.Closed
-      in
-      let refusing = state.refused > 0. in
-      Paint.bar fb ~x:(2 * unit)
-        ~y:(height - (5 * unit))
-        ~w:(width / 3) ~h:(2 * unit)
-        ~fraction:(if shut then 1. else 0.06)
-        ~color:
-          (Color.rgb
-             (if refusing then 235 else 210)
-             (if refusing then 80 else if shut then 170 else 220)
-             (if refusing then 70 else if shut then 90 else 130)));
-  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
-
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update
-         ~view:(fun state -> (state.world, state.player))
-         ~overlay ())
-      start
-  in
-  ending
+let run window = Run.on window ~bindings:Bindings.escapable (working ())
