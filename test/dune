@@ -79,6 +79,7 @@
   \
   support
   test_loom
+  test_stage
   test_patterns
   test_pictures
   test_level
@@ -104,6 +105,17 @@
  (modules test_loom)
  (package camlcast)
  (libraries camlcast_loom alcotest qcheck-alcotest))
+
+; The binding's own. This one does link camlcast, because that is the whole of
+; what it is testing: that a description assembles into the same world the old
+; API builds by hand. Support comes with it for the Vec and float testables — a
+; failing comparison should print (3, 2.5) and not a bare false.
+
+(tests
+ (names test_stage)
+ (modules test_stage)
+ (package camlcast)
+ (libraries camlcast camlcast_stage alcotest support))
 
 ; The demos'. Their art comes in through Asset rather than by relative path,
 ; which is why the whole of assets/ is a dependency: test_demos builds every

@@ -139,16 +139,25 @@ spawns you, that its rooms enclose themselves, that every room is reachable, and
 that no floor steps across a doorway. Adding a demo to `Catalogue.demos` is also
 adding it to that suite.
 
-## Two libraries
+## The libraries
 
 The engine holds no content — not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-| directory | library         | what it is                                                     |
-| --------- | --------------- | -------------------------------------------------------------- |
-| `core/`   | `camlcast`      | the engine: geometry, ray casting, rendering, SDL              |
-| `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo` |
+| directory | library          | what it is                                                     |
+| --------- | ---------------- | -------------------------------------------------------------- |
+| `core/`   | `camlcast`       | the engine: geometry, ray casting, rendering, SDL              |
+| `loom/`   | `camlcast.loom`  | the declarative runtime: elements, reconciling, hooks, store    |
+| `stage/`  | `camlcast.stage` | the parts a world is described with, and the host that builds it |
+| `demo/`   | `camlcast-demo`  | the demos and the art they are made of, run by `camlcast-demo` |
+
+`loom/` and `stage/` are the rewrite in progress — a declarative layer over the
+engine, where a game describes what its world should be and the runtime works out
+what changed. `loom/` depends on nothing but the standard library and knows
+nothing of walls; `stage/` is the only place that knows both it and `camlcast`.
+Neither is finished, and the old API in the table's first row is still the one
+the guides teach and the demos use.
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
 it lives outside the library it is content for. It stays in this repository

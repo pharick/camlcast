@@ -1,0 +1,12 @@
+; The binding: the primitives a game describes a world with, the HOST that turns
+; a committed description into a World, and the loop that will drive it. In
+; React's terms this is react-dom, and camlcast is the DOM.
+;
+; The only library that depends on both, and deliberately the only one. loom
+; knows nothing of walls; camlcast knows nothing of components; everything that
+; has to know both is here, where it can be read in one sitting.
+
+(library
+ (name camlcast_stage)
+ (public_name camlcast.stage)
+ (libraries camlcast camlcast_loom))
