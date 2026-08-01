@@ -1,8 +1,8 @@
 (** {b Replacing a room.} A room is immutable, so a room that changes is a room
     that is built again.
 
-    {!Camlcast.World.replace_room} puts a new version of a room where the old
-    one was. It insists the openings are untouched — same thresholds, same
+    {!Camlcast_core.World.replace_room} puts a new version of a room where the
+    old one was. It insists the openings are untouched — same thresholds, same
     order, same names, endpoints and heights, because those are what every
     portal in the world was derived from or indexes into — and lets everything
     else become anything: walls, decals, floor and ceiling planes, sprites, and
@@ -25,7 +25,7 @@
     one room, six walls — and a game with a hundred rooms would replace only the
     ones with something moving in them. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.

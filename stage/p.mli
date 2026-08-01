@@ -1,7 +1,7 @@
 (** The parts a world is written from.
 
     This is the vocabulary. A game builds descriptions out of these, wraps them
-    in components of its own, and never mentions a {!Camlcast.World.t}, a
+    in components of its own, and never mentions a {!Camlcast_core.World.t}, a
     framebuffer or a renderer again.
 
     Every constructor here takes and returns plain values — a description is
@@ -25,10 +25,23 @@
     A free-standing {!wall} is a different matter and needs no rule: it is drawn
     from both sides and has no inside for a normal to face into. *)
 
-open Camlcast
+open Camlcast_core
 
 type t = Prim.t Camlcast_loom.Element.t
 (** A description of part of a world — what a component returns. *)
+
+(** {1 What is under a room and over it} *)
+
+val floor : plane:Plane.t -> material:Material.t -> Room.surface
+(** A floor: an inclined plane, and what it is made of. *)
+
+val roof : plane:Plane.t -> material:Material.t -> Room.ceiling
+(** A ceiling of the same. *)
+
+val open_sky : Sky.t -> Room.ceiling
+(** Nothing overhead, and the sky that shows instead. *)
+
+(** {1 The world} *)
 
 val world : atmosphere:Atmosphere.t -> spawn:string * Vec.t -> t list -> t
 (** The root of every description: the air its rooms are seen through, and the
@@ -48,8 +61,9 @@ val room :
     standing in it and the doorways cut through it.
 
     [name] is how a {!link} finds it, so it has to be unique within the world.
-    Use {!Camlcast.Room.floor} for the surface and {!Camlcast.Room.roof} or
-    {!Camlcast.Room.open_sky} for what is overhead. *)
+    Use {!Camlcast_core.Room.floor} for the surface and
+    {!Camlcast_core.Room.roof} or {!Camlcast_core.Room.open_sky} for what is
+    overhead. *)
 
 val outline : height:float -> material:Material.t -> Vec.t list -> t
 (** A closed boundary through these corners, wound so the room is on the inside.
@@ -141,7 +155,7 @@ val camera :
     Everything below draws on the finished frame, in the order it is written, in
     the framebuffer's own pixels — which are not the window's. The engine
     renders at whatever whole-number fraction of the window keeps it under
-    {!Camlcast.Config.max_render_height}, and stretches the result, so a
+    {!Camlcast_core.Config.max_render_height}, and stretches the result, so a
     thousand-pixel window is commonly a five-hundred-pixel buffer.
     {!Events.use_viewport} is how a component asks how big it actually is. *)
 
@@ -185,8 +199,9 @@ val text :
 (** A run of text with its top-left corner at [(x, y)].
 
     The engine holds no font, exactly as it holds no colours or pictures, so one
-    has to be given. {!Camlcast.Font.measure} is how to work out what it will
-    take before drawing it, and {!Camlcast.Font.wrap} is how to break it. *)
+    has to be given. {!Camlcast_core.Font.measure} is how to work out what it
+    will take before drawing it, and {!Camlcast_core.Font.wrap} is how to break
+    it. *)
 
 val picture : ?key:string -> ?tint:Color.t -> x:int -> y:int -> Image.t -> t
 (** A picture with its top-left corner at [(x, y)], multiplied by [tint] if one
@@ -194,7 +209,8 @@ val picture : ?key:string -> ?tint:Color.t -> x:int -> y:int -> Image.t -> t
 
 val crosshair : ?color:Color.t -> unit -> t
 (** Two short arms at the middle of the buffer — the pixel the straight-ahead
-    ray goes through, which is what makes it agree with {!Camlcast.Sight}. *)
+    ray goes through, which is what makes it agree with {!Camlcast_core.Sight}.
+*)
 
 val finish : t
 (** Say the game is over.
@@ -205,7 +221,7 @@ val finish : t
     Declared rather than called, because everything else here is. A component
     that has reached its ending says so by describing an ending, in the same
     place and the same way it says everything else —
-    [if done then Parts.finish else Element.empty] — instead of reaching for a
+    [if done then P.finish else Element.empty] — instead of reaching for a
     callback the runtime handed it. *)
 
 val link : string * string -> string * string -> t

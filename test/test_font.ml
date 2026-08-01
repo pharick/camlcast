@@ -10,7 +10,7 @@
     same shape as the real one — and every pixel of cell [n] is the grey [n], so
     a glyph that lands on the screen says which cell it came from. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let cell_w = 6

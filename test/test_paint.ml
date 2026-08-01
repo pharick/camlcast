@@ -12,7 +12,7 @@
     every guard against writing off the buffer lives in this module, and a
     missing one is a silently corrupted neighbouring row rather than a crash. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let black = Color.rgb 0 0 0

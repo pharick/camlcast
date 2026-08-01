@@ -1,6 +1,13 @@
+; The platform. Geometry, ray casting, rendering, SDL — everything a frame is
+; actually made of, and none of it anything a game should have to name.
+;
+; It was called camlcast until the declarative layer was ready to take that
+; name. It is called core now for the reason the directory is: what a game opens
+; is the layer over the top, and this is what that layer is over. A game that
+; genuinely needs World or Renderer adds camlcast.core to its own dune and says
+; so out loud, which is the boundary being a decision rather than a drift.
+
 (library
- (name camlcast)
- ; A public name puts the library in the camlcast package, which is what
- ; makes `dune build @doc` generate pages for its modules.
- (public_name camlcast)
+ (name camlcast_core)
+ (public_name camlcast.core)
  (libraries tsdl tsdl-image))

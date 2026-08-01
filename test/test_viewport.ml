@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let at ?(pitch = 0.) ?(eye_z = 0.5) ~width ~height () =

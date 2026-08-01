@@ -1,7 +1,7 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Camlcast.Engine.run_world} takes an [extend] callback and calls it on a
-    frame the player went through a doorway on, with the world and where they
+    {!Camlcast_core.Engine.run_world} takes an [extend] callback and calls it on
+    a frame the player went through a doorway on, with the world and where they
     now are; whatever it returns is the world drawn from then on. It runs on a
     frame that crossed and not on every frame, so a generator may take its time
     — and once per such frame however many doorways it crossed, which is why
@@ -10,25 +10,26 @@
     What it does here is build ahead of the player, using the three primitives a
     world grows by and nothing else:
 
-    - {!Camlcast.World.open_doorway} replaces a room with one that has one more
-      threshold than it had, the ones it already had unmoved. That check is the
-      whole safety of this: a room cannot move a doorway that something else is
-      already linked through.
-    - {!Camlcast.World.add_room} appends a room whose doorways lead nowhere yet.
-    - {!Camlcast.World.link} joins two doorways that both exist and neither of
-      which leads anywhere.
+    - {!Camlcast_core.World.open_doorway} replaces a room with one that has one
+      more threshold than it had, the ones it already had unmoved. That check is
+      the whole safety of this: a room cannot move a doorway that something else
+      is already linked through.
+    - {!Camlcast_core.World.add_room} appends a room whose doorways lead nowhere
+      yet.
+    - {!Camlcast_core.World.link} joins two doorways that both exist and neither
+      of which leads anywhere.
 
     Each appends and nothing else, so every index anything is holding stays
     valid, and each leaves a world that renders and walks — a generator that
     stopped halfway would leave you facing a wall rather than an exception in
     the middle of a frame.
 
-    It builds {!Camlcast.Config.max_portal_depth} segments ahead, which is
+    It builds {!Camlcast_core.Config.max_portal_depth} segments ahead, which is
     exactly as deep as the renderer looks through doorways, so the end of the
     corridor is never in shot. Segments alternate brick and stone so you can
     count how far you have gone. *)
 
-open Camlcast
+open Camlcast_core
 
 let height = 4.
 let width = 2.5

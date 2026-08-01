@@ -1,12 +1,18 @@
-; The binding: the primitives a game describes a world with, the HOST that turns
-; a committed description into a World, and the loop that will drive it. In
-; React's terms this is react-dom, and camlcast is the DOM.
+; The library a game opens, and the only one it should have to. In React's terms
+; this is react-dom; camlcast.core is the DOM and camlcast.loom is React.
 ;
-; The only library that depends on both, and deliberately the only one. loom
-; knows nothing of walls; camlcast knows nothing of components; everything that
-; has to know both is here, where it can be read in one sitting.
+; The module named for the library is the library: dune makes camlcast.ml the
+; interface and everything beside it reachable only through what that file
+; chooses to re-export. Which is how the boundary this whole rewrite is about
+; stops being a convention and becomes a fact — Engine, Renderer, Framebuffer,
+; World and Player are not in there, so no amount of autocomplete will find
+; them.
+;
+; The only library depending on both of the others, and deliberately the only
+; one: loom knows nothing of walls, core knows nothing of components, and
+; everything that has to know both is here.
 
 (library
- (name camlcast_stage)
- (public_name camlcast.stage)
- (libraries camlcast camlcast_loom))
+ (name camlcast)
+ (public_name camlcast)
+ (libraries camlcast_core camlcast_loom))

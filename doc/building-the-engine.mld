@@ -1084,7 +1084,7 @@ let step world player (m : Input.motion) =
 {b What the shipped engine does instead.} Everything above is right except for
 one thing: it decides which keys walk. That is a decision the engine has no
 business making, so [motion] is split in two. [Input] keeps the reading — the
-keyboard, the mouse, the edges and the hold timer — and {!Camlcast.Binding} holds
+keyboard, the mouse, the edges and the hold timer — and {!Camlcast_core.Binding} holds
 a {e table} the game supplies, from controls and analog sources onto the four
 axes. [Binding.motion] is the [axis] function above with its keys taken out of
 it, and because it reads a frame of input rather than SDL, it is pure and can be
@@ -1453,7 +1453,7 @@ A single number is enough, and is exact rather than approximate: along one ray,
 which side of the threshold's line a point falls on varies linearly with the
 distance and changes sign exactly where the ray crosses it. Nothing accumulates
 either, since a rigid motion preserves distance and each recursion's cut-off is
-an opening that already cleared the last one. {!Camlcast.Sight} cuts its ray at
+an opening that already cleared the last one. {!Camlcast_core.Sight} cuts its ray at
 the same distance by the same rule, which is what keeps what the crosshair can
 pick the same as what the frame draws.
 
@@ -1489,8 +1489,8 @@ towards an open door from right across the room.
 
 Once a step can report the doorways it went through, [Player.walk] has a choice
 to make about them, and the shipped engine resolves it by not having a [walk] at
-all: {!Camlcast.Player.traverse} returns the pose {e and} the crossings, and
-{!Camlcast.Engine.step} is the one place that drops them. One function that
+all: {!Camlcast_core.Player.traverse} returns the pose {e and} the crossings, and
+{!Camlcast_core.Engine.step} is the one place that drops them. One function that
 answers everything and one caller that asks for less beats two functions that
 have to be kept in step.
 
@@ -1540,8 +1540,8 @@ carries the immutable [player], the [fullscreen] flag and the time the previous
 frame started between frames.
 
 {b What the shipped engine does instead.} The nesting is the same, but it ends
-in a {!Camlcast.Engine.window} handed to a function rather than in the loop
-itself — {!Camlcast.Engine.with_window}, with the loop a separate call played on
+in a {!Camlcast_core.Engine.window} handed to a function rather than in the loop
+itself — {!Camlcast_core.Engine.with_window}, with the loop a separate call played on
 what it opens. That is what lets a launcher show a menu, run a demo and show the
 menu again without the window disappearing twice on the way. The bracket is the
 point and survives the split: a window is still acquired, used and released in
@@ -1593,10 +1593,10 @@ let rec loop ctx ~player ~fullscreen ~previous =
 size if needed, [clear_depth], [draw_frame], [present], [render_present].
 
 The three above the loop are the only part of it that never touches a window, so
-in the shipped engine they live apart from one, as {!Camlcast.Clock} —
+in the shipped engine they live apart from one, as {!Camlcast_core.Clock} —
 [frame_time] and [idle_time] under those names, and [seconds] as
-{!Camlcast.Clock.now}. That is the whole of what a test can pin about pacing, and
-splitting it out is what lets {!Camlcast.Engine} keep an interface with nothing
+{!Camlcast_core.Clock.now}. That is the whole of what a test can pin about pacing, and
+splitting it out is what lets {!Camlcast_core.Engine} keep an interface with nothing
 in it but a window to play on and the two ways into the loop.
 
 {b Checkpoint — Milestone 8, the whole engine.} Everything runs together.
@@ -1758,11 +1758,11 @@ one: materials, doors, sprites you can pick up, a HUD, a crosshair that knows
 what it is pointing at, and a level that builds itself as it is walked into.
 
 The modules of this repository carry the derivations at full length in their own
-docstrings, and are worth reading against what you have just written: {!Camlcast.Ray}
-for the ray-versus-segment algebra, {!Camlcast.Plane} for the casting equation,
-{!Camlcast.Viewport} for the projection and the resize rules,
-{!Camlcast.Transform} for why linked endpoints reverse, and
-{!Camlcast.World} for the portal machinery.
+docstrings, and are worth reading against what you have just written: {!Camlcast_core.Ray}
+for the ray-versus-segment algebra, {!Camlcast_core.Plane} for the casting equation,
+{!Camlcast_core.Viewport} for the projection and the resize rules,
+{!Camlcast_core.Transform} for why linked endpoints reverse, and
+{!Camlcast_core.World} for the portal machinery.
 
 Built in the same spirit as the engine it describes: small modules, derivations
 written down, and a picture on screen at the end of every phase. Happy casting.

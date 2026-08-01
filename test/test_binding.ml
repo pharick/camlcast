@@ -4,7 +4,7 @@
     scripted keys and a scripted mouse, and assert the arithmetic the player
     would otherwise have to feel. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let tick = 1. /. 60.

@@ -1,7 +1,7 @@
 (** A demonstration world of five rooms, built to exercise the whole engine at
     once — every kind of wall, both kinds of threshold, both a roof and the open
-    {!Camlcast.Sky}, and, unlike every other demo here, all of it at the same
-    time:
+    {!Camlcast_core.Sky}, and, unlike every other demo here, all of it at the
+    same time:
 
     - {b plaza}, open to an afternoon sky: a twelve-sided ring of tall walls
       around the spawn, six pillars of differing heights and materials, a
@@ -24,9 +24,9 @@
       turning in the air, reached only through the hall's door.
 
     Every room's floor is the same gently tilted surface seen from its own
-    frame, derived with {!Camlcast.Plane.through} so that
-    {!Camlcast.World.seam_gap} is zero at every doorway by construction rather
-    than by arithmetic luck.
+    frame, derived with {!Camlcast_core.Plane.through} so that
+    {!Camlcast_core.World.seam_gap} is zero at every doorway by construction
+    rather than by arithmetic luck.
 
     {1 A world, and then a game}
 
@@ -34,12 +34,12 @@
     once, with nothing shut and nothing moving. What {!run} adds is the part a
     world cannot hold by itself — {b E} works the door you are nearest, the dust
     in the cellar is re-made every frame, and a crosshair says what you are
-    looking at. That split is the engine's own: {!Camlcast.Engine.run_world}
-    runs a world, {!Camlcast.Engine.run} runs a state that has a world in it,
-    and this is small enough to show the difference and large enough to need it.
-*)
+    looking at. That split is the engine's own:
+    {!Camlcast_core.Engine.run_world} runs a world, {!Camlcast_core.Engine.run}
+    runs a state that has a world in it, and this is small enough to show the
+    difference and large enough to need it. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 (** A floor or ceiling of the level's usual materials. *)
@@ -57,20 +57,20 @@ let roof plane = Room.roof ~plane ~material:Surfaces.soffit
 
     The oak one is between the hall and the cellar. The garden's is a steel
     grille, so shutting it leaves the plaza in plain sight through the bars and
-    entirely out of reach: {!Camlcast.Material} decides what you can see through
-    and {!Camlcast.Door} decides what you can walk through, and this is the one
-    place in the level where those two answers differ.
+    entirely out of reach: {!Camlcast_core.Material} decides what you can see
+    through and {!Camlcast_core.Door} decides what you can walk through, and
+    this is the one place in the level where those two answers differ.
 
     Each is one value hung in {e both} thresholds of its link, because
-    {!Camlcast.World.set_door} changes a door on both sides at once and
-    {!Camlcast.World.check} refuses a world whose two halves disagree. Note that
-    {!Camlcast.Door.make} defaults to shut, so open is asked for. *)
+    {!Camlcast_core.World.set_door} changes a door on both sides at once and
+    {!Camlcast_core.World.check} refuses a world whose two halves disagree. Note
+    that {!Camlcast_core.Door.make} defaults to shut, so open is asked for. *)
 let cellar_door = Door.make ~state:Door.Open Surfaces.oak
 
 let garden_gate = Door.make ~state:Door.Open Surfaces.grille
 
 let default =
-  (* Doorways are cut with {!Camlcast.Room.doorway}, which splits the wall and
+  (* Doorways are cut with {!Camlcast_core.Room.doorway}, which splits the wall and
      returns the jambs alongside the threshold, so an opening and the wall it is
      cut into can never drift apart. *)
   let plaza_corner k =
@@ -101,7 +101,7 @@ let default =
       ~material:Surfaces.tile (Vec.make (-3.) 0.) (Vec.make 3. 0.)
   in
   (* The garden's side of the gate is cut by hand rather than with
-     {!Camlcast.Room.doorway}, for the one thing that does not do: a lintel of a
+     {!Camlcast_core.Room.doorway}, for the one thing that does not do: a lintel of a
      material other than the wall's. The strip left standing over this opening is
      brick where the wall either side of it is stone, which is what makes it read
      as a transom rather than as more wall. Splitting about the middle keeps both
@@ -125,7 +125,7 @@ let default =
     Room.doorway ~name:"up" ~door:cellar_door ~width:1.6 ~opening:2.2
       ~height:2.8 ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.))
   in
-  (* Room.across is the transform of a link, exactly as {!Camlcast.World.make}
+  (* Room.across is the transform of a link, exactly as {!Camlcast_core.World.make}
      will derive it, so a neighbour's floor can be built to meet this one
      across the doorway. *)
   let link = Room.across in
@@ -207,7 +207,7 @@ let default =
   and hall =
     Room.make ~thresholds:[ hall_west; hall_cellar ]
       ~floor:(ground hall_floor)
-        (* Not {!Camlcast.Plane.above}, which is the floor's own slope carried up
+        (* Not {!Camlcast_core.Plane.above}, which is the floor's own slope carried up
          bodily and so a ceiling of fixed headroom. This one has a slope of its
          own, steeper than the floor's, so the two diverge: the hall is 4 cells
          high where you come in and rather more of that by the far wall, and you
@@ -248,10 +248,10 @@ let default =
     Room.make ~thresholds:[ garden_east ]
       ~floor:(ground garden_floor)
         (* A sky of its own, and the only thing about the garden that is not the
-         plaza's. A {!Camlcast.Sky} belongs to the room it roofs, so two rooms
+         plaza's. A {!Camlcast_core.Sky} belongs to the room it roofs, so two rooms
          under two skies costs a second value and nothing else; the light on the
          walls does not follow, because that is the world's one
-         {!Camlcast.Atmosphere} and it lights both. *)
+         {!Camlcast_core.Atmosphere} and it lights both. *)
       ~ceiling:(Room.open_sky Surfaces.dusk)
       ~sprites:
         [
@@ -327,9 +327,9 @@ let default =
 (** {1 The game around it} *)
 
 (** The cellar's index in {!default}, which the dust is put into by number
-    because {!Camlcast.World.replace_room} asks for one. Taken from the world
-    rather than written down, so re-ordering the rooms above cannot leave this
-    pointing at the plaza. *)
+    because {!Camlcast_core.World.replace_room} asks for one. Taken from the
+    world rather than written down, so re-ordering the rooms above cannot leave
+    this pointing at the plaza. *)
 let cellar_room =
   match World.named default "cellar" with
   | Some i -> i
@@ -370,8 +370,8 @@ let mote ~t k =
     (Vec.make (spot.Vec.x +. drift) (spot.Vec.y +. (drift *. 0.6)))
 
 (** What the cellar was authored with, kept because
-    {!Camlcast.Room.with_sprites} {e replaces} the array rather than adding to
-    it: hand it only the motes and the figure standing down there disappears,
+    {!Camlcast_core.Room.with_sprites} {e replaces} the array rather than adding
+    to it: hand it only the motes and the figure standing down there disappears,
     which looks like a fault in the renderer rather than a fault here. The
     {!Dust} demo never meets this, its chamber having nothing else in it. *)
 let cellar_sprites =
@@ -394,8 +394,8 @@ type t = {
 (** {2 The state}
 
     A world of its own rather than {!default}, because working a door rebuilds
-    one — {!Camlcast.World.set_door} hands back a new world and the old one is
-    still the level at rest, which is what the tests read. *)
+    one — {!Camlcast_core.World.set_door} hands back a new world and the old one
+    is still the level at rest, which is what the tests read. *)
 
 let start =
   { world = default; player = Player.spawn default; elapsed = 0.; refused = 0. }

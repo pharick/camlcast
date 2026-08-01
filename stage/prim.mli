@@ -2,20 +2,20 @@
 
     Every one of these is an inert description: what to build, never a built
     thing that something is holding on to. {!Host.assemble} is what turns a
-    frame's worth of them into a {!Camlcast.World.t}, and a game never sees that
-    happen.
+    frame's worth of them into a {!Camlcast_core.World.t}, and a game never sees
+    that happen.
 
     They carry parameters rather than assembled pieces wherever a child affects
     how the piece is made — a {!Wall} keeps its endpoints because the decals
     hung on it arrive as its children and have to be there when
-    {!Camlcast.Room.val-wall} is finally called. Where nothing nests, the
+    {!Camlcast_core.Room.val-wall} is finally called. Where nothing nests, the
     assembled value is carried directly, because there is nothing left to
     decide.
 
-    A game does not name these. {!Parts} does that, and its constructors are
-    what a world is written with. *)
+    A game does not name these. {!P} does that, and its constructors are what a
+    world is written with. *)
 
-open Camlcast
+open Camlcast_core
 
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 (** Where a description says the eye is. Its own record rather than an inline

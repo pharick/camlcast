@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 (* Where a step ends up, with the doorways it went through dropped. The engine

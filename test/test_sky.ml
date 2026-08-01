@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 (* A sky is a value now, so the suite brings its own rather than reaching for

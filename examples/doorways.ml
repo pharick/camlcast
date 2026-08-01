@@ -6,7 +6,7 @@
    This is step 5 of doc/making-a-game.mld, compiled; the guide quotes the
    world below and the two must stay in step. *)
 
-open Camlcast
+open Camlcast_core
 
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)

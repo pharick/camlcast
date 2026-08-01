@@ -1,6 +1,6 @@
 (* Implementation of {!Camlcast_stage.Events}; the interface carries the prose. *)
 
-open Camlcast
+open Camlcast_core
 module Loom = Camlcast_loom
 
 type t = {

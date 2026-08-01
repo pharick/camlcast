@@ -3,8 +3,8 @@
     This is {!Camlcast_loom.Host.HOST} for the raycaster, and the whole of what
     the runtime knows about walls. It runs once a frame, over the forest of
     {!Prim}s the reconciler has settled on, and calls the same
-    {!Camlcast.Room.make} and {!Camlcast.World.make} a hand-written level always
-    did.
+    {!Camlcast_core.Room.make} and {!Camlcast_core.World.make} a hand-written
+    level always did.
 
     It builds the world from scratch each time. That is a real cost and a
     deliberately deferred one: every node carries a {!Camlcast_loom.Path.t} that

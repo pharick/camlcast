@@ -1,6 +1,6 @@
 (* Implementation of {!Camlcast_stage.Check}; the interface carries the prose. *)
 
-open Camlcast
+open Camlcast_core
 module Loom = Camlcast_loom
 
 type severity = Error | Warning
@@ -253,10 +253,7 @@ let structure forest =
         [
           error "(root)" "there is no world here"
             ~detail:
-              [
-                "Every description is one Parts.world with everything inside \
-                 it.";
-              ];
+              [ "Every description is one P.world with everything inside it." ];
         ]
     | [ node ] ->
         [
@@ -264,10 +261,7 @@ let structure forest =
             (Printf.sprintf "a %s is not a world"
                (Prim.describe node.Loom.Host.prim))
             ~detail:
-              [
-                "Every description is one Parts.world with everything inside \
-                 it.";
-              ];
+              [ "Every description is one P.world with everything inside it." ];
         ]
     | _ :: _ :: _ ->
         [

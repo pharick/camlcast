@@ -2,31 +2,33 @@
     walking about — and, since walking about is a game's too, the table that
     says which key does it.
 
-    The engine names no actions. It reports {e controls} — a {!Camlcast.Key}, or
-    a mouse button — and four questions about each: is it down, did it go down
-    this frame, did it come up this frame, and how long has it been held.
-    "Interact" and "commit" are this demo's words, and the table from the one to
-    the other is {!interact}, {!screen} and {!primary} below.
+    The engine names no actions. It reports {e controls} — a
+    {!Camlcast_core.Key}, or a mouse button — and four questions about each: is
+    it down, did it go down this frame, did it come up this frame, and how long
+    has it been held. "Interact" and "commit" are this demo's words, and the
+    table from the one to the other is {!interact}, {!screen} and {!primary}
+    below.
 
     - {b Hold E.} The meter fills. Let go before it is full and the {b blue}
       lamp lights; let go after and the {b green} one does. That is the whole of
-      press-versus-hold: {!Camlcast.Input.held_for} counts from the frame after
-      the press and keeps its value for the one frame {!Camlcast.Input.released}
-      is true, so the release itself can ask how long the hold lasted.
+      press-versus-hold: {!Camlcast_core.Input.held_for} counts from the frame
+      after the press and keeps its value for the one frame
+      {!Camlcast_core.Input.released} is true, so the release itself can ask how
+      long the hold lasted.
     - {b Click.} The amber lamp lights. A mouse button is a control like a key.
     - {b Tab.} Releases the mouse. The cursor comes back, a white square follows
       it, and the camera stops turning with it — that is [pointing] on
-      {!Camlcast.Engine.run}, which is how a game that opens a screen over its
-      world hands the mouse to it. Press it again to take the mouse back.
-    - {b IJKL, as well as WASD.} Walking is bound by a {!Camlcast.Binding.t}
-      like everything else, and this demo hands {!Camlcast.Engine.run} one of
-      its own with a second set of keys added. Both sets are live at once, and
-      holding one of each walks at {e one} speed rather than two — an axis
-      clamps what its terms add up to, which is what stops a table with two keys
-      on one axis from running.
+      {!Camlcast_core.Engine.run}, which is how a game that opens a screen over
+      its world hands the mouse to it. Press it again to take the mouse back.
+    - {b IJKL, as well as WASD.} Walking is bound by a
+      {!Camlcast_core.Binding.t} like everything else, and this demo hands
+      {!Camlcast_core.Engine.run} one of its own with a second set of keys
+      added. Both sets are live at once, and holding one of each walks at
+      {e one} speed rather than two — an axis clamps what its terms add up to,
+      which is what stops a table with two keys on one axis from running.
 
     The line across the top is printed from that table with
-    {!Camlcast.Key.name}, not spelled out: move a key here and the words on
+    {!Camlcast_core.Key.name}, not spelled out: move a key here and the words on
     screen follow it. What the player reads is the layout's name for the place,
     so the line says Z on an AZERTY board where it says W on a QWERTY one — and
     it is the same key either way, because a binding is a place.
@@ -35,7 +37,7 @@
     which are the ones the overlay draws in, so the square lands under the
     pointer at any window size. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.
@@ -46,10 +48,10 @@ let interact = Input.Key Key.e
 let screen = Input.Key Key.tab
 let primary = Input.Button Input.Left
 
-(** What to print for a control. {!Camlcast.Key.name} does the hard half — which
-    key of the layout in front of the player this place is — and a game supplies
-    its own word for a mouse button, because "click" is a choice about wording
-    rather than about hardware. *)
+(** What to print for a control. {!Camlcast_core.Key.name} does the hard half —
+    which key of the layout in front of the player this place is — and a game
+    supplies its own word for a mouse button, because "click" is a choice about
+    wording rather than about hardware. *)
 let named = function
   | Input.Key key -> Key.name key
   | Input.Button Input.Left -> "click"
@@ -58,12 +60,12 @@ let named = function
 
 (** The engine's table with a second set of walking keys added to it: the whole
     of rebinding is a value like this one, stated once and handed to
-    {!Camlcast.Engine.run}.
+    {!Camlcast_core.Engine.run}.
 
-    [~leave] has to be asked for — {!Camlcast.Binding.default} binds no key that
-    ends a run, since a game with screens in it wants Escape for closing them —
-    which is what {!Camlcast_demo.Bindings} does for the demos that take it as
-    it stands. *)
+    [~leave] has to be asked for — {!Camlcast_core.Binding.default} binds no key
+    that ends a run, since a game with screens in it wants Escape for closing
+    them — which is what {!Camlcast_demo.Bindings} does for the demos that take
+    it as it stands. *)
 let bindings =
   let also axis ~positive ~negative =
     {
@@ -85,8 +87,8 @@ let bindings =
 
 (** Read off the table above, so the two cannot drift apart.
 
-    Lazy, and that is not an optimisation: {!Camlcast.Key.name} answers for the
-    layout SDL knows about, and SDL only reads the real one when the video
+    Lazy, and that is not an optimisation: {!Camlcast_core.Key.name} answers for
+    the layout SDL knows about, and SDL only reads the real one when the video
     subsystem starts. Built at module load this line would name the US keyboard
     on every machine. Built on the first frame it names the player's. *)
 let help =

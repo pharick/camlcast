@@ -1,6 +1,6 @@
 (** Testables and fixtures shared by the per-module suites. *)
 
-open Camlcast
+open Camlcast_core
 
 let case name body = Alcotest.test_case name `Quick body
 
@@ -220,7 +220,7 @@ let two_rooms_closed = two_rooms_with_a_door Door.Closed
 
 (** The same pair again, with a leaf of {!mesh} shut across the opening: a door
     you cannot walk through and can see through, which is the pair of claims the
-    renderer and {!Camlcast.Sight} have to keep apart. *)
+    renderer and {!Camlcast_core.Sight} have to keep apart. *)
 let two_rooms_barred = joined_rooms ~door:(Door.make mesh) ()
 
 (** Two rooms joined the same way, but with the second room's doorway set in the
@@ -236,7 +236,7 @@ let two_rooms_barred = joined_rooms ~door:(Door.make mesh) ()
     That puts the slot's back wall at [x = 1.5] of the second room's frame,
     which the link carries to [x = 3.5] of the first — half a cell
     {e inside the room the player is standing in}. Which is legal, and is the
-    whole of what {!Camlcast.World} means by two rooms occupying the same
+    whole of what {!Camlcast_core.World} means by two rooms occupying the same
     coordinates and still being separate places. It is also the one wall of the
     second room that must never reach the first: not down a ray through the
     doorway, where it stands nearer than the doorway itself, and not down a step

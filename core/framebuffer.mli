@@ -11,11 +11,10 @@
     the inner loop, and the texture format is picked to match that byte order.
 
     A game meets one of these through the [overlay] callback of
-    {!Camlcast.Engine.type-game}, which is handed the finished frame before it
-    reaches the screen. What a game wants from it is almost always {!t.width}
-    and {!t.height} — the coordinates its overlay draws in, which are the
-    buffer's and not the window's — and then {!Paint} or {!Font} to draw with.
-*)
+    {!Engine.type-game}, which is handed the finished frame before it reaches
+    the screen. What a game wants from it is almost always {!t.width} and
+    {!t.height} — the coordinates its overlay draws in, which are the buffer's
+    and not the window's — and then {!Paint} or {!Font} to draw with. *)
 
 type t = private {
   texture : Tsdl.Sdl.texture option;

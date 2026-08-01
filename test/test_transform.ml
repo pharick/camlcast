@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 (* A transform with both a rotation and an offset, so [point] and [direction]

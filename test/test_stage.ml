@@ -9,15 +9,15 @@
    tree. If the declarative version of it stops agreeing with it, one of the two
    has moved. *)
 
-open Camlcast
-open Camlcast_stage
-open Support
-
 (* {1 Comparing two worlds}
 
    World.t is abstract, so this walks it through the accessors a renderer uses.
    That is the right level: two worlds that answer every one of these the same
    way draw the same picture, whatever they are made of underneath. *)
+
+open Camlcast_core
+open Camlcast
+open Support
 
 let same_wall where (expected : Room.wall) (actual : Room.wall) =
   Alcotest.check vec (where ^ ": from") expected.a actual.a;
@@ -147,10 +147,10 @@ let corners =
   [ Vec.make (-6.) (-6.); Vec.make 6. (-6.); Vec.make 6. 6.; Vec.make (-6.) 6. ]
 
 let described =
-  Parts.world ~atmosphere:Atmosphere.default ~spawn
+  P.world ~atmosphere:Atmosphere.default ~spawn
     [
-      Parts.room ~name:"room" ~floor ~ceiling
-        [ Parts.outline ~height ~material:stone corners ];
+      P.room ~name:"room" ~floor ~ceiling
+        [ P.outline ~height ~material:stone corners ];
     ]
 
 let the_smallest_game =
@@ -171,16 +171,16 @@ let winding =
   [
     case "corners in either order build the same room" (fun () ->
         let forwards =
-          Parts.world ~atmosphere:Atmosphere.default ~spawn
+          P.world ~atmosphere:Atmosphere.default ~spawn
             [
-              Parts.room ~name:"room" ~floor ~ceiling
-                [ Parts.outline ~height ~material:stone corners ];
+              P.room ~name:"room" ~floor ~ceiling
+                [ P.outline ~height ~material:stone corners ];
             ]
         and backwards =
-          Parts.world ~atmosphere:Atmosphere.default ~spawn
+          P.world ~atmosphere:Atmosphere.default ~spawn
             [
-              Parts.room ~name:"room" ~floor ~ceiling
-                [ Parts.outline ~height ~material:stone (List.rev corners) ];
+              P.room ~name:"room" ~floor ~ceiling
+                [ P.outline ~height ~material:stone (List.rev corners) ];
             ]
         in
         same_world (Mount.build forwards).Scene.world
@@ -190,10 +190,10 @@ let winding =
            the definition rather than a rule restated alongside it. *)
         same_world built
           (Mount.build
-             (Parts.world ~atmosphere:Atmosphere.default ~spawn
+             (P.world ~atmosphere:Atmosphere.default ~spawn
                 [
-                  Parts.room ~name:"room" ~floor ~ceiling
-                    [ Parts.outline ~height ~material:stone (List.rev corners) ];
+                  P.room ~name:"room" ~floor ~ceiling
+                    [ P.outline ~height ~material:stone (List.rev corners) ];
                 ]))
             .Scene.world);
     case "every normal faces into the room" (fun () ->
@@ -203,12 +203,10 @@ let winding =
         let room =
           World.room
             (Mount.build
-               (Parts.world ~atmosphere:Atmosphere.default ~spawn
+               (P.world ~atmosphere:Atmosphere.default ~spawn
                   [
-                    Parts.room ~name:"room" ~floor ~ceiling
-                      [
-                        Parts.outline ~height ~material:stone (List.rev corners);
-                      ];
+                    P.room ~name:"room" ~floor ~ceiling
+                      [ P.outline ~height ~material:stone (List.rev corners) ];
                   ]))
               .Scene.world
             0
@@ -231,34 +229,34 @@ let winding =
    of them would be a solid wall standing behind an opening — six walls where
    five were meant, and a doorway you cannot walk through. *)
 let two_room_world ~door =
-  Parts.world ~atmosphere:Atmosphere.default
+  P.world ~atmosphere:Atmosphere.default
     ~spawn:("west", Vec.make (-3.) 0.)
     [
-      Parts.room ~name:"west" ~floor ~ceiling
+      P.room ~name:"west" ~floor ~ceiling
         [
-          Parts.path ~height ~material:stone
+          P.path ~height ~material:stone
             [
               Vec.make 0. 4.;
               Vec.make (-6.) 4.;
               Vec.make (-6.) (-4.);
               Vec.make 0. (-4.);
             ];
-          Parts.doorway ?door ~name:"east" ~width:2. ~opening:2.5 ~height
+          P.doorway ?door ~name:"east" ~width:2. ~opening:2.5 ~height
             ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.);
         ];
-      Parts.room ~name:"east" ~floor ~ceiling
+      P.room ~name:"east" ~floor ~ceiling
         [
-          Parts.path ~height ~material:stone
+          P.path ~height ~material:stone
             [
               Vec.make 0. (-4.);
               Vec.make 6. (-4.);
               Vec.make 6. 4.;
               Vec.make 0. 4.;
             ];
-          Parts.doorway ?door ~name:"west" ~width:2. ~opening:2.5 ~height
+          P.doorway ?door ~name:"west" ~width:2. ~opening:2.5 ~height
             ~material:stone (Vec.make 0. 4.) (Vec.make 0. (-4.));
         ];
-      Parts.link ("west", "east") ("east", "west");
+      P.link ("west", "east") ("east", "west");
     ]
 
 let doorways =
@@ -304,39 +302,38 @@ let malformed =
   in
   [
     fails "a description with no world in it"
-      (Parts.outline ~height ~material:stone corners);
+      (P.outline ~height ~material:stone corners);
     fails "a wall loose at the top level"
-      (Parts.wall ~height ~material:stone (Vec.make 0. 0.) (Vec.make 1. 0.));
+      (P.wall ~height ~material:stone (Vec.make 0. 0.) (Vec.make 1. 0.));
     fails "a room inside a room"
-      (Parts.world ~atmosphere:Atmosphere.default ~spawn
+      (P.world ~atmosphere:Atmosphere.default ~spawn
          [
-           Parts.room ~name:"outer" ~floor ~ceiling
-             [ Parts.room ~name:"inner" ~floor ~ceiling [] ];
+           P.room ~name:"outer" ~floor ~ceiling
+             [ P.room ~name:"inner" ~floor ~ceiling [] ];
          ]);
     fails "a sprite where a room should be"
-      (Parts.world ~atmosphere:Atmosphere.default ~spawn
-         [ Parts.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ]);
+      (P.world ~atmosphere:Atmosphere.default ~spawn
+         [ P.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ]);
   ]
 
 (* {1 What goes in a room} *)
 
 let furnishing =
   let dressed =
-    Parts.world ~atmosphere:Atmosphere.default ~spawn
+    P.world ~atmosphere:Atmosphere.default ~spawn
       [
-        Parts.room ~name:"room" ~floor ~ceiling
+        P.room ~name:"room" ~floor ~ceiling
           [
-            Parts.outline ~height ~material:stone corners;
-            Parts.wall ~height:2. ~material:stone
+            P.outline ~height ~material:stone corners;
+            P.wall ~height:2. ~material:stone
               ~decals:
                 [
-                  Parts.decal ~along:1. ~z:1.5 ~half_width:0.5 ~half_height:0.5
+                  P.decal ~along:1. ~z:1.5 ~half_width:0.5 ~half_height:0.5
                     poster;
                 ]
               (Vec.make (-2.) 2.) (Vec.make 2. 2.);
-            Parts.sprite ~key:"barrel" ~size:0.9 ~image:poster
-              (Vec.make 1. (-1.));
-            Parts.sprite ~key:"lamp" ~base:1.2 ~size:0.5 ~image:poster
+            P.sprite ~key:"barrel" ~size:0.9 ~image:poster (Vec.make 1. (-1.));
+            P.sprite ~key:"lamp" ~base:1.2 ~size:0.5 ~image:poster
               (Vec.make (-1.) (-1.));
           ];
       ]

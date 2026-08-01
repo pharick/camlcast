@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let a_wall_precomputes_its_geometry () =

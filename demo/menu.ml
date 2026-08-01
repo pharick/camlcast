@@ -10,11 +10,11 @@
 
     Leaving is two different things and the menu has to tell them apart. Escape
     and Enter both end this run, and so does closing the window; {!choose}
-    reports the difference back through {!Camlcast.Engine.ending} so that the
-    launcher can show the list again after a demo but stop altogether when the
-    player has shut the window. *)
+    reports the difference back through {!Camlcast_core.Engine.ending} so that
+    the launcher can show the list again after a demo but stop altogether when
+    the player has shut the window. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let demos = Array.of_list Catalogue.demos
@@ -102,8 +102,9 @@ let view state = (backdrop, state.player)
 
     Only as many rows as the buffer has room for are drawn, and the window
     slides to keep the selection inside it. The framebuffer is a fraction of the
-    window ({!Camlcast.Renderer.internal_size}) and shrinks with it, so "they
-    all fit" is true at the size this opens at and not a thing to rely on. *)
+    window ({!Camlcast_core.Renderer.internal_size}) and shrinks with it, so
+    "they all fit" is true at the size this opens at and not a thing to rely on.
+*)
 let overlay font fb state =
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let line = font.Font.height + 2 in

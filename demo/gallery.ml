@@ -10,13 +10,14 @@
     after the walls are done, so it goes behind what is in front of it and in
     front of what is not.
 
-    Both carry an {!Camlcast.Image}, which is colour and alpha at whatever shape
-    it was drawn — unlike a {!Camlcast.Texture}, which is square and tiles a
-    world cell because it is part of a surface rather than a thing in its own
-    right. The sprites here are cut out against {!Camlcast.Image.clear}, so only
-    the figure is drawn and not the box it came in. *)
+    Both carry an {!Camlcast_core.Image}, which is colour and alpha at whatever
+    shape it was drawn — unlike a {!Camlcast_core.Texture}, which is square and
+    tiles a world cell because it is part of a surface rather than a thing in
+    its own right. The sprites here are cut out against
+    {!Camlcast_core.Image.clear}, so only the figure is drawn and not the box it
+    came in. *)
 
-open Camlcast
+open Camlcast_core
 
 let height = 4.
 

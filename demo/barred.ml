@@ -5,9 +5,9 @@
     see-through when the pattern it wears carries an alpha — exactly as for a
     wall. So a door can be shut and transparent at once, and the two halves of
     that are answered separately: the renderer draws the room beyond behind the
-    leaf and composites the leaf over it, while {!Camlcast.Room.shut} goes on
-    refusing the step. Walk into either of these and you stop against a door you
-    are looking through.
+    leaf and composites the leaf over it, while {!Camlcast_core.Room.shut} goes
+    on refusing the step. Walk into either of these and you stop against a door
+    you are looking through.
 
     - The {b left} doorway has a grille hung in it. The bars are solid and the
       gaps between them are not, so the chamber behind — and the figure standing
@@ -17,11 +17,11 @@
       chamber and the glass does not, and that chamber is open to the sky.
 
     The transom is why the wall above an opening carries a material of its own.
-    {!Camlcast.Room.doorway} cuts a wall and gives the jambs and the strip it
-    leaves standing overhead the same one, which is the common case and not this
-    one, so {!cut} below does the cutting instead. *)
+    {!Camlcast_core.Room.doorway} cuts a wall and gives the jambs and the strip
+    it leaves standing overhead the same one, which is the common case and not
+    this one, so {!cut} below does the cutting instead. *)
 
-open Camlcast
+open Camlcast_core
 
 let height = 4.5
 let opening = 2.6
@@ -30,10 +30,10 @@ let grille = Door.make Surfaces.grille
 let oak = Door.make Surfaces.oak
 
 (** A doorway with a leaf in it and a lintel of its own material — everything
-    {!Camlcast.Room.doorway} does, except that the strip above the opening is
-    not made of the wall it was cut into. The wall is split about its middle so
-    that both jambs keep the boundary's winding, which is what the link between
-    two rooms is derived from. *)
+    {!Camlcast_core.Room.doorway} does, except that the strip above the opening
+    is not made of the wall it was cut into. The wall is split about its middle
+    so that both jambs keep the boundary's winding, which is what the link
+    between two rooms is derived from. *)
 let cut name ~door ~transom a b =
   let edge = Vec.sub b a in
   let half = Vec.scale edge (width /. (2. *. Vec.length edge)) in

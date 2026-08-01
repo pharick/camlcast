@@ -2,12 +2,12 @@
     where the crosshair was, on the face you were looking at, and there for the
     rest of the run.
 
-    {!Camlcast.Sight.look} already said what the crosshair is on. A wall hit
-    reports four numbers, and they are exactly the four a
-    {!Camlcast.Room.type-decal} is made of: [index] is which wall, [along] and
-    [z] are that wall's own coordinates, and [facing] is the face being looked
-    at. Nothing is converted between the two ends — the mark is put where the
-    crosshair was because those are the same numbers.
+    {!Camlcast_core.Sight.look} already said what the crosshair is on. A wall
+    hit reports four numbers, and they are exactly the four a
+    {!Camlcast_core.Room.type-decal} is made of: [index] is which wall, [along]
+    and [z] are that wall's own coordinates, and [facing] is the face being
+    looked at. Nothing is converted between the two ends — the mark is put where
+    the crosshair was because those are the same numbers.
 
     {b Marks are on one side.} A chalk stroke is paint, and paint is on one face
     of a wall. The free-standing partition across the middle of the hall is the
@@ -18,9 +18,9 @@
     {b Marks survive the room being rebuilt.} The hall is built again from its
     parts every frame — every wall, both planes, all new values. The chalk is
     not part of that room. It is a list this demo keeps, re-applied with
-    {!Camlcast.Room.add_decal} after the rebuild, which is the only thing that
-    makes it persistent: the engine has no memory of a mark, and a game that
-    dropped its list would lose them all.
+    {!Camlcast_core.Room.add_decal} after the rebuild, which is the only thing
+    that makes it persistent: the engine has no memory of a mark, and a game
+    that dropped its list would lose them all.
 
     {b What is the game's, not the engine's.}
 
@@ -30,13 +30,13 @@
       means is the player's business and nothing else here reads it. They are
       also chalked with different [glow]s — see below.
     - {b Your own room only.} You can see a wall through the doorway and
-      {!Camlcast.Sight} will name it, but chalking it would be reaching through
-      a wall. {!markable} is where "not through a doorway" is written down, in
-      one line, off [crossed].
+      {!Camlcast_core.Sight} will name it, but chalking it would be reaching
+      through a wall. {!markable} is where "not through a doorway" is written
+      down, in one line, off [crossed].
     - {b Within arm's reach.} §6 has chalk placed "directly on" a wall, so a
       wall further than {!reach} away is named but not markable — walk up to the
       one you mean. That is one comparison against the [distance]
-      {!Camlcast.Sight} already reports.
+      {!Camlcast_core.Sight} already reports.
 
     The crosshair says which of those you are up against: {b white} for nothing,
     {b amber} for a wall you cannot mark, and {b chalk} for one you can. Where
@@ -44,7 +44,7 @@
     chalk — {!refusal} puts the word under the crosshair.
 
     {b The lamp is the atmosphere, and one of the two chalks glows against it.}
-    A failing lamp here closes {!Camlcast.World.atmosphere} in and touches
+    A failing lamp here closes {!Camlcast_core.World.atmosphere} in and touches
     nothing else — a single record update per frame, no room rebuilt for it, and
     what a game should want a lamp to be.
 
@@ -52,8 +52,8 @@
     orientation-and-fog factor as the wall under it, so paint fades into the
     dark along with what it is painted on — correct for a poster, and useless
     for the marks a player left to find their way back by. Which is what
-    {!Camlcast.Room.type-decal}'s [glow] is for, and why the two symbols here
-    carry different ones.
+    {!Camlcast_core.Room.type-decal}'s [glow] is for, and why the two symbols
+    here carry different ones.
 
     Chalk a wall with an arrow and a cross side by side and watch the lamp go
     down. Both dim, because a glow lifts a decal towards its own colours rather
@@ -64,7 +64,7 @@
     it does not change as the light does — a material that glows glows the same
     whatever the lamp is doing. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 3.6
@@ -75,15 +75,15 @@ let lamp_period = 9.
 
     §6 has the player place chalk "directly on" a wall, so this is close enough
     to be an arm's length and no more: walk up to the wall you mean. Collision
-    stops the player {!Camlcast.Config.collision_padding} short of one, so every
-    wall in this hall can be reached. *)
+    stops the player {!Camlcast_core.Config.collision_padding} short of one, so
+    every wall in this hall can be reached. *)
 let reach = 2.
 
 (** {1 The symbols}
 
-    Two marks, drawn cut out against {!Camlcast.Image.clear} so a stroke is a
-    stroke and not a white tile on the wall. They are values in this file, made
-    once when it loads, for the same reason every animation frame in this
+    Two marks, drawn cut out against {!Camlcast_core.Image.clear} so a stroke is
+    a stroke and not a white tile on the wall. They are values in this file,
+    made once when it loads, for the same reason every animation frame in this
     library is: a mark is placed while the game is running and nothing is going
     to generate a picture then. *)
 
@@ -123,10 +123,10 @@ let cross =
 (** The two symbols, and how much of its own light each one makes.
 
     They differ deliberately. The {b arrow} is plain chalk: a
-    {!Camlcast.Room.type-decal} with no [glow], lit by the room like the wall it
-    is on, so it goes into the dark with everything else. The {b cross} is the
-    phosphorescent kind. Mark a wall with one of each, let the lamp go down, and
-    one of them is still there.
+    {!Camlcast_core.Room.type-decal} with no [glow], lit by the room like the
+    wall it is on, so it goes into the dark with everything else. The {b cross}
+    is the phosphorescent kind. Mark a wall with one of each, let the lamp go
+    down, and one of them is still there.
 
     A constant, and not something that rises as the light fails: a material that
     glows glows the same whatever else is happening, and a glow tuned to cancel
@@ -146,8 +146,8 @@ type mark = {
 }
 (** One chalk stroke, in the only terms that survive a room being rebuilt: a
     room and a wall by {e index}, and the wall's own coordinates. Not a
-    {!Camlcast.Room.type-decal} — a decal belongs to the room it is on, and this
-    list has to outlive several of those. *)
+    {!Camlcast_core.Room.type-decal} — a decal belongs to the room it is on, and
+    this list has to outlive several of those. *)
 
 type t = {
   player : Player.t;
@@ -172,19 +172,19 @@ let back_jambs, back_here =
 
 (** The hall, built again.
 
-    Nothing in here depends on the clock: the lamp is the {!Camlcast.Atmosphere}
-    and the surfaces never change. Every wall — the jambs of the doorway
-    included — both planes and the partition are nevertheless {e new values}
-    every time this is called, and that is the point. A game rebuilds a room
-    whenever anything in it changes, and this demo has to show that the marks
-    come through one. They are not being left undisturbed; they are being put
-    back.
+    Nothing in here depends on the clock: the lamp is the
+    {!Camlcast_core.Atmosphere} and the surfaces never change. Every wall — the
+    jambs of the doorway included — both planes and the partition are
+    nevertheless {e new values} every time this is called, and that is the
+    point. A game rebuilds a room whenever anything in it changes, and this demo
+    has to show that the marks come through one. They are not being left
+    undisturbed; they are being put back.
 
     The doorway is cut here rather than once outside so that the jambs are
-    rebuilt with everything else. Its {!Camlcast.Room.type-threshold} comes out
-    the same every time — same name, same endpoints, same height — which is
-    exactly what {!Camlcast.World.replace_room} insists on, since a portal was
-    derived from those. *)
+    rebuilt with everything else. Its {!Camlcast_core.Room.type-threshold} comes
+    out the same every time — same name, same endpoints, same height — which is
+    exactly what {!Camlcast_core.World.replace_room} insists on, since a portal
+    was derived from those. *)
 let hall () =
   let jambs, onward =
     Room.doorway ~name:"onward" ~width:2.2 ~opening:2.8 ~height
@@ -203,7 +203,7 @@ let hall () =
         wall Surfaces.stone hall_nw hall_sw;
         (* The one wall with two faces you can get to. Chalk it and walk round
            an end: the far side is bare. It is opaque, and has to be — a bare
-           wall you can see through is one {!Camlcast.Sight} looks {e through},
+           wall you can see through is one {!Camlcast_core.Sight} looks {e through},
            so the crosshair never lands on it and the first mark could never be
            placed. (A mark already on such a wall is a different matter: that
            one is drawn, so that one can be picked.) *)
@@ -244,10 +244,11 @@ let start =
 
 (** May the crosshair's target be marked, and where? A wall, in the room you are
     standing in, within {!reach}, with a stroke left. Everything before the
-    [when] is {!Camlcast.Sight}'s answer; everything in it is this demo's rule.
+    [when] is {!Camlcast_core.Sight}'s answer; everything in it is this demo's
+    rule.
 
-    {!Camlcast.Sight.t} carries the [distance] already — it is how far the ray
-    went to find what it found — so "too far away" costs a comparison and no
+    {!Camlcast_core.Sight.t} carries the [distance] already — it is how far the
+    ray went to find what it found — so "too far away" costs a comparison and no
     engine support at all. *)
 let markable state = function
   | Some { Sight.kind = Sight.Wall w; room; crossed; distance; _ }
@@ -271,8 +272,8 @@ let lamp elapsed =
 (** The air at that brightness, and the whole of the lamp: fog closing in and
     less of everything reaching you. Nothing else in the room changes with it.
 
-    {!Camlcast.World.with_atmosphere} shares every room with the world it came
-    from, so a lamp is one call and no rebuilding of anything. *)
+    {!Camlcast_core.World.with_atmosphere} shares every room with the world it
+    came from, so a lamp is one call and no rebuilding of anything. *)
 let air ~lamp =
   Atmosphere.make ~haze:(Color.rgb 18 18 24)
     ~fog_distance:(2.5 +. (11. *. lamp))
@@ -290,8 +291,8 @@ let air ~lamp =
     property of the air.
 
     Oldest mark first, so the newest ends up on top of the pile — which is the
-    order {!Camlcast.Room.add_decal} appends in and the order {!Camlcast.Sight}
-    reads back. *)
+    order {!Camlcast_core.Room.add_decal} appends in and the order
+    {!Camlcast_core.Sight} reads back. *)
 let dressed state =
   let brightness = lamp state.elapsed in
   let lit = World.replace_room world ~room:0 ~replacement:(hall ()) in

@@ -43,14 +43,14 @@ level generator is an ordinary function, and half a level can be shared between
 two others by giving it a name.
 
 The only things read from disk are PNG and JPEG, through
-{!Camlcast.Texture.load}, {!Camlcast.Image.load} and {!Camlcast.Font.make}'s
+{!Camlcast_core.Texture.load}, {!Camlcast_core.Image.load} and {!Camlcast_core.Font.make}'s
 atlas. See {{!files} Art from files}.
 
 {2 The engine holds no content}
 
 Not one colour, pattern, picture or room. What it has are the types those things
-are values of. So every step below supplies its own {!Camlcast.Texture},
-{!Camlcast.Material} and {!Camlcast.Atmosphere}, and two games built on this
+are values of. So every step below supplies its own {!Camlcast_core.Texture},
+{!Camlcast_core.Material} and {!Camlcast_core.Atmosphere}, and two games built on this
 engine need not look remotely alike.
 
 {2 Two ways of failing}
@@ -59,26 +59,26 @@ Which one you get says what kind of mistake it was.
 
 {ul
 {li {b Things that can fail at run time return a result} —
-    [('a, [ `Msg of string ]) result]. {!Camlcast.Engine.with_window},
-    {!Camlcast.Engine.run_world}, {!Camlcast.Engine.run},
-    {!Camlcast.Texture.load}, {!Camlcast.Image.load}, {!Camlcast.Asset.path},
-    {!Camlcast.Framebuffer.make}. A missing file is one of these.}
-{li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast.World.make},
-    {!Camlcast.World.link}, {!Camlcast.World.add_room},
-    {!Camlcast.World.open_doorway}, {!Camlcast.Room.doorway},
-    {!Camlcast.Font.make}, {!Camlcast.Atmosphere.make}, {!Camlcast.Sky.make},
-    {!Camlcast.Room.rectangle}, {!Camlcast.Transform.between},
-    {!Camlcast.Texture.noise}, {!Camlcast.Texture.generate},
-    {!Camlcast.Image.make}, {!Camlcast.Framebuffer.offscreen},
-    {!Camlcast.Key.of_scancode}, {!Camlcast.Player.make},
-    {!Camlcast.Player.turn}, {!Camlcast.Player.pitch_by},
-    {!Camlcast.Player.traverse}. A doorway linked to nothing, two rooms with the
+    [('a, [ `Msg of string ]) result]. {!Camlcast_core.Engine.with_window},
+    {!Camlcast_core.Engine.run_world}, {!Camlcast_core.Engine.run},
+    {!Camlcast_core.Texture.load}, {!Camlcast_core.Image.load}, {!Camlcast_core.Asset.path},
+    {!Camlcast_core.Framebuffer.make}. A missing file is one of these.}
+{li {b Authoring mistakes raise [Invalid_argument]} — {!Camlcast_core.World.make},
+    {!Camlcast_core.World.link}, {!Camlcast_core.World.add_room},
+    {!Camlcast_core.World.open_doorway}, {!Camlcast_core.Room.doorway},
+    {!Camlcast_core.Font.make}, {!Camlcast_core.Atmosphere.make}, {!Camlcast_core.Sky.make},
+    {!Camlcast_core.Room.rectangle}, {!Camlcast_core.Transform.between},
+    {!Camlcast_core.Texture.noise}, {!Camlcast_core.Texture.generate},
+    {!Camlcast_core.Image.make}, {!Camlcast_core.Framebuffer.offscreen},
+    {!Camlcast_core.Key.of_scancode}, {!Camlcast_core.Player.make},
+    {!Camlcast_core.Player.turn}, {!Camlcast_core.Player.pitch_by},
+    {!Camlcast_core.Player.traverse}. A doorway linked to nothing, two rooms with the
     same name, a doorway wider than the wall it is cut into, air lit from
     nowhere, a camera facing a [nan], a buffer with no size — these are bugs in
     the level or in the game, not conditions to handle, and they stop the
     program with a message naming what was wrong.}}
 
-{!Camlcast.Framebuffer.make} is on both lists, and honestly: the result is the
+{!Camlcast_core.Framebuffer.make} is on both lists, and honestly: the result is the
 renderer's, the raise is yours.
 
 So [World.make] crashing is the engine telling you the level is malformed. Read
@@ -90,16 +90,16 @@ Author a room's boundary so that, walking each wall from its first endpoint to
 its second, the inside of the room is to the {e left on paper} — the direction
 these pages call counterclockwise. (On the screen's map, where y grows
 downward, the same loop reads clockwise to the eye; trust the rule, not the
-picture. The one full statement of it lives at the top of {!Camlcast.Room},
+picture. The one full statement of it lives at the top of {!Camlcast_core.Room},
 and everything else, including this page, defers to it.) Give a doorway's
 endpoints in that same direction. A link between two doorways is derived from
-their four endpoints and nothing else, and {!Camlcast.Transform.between} pairs
+their four endpoints and nothing else, and {!Camlcast_core.Transform.between} pairs
 them in reverse — because the two rooms describe the same opening from
 opposite sides. Wind one the other way and the neighbour arrives inside out.
 
 If a room looks black from the inside, this is why. The shapes the engine
-builds for you — {!Camlcast.Room.rectangle},
-{!Camlcast.Room.regular_polygon} — cannot be wound wrong; walls you write out
+builds for you — {!Camlcast_core.Room.rectangle},
+{!Camlcast_core.Room.regular_polygon} — cannot be wound wrong; walls you write out
 by hand can.
 
 {1 Step 0 — A project that depends on the engine}
@@ -155,7 +155,7 @@ Five values and you are standing in a room. Here is the whole program — it is
 the example in its README, all one file:
 
 {@ocaml[
-open Camlcast
+open Camlcast_core
 
 (* A pattern is a pure function from a texel coordinate to a colour. This one is
    a check; Color.level scales all three channels together, so it moves the
@@ -213,37 +213,37 @@ fullscreen, {b Esc} quits.
 {2 What each piece is}
 
 {ul
-{li {!Camlcast.Vec} is a plain 2-D point. One unit is one "cell" — the eye sits
-    at {!Camlcast.Config.eye_height}, half a unit up, so a wall four units tall
+{li {!Camlcast_core.Vec} is a plain 2-D point. One unit is one "cell" — the eye sits
+    at {!Camlcast_core.Config.eye_height}, half a unit up, so a wall four units tall
     is about eight times eye height.}
-{li {!Camlcast.Texture.generate} turns a function of [~u] and [~v] into a square
+{li {!Camlcast_core.Texture.generate} turns a function of [~u] and [~v] into a square
     pattern that tiles {e once per world unit}. It is a density, not a
     resolution: a 64-texel texture on a wall six units long repeats six times.}
-{li {!Camlcast.Material.make} wraps a pattern into the thing a wall wears.}
-{li {!Camlcast.Plane} is an elevation over the room, [z = a*x + b*y + c].
-    {!Camlcast.Plane.horizontal} is the flat case and {!Camlcast.Plane.above}
+{li {!Camlcast_core.Material.make} wraps a pattern into the thing a wall wears.}
+{li {!Camlcast_core.Plane} is an elevation over the room, [z = a*x + b*y + c].
+    {!Camlcast_core.Plane.horizontal} is the flat case and {!Camlcast_core.Plane.above}
     raises one by a fixed amount — used for the ceiling here so that when the
     floor stops being flat in step 6, the roof follows it by construction.}
-{li {!Camlcast.Room.make} takes a wall list, a floor and a ceiling, and the
-    two vertical bounds read the same way: {!Camlcast.Room.val-floor} names a
-    plane and a material, {!Camlcast.Room.roof} the same — or
-    {!Camlcast.Room.open_sky} instead of a roof, which is step 7. A floor is
+{li {!Camlcast_core.Room.make} takes a wall list, a floor and a ceiling, and the
+    two vertical bounds read the same way: {!Camlcast_core.Room.val-floor} names a
+    plane and a material, {!Camlcast_core.Room.roof} the same — or
+    {!Camlcast_core.Room.open_sky} instead of a roof, which is step 7. A floor is
     always a surface; a ceiling has to say which of the two things overhead
     it is, so that a room open to the sky cannot forget to say which sky.}
-{li {!Camlcast.Room.rectangle} is the axis-aligned box — the one shape common
+{li {!Camlcast_core.Room.rectangle} is the axis-aligned box — the one shape common
     enough to earn a shortcut. Walls written out by hand come in step 4.}
-{li {!Camlcast.World.make} names the rooms, links their doorways (none yet),
+{li {!Camlcast_core.World.make} names the rooms, links their doorways (none yet),
     gives the world its air, and says where the player starts. The spawn
     faces along the positive x axis; a game that wants another facing runs
-    the loop itself with {!Camlcast.Player.spawn}'s [~angle] — step 12.}
-{li {!Camlcast.Engine.with_window} opens the window, and closes it again when
+    the loop itself with {!Camlcast_core.Player.spawn}'s [~angle] — step 12.}
+{li {!Camlcast_core.Engine.with_window} opens the window, and closes it again when
     what it hands the window to has finished with it.}
-{li {!Camlcast.Engine.run_world} runs the loop on that window until the player
+{li {!Camlcast_core.Engine.run_world} runs the loop on that window until the player
     quits.}}
 
 {b If a room is ever black from the inside}, its walls are wound the wrong
 way round — reverse them. It cannot happen to this one:
-{!Camlcast.Room.rectangle} winds its four walls for you, whichever corners it
+{!Camlcast_core.Room.rectangle} winds its four walls for you, whichever corners it
 is given.
 
 {b Read next:} [demo/masonry.ml] is this, with four materials and a post in it.
@@ -254,7 +254,7 @@ is given.
 
 {b Goal.} Walls that look like something.
 
-A texel is a {!Camlcast.Color.t}, so one wall can have more than one colour in
+A texel is a {!Camlcast_core.Color.t}, so one wall can have more than one colour in
 it: brick with grey mortar between it, lead around a pale pane. The idiom that
 makes patterns reusable is {b taking the colours before [~u] and [~v]}, so that a
 partial application is a pattern:
@@ -280,12 +280,12 @@ let grey =
   solid (brick ~color:(Color.rgb 120 120 128) ~mortar:(Color.rgb 188 182 172))
 ]}
 
-Two materials, one function. {!Camlcast.Color.level} is the join between the two
-halves: patterns compute in the 0..255 that {!Camlcast.Texture.noise} and the
+Two materials, one function. {!Camlcast_core.Color.level} is the join between the two
+halves: patterns compute in the 0..255 that {!Camlcast_core.Texture.noise} and the
 hashes beside it speak, and [level] turns that back into a colour by scaling all
 three channels together.
 
-{!Camlcast.Texture.noise} is a value-noise field that {b wraps at the texture's
+{!Camlcast_core.Texture.noise} is a value-noise field that {b wraps at the texture's
 size}, which is what lets a pattern have no courses or joints at all — an
 unwrapped field would put a hard seam down every wall, one per world unit, and a
 pattern with no lines of its own has nothing to hide it behind.
@@ -300,9 +300,9 @@ The mortar is grey, not pink.
 
 {b Goal.} Distance and shape, which come from the air rather than from the walls.
 
-An {!Camlcast.Atmosphere} is one per {e world}, and is most of what tells one
-place from another. Step 1 borrowed {!Camlcast.Atmosphere.default}; every
-argument of {!Camlcast.Atmosphere.make} defaults to that air, so your own
+An {!Camlcast_core.Atmosphere} is one per {e world}, and is most of what tells one
+place from another. Step 1 borrowed {!Camlcast_core.Atmosphere.default}; every
+argument of {!Camlcast_core.Atmosphere.make} defaults to that air, so your own
 names only what is different about your place:
 
 {@ocaml[
@@ -317,7 +317,7 @@ let cellar_air =
 ]}
 
 The six, with their units and ranges (each is also on
-{!Camlcast.Atmosphere.make}, beside its default):
+{!Camlcast_core.Atmosphere.make}, beside its default):
 
 {ul
 {li [haze : Color.t] — what distance fades things to. Default a dark
@@ -342,7 +342,7 @@ atmosphere in this repository keeps the sum at exactly [1.].
 
 Out-of-range numbers are refused with [Invalid_argument] naming the argument
 — a [fog_distance] of [0.] is a division by zero wearing a trench coat, so
-{!Camlcast.Atmosphere.make} does not let it in the door.
+{!Camlcast_core.Atmosphere.make} does not let it in the door.
 
 {b Check it:} set [~fog_distance:4. ()] and walk backwards. The far wall turns
 into the haze colour — set [~haze] to something lurid and you can watch it
@@ -355,16 +355,16 @@ in its doc:
 
 {ul
 {li {b Cells} — all distances and heights. One cell is one texture repeat
-    along a wall or a floor; the eye stands {!Camlcast.Config.eye_height},
+    along a wall or a floor; the eye stands {!Camlcast_core.Config.eye_height},
     half a cell, above the floor.}
-{li {b Radians} — all angles, on {!Camlcast.Vec.of_angle}'s reckoning.}
+{li {b Radians} — all angles, on {!Camlcast_core.Vec.of_angle}'s reckoning.}
 {li {b 0 .. 255} — colour channels and alpha, the range patterns compute
     in.}
 {li {b [0. .. 1.]} — fades and fractions: glow, brightness, the two shading
     terms above.}}
 
 The glossary in {{!page-"building-the-engine"} Building the engine} carries
-the longer story, and {!Camlcast.Config} the constants these scales hang
+the longer story, and {!Camlcast_core.Config} the constants these scales hang
 off.
 
 {b Read next:} [demo/haze.ml].
@@ -396,7 +396,7 @@ let post =
     ~rotation:0.4 ~height:2.6 ~material:stone
 ]}
 
-All of these — and {!Camlcast.Room.rectangle} from step 1 — return a plain
+All of these — and {!Camlcast_core.Room.rectangle} from step 1 — return a plain
 wall list, so they concatenate with walls you wrote by hand, and a room built
 this way is no different from one written out segment by segment. Nothing
 says a room's walls must form one loop: a pillar is four more walls in the
@@ -410,13 +410,13 @@ wall drops below its neighbours and you see over it.
 {b Goal.} A second room you can see into and walk through.
 
 This is the engine's defining feature, so it is worth being slow about. A
-{!Camlcast.Room} is authored in {b its own coordinates} and knows nothing of
-where it sits. A {!Camlcast.World} names rooms and links their doorways, and a
+{!Camlcast_core.Room} is authored in {b its own coordinates} and knows nothing of
+where it sits. A {!Camlcast_core.World} names rooms and links their doorways, and a
 link is a rigid rotation and translation derived from the four endpoints — so two
 rooms may sit on top of each other numerically and still be separate places, and
 a corridor can return you somewhere it could not possibly go.
 
-{!Camlcast.Room.doorway} cuts a gap in the middle of the wall that would have run
+{!Camlcast_core.Room.doorway} cuts a gap in the middle of the wall that would have run
 from [a] to [b], and hands back {b both} the two jambs left either side {b and}
 the threshold that fills the gap. Taking them together is what stops a boundary
 and its openings from drifting apart:
@@ -518,7 +518,7 @@ What it does {e not} check is whether the two floors meet. That is the next step
 
 {b Goal.} A floor that is not flat, and a doorway with no step in it.
 
-A floor is a {!Camlcast.Plane}, [z = a*x + b*y + c], and so is a roof. Both tilt,
+A floor is a {!Camlcast_core.Plane}, [z = a*x + b*y + c], and so is a roof. Both tilt,
 independently of each other:
 
 {@ocaml[
@@ -532,7 +532,7 @@ room opens up ahead as you walk into it.
 Each room has its own floor and nothing forces two of them to meet. Write two
 planes out separately with the numbers that look right and they will differ by a
 few thousandths where they meet, which reads as a step you walk into. Derive the
-second from the first instead, with {!Camlcast.Plane.through}:
+second from the first instead, with {!Camlcast_core.Plane.through}:
 
 {@ocaml[
 (* The two thresholds the link will join: [hall_onward] cut from the far end
@@ -546,7 +546,7 @@ let up_roof = Plane.through onward hall_roof
 ]}
 
 The same surface, expressed in the other room's terms. Now
-{!Camlcast.World.seam_gap} is zero by construction rather than by care.
+{!Camlcast_core.World.seam_gap} is zero by construction rather than by care.
 
 {b Check it:} walk through. Nothing catches underfoot, and the ceiling carries on
 at the same angle.
@@ -560,8 +560,8 @@ at the same angle.
 {b Goal.} A room with no roof.
 
 The ceiling is chosen per room, so one room may have a roof while its
-neighbour is open. A {!Camlcast.Sky} is built like an atmosphere: every
-argument of {!Camlcast.Sky.make} defaults to {!Camlcast.Sky.default} — a
+neighbour is open. A {!Camlcast_core.Sky} is built like an atmosphere: every
+argument of {!Camlcast_core.Sky.make} defaults to {!Camlcast_core.Sky.default} — a
 clear noon — so a sky names only what is different about it:
 
 {@ocaml[
@@ -585,7 +585,7 @@ level view spans only about [0. .. 0.4] from the horizon to the top of the
 window, so [0.06] sits on the horizon, [0.5] rides high, and [1.] is above
 the visible sky until the player looks up. [sun_radius] is the size of the
 glow in view angle — roughly radians near the horizon — with useful values
-around [0.2 .. 0.8]; it may not be zero, and {!Camlcast.Sky.make} refuses
+around [0.2 .. 0.8]; it may not be zero, and {!Camlcast_core.Sky.make} refuses
 one. [gradient] is how fast the horizon colour gives way to the zenith over
 that same elevation scale, which is why values above [1.] are ordinary.
 
@@ -594,7 +594,7 @@ looked in, never on where you stand. So it does not slide past as you walk — i
 wheels as you turn and tilts as you look up.
 
 {b The sky lights nothing.} What lights the walls is the world's
-{!Camlcast.Atmosphere}, which is one per world. A room under a dusk sky is as
+{!Camlcast_core.Atmosphere}, which is one per world. A room under a dusk sky is as
 brightly lit as one under noon unless you change the air too.
 
 {b Read next:} [demo/daylight.ml] puts two yards under two skies.
@@ -605,8 +605,8 @@ brightly lit as one under noon unless you change the air too.
 
 {b Goal.} Something to look at that is not a wall.
 
-An {!Camlcast.Image} is colour and alpha at whatever shape it was drawn — unlike
-a {!Camlcast.Texture}, which is square and tiles a world cell because it is part
+An {!Camlcast_core.Image} is colour and alpha at whatever shape it was drawn — unlike
+a {!Camlcast_core.Texture}, which is square and tiles a world cell because it is part
 of a surface rather than a thing in its own right.
 
 {@ocaml[
@@ -663,7 +663,7 @@ Room.make
 
 A sprite is as wide as its {e picture}, not as wide as it is tall, so a wide
 short image is drawn wide and short. Cut sprites out against
-{!Camlcast.Image.clear} so only the figure is drawn and not the box it came in.
+{!Camlcast_core.Image.clear} so only the figure is drawn and not the box it came in.
 
 {b Read next:} [demo/gallery.ml] for both side by side, [demo/floating.ml] for
 [~base] and for choosing among frames made in advance, [demo/dust.ml] for a great
@@ -703,7 +703,7 @@ let grille = seen_through (bars ~color:(Color.rgb 105 108 120))
 ]}
 
 Nothing else changes — hang the material on an ordinary wall.
-{!Camlcast.Material.opaque} is derived from the pattern's alpha, and that is what
+{!Camlcast_core.Material.opaque} is derived from the pattern's alpha, and that is what
 routes it. Sprites and see-through walls are sorted {e together} by depth, which
 is what lets a sprite cover a window in front of it and show through one behind
 it.
@@ -716,7 +716,7 @@ it.
 
 {b Goal.} A doorway with a leaf in it that opens and shuts.
 
-A {!Camlcast.Door} has exactly two states. {b "Locked" is a game's word, not the
+A {!Camlcast_core.Door} has exactly two states. {b "Locked" is a game's word, not the
 engine's} — the engine knows only whether something is drawn across the opening.
 With [oak] a material, and [a] and [b] a wall's endpoints as before:
 
@@ -729,7 +729,7 @@ let jambs, threshold =
     ~material:stone a b
 ]}
 
-[~door] is optional and takes a {!Camlcast.Door.t} directly, so a helper that
+[~door] is optional and takes a {!Camlcast_core.Door.t} directly, so a helper that
 threads "a door, or none" through several doorways forwards it as [?door] with
 an option — which is what [demo/doors.ml] does.
 
@@ -738,9 +738,9 @@ drawn nor felt, so it behaves exactly as an opening with no door in it. Both
 sides of a link must agree about whether there is a door at all.
 
 What the leaf is made of decides the rest, exactly as it does for a wall. A
-material you can see through — {!Camlcast.Texture.generate_masked}, as in step 8
+material you can see through — {!Camlcast_core.Texture.generate_masked}, as in step 8
 — makes a door the room beyond is drawn behind rather than instead of, and one
-{!Camlcast.Sight} looks through; it still refuses the step, because being able to
+{!Camlcast_core.Sight} looks through; it still refuses the step, because being able to
 see through a thing is not being able to walk through it. The same goes for the
 lintel, the strip of wall left standing over an opening, which is how you get a
 transom. {b Read next:} [demo/barred.ml] has one of each.
@@ -748,7 +748,7 @@ transom. {b Read next:} [demo/barred.ml] has one of each.
 {{image:images/barred.png}A barred gate and the transom over it: you see through both and can walk past neither}
 
 Opening one is a world rebuild, from your own update function. Which door?
-{!Camlcast.Room.nearest_threshold} answers "the one the player is at":
+{!Camlcast_core.Room.nearest_threshold} answers "the one the player is at":
 nearest-wins within a reach, filtered to the thresholds that have a door
 hung in them —
 
@@ -771,7 +771,7 @@ let toggled world (player : Player.t) threshold =
   World.set_door world ~room:player.Player.room ~threshold next
 ]}
 
-{!Camlcast.World.set_door} sets it on {e both} sides of the link at once, which
+{!Camlcast_core.World.set_door} sets it on {e both} sides of the link at once, which
 is what keeps the pair legal. A lock is then your own table of which doorways
 refuse to be toggled.
 
@@ -793,18 +793,18 @@ let build () =
   Ok (world tiles poster)
 ]}
 
-{!Camlcast.Texture.of_asset} is {!Camlcast.Asset.path} — which finds where the
+{!Camlcast_core.Texture.of_asset} is {!Camlcast_core.Asset.path} — which finds where the
 file lives relative to the running executable — followed by
-{!Camlcast.Texture.load}; {!Camlcast.Image.of_asset} is its twin. The [load]
+{!Camlcast_core.Texture.load}; {!Camlcast_core.Image.of_asset} is its twin. The [load]
 pair is still there for a path you already hold.
 
-A loaded texture and a generated one produce the same {!Camlcast.Texture.t}, and
+A loaded texture and a generated one produce the same {!Camlcast_core.Texture.t}, and
 the renderer has no way to ask which it was given. {b A texture must be square};
 an image may be any rectangle. A file with no alpha of its own arrives solid.
 
 {2 Where the files have to be}
 
-{!Camlcast.Asset.path} searches {b relative to the executable}, never to the
+{!Camlcast_core.Asset.path} searches {b relative to the executable}, never to the
 source tree — because a shipped game has no source tree. In order:
 
 {ol
@@ -841,11 +841,11 @@ their generated counterparts.
 
 {b Goal.} Anything that is not just a world and a player walking it.
 
-Everything so far used {!Camlcast.Engine.run_world}, which holds the only state
+Everything so far used {!Camlcast_core.Engine.run_world}, which holds the only state
 the engine can hold on its own. A game with phases, doors, a journal, a score or
-a random seed uses {!Camlcast.Engine.run}, which runs a state of {e whatever
-type you like}, described by an {!Camlcast.Engine.type-game} — built with
-{!Camlcast.Engine.val-game} from the two things every game has and the four it
+a random seed uses {!Camlcast_core.Engine.run}, which runs a state of {e whatever
+type you like}, described by an {!Camlcast_core.Engine.type-game} — built with
+{!Camlcast_core.Engine.val-game} from the two things every game has and the four it
 may not:
 
 {ul
@@ -858,7 +858,7 @@ may not:
 {li [finished] — asked after every update; [true] ends the run (optional);}
 {li [bindings] — what the player's controls are for: which walk, which look,
     which goes fullscreen, and which — {b if any} — ends the run. Step 13 is
-    about this one. It defaults to {!Camlcast.Binding.default}, which binds
+    about this one. It defaults to {!Camlcast_core.Binding.default}, which binds
     {b no} key that leaves: that key belongs to whoever opened the window, and a
     game with screens in it wants it for closing them.}}
 
@@ -866,7 +866,7 @@ The whole program — the world, the air and a [fuse] length in seconds — is
 [examples/game.ml]; here is the game in it:
 
 {@ocaml[
-open Camlcast
+open Camlcast_core
 
 type phase = Waiting | Burning | Done
 type t = { phase : phase; left : float; player : Player.t }
@@ -918,22 +918,22 @@ let () =
 One more thing [run] hands you that [run_world] decides for itself: the
 starting pose. [Player.spawn world] stands at the world's spawn facing along
 the positive x axis; [Player.spawn ~angle:(Float.pi /. 2.) world] faces where
-you say, on {!Camlcast.Vec.of_angle}'s reckoning.
+you say, on {!Camlcast_core.Vec.of_angle}'s reckoning.
 
 {2 How a run ends}
 
-[run] hands back the state it reached and an {!Camlcast.Engine.ending}:
+[run] hands back the state it reached and an {!Camlcast_core.Engine.ending}:
 [Closed] means the window was shut or the desktop asked the program to stop,
 [Left] means the run ended on its own terms — [finished] said so, or the player
 pressed something the binding table lists under [~leave]. Only something that
 plays one run after another needs the difference; a launcher shows its menu
 again after [Left] and stops after [Closed] — on the same window throughout,
-which is what {!Camlcast.Engine.with_window} being a separate call buys it.
-{!Camlcast.Engine.run_world} is
+which is what {!Camlcast_core.Engine.with_window} being a separate call buys it.
+{!Camlcast_core.Engine.run_world} is
 [run] over a bare world, returning the same answer; a program with only one
 world to show has no use for it and can [ignore] it.
 
-{b Nothing ends a run unless you say so.} {!Camlcast.Binding.default} binds no
+{b Nothing ends a run unless you say so.} {!Camlcast_core.Binding.default} binds no
 key that leaves, because a game with a pause screen wants Escape for closing it
 and would be poorly served by a window that quit underneath. [run_world] asks
 for Escape, since a bare world has nothing else to end it with; [run] leaves it
@@ -959,10 +959,10 @@ the ones that walk.
 something went down, came up, or has been held for so many seconds. What
 "interact" or "journal" mean is your own table from the one to the other.
 
-A control is a {!Camlcast.Key} or a mouse button. A key is a {e place on the
+A control is a {!Camlcast_core.Key} or a mouse button. A key is a {e place on the
 board} and not a letter: [Key.w] is the key above [Key.s] on any layout, so a
 French player holding the key their board calls Z walks forward like everybody
-else. {!Camlcast.Key.name} gives the layout's own name for it, which is what a
+else. {!Camlcast_core.Key.name} gives the layout's own name for it, which is what a
 line of help text on screen should say.
 
 {@ocaml[
@@ -991,8 +991,8 @@ direction it ends up facing.
 
 {2 The keys that walk are yours too}
 
-Where that motion came from is a {!Camlcast.Binding.t}, which you hand to
-[run] beside the callbacks. {!Camlcast.Binding.default} is {b W}/{b A}/
+Where that motion came from is a {!Camlcast_core.Binding.t}, which you hand to
+[run] beside the callbacks. {!Camlcast_core.Binding.default} is {b W}/{b A}/
 {b S}/{b D}, the arrow keys, the mouse and {b F11} — and no key that ends the
 run. It is a default and not a rule; the engine has no keys of its own. The
 table below, run over a plain world, is [examples/rebind.ml]:
@@ -1027,8 +1027,8 @@ during this frame. It is added on as it stands, because scaling it by the frame'
 length would count the frame twice. That is why a mouse term's weight is a
 sensitivity (radians per pixel) while a key's is just a sign.
 
-{b Reading a table takes nothing but the table.} {!Camlcast.Binding.motion} is
-pure — a table, a frame of {!Camlcast.Input.actions} and a duration in, a
+{b Reading a table takes nothing but the table.} {!Camlcast_core.Binding.motion} is
+pure — a table, a frame of {!Camlcast_core.Input.actions} and a duration in, a
 movement out — so a test can ask what a given frame of keys would have done
 without opening a window. [test/test_binding.ml] is that.
 
@@ -1047,8 +1047,8 @@ the buffer's own edges. The fragments in this step live inside a game whose
 state keeps whatever they read — a [fuel] fraction, a [pointer] position.
 
 {b The coordinates are the framebuffer's, not the window's.} The buffer is a
-whole-number fraction of the window — see {!Camlcast.Renderer.internal_size},
-capped at {!Camlcast.Config.max_render_height} — and the GPU stretches the
+whole-number fraction of the window — see {!Camlcast_core.Renderer.internal_size},
+capped at {!Camlcast_core.Config.max_render_height} — and the GPU stretches the
 result. Measure everything from the buffer you are handed and the HUD keeps its
 proportions at any window size.
 
@@ -1068,15 +1068,15 @@ let overlay fb state =
   Paint.crosshair fb ~color:(Color.rgb 245 245 245)
 ]}
 
-{!Camlcast.Paint} has clipped rectangles, bars, lines, dots, outlines, whole
+{!Camlcast_core.Paint} has clipped rectangles, bars, lines, dots, outlines, whole
 images and sub-rectangles of them. Everything it draws is clipped against the
-buffer, which is why {!Camlcast.Framebuffer.set} and
-{!Camlcast.Framebuffer.blend} do not check where they are writing — the guards
+buffer, which is why {!Camlcast_core.Framebuffer.set} and
+{!Camlcast_core.Framebuffer.blend} do not check where they are writing — the guards
 live in [Paint] instead.
 
 {2 Text}
 
-{!Camlcast.Font} is a bitmap font on a fixed grid: a glyph's place in the atlas
+{!Camlcast_core.Font} is a bitmap font on a fixed grid: a glyph's place in the atlas
 is arithmetic on its code point and its advance is the cell width, so a font is a
 picture and four numbers, with no metrics table to author beside the PNG or to
 let drift out of step with it. Text is therefore monospaced.
@@ -1104,7 +1104,7 @@ let overlay fb _state =
 [measure] and [wrap] are pure functions of a string and the two cell dimensions,
 so a panel can be sized from its text rather than guessed at. The atlas is drawn
 white and multiplied by the colour [draw] is given — the same split
-{!Camlcast.Texture} and {!Camlcast.Material} make, so one typeface dresses every
+{!Camlcast_core.Texture} and {!Camlcast_core.Material} make, so one typeface dresses every
 screen in the colour that screen wants. A line running off the edge is {e cut} by
 [Paint]'s clipping rather than truncated by anything that measured it first.
 
@@ -1185,7 +1185,7 @@ let view state =
   (World.replace_room world ~room:0 ~replacement:room, state.player)
 ]}
 
-{!Camlcast.World.replace_room} insists the thresholds are identical — same order,
+{!Camlcast_core.World.replace_room} insists the thresholds are identical — same order,
 names, endpoints and heights — and lets everything else change: walls, decals,
 planes, sprites, doors. That is what keeps every index anything is holding
 meaningful.
@@ -1218,9 +1218,9 @@ appends and does nothing else — so every index anything is holding keeps meani
 what it meant:
 
 {ul
-{li {!Camlcast.World.open_doorway} — cut a new doorway into an existing room;}
-{li {!Camlcast.World.add_room} — append a room, returning its index;}
-{li {!Camlcast.World.link} — join two doorways.}}
+{li {!Camlcast_core.World.open_doorway} — cut a new doorway into an existing room;}
+{li {!Camlcast_core.World.add_room} — append a room, returning its index;}
+{li {!Camlcast_core.World.link} — join two doorways.}}
 
 Between cutting a doorway and linking it, the doorway leads nowhere: the renderer
 fills it with haze and collision treats it as solid. {b A half-built world is a
@@ -1267,7 +1267,7 @@ let extend world (player : Player.t) =
 Then [Engine.run_world window ~extend world], exactly as the demo's [run]
 line does.
 
-{b Build exactly {!Camlcast.Config.max_portal_depth} doorways ahead}, which is
+{b Build exactly {!Camlcast_core.Config.max_portal_depth} doorways ahead}, which is
 exactly how deep the renderer looks through them — build less and the player sees
 the edge, build more and you paid for rooms nobody will reach.
 
@@ -1279,7 +1279,7 @@ the edge, build more and you paid for rooms nobody will reach.
 
 {b Goal.} A record of the route, rather than a guess from the geometry.
 
-{!Camlcast.Engine.move} is [step] that also hands back every doorway the frame
+{!Camlcast_core.Engine.move} is [step] that also hands back every doorway the frame
 went through. With [record] your own fold over a crossing:
 
 {@ocaml[
@@ -1294,7 +1294,7 @@ opening and back in through its twin, or all the way round a loop of rooms and
 back where it started. Comparing room indices calls all of those nothing
 happening; the crossing list does not.
 
-Each {!Camlcast.Player.crossing} names both sides: [from_room],
+Each {!Camlcast_core.Player.crossing} names both sides: [from_room],
 [from_threshold], [to_room], [to_threshold], and the [onto] transform. Both sides
 matter, because a room can be reached through more than one of its doorways and
 only one of them is the way back.
@@ -1310,7 +1310,7 @@ is a record of what was walked and not an inference from where the rooms are.
 
 {1 Step 19 — Tuning}
 
-{!Camlcast.Config} holds every tunable constant in one place. The ones a game
+{!Camlcast_core.Config} holds every tunable constant in one place. The ones a game
 usually wants to think about:
 
 {ul
@@ -1330,16 +1330,16 @@ usually wants to think about:
 wider reveals more of the world to the sides rather than magnifying what was
 already on screen, and pixels stay square at every shape. No size is cached
 anywhere: each frame asks SDL for the current drawable size and builds a
-{!Camlcast.Viewport} from it, which covers HiDPI displays and the fullscreen
+{!Camlcast_core.Viewport} from it, which covers HiDPI displays and the fullscreen
 transition without a resize event being handled at all.
 
 {1 Step 20 — Testing a game with no window}
 
 {b Goal.} Tests that run in CI.
 
-Nothing in the rendering path needs a window. {!Camlcast.Framebuffer.offscreen}
+Nothing in the rendering path needs a window. {!Camlcast_core.Framebuffer.offscreen}
 builds a buffer with no streaming texture behind it — the texture was the only
-part that needed one — and {!Camlcast.Renderer.draw_frame} fills a buffer with no
+part that needed one — and {!Camlcast_core.Renderer.draw_frame} fills a buffer with no
 SDL call in it. So whole frames can be drawn and the pixels read back:
 
 {@ocaml[
@@ -1360,9 +1360,9 @@ Worth checking about every level you author, which is what this repository's
 {li that the player can stand where the world spawns them;}
 {li that every room's walls enclose it;}
 {li that every room is reachable through the links;}
-{li that no floor steps across a doorway — {!Camlcast.World.seam_gap} is zero.}}
+{li that no floor steps across a doorway — {!Camlcast_core.World.seam_gap} is zero.}}
 
-{!Camlcast.World.check} runs the structural half of that for you.
+{!Camlcast_core.World.check} runs the structural half of that for you.
 
 {1 Step 21 — Shipping}
 
@@ -1376,7 +1376,7 @@ executable, and are worth reading as a model: [bundle-macos.sh] walks
 a tarball with a launcher that sets [LD_LIBRARY_PATH], and [bundle-windows.sh]
 copies the mingw64 DLLs beside the executable.
 
-The one thing to get right is where the art goes, and {!Camlcast.Asset}'s search
+The one thing to get right is where the art goes, and {!Camlcast_core.Asset}'s search
 order is chosen for exactly those three shapes — see {{!files} Art from files}.
 
 {1 When it goes wrong}
@@ -1386,7 +1386,7 @@ The symptoms, one common cause each, and the step that treats it:
 {ul
 {li {b The room is black from the inside} — the walls are wound the wrong way
     round; reverse them. The rule is at the top of this page, and
-    {!Camlcast.Room.rectangle} and {!Camlcast.Room.regular_polygon} cannot get
+    {!Camlcast_core.Room.rectangle} and {!Camlcast_core.Room.regular_polygon} cannot get
     it wrong. (Step 1.)}
 {li {b A neighbour arrives mirrored, or inside out} — the doorway's endpoints
     run against the boundary they are cut from; wind them the same way.
@@ -1395,13 +1395,13 @@ The symptoms, one common cause each, and the step that treats it:
     the message names the room and the doorway; the list of refusals is in
     step 5.}
 {li {b A step catches underfoot at a doorway} — the two floors differ by a few
-    thousandths; derive one from the other with {!Camlcast.Plane.through}.
+    thousandths; derive one from the other with {!Camlcast_core.Plane.through}.
     (Step 6.)}
 {li {b The pin fails on macOS} — Homebrew's [sdl2] is [sdl2-compat] and opam
     cannot see it; install the libraries yourself and pass [--no-depexts].
     (Step 0.)}
 {li {b A pattern has a hard seam down every wall} — it is built on an
-    unwrapped noise; {!Camlcast.Texture.noise} wraps at the texture's size for
+    unwrapped noise; {!Camlcast_core.Texture.noise} wraps at the texture's size for
     exactly this reason. (Step 2.)}
 {li {b A sprite is drawn squashed, or stretched} — a sprite is as wide as its
     {e picture}; give the image the shape you mean the sprite to have.
@@ -1414,7 +1414,7 @@ The symptoms, one common cause each, and the step that treats it:
     [_build/default], and [CAMLCAST_ASSETS] replaces the whole list.
     (Step 11.)}
 {li {b Nothing ends the run} — nothing was asked to:
-    {!Camlcast.Binding.default} binds no leaving key, and [~leave] is yours to
+    {!Camlcast_core.Binding.default} binds no leaving key, and [~leave] is yours to
     fill. (Steps 12 and 13.)}
 {li {b Time seems to stop} — the window lost focus; that is the engine's rule,
     not a bug. (Step 12.)}}
@@ -1424,9 +1424,9 @@ The symptoms, one common cause each, and the step that treats it:
 {ul
 {li {{!page-"building-the-engine"} Building the engine from scratch} — how the
     picture is actually drawn, derived from first principles.}
-{li {!Camlcast.Ray}, {!Camlcast.Plane}, {!Camlcast.Viewport} and
-    {!Camlcast.Sky} carry the mathematical derivations in their docstrings.}
-{li {!Camlcast.World} carries the portal machinery and the rules a world grows
+{li {!Camlcast_core.Ray}, {!Camlcast_core.Plane}, {!Camlcast_core.Viewport} and
+    {!Camlcast_core.Sky} carry the mathematical derivations in their docstrings.}
+{li {!Camlcast_core.World} carries the portal machinery and the rules a world grows
     by.}
 {li The demos: [camlcast-demo] with no argument lists them and
     [camlcast-demo <name>] runs one. Each is a single file with one feature in

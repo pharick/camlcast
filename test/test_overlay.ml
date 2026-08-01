@@ -6,9 +6,8 @@
    the order they were written, that nesting only groups them, and that the
    coordinates a component wrote are the coordinates they are drawn at. *)
 
+open Camlcast_core
 open Camlcast
-open Camlcast_stage
-open Camlcast_loom
 open Support
 
 let width = 200
@@ -24,9 +23,9 @@ let floor = Room.floor ~plane:flat ~material:stone
 let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
 
 let room =
-  Parts.room ~name:"room" ~floor ~ceiling
+  P.room ~name:"room" ~floor ~ceiling
     [
-      Parts.outline ~height:wall_height ~material:stone
+      P.outline ~height:wall_height ~material:stone
         [
           Vec.make (-4.) (-4.);
           Vec.make 4. (-4.);
@@ -36,9 +35,9 @@ let room =
     ]
 
 let showing items =
-  Parts.world ~atmosphere:Atmosphere.default
+  P.world ~atmosphere:Atmosphere.default
     ~spawn:("room", Vec.make 0. 0.)
-    [ room; Parts.hud items ]
+    [ room; P.hud items ]
 
 (* Only the overlay, over a buffer that starts black — so every pixel that is
    not black came from the HUD and nothing has to be subtracted. *)
@@ -70,7 +69,7 @@ let () =
           case "a rectangle is drawn where it was written" (fun () ->
               let buffer =
                 painted
-                  (showing [ Parts.rect ~x:10 ~y:20 ~w:30 ~h:15 ~color:red () ])
+                  (showing [ P.rect ~x:10 ~y:20 ~w:30 ~h:15 ~color:red () ])
               in
               Alcotest.check color "inside" red (at buffer 20 25);
               Alcotest.check color "just left of it" black (at buffer 9 25);
@@ -81,23 +80,18 @@ let () =
               let image =
                 Image.make ~width:4 ~height:4 (fun ~u:_ ~v:_ -> (blue, 255))
               in
-              let buffer =
-                painted (showing [ Parts.picture ~x:50 ~y:60 image ])
-              in
+              let buffer = painted (showing [ P.picture ~x:50 ~y:60 image ]) in
               Alcotest.check color "inside" blue (at buffer 52 62);
               Alcotest.check color "outside" black (at buffer 49 62));
           case "text is drawn where it was written" (fun () ->
               let buffer =
                 painted
-                  (showing
-                     [ Parts.text ~font:block_font ~color:red ~x:8 ~y:8 "A" ])
+                  (showing [ P.text ~font:block_font ~color:red ~x:8 ~y:8 "A" ])
               in
               Alcotest.check color "the glyph" red (at buffer 10 10);
               Alcotest.check color "before it" black (at buffer 7 10));
           case "a crosshair sits at the middle of the buffer" (fun () ->
-              let buffer =
-                painted (showing [ Parts.crosshair ~color:red () ])
-              in
+              let buffer = painted (showing [ P.crosshair ~color:red () ]) in
               Alcotest.check color "dead centre" red
                 (at buffer (width / 2) (height / 2)));
           case "a meter fills from the left" (fun () ->
@@ -105,8 +99,7 @@ let () =
                 painted
                   (showing
                      [
-                       Parts.bar ~x:10 ~y:10 ~w:100 ~h:8 ~fraction:0.5
-                         ~color:red ();
+                       P.bar ~x:10 ~y:10 ~w:100 ~h:8 ~fraction:0.5 ~color:red ();
                      ])
               in
               Alcotest.check color "the filled end" red (at buffer 20 14);
@@ -130,8 +123,8 @@ let () =
                 painted
                   (showing
                      [
-                       Parts.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:blue ();
-                       Parts.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:red ();
+                       P.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:blue ();
+                       P.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:red ();
                      ])
               in
               Alcotest.check color "red went on second" red (at over 20 20);
@@ -139,8 +132,8 @@ let () =
                 painted
                   (showing
                      [
-                       Parts.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:red ();
-                       Parts.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:blue ();
+                       P.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:red ();
+                       P.rect ~x:0 ~y:0 ~w:40 ~h:40 ~color:blue ();
                      ])
               in
               Alcotest.check color "and the other way round" blue
@@ -152,8 +145,8 @@ let () =
                 (Mount.build
                    (showing
                       [
-                        Parts.rect ~x:0 ~y:0 ~w:4 ~h:4 ~color:red ();
-                        Parts.rect ~x:4 ~y:0 ~w:4 ~h:4 ~color:blue ();
+                        P.rect ~x:0 ~y:0 ~w:4 ~h:4 ~color:red ();
+                        P.rect ~x:4 ~y:0 ~w:4 ~h:4 ~color:blue ();
                       ]))
                   .Scene.hud
               in
@@ -161,10 +154,10 @@ let () =
                 (Mount.build
                    (showing
                       [
-                        Parts.hud
+                        P.hud
                           [
-                            Parts.rect ~x:0 ~y:0 ~w:4 ~h:4 ~color:red ();
-                            Parts.rect ~x:4 ~y:0 ~w:4 ~h:4 ~color:blue ();
+                            P.rect ~x:0 ~y:0 ~w:4 ~h:4 ~color:red ();
+                            P.rect ~x:4 ~y:0 ~w:4 ~h:4 ~color:blue ();
                           ];
                       ]))
                   .Scene.hud
@@ -182,13 +175,13 @@ let () =
                 Mount.build
                   (showing
                      [
-                       Parts.wall ~height:wall_height ~material:stone
+                       P.wall ~height:wall_height ~material:stone
                          (Vec.make 0. 0.) (Vec.make 1. 0.);
                      ])
               with
               | _ ->
                   Alcotest.fail "a wall is not something to draw over a frame"
-              | exception Camlcast_stage.Host.Malformed _ -> ());
+              | exception Camlcast.Host.Malformed _ -> ());
           case "and Check says so with a path" (fun () ->
               let summaries =
                 List.map
@@ -196,7 +189,7 @@ let () =
                   (Check.report
                      (showing
                         [
-                          Parts.wall ~height:wall_height ~material:stone
+                          P.wall ~height:wall_height ~material:stone
                             (Vec.make 0. 0.) (Vec.make 1. 0.);
                         ]))
               in
@@ -216,10 +209,7 @@ let () =
                 Events.use_frame (fun ~dt ->
                     set_left (Float.max 0. (left -. dt)));
                 showing
-                  [
-                    Parts.bar ~x:10 ~y:10 ~w:100 ~h:8 ~fraction:left ~color:red
-                      ();
-                  ]
+                  [ P.bar ~x:10 ~y:10 ~w:100 ~h:8 ~fraction:left ~color:red () ]
               in
               let mount = Mount.create () in
               let play dt =

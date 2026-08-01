@@ -18,7 +18,7 @@
     the {e next} frame, not this one. At sixty frames a second that is sixteen
     milliseconds, and in exchange nothing can loop. *)
 
-open Camlcast
+open Camlcast_core
 
 type t = {
   dt : float;  (** how long the last frame lasted, in seconds *)
@@ -34,8 +34,8 @@ type t = {
 
           Not the window's size. The engine renders at whatever whole-number
           fraction of the window keeps it under
-          {!Camlcast.Config.max_render_height} and stretches the result, so a
-          thousand-pixel window is commonly a five-hundred-pixel buffer.
+          {!Camlcast_core.Config.max_render_height} and stretches the result, so
+          a thousand-pixel window is commonly a five-hundred-pixel buffer.
 
           It is the size the {e last} frame was drawn into, because a
           description is rendered before there is a frame to measure. On the

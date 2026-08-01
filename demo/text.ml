@@ -1,7 +1,7 @@
 (** {b Writing on the screen.} A bitmap font, laid out and clipped over a
     finished frame.
 
-    {!Camlcast.Font} is a picture of every glyph on a fixed grid, and four
+    {!Camlcast_core.Font} is a picture of every glyph on a fixed grid, and four
     numbers describing that grid. A character's place in the atlas is arithmetic
     on its code point and its advance is the cell width, so there is no metrics
     file to keep in step with the picture — the price is that the text is
@@ -9,30 +9,30 @@
 
     Four things to look at.
 
-    The {b panel} is a page of wrapped text: {!Camlcast.Font.wrap} breaks the
-    paragraph to a pixel width, and {!Camlcast.Font.measure} is what sizes the
-    box behind it, so the box fits the text rather than the text being trusted
-    to fit the box.
+    The {b panel} is a page of wrapped text: {!Camlcast_core.Font.wrap} breaks
+    the paragraph to a pixel width, and {!Camlcast_core.Font.measure} is what
+    sizes the box behind it, so the box fits the text rather than the text being
+    trusted to fit the box.
 
     The {b colours} are the same atlas three times over. The file is white and
-    {!Camlcast.Paint.sub} multiplies it by the colour asked for, the way
-    {!Camlcast.Color.level} scales a surface pattern's colour — one typeface,
-    dressed at the point of use.
+    {!Camlcast_core.Paint.sub} multiplies it by the colour asked for, the way
+    {!Camlcast_core.Color.level} scales a surface pattern's colour — one
+    typeface, dressed at the point of use.
 
     The {b line that runs off the edge} is not truncated by anything here. Every
-    glyph goes through {!Camlcast.Paint}, which clips against the buffer, so it
-    is simply cut where the screen stops.
+    glyph goes through {!Camlcast_core.Paint}, which clips against the buffer,
+    so it is simply cut where the screen stops.
 
     The {b box} in the last line is a character the atlas has no cell for. It
     takes its space rather than closing up, because a substitution that changed
     the width would turn one wrong character into a wrong line.
 
     As with everything an overlay draws, the coordinates are the framebuffer's
-    and not the window's — see {!Camlcast.Renderer.internal_size}. Resize the
-    window and the text keeps its place and its size relative to the screen, and
-    gets blockier or crisper with it. *)
+    and not the window's — see {!Camlcast_core.Renderer.internal_size}. Resize
+    the window and the text keeps its place and its size relative to the screen,
+    and gets blockier or crisper with it. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.

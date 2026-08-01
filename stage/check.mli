@@ -3,9 +3,9 @@
     A world that type-checks can still be wrong in ways only a player finds: two
     doorways joined to the same third one, a room nothing leads to, a spawn
     point inside a wall, a step in the floor where two rooms meet. The engine
-    refuses some of these already — but from deep inside {!Camlcast.World.make},
-    in a message that names a room and a threshold and has no idea which part of
-    a game wrote them.
+    refuses some of these already — but from deep inside
+    {!Camlcast_core.World.make}, in a message that names a room and a threshold
+    and has no idea which part of a game wrote them.
 
     A description is data, so it can be read before it is built. That is what
     this is: {!report} takes the same description a frame is drawn from, and
@@ -37,7 +37,7 @@
     A {b spawn inside its room} cannot be checked either — an even-odd crossing
     test counts a free-standing partition as a boundary and gets the answer
     backwards. What is checked is that the spawn is not inside a wall, which is
-    {!Camlcast.Room.blocked} and is what the demo suite has always asked.
+    {!Camlcast_core.Room.blocked} and is what the demo suite has always asked.
 
     {1 No source locations}
 
@@ -47,7 +47,7 @@
     have and is not worth acquiring for this. A component's name is a name you
     can grep for, and in practice that is the same journey one step longer. *)
 
-open Camlcast
+open Camlcast_core
 
 type severity =
   | Error  (** this world is wrong, and something will be visibly broken *)
@@ -73,7 +73,7 @@ type t = {
 }
 (** One thing wrong. *)
 
-val report : Parts.t -> t list
+val report : P.t -> t list
 (** Everything wrong with this description, in the order it was written.
 
     Structural and naming mistakes are found first and stop the rest: there is

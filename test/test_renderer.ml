@@ -17,7 +17,7 @@
     the pixels that differ. That answers "where was it drawn" without any claim
     about what it was drawn in. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let width = 160

@@ -1,9 +1,9 @@
 (** [Engine.step] and [Engine.simulate] are the pure part of the loop: input in,
     new player out, and what an arbitrary game state becomes over a frame. The
     rest of the module owns the window and cannot run headless; the arithmetic
-    it paces itself by is {!Camlcast.Clock} and is tested there. *)
+    it paces itself by is {!Camlcast_core.Clock} and is tested there. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let player () = Player.make ~room:0 ~pos:centre ~angle:0.

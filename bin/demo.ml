@@ -32,13 +32,13 @@ let rec browse ?from window =
   | Ok (Some (demo : Catalogue.t)) -> (
       match Catalogue.attempt (fun () -> demo.Catalogue.run window) with
       | Error _ as error -> error
-      | Ok Camlcast.Engine.Closed -> Ok ()
-      | Ok Camlcast.Engine.Left -> browse ~from:demo window)
+      | Ok Camlcast_core.Engine.Closed -> Ok ()
+      | Ok Camlcast_core.Engine.Left -> browse ~from:demo window)
 
 let () =
   match Sys.argv with
   | [| _ |] -> (
-      match Camlcast.Engine.with_window (fun window -> browse window) with
+      match Camlcast_core.Engine.with_window (fun window -> browse window) with
       | Ok () -> ()
       | Error (`Msg message) ->
           (* Whatever it was — a window SDL would not open, or a demo whose art
@@ -58,7 +58,7 @@ let () =
           (* Named on the command line, a demo is the whole program: however it
              ends, there is nothing to come back to. *)
           match
-            Camlcast.Engine.with_window (fun window ->
+            Camlcast_core.Engine.with_window (fun window ->
                 Catalogue.attempt (fun () -> demo.Catalogue.run window))
           with
           | Ok _ -> ()

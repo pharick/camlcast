@@ -3,8 +3,8 @@
     Escape to leave.
 
     Leaving is the part the engine will not assume — see
-    {!Camlcast.Binding.default}. A demo is opened by the launcher and has to
-    hand the player back to the list somehow, so it asks; a game with a pause
+    {!Camlcast_core.Binding.default}. A demo is opened by the launcher and has
+    to hand the player back to the list somehow, so it asks; a game with a pause
     screen of its own would want that key for the screen instead, and would
     write its own line here rather than this one.
 
@@ -12,6 +12,6 @@
     pass it wherever it starts a run. {!Camlcast_demo.Controls} does the larger
     version, with the walking keys moved. *)
 
-open Camlcast
+open Camlcast_core
 
 let escapable = Binding.make ~leave:[ Input.Key Key.escape ] ()

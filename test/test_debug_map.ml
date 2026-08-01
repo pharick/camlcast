@@ -6,8 +6,8 @@
    green for a linked doorway, red for one that leads nowhere — are the ones it
    ends up putting on the buffer. *)
 
+open Camlcast_core
 open Camlcast
-open Camlcast_stage
 open Support
 
 let width = 320
@@ -23,30 +23,30 @@ let floor = Room.floor ~plane:flat ~material:stone
 let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
 
 let west_side =
-  Parts.path ~height:wall_height ~material:stone
+  P.path ~height:wall_height ~material:stone
     [
       Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.); Vec.make 0. (-4.);
     ]
 
 let east_side =
-  Parts.path ~height:wall_height ~material:stone
+  P.path ~height:wall_height ~material:stone
     [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ]
 
 let west_door =
-  Parts.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:wall_height
+  P.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:wall_height
     ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.)
 
 let east_door =
-  Parts.doorway ~name:"west" ~width:2. ~opening:2.5 ~height:wall_height
+  P.doorway ~name:"west" ~width:2. ~opening:2.5 ~height:wall_height
     ~material:stone (Vec.make 0. 4.) (Vec.make 0. (-4.))
 
 let joined =
-  Parts.world ~atmosphere:Atmosphere.default
+  P.world ~atmosphere:Atmosphere.default
     ~spawn:("west", Vec.make (-3.) 0.)
     [
-      Parts.room ~name:"west" ~floor ~ceiling [ west_side; west_door ];
-      Parts.room ~name:"east" ~floor ~ceiling [ east_side; east_door ];
-      Parts.link ("west", "east") ("east", "west");
+      P.room ~name:"west" ~floor ~ceiling [ west_side; west_door ];
+      P.room ~name:"east" ~floor ~ceiling [ east_side; east_door ];
+      P.link ("west", "east") ("east", "west");
     ]
 
 let unlinked_world =

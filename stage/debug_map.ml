@@ -1,7 +1,7 @@
 (* Implementation of {!Camlcast_stage.Debug_map}; the interface carries the
    prose. *)
 
-open Camlcast
+open Camlcast_core
 
 let backdrop = Color.rgb 10 12 18
 let border = Color.rgb 70 80 100

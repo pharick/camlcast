@@ -17,9 +17,9 @@
 
     Look through one doorway from the middle of the hub: the renderer follows
     the ray into the next room, transformed, up to
-    {!Camlcast.Config.max_portal_depth} doorways deep. *)
+    {!Camlcast_core.Config.max_portal_depth} doorways deep. *)
 
-open Camlcast
+open Camlcast_core
 
 let height = 5.
 

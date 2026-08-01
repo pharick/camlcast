@@ -1,9 +1,13 @@
-(* Implementation of {!Camlcast_stage.Parts}; the interface carries the prose. *)
+(* Implementation of {!Camlcast_stage.P}; the interface carries the prose. *)
 
-open Camlcast
+open Camlcast_core
 module E = Camlcast_loom.Element
 
 type t = Prim.t E.t
+
+let floor = Room.floor
+let roof = Room.roof
+let open_sky = Room.open_sky
 
 let world ~atmosphere ~spawn children =
   E.prim ~children (Prim.World { atmosphere; spawn })

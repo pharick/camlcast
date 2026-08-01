@@ -1,7 +1,7 @@
 (* Implementation of {!Camlcast_stage.Overlay}; the interface carries the
    prose. *)
 
-open Camlcast
+open Camlcast_core
 
 let draw buffer items =
   List.iter

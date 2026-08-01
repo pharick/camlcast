@@ -2,19 +2,21 @@
     rendered into the framebuffer and before the buffer reaches the screen, so
     what it draws is in front of everything and clipped by nothing.
 
-    Three things are drawn here, all in {!Camlcast.Paint}: a crosshair in the
-    middle, a meter along the bottom that fills over ten seconds and starts
+    Three things are drawn here, all in {!Camlcast_core.Paint}: a crosshair in
+    the middle, a meter along the bottom that fills over ten seconds and starts
     again, and a translucent panel behind the meter. The panel is drawn with
-    {!Camlcast.Framebuffer.blend} rather than {!Camlcast.Framebuffer.set} — walk
-    up to a wall and it tints the wall rather than replacing it.
+    {!Camlcast_core.Framebuffer.blend} rather than
+    {!Camlcast_core.Framebuffer.set} — walk up to a wall and it tints the wall
+    rather than replacing it.
 
     Note what the coordinates are. The overlay draws into the framebuffer, which
     is a whole-number fraction of the window (see
-    {!Camlcast.Renderer.internal_size}), not into the window itself. Resize the
-    window and the crosshair stays in the middle and the meter stays the width
-    of the screen, because both are measured from the buffer it is handed. *)
+    {!Camlcast_core.Renderer.internal_size}), not into the window itself. Resize
+    the window and the crosshair stays in the middle and the meter stays the
+    width of the screen, because both are measured from the buffer it is handed.
+*)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.

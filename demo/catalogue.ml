@@ -12,7 +12,7 @@
     entry in {!demos} below — which also enrols it in [test_demos] — a row in
     README.md's table, and a line on [doc/demo/index.mld]. *)
 
-open Camlcast
+open Camlcast_core
 
 type t = {
   name : string;  (** what you type after [camlcast-demo] *)
@@ -175,7 +175,7 @@ let find name = List.find_opt (fun demo -> demo.name = name) demos
 
     A world read off the disk is forced inside {!t.run} — deep in a frame, where
     a result would have nowhere to go — so {!Loading} and {!Typeface} [failwith]
-    instead, and {!Camlcast.Result_ext.with_resource} deliberately lets an
+    instead, and {!Camlcast_core.Result_ext.with_resource} deliberately lets an
     exception through rather than making an [Error] of it. Between the two the
     launcher had nothing to say: a missing picture printed OCaml's own
     fatal-error banner and stopped with its exit code, past the [camlcast-demo:]

@@ -17,7 +17,7 @@ val create : unit -> t
 (** An empty mount. The first {!render} into it builds everything. *)
 
 val render :
-  ?trace:(Prim.t Camlcast_loom.Trace.event -> unit) -> t -> Parts.t -> Scene.t
+  ?trace:(Prim.t Camlcast_loom.Trace.event -> unit) -> t -> P.t -> Scene.t
 (** Reconcile a description against what this mount holds, assemble the result,
     and run whatever effects that leaves owing.
 
@@ -28,6 +28,6 @@ val dirty : t -> bool
 (** Whether a setter or a store has asked for a frame since the last {!render}.
 *)
 
-val build : Parts.t -> Scene.t
+val build : P.t -> Scene.t
 (** One description, one world, nothing kept. What a test asserting on geometry
     wants, and what nothing that has to run twice should use. *)

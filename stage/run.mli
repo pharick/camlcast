@@ -8,8 +8,8 @@
 
     The runtime holds the player and walks it. A description says where the
     world is and what is in it; where the eye stands is the loop's, moved from
-    the key bindings through the same {!Camlcast.Engine.step} every game on the
-    old API called on its first line.
+    the key bindings through the same {!Camlcast_core.Engine.step} every game on
+    the old API called on its first line.
 
     That is the uncontrolled case, and it is the only one this step has. A
     description that wants to put the camera somewhere itself — a cutscene, a
@@ -23,7 +23,7 @@
     between frames will walk the player into the wrong one. Descriptions that
     only change what is {e in} their rooms are fine. *)
 
-open Camlcast
+open Camlcast_core
 
 val play :
   ?title:string ->
@@ -31,7 +31,7 @@ val play :
   ?height:int ->
   ?debug:bool ->
   ?bindings:Binding.t ->
-  Parts.t ->
+  P.t ->
   (Engine.ending, [ `Msg of string ]) result
 (** Open a window, play this description on it until the player quits, and close
     it again.

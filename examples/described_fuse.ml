@@ -13,8 +13,6 @@
    shows it. *)
 
 open Camlcast
-open Camlcast_stage
-open Camlcast_loom
 
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
@@ -42,28 +40,31 @@ let air ~light =
    being read. There is no machinery to it, because a description is data and a
    component is a function: taking children and returning them wrapped is
    ordinary OCaml. *)
-type lit = { light : float; spawn : string * Vec.t; children : Parts.t list }
+type lit = { light : float; spawn : string * Vec.t; children : P.t list }
 
 let lit_world =
   Element.declare ~name:"lit_world" @@ fun props ->
-  Parts.world ~atmosphere:(air ~light:props.light) ~spawn:props.spawn
-    props.children
+  P.world ~atmosphere:(air ~light:props.light) ~spawn:props.spawn props.children
 
 (* And a second one, over geometry rather than light: a square room of a given
    reach, with whatever else was given put inside it. *)
-type hall = { name : string; reach : float; children : Parts.t list }
+type hall = { name : string; reach : float; children : P.t list }
 
 let hall =
   Element.declare ~name:"hall" @@ fun props ->
   let r = props.reach in
-  Parts.room ~name:props.name
-    ~floor:(Room.floor ~plane:flat ~material:ground)
-    ~ceiling:(Room.roof ~plane:(Plane.above flat height) ~material:stone)
-    (Parts.outline ~height ~material:stone
-       [
-         Vec.make (-.r) (-.r); Vec.make r (-.r); Vec.make r r; Vec.make (-.r) r;
-       ]
-    :: props.children)
+  P.(
+    room ~name:props.name
+      ~floor:(floor ~plane:flat ~material:ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+      (outline ~height ~material:stone
+         [
+           Vec.make (-.r) (-.r);
+           Vec.make r (-.r);
+           Vec.make r r;
+           Vec.make (-.r) r;
+         ]
+      :: props.children))
 
 type phase = Waiting | Burning | Done
 
@@ -96,7 +97,7 @@ let game =
           (* game.ml says this with ~finished, a callback the engine asks every
              frame. Here it is one more thing the description describes, in the
              same place and the same way as everything else it says. *)
-          (if phase = Done then Parts.finish else Element.empty);
+          (if phase = Done then P.finish else Element.empty);
         ];
     }
 

@@ -10,7 +10,7 @@
     a host has no [create], [update] or [destroy], and it is handed the finished
     forest rather than a stream of mutations. React's host config is written the
     other way round because the DOM is a mutable tree that must be poked node by
-    node. A {!Camlcast.World} is not: it is an immutable value assembled whole,
+    node. A raycaster.s world is not: it is an immutable value assembled whole,
     and the primitives that go into it are cheap records. Handing over the
     finished description and asking for a scene is both simpler and a better fit
     — and it keeps the interface small enough that a mock host is a dozen lines,

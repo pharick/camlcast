@@ -1,6 +1,6 @@
 (* Implementation of {!Camlcast_stage.Host}; the interface carries the prose. *)
 
-open Camlcast
+open Camlcast_core
 
 type prim = Prim.t
 type scene = Scene.t

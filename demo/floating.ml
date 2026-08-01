@@ -33,14 +33,14 @@
     frame, and no picture is made while it does: {!Pictures.motes} is twelve
     images built once when that module loaded, and each frame picks one by
     index. What is rebuilt is the sprite array alone —
-    {!Camlcast.Room.with_sprites} hands back this room with the walls, the
+    {!Camlcast_core.Room.with_sprites} hands back this room with the walls, the
     thresholds and both planes it already had — and
-    {!Camlcast.World.replace_room} puts it in place. Compare {!Changing}, which
-    rebuilds a room from its parts every frame because everything in it is
+    {!Camlcast_core.World.replace_room} puts it in place. Compare {!Changing},
+    which rebuilds a room from its parts every frame because everything in it is
     moving, and {!Dust}, which is this one sprite turned into seventy and is
     where the cost of doing it is worth reading. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.5

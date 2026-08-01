@@ -8,19 +8,19 @@
     haze, which is also what distance draws as; here it is red where a linked
     one is green.
 
-    Everything it needs was already public — {!Camlcast.Room.wall_at},
-    {!Camlcast.Paint.line} — and [doc/building-the-engine.mld] has listed a
+    Everything it needs was already public — {!Camlcast_core.Room.wall_at},
+    {!Camlcast_core.Paint.line} — and [doc/building-the-engine.mld] has listed a
     minimap as an exercise since before there was anything to debug with one.
 
     {1 One room}
 
     The room the player is standing in, in that room's own coordinates, and no
     other. A world has no shared frame to draw two rooms in — that is the whole
-    point of {!Camlcast.Transform} — so a map of several would have to pick one
-    room's frame and carry the rest into it through their portals. Worth doing,
-    and not needed to see a wall pointing the wrong way. *)
+    point of {!Camlcast_core.Transform} — so a map of several would have to pick
+    one room's frame and carry the rest into it through their portals. Worth
+    doing, and not needed to see a wall pointing the wrong way. *)
 
-open Camlcast
+open Camlcast_core
 
 val panel : Framebuffer.t -> int * int * int * int
 (** Where the map goes on a buffer of this size: [(x, y, side, side)].

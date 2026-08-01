@@ -2,8 +2,8 @@
 
     {!Input} reports controls; this says what they are for. Walking, looking,
     fullscreen and leaving the run all come from a value of this type, and a
-    game hands one to {!Camlcast.Engine.run}. {!default} is the engine's own,
-    and it is a default and not a rule: the engine has no keys of its own left.
+    game hands one to {!Engine.run}. {!default} is the engine's own, and it is a
+    default and not a rule: the engine has no keys of its own left.
 
     {1 Rates and displacements}
 
@@ -54,7 +54,7 @@ type t = {
   pitch : axis;  (** looking up and down, + up *)
   fullscreen : Input.control list;  (** any of these toggles it *)
   leave : Input.control list;
-      (** any of these ends the run, reported as {!Camlcast.Engine.Left} *)
+      (** any of these ends the run, reported as {!Engine.Left} *)
 }
 (** The whole of what the player's controls are for: four axes that produce an
     {!Input.motion}, and two lists of controls that the engine acts on itself. A
@@ -84,7 +84,7 @@ val default : t
     That last one is deliberate. Whether Escape ends a run is not the engine's
     to decide: a game with screens in it wants that key for closing them, and
     would be poorly served by a window that quit underneath it. A run that has
-    no other way out asks for one, as {!Camlcast.Engine.run_world} does. *)
+    no other way out asks for one, as {!Engine.run_world} does. *)
 
 val motion : t -> Input.actions -> dt:float -> Input.motion
 (** [motion table actions ~dt] is what the player asked for over a frame of [dt]
@@ -95,7 +95,7 @@ val motion : t -> Input.actions -> dt:float -> Input.motion
     by [dt] where scaling applies, and each in its axis's own unit: cells for
     [forward] and [strafe], radians for [turn], fractions of the window's height
     for [pitch]. A caller adds them to a pose and does not scale them again —
-    which is what {!Camlcast.Engine.move} does with one.
+    which is what {!Engine.move} does with one.
 
     Pure, and the frame's input is the whole of what it reads, so a game or a
     test can ask what a given frame of keys and mouse would have done without a

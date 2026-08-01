@@ -7,7 +7,7 @@
 (executables
  (names room doorways game rebind)
  (modules room doorways game rebind)
- (libraries camlcast))
+ (libraries camlcast_core))
 
 ; The declarative layer's own, kept beside its counterpart on purpose:
 ; described_room.ml is room.ml said the other way, and test_stage renders the
@@ -17,4 +17,4 @@
 (executables
  (names described_room described_fuse)
  (modules described_room described_fuse)
- (libraries camlcast camlcast_stage camlcast_loom))
+ (libraries camlcast_core camlcast camlcast_loom))

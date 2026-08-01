@@ -1,13 +1,14 @@
 (** {b Traversal traces.} Every doorway a step went through, in the order it
     went through them.
 
-    {!Camlcast.Player.traverse} returns where the player ended up {e and} a list
-    of crossings, each naming the room and threshold it left by, the room and
-    threshold it arrived at, and the transform applied on the way.
-    {!Camlcast.Engine.move} is the same thing for a whole frame, with the turn
-    applied first; {!Camlcast.Engine.step} is that with the list dropped, which
-    is what every other demo here uses. {!Camlcast.Player.crossed} answers only
-    whether the list is empty, which is all a world that grows needs.
+    {!Camlcast_core.Player.traverse} returns where the player ended up {e and} a
+    list of crossings, each naming the room and threshold it left by, the room
+    and threshold it arrived at, and the transform applied on the way.
+    {!Camlcast_core.Engine.move} is the same thing for a whole frame, with the
+    turn applied first; {!Camlcast_core.Engine.step} is that with the list
+    dropped, which is what every other demo here uses.
+    {!Camlcast_core.Player.crossed} answers only whether the list is empty,
+    which is all a world that grows needs.
 
     A frame can cross more than one doorway. Movement resolves its two axes one
     after the other, and each leg can go through an opening of its own — so the
@@ -27,7 +28,7 @@
     arrives, because it is a record of what was walked and not a guess from the
     geometry. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.

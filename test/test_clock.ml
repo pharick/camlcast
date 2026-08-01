@@ -1,7 +1,7 @@
 (** The arithmetic the loop paces itself by. Reading the clock needs SDL; what
     is done to the two readings does not, and that is all of this. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 (* The frame the simulation is advanced by is the real one, so that speed does

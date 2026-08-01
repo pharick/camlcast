@@ -7,9 +7,9 @@
     demo to that list is also adding it to this suite. The showcase level has
     its own suite besides this one, for the things only it does. *)
 
-open Camlcast
+open Camlcast_core
 open Camlcast_demo
-open Camlcast_stage
+open Camlcast
 open Support
 
 let each name check =

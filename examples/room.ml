@@ -4,7 +4,7 @@
    the three must stay in step. It compiles as part of the default build, so if
    the engine moves under it the drift fails here rather than on a reader. *)
 
-open Camlcast
+open Camlcast_core
 
 (* A pattern is a pure function from a texel coordinate to a colour. This one is
    a check; Color.level scales all three channels together, so it moves the

@@ -1,4 +1,4 @@
-(** {b Inclined floors and ceilings.} A floor is a {!Camlcast.Plane} — an
+(** {b Inclined floors and ceilings.} A floor is a {!Camlcast_core.Plane} — an
     elevation [z = ax + by + c] over the room — and so is a roof, so both tilt,
     and independently of each other.
 
@@ -7,15 +7,15 @@
     into it. The room beyond is authored in its own coordinate frame, as every
     room is, and its floor is not written out by hand: it is the hall's floor
     put through the transform of the doorway between them, with
-    {!Camlcast.Plane.through}. The same surface, in the other room's terms.
+    {!Camlcast_core.Plane.through}. The same surface, in the other room's terms.
 
     That is what makes the threshold seamless. Two planes written out separately
     with the numbers that look right differ by a few thousandths where they
     meet, which reads as a step you walk into; derive the second from the first
-    and {!Camlcast.World.seam_gap} is zero by construction. There is a test that
-    says so, for this world and for {!Level}'s. *)
+    and {!Camlcast_core.World.seam_gap} is zero by construction. There is a test
+    that says so, for this world and for {!Level}'s. *)
 
-open Camlcast
+open Camlcast_core
 
 let height = 5.
 

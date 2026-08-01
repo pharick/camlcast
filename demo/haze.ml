@@ -2,8 +2,8 @@
     it: two numbers for the fade and three for the shading.
 
     A long colonnade, deliberately longer than you can see the end of. The
-    {!Camlcast.Atmosphere} here has a short [fog_distance], so the far pillars
-    are lost in the haze colour while the near ones are not, and a low
+    {!Camlcast_core.Atmosphere} here has a short [fog_distance], so the far
+    pillars are lost in the haze colour while the near ones are not, and a low
     [min_brightness], so the fade goes nearly the whole way down. The pillars
     are hexagonal, which means each presents six faces at six angles to the
     light: [directional] is how much of the shading depends on which way a wall
@@ -12,7 +12,7 @@
     Walk the length of it. The pillar that was a silhouette resolves into six
     lit faces as you reach it, and the one behind takes its place. *)
 
-open Camlcast
+open Camlcast_core
 
 let height = 6.
 let length = 90.

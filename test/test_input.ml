@@ -3,7 +3,7 @@
     of the previous frame, what is held now and how long the frame lasted — so
     these drive it with scripted keys and never open a window. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let e = Input.Key Key.e

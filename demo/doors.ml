@@ -26,7 +26,7 @@
 
     What the division costs is visible in {!locked} too: it has {e two} entries
     for one door, because a door has two sides and a game's record of it has to
-    agree with itself just as the engine's does. {!Camlcast.World.set_door}
+    agree with itself just as the engine's does. {!Camlcast_core.World.set_door}
     keeps the engine's two sides in step for you — open the middle door, walk
     through, look back, and it is open from there — but only for the part the
     engine knows about.
@@ -34,7 +34,7 @@
     The meter along the bottom is the nearest door: empty when it is open, full
     when it is shut, red for a moment when this demo refuses to work it. *)
 
-open Camlcast
+open Camlcast_core
 open Result_ext
 
 let height = 4.

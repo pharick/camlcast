@@ -1,6 +1,6 @@
 (* Implementation of {!Camlcast_stage.Run}; the interface carries the prose. *)
 
-open Camlcast
+open Camlcast_core
 
 (* The scene is kept beside the player because the loop asks for the next state
    before it asks what to draw, and moving the player needs a world to be

@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let base = Color.rgb 200 100 50

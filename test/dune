@@ -34,7 +34,7 @@
 (library
  (name support)
  (modules support)
- (libraries camlcast alcotest))
+ (libraries camlcast_core alcotest))
 
 ; The engine's own. The suites that load pictures read them from fixtures/ by
 ; plain relative path, because dune runs a test with its working directory here
@@ -92,7 +92,7 @@
  (package camlcast)
  (deps
   (glob_files fixtures/*))
- (libraries camlcast alcotest support))
+ (libraries camlcast_core alcotest support))
 
 ; The runtime's own, and a stanza to itself for the same reason loom's dune has
 ; an empty (libraries) line. A suite sitting in the engine's stanza would link
@@ -119,7 +119,7 @@
  (names test_stage test_check test_debug_map test_events test_overlay)
  (modules test_stage test_check test_debug_map test_events test_overlay)
  (package camlcast)
- (libraries camlcast camlcast_stage camlcast_loom alcotest support))
+ (libraries camlcast_core camlcast camlcast_loom alcotest support))
 
 ; The demos'. Their art comes in through Asset rather than by relative path,
 ; which is why the whole of assets/ is a dependency: test_demos builds every
@@ -133,4 +133,4 @@
  (package camlcast-demo)
  (deps
   (source_tree ../assets))
- (libraries camlcast camlcast_demo camlcast_stage alcotest support))
+ (libraries camlcast_core camlcast_demo camlcast alcotest support))

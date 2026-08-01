@@ -1,6 +1,6 @@
 (* Implementation of {!Camlcast_stage.Prim}; the interface carries the prose. *)
 
-open Camlcast
+open Camlcast_core
 
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 

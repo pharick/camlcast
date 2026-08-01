@@ -6,9 +6,8 @@
    here without anything being opened. A frame is a value; playing one is
    binding it and rendering. *)
 
+open Camlcast_core
 open Camlcast
-open Camlcast_stage
-open Camlcast_loom
 open Support
 
 let stone =
@@ -22,9 +21,9 @@ let ceiling = Room.roof ~plane:(Plane.above flat height) ~material:stone
 let tick = 1. /. 60.
 
 let box name reach =
-  Parts.room ~name ~floor ~ceiling
+  P.room ~name ~floor ~ceiling
     [
-      Parts.outline ~height ~material:stone
+      P.outline ~height ~material:stone
         [
           Vec.make (-.reach) (-.reach);
           Vec.make reach (-.reach);
@@ -34,14 +33,14 @@ let box name reach =
     ]
 
 let around ?(atmosphere = Atmosphere.default) children =
-  Parts.world ~atmosphere ~spawn:("room", Vec.make 0. 0.) children
+  P.world ~atmosphere ~spawn:("room", Vec.make 0. 0.) children
 
 (* A driver: successive frames, each with whatever is held down, rendered into
    one mount so that state carries across them. *)
 type driver = {
   mount : Mount.t;
   mutable actions : Input.actions;
-  description : Parts.t;
+  description : P.t;
 }
 
 let driving description =
@@ -180,10 +179,7 @@ let () =
                 let over, set_over = Hook.use_state false in
                 Events.use_key_down Key.escape (fun () -> set_over true);
                 around
-                  [
-                    box "room" 4.;
-                    (if over then Parts.finish else Element.empty);
-                  ]
+                  [ box "room" 4.; (if over then P.finish else Element.empty) ]
               in
               let driver = driving (ending ()) in
               Alcotest.(check bool) "not yet" false (play driver).Scene.finished;
@@ -199,8 +195,8 @@ let () =
                   (around
                      [
                        box "room" 4.;
-                       Parts.camera ~room:"room" ~pos:(Vec.make 1.5 (-2.))
-                         ~angle:0. ();
+                       P.camera ~room:"room" ~pos:(Vec.make 1.5 (-2.)) ~angle:0.
+                         ();
                      ])
               in
               match scene.Scene.camera with
@@ -223,7 +219,7 @@ let () =
                 around
                   [
                     box "room" 4.;
-                    Parts.camera ~room:"room" ~pos:(Vec.make 0. y) ~angle:0. ();
+                    P.camera ~room:"room" ~pos:(Vec.make 0. y) ~angle:0. ();
                   ]
               in
               let driver = driving (lift ()) in
