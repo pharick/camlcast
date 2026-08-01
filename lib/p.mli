@@ -276,7 +276,8 @@ val rect :
   unit ->
   t
 (** A filled rectangle. [alpha] is out of 255 and solid unless said otherwise.
-*)
+    Clamped, so it cannot wrap round to a colour nobody asked for however it is
+    arrived at: at or below 0 draws nothing, at or above 255 is solid. *)
 
 val bar :
   ?key:string ->

@@ -7,12 +7,20 @@ let clipped (fb : Framebuffer.t) ~x ~y ~w ~h =
 let rect fb ~x ~y ~w ~h ~color:(c : Color.t) ~alpha =
   let r = c.Color.r and g = c.Color.g and b = c.Color.b in
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w ~h in
-  for py = y0 to y1 - 1 do
-    for px = x0 to x1 - 1 do
-      if alpha >= 255 then Framebuffer.set fb ~x:px ~y:py ~r ~g ~b
-      else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~alpha
+  (* Taken at the nearer end when it falls outside 0 .. 255, on both sides and
+     for the same reason {!sub} reads a picture's own alpha that way: nothing at
+     or below nothing, an outright write at or above solid. Framebuffer.blend
+     weighs the destination with 255 - alpha and stores the result in a byte, so
+     an alpha out of range there does not fade — it wraps, and the panel comes
+     out a colour nobody asked for. This alpha arrives from P.rect, which is to
+     say from a game, and a game is entitled to arrive at it by arithmetic. *)
+  if alpha > 0 then
+    for py = y0 to y1 - 1 do
+      for px = x0 to x1 - 1 do
+        if alpha >= 255 then Framebuffer.set fb ~x:px ~y:py ~r ~g ~b
+        else Framebuffer.blend fb ~x:px ~y:py ~r ~g ~b ~alpha
+      done
     done
-  done
 
 let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w:sw ~h:sh in

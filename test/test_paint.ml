@@ -164,6 +164,24 @@ let alpha_blends_with_what_is_underneath () =
   Alcotest.check color "alpha 0 changes nothing" (Color.rgb 200 100 0)
     (Framebuffer.pixel fb ~x:3 ~y:3)
 
+(* An alpha out of 255 that overshoots the range saturates rather than wrapping,
+   the way Image and Texture clamp the alpha a generator hands them. It matters
+   here because P.rect passes a game's own arithmetic straight through: a fade
+   worked out as a countdown goes negative one frame past the end, and
+   Framebuffer.blend weighs the destination with 255 - alpha into a byte, so a
+   negative alpha there comes out as a colour rather than as nothing. *)
+let an_alpha_that_overshoots_is_clamped () =
+  let fb = buffer () in
+  Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~color:(Color.rgb 200 100 0) ~alpha:255;
+  Paint.rect fb ~x:0 ~y:0 ~w:2 ~h:2 ~color:(Color.rgb 0 0 200) ~alpha:(-100);
+  Alcotest.check color "an alpha below the floor clamps down to nothing at all"
+    (Color.rgb 200 100 0)
+    (Framebuffer.pixel fb ~x:0 ~y:0);
+  Paint.rect fb ~x:2 ~y:2 ~w:2 ~h:2 ~color:(Color.rgb 0 0 200) ~alpha:400;
+  Alcotest.check color "and one above the ceiling clamps up to solid"
+    (Color.rgb 0 0 200)
+    (Framebuffer.pixel fb ~x:2 ~y:2)
+
 (* A picture keeps its own per-pixel alpha, so a cut-out one leaves what was
    under it rather than stamping a rectangle of paint. *)
 let an_image_keeps_its_own_transparency () =
@@ -390,6 +408,8 @@ let () =
         [
           case "alpha blends with what is underneath"
             alpha_blends_with_what_is_underneath;
+          case "an alpha that overshoots is clamped"
+            an_alpha_that_overshoots_is_clamped;
           case "an image keeps its own transparency"
             an_image_keeps_its_own_transparency;
           case "a sub rectangle takes what it was asked for"

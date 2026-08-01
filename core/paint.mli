@@ -32,7 +32,9 @@ val rect :
   unit
 (** A filled rectangle [w] by [h] pixels with its top-left corner at [(x, y)].
     [alpha] is out of 255, and 255 writes the pixel outright rather than
-    blending it with itself. A [w] or [h] of zero or less draws nothing. *)
+    blending it with itself. Clamped, so an alpha arrived at by arithmetic
+    cannot wrap the pixels underneath: at or below 0 draws nothing, at or above
+    255 is solid. A [w] or [h] of zero or less draws nothing. *)
 
 val sub :
   ?tint:Color.t ->

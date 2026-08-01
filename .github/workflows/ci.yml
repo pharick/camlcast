@@ -71,6 +71,16 @@ jobs:
       # packages, so odoc writes a directory for each.
       - run: opam exec -- dune build @doc
 
+      # @doc exits 0 whatever odoc warns about, so a reference that does not
+      # resolve reaches the published site as inert text and nothing says so.
+      # Dune's own knob for that -- (env (_ (odoc (warnings fatal)))) -- is no
+      # use here: the classic @doc pipeline drops external libraries from odoc's
+      # include path, so every @raise naming a stdlib exception warns however it
+      # is written, and turning warnings fatal would fail on 35 nobody can fix.
+      # This tells the two apart by name. See the script's own comment.
+      - name: Check the doc references resolve
+        run: opam exec -- python3 tools/odoc-refs.py
+
       # odoc namespaces its output by package and a project site is rooted at
       # the repository name, so publishing _html as it stands would put the docs
       # at /camlcast/camlcast/. This moves the engine's package directory up to

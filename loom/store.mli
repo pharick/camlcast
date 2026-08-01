@@ -95,15 +95,19 @@ val use_selector :
     subscription and takes one out on the second. Two stores are the same store
     when they are the same store; nothing here compares what they hold.
 
-    [select] and [equal] are captured when the subscription is taken — on mount,
-    and again on a render that hands over a different store — so a component
-    that varies its selector between renders will keep comparing with the one it
-    subscribed with. Selectors are normally top-level functions, and this is one
-    more reason to keep them that way.
+    [select] and [equal] are the ones this component last rendered with, not the
+    ones it first subscribed with, so a component free to vary either between
+    renders — a selector built from its props, say — is compared with the
+    question it is currently asking. Only [store] decides when the subscription
+    itself is retaken; the rest is read afresh on every notification.
 
     The subscription compares once on the way in as well as on every dispatch
     after it. A component reads the store during its render but is not listening
     until its effect runs, and between the two lies a whole flush that another
     component's effect is free to dispatch from. That dispatch is not heard by a
     subscription that does not exist yet, so the slice is read again the moment
-    one does, and a frame asked for if it has moved. *)
+    one does, and a frame asked for if it has moved. That first comparison
+    happens before the subscription rather than after, so a [select] or [equal]
+    that raises on it leaves none: the raise comes back out of the render that
+    flushed it, and this component is listening to nothing rather than listening
+    to something nothing can stop. *)

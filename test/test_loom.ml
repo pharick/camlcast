@@ -810,12 +810,15 @@ let context =
           (scene_of (R.create ()) (Element.provide depth 9 [ wall ])));
   ]
 
-(* A store of the shape a game would actually keep. *)
-type game = { score : int; paused : bool }
-type action = Scored of int | Toggle_pause
+(* A store of the shape a game would actually keep. Two numbers rather than one,
+   so that a selector can be swapped for another of the same type and the swap
+   be the only thing that changed. *)
+type game = { score : int; bonus : int; paused : bool }
+type action = Scored of int | Bonus of int | Toggle_pause
 
 let reducer state = function
   | Scored points -> { state with score = state.score + points }
+  | Bonus points -> { state with bonus = state.bonus + points }
   | Toggle_pause -> { state with paused = not state.paused }
 
 (* Declared once, as components must be: two of these built inside the cases
@@ -841,7 +844,36 @@ let bell =
       None);
   Element.prim "bell"
 
-let fresh () = Store.create ~reducer ~initial:{ score = 0; paused = false }
+(* Its selector is its prop, so a frame can hand it a different one while the
+   store stays the store it already subscribed to. *)
+let dial =
+  Element.declare ~name:"dial"
+  @@ fun ((game : (game, action) Store.t), select) ->
+  let n = Store.use_selector game select in
+  Element.prim ("dial=" ^ string_of_int n)
+
+(* A pair for the one moment a subscription could be leaked. The saboteur springs
+   the tripwire from an effect, the way the bell above dispatches from one, and
+   is described first so that its setup runs first; the brittle component's
+   selector is then still fine for the render that reads it and raises on the
+   comparison its own setup makes on the way in. *)
+let saboteur =
+  Element.declare ~name:"saboteur" @@ fun (tripwire : bool ref) ->
+  Hook.use_effect ~deps:tripwire ~equal:( == ) (fun () ->
+      tripwire := true;
+      None);
+  Element.prim "saboteur"
+
+let brittle =
+  Element.declare ~name:"brittle"
+  @@ fun ((game : (game, action) Store.t), (tripwire : bool ref)) ->
+  let score =
+    Store.use_selector game (fun s -> if !tripwire then raise Exit else s.score)
+  in
+  Element.prim ("brittle=" ^ string_of_int score)
+
+let fresh () =
+  Store.create ~reducer ~initial:{ score = 0; bonus = 0; paused = false }
 
 let store =
   [
@@ -887,6 +919,35 @@ let store =
         Alcotest.check scene "and it catches up" "room\n  bell\n  score=7"
           (scene_of root (room [ bell game; scoreboard game ]));
         Alcotest.(check bool) "settled" false (R.dirty root));
+    case "a component handed another selector compares with the new one"
+      (fun () ->
+        let game = fresh () and root = R.create () in
+        let score_of s = s.score and bonus_of s = s.bonus in
+        Alcotest.check scene "reads the slice it was given" "dial=0"
+          (scene_of root (dial (game, score_of)));
+        Alcotest.check scene "and then the other one" "dial=0"
+          (scene_of root (dial (game, bonus_of)));
+        Alcotest.(check int)
+          "the same store, so still the one subscription" 1
+          (Store.subscriber_count game);
+        Store.dispatch game (Scored 5);
+        Alcotest.(check bool)
+          "the slice it has stopped reading cannot wake it" false (R.dirty root);
+        Store.dispatch game (Bonus 3);
+        Alcotest.(check bool) "the one it now reads can" true (R.dirty root);
+        Alcotest.check scene "and the frame shows it" "dial=3"
+          (scene_of root (dial (game, bonus_of))));
+    case "a comparison that raises on the way in leaves no subscription"
+      (fun () ->
+        let game = fresh () and root = R.create () in
+        let tripwire = ref false in
+        Alcotest.check_raises "the raise comes back out of the render" Exit
+          (fun () ->
+            ignore
+              (run root (room [ saboteur tripwire; brittle (game, tripwire) ])));
+        Alcotest.(check int)
+          "and the store is listening to nobody" 0
+          (Store.subscriber_count game));
     case "the tree does not leak subscriptions" (fun () ->
         let game = fresh () and root = R.create () in
         Alcotest.(check int) "nothing yet" 0 (Store.subscriber_count game);
@@ -938,7 +999,8 @@ let store =
      in
      case "the reducer is the only thing that writes" (fun () ->
          let game =
-           Store.create ~reducer:counted ~initial:{ score = 1; paused = false }
+           Store.create ~reducer:counted
+             ~initial:{ score = 1; bonus = 0; paused = false }
          in
          reducer_calls := 0;
          Store.dispatch game (Scored 2);

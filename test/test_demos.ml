@@ -18,6 +18,55 @@ let each name check =
       case (demo.Catalogue.name ^ ": " ^ name) (fun () -> check demo))
     Catalogue.demos
 
+(* How many directions "all round" is asked in. A gap you could walk through is
+   most of a cell wide, and these rooms are tens of cells across, so rays this
+   far apart — under a degree — cannot fall either side of one. *)
+let directions = 512
+
+(* Somewhere inside a room to look around from.
+
+   A threshold's normal faces into the room the threshold belongs to: that is the
+   winding rule Room states and World.make enforces across a link. So half a cell
+   in from the middle of any doorway is inside, clear of the jambs, and the spawn
+   serves for a world with one room and no doorway at all. Whichever is found
+   first is checked against Room.blocked before it is used, so a partition
+   standing right behind a doorway cannot make the whole test lie. *)
+let inside world i =
+  let room = World.room world i in
+  let spawn = World.spawn world in
+  List.find_opt
+    (fun p -> not (Room.blocked room p))
+    ((if spawn.World.room = i then [ spawn.World.pos ] else [])
+    @ List.map
+        (fun t ->
+          let threshold = Room.threshold_at room t in
+          Vec.add
+            (Vec.scale (Vec.add threshold.Room.a threshold.Room.b) 0.5)
+            (Vec.scale threshold.Room.normal 0.5))
+        (List.init (Room.threshold_count room) Fun.id))
+
+(* The directions in which a room is not there. A boundary that closes is crossed
+   by every ray leaving a point inside it, whether the ray meets a wall or the
+   doorway cut into one; a ray that meets neither has left through a gap, and
+   what it would have drawn is floor and sky all the way to the horizon.
+
+   Asking it this way is what lets furniture alone. lib/check.mli explains that
+   the geometry does not say which walls are a room's boundary and which are not,
+   so a partition you can walk round the end of is indistinguishable from a wall
+   left out — by its ends. It is not indistinguishable by this: a ray past the end
+   of a partition goes on to meet the boundary behind it, and a ray through a gap
+   in the boundary meets nothing. Five demos stand a free-standing partition in a
+   room on purpose — glass, floating, chalk, loading and showcase — and counting
+   loose ends calls every one of them a hole. This calls none of them one. *)
+let escaping room ~origin =
+  List.filter
+    (fun angle ->
+      let direction = Vec.of_angle angle in
+      Ray.cast room ~origin ~direction = []
+      && Ray.openings room ~origin ~direction = [])
+    (List.init directions (fun k ->
+         2. *. Float.pi *. float_of_int k /. float_of_int directions))
+
 (* World.make raises on a world it cannot join up, and these values are built
    when the module is loaded, so merely reaching this suite has already run
    every one of them. What is checked here is what make does not: that the
@@ -30,12 +79,20 @@ let is_walkable (demo : Catalogue.t) =
     (Room.blocked (World.room world spawn.World.room) spawn.World.pos);
   List.iteri
     (fun i (room : Room.t) ->
-      (* A room that does not close its own boundary leaks its floor and sky to
-         the horizon through the gap. *)
-      Alcotest.(check bool)
-        (World.name world i ^ " is walled all round")
-        true
-        (Room.wall_count room >= 3))
+      match inside world i with
+      | None ->
+          Alcotest.fail (World.name world i ^ " has nowhere to stand in it")
+      | Some origin ->
+          let escapes = escaping room ~origin in
+          Alcotest.(check int)
+            (Printf.sprintf "%s is walled all round, looked at from (%g, %g)%s"
+               (World.name world i) origin.Vec.x origin.Vec.y
+               (match escapes with
+               | [] -> ""
+               | angle :: _ ->
+                   Printf.sprintf " — the first gap bears %.1f degrees"
+                     (angle *. 180. /. Float.pi)))
+            0 (List.length escapes))
     (rooms world)
 
 let is_consistent (demo : Catalogue.t) =
