@@ -3,13 +3,31 @@
 open Camlcast
 module Loom = Camlcast_loom
 
-type t = { dt : float; motion : Input.motion; actions : Input.actions }
+type t = {
+  dt : float;
+  motion : Input.motion;
+  actions : Input.actions;
+  viewport : int * int;
+}
 
-let still = { dt = 0.; motion = Input.still; actions = Input.untouched }
+let still =
+  {
+    dt = 0.;
+    motion = Input.still;
+    actions = Input.untouched;
+    (* The engine's own initial window, put through the same rule the loop
+       would, so a description rendered outside a run measures itself against
+       something real rather than against nothing. *)
+    viewport =
+      Renderer.internal_size ~width:Config.initial_width
+        ~height:Config.initial_height;
+  }
+
 let context = Loom.Context.make still
 let use () = Loom.Hook.use_context context
 let use_dt () = (use ()).dt
 let use_actions () = (use ()).actions
+let use_viewport () = (use ()).viewport
 
 (* Deps that are never equal, so the effect is torn down and set up again every
    frame. That is the plain way to say "after each frame" in terms of the one

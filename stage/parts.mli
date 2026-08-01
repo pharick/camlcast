@@ -136,6 +136,66 @@ val camera :
     [angle] is in radians and [pitch] is the fraction of the window height the
     horizon is shifted by, the same as the mouse gives. *)
 
+(** {1 The layer over the top}
+
+    Everything below draws on the finished frame, in the order it is written, in
+    the framebuffer's own pixels — which are not the window's. The engine
+    renders at whatever whole-number fraction of the window keeps it under
+    {!Camlcast.Config.max_render_height}, and stretches the result, so a
+    thousand-pixel window is commonly a five-hundred-pixel buffer.
+    {!Events.use_viewport} is how a component asks how big it actually is. *)
+
+val hud : t list -> t
+(** The layer drawn over the finished world. A child of {!world}.
+
+    Its children are drawn in the order they are written, so the last one is on
+    top. *)
+
+val rect :
+  ?key:string ->
+  ?alpha:int ->
+  x:int ->
+  y:int ->
+  w:int ->
+  h:int ->
+  color:Color.t ->
+  unit ->
+  t
+(** A filled rectangle. [alpha] is out of 255 and solid unless said otherwise.
+*)
+
+val bar :
+  ?key:string ->
+  x:int ->
+  y:int ->
+  w:int ->
+  h:int ->
+  fraction:float ->
+  color:Color.t ->
+  unit ->
+  t
+(** A meter [fraction] full, growing rightwards. Clamped, so it cannot overrun
+    its box however it is arrived at.
+
+    It paints one pixel proud on every side — the trough — so leave that much
+    room around it. *)
+
+val text :
+  ?key:string -> ?color:Color.t -> font:Font.t -> x:int -> y:int -> string -> t
+(** A run of text with its top-left corner at [(x, y)].
+
+    The engine holds no font, exactly as it holds no colours or pictures, so one
+    has to be given. {!Camlcast.Font.measure} is how to work out what it will
+    take before drawing it, and {!Camlcast.Font.wrap} is how to break it. *)
+
+val picture : ?key:string -> ?tint:Color.t -> x:int -> y:int -> Image.t -> t
+(** A picture with its top-left corner at [(x, y)], multiplied by [tint] if one
+    is given. *)
+
+val crosshair : ?color:Color.t -> unit -> t
+(** Two short arms at the middle of the buffer — the pixel the straight-ahead
+    ray goes through, which is what makes it agree with {!Camlcast.Sight}. *)
+
 val finish : t
 (** Say the game is over.
 

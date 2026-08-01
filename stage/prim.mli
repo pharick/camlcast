@@ -39,6 +39,21 @@ type t =
   | Camera of camera
       (** where the eye is, when a description would rather say than let the
           runtime walk it *)
+  | Hud
+      (** the layer drawn over the finished world. A child of {!World}, and its
+          own children are the things below. *)
+  | Rect of { x : int; y : int; w : int; h : int; color : Color.t; alpha : int }
+  | Bar of {
+      x : int;
+      y : int;
+      w : int;
+      h : int;
+      fraction : float;
+      color : Color.t;
+    }
+  | Text of { x : int; y : int; text : string; color : Color.t; font : Font.t }
+  | Picture of { x : int; y : int; image : Image.t; tint : Color.t option }
+  | Crosshair of Color.t
   | Finish
       (** the description saying it is over. Present in a frame, the run ends
           after it. *)
@@ -48,3 +63,16 @@ type t =
 
 val describe : t -> string
 (** A short phrase naming this primitive, for a {!Camlcast_loom.Trace}. *)
+
+val inside : t -> string
+(** Where this primitive's children are, said as a phrase: ["in a world"],
+    ["on a wall"], ["on the hud"]. What a complaint about one of them ends with.
+*)
+
+val may_contain : parent:t -> child:t -> bool
+(** Whether that nesting means anything.
+
+    One statement of it, because there are two readers and they must not drift:
+    {!Host.assemble} raises on the first thing that is out of place, and
+    {!Check.report} collects every one of them with the component that wrote it.
+    Those are two different jobs and one rule, and the rule is here. *)

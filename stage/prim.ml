@@ -12,6 +12,19 @@ type t =
   | Threshold of Room.threshold
   | Sprite of Room.sprite
   | Camera of camera
+  | Hud
+  | Rect of { x : int; y : int; w : int; h : int; color : Color.t; alpha : int }
+  | Bar of {
+      x : int;
+      y : int;
+      w : int;
+      h : int;
+      fraction : float;
+      color : Color.t;
+    }
+  | Text of { x : int; y : int; text : string; color : Color.t; font : Font.t }
+  | Picture of { x : int; y : int; image : Image.t; tint : Color.t option }
+  | Crosshair of Color.t
   | Finish
   | Link of { here : string * string; there : string * string }
 
@@ -25,6 +38,27 @@ let describe = function
   | Threshold t -> "threshold " ^ t.Room.name
   | Sprite s -> "sprite " ^ point s.Room.pos
   | Camera { room; pos; _ } -> "camera in " ^ room ^ " at " ^ point pos
+  | Hud -> "hud"
+  | Rect { x; y; _ } -> Printf.sprintf "rect at %d,%d" x y
+  | Bar { x; y; _ } -> Printf.sprintf "bar at %d,%d" x y
+  | Text { text; _ } -> Printf.sprintf "text %S" text
+  | Picture { x; y; _ } -> Printf.sprintf "picture at %d,%d" x y
+  | Crosshair _ -> "crosshair"
   | Finish -> "finish"
   | Link { here = ra, ta; there = rb, tb } ->
       Printf.sprintf "link %s.%s-%s.%s" ra ta rb tb
+
+let inside = function
+  | World _ -> "in a world"
+  | Room _ -> "in a room"
+  | Wall _ -> "on a wall"
+  | Hud -> "on the hud"
+  | _ -> "there"
+
+let may_contain ~parent ~child =
+  match (parent, child) with
+  | World _, (Room _ | Link _ | Camera _ | Finish | Hud) -> true
+  | Room _, (Wall _ | Threshold _ | Sprite _) -> true
+  | Wall _, Decal _ -> true
+  | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Crosshair _ | Hud) -> true
+  | _ -> false

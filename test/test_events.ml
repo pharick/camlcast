@@ -54,7 +54,7 @@ let play ?(held = []) ?(dt = tick) driver =
       ~mouse:(0., 0.) ~pointer:(0, 0) ~dt;
   Mount.render driver.mount
     (Element.provide Events.context
-       { Events.dt; motion = Input.still; actions = driver.actions }
+       { Events.still with Events.dt; actions = driver.actions }
        [ driver.description ])
 
 let () =

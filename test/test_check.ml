@@ -96,7 +96,7 @@ let structure =
                 [ Parts.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ])));
     case "a sprite hung on a wall" (fun () ->
         Alcotest.check lines "only decals go there"
-          [ "a sprite (0,0) cannot hang on a wall" ]
+          [ "a sprite (0,0) cannot go on a wall" ]
           (summaries
              (Parts.world ~atmosphere:Atmosphere.default
                 ~spawn:("room", Vec.make 0. 0.)

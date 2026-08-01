@@ -29,9 +29,13 @@ let play ?title ?width ?height ?(debug = true)
     Mount.render mount
       (Camlcast_loom.Element.provide Events.context frame [ description ])
   in
+  (* The buffer's size is only known where a frame is drawn, and a description
+     is rendered before there is one. So it is remembered from the last frame;
+     see Events.viewport for what that costs. *)
+  let viewport = ref Events.still.Events.viewport in
   let first = render Events.still in
   let update state ~dt ~motion ~actions =
-    let scene = render { Events.dt; motion; actions } in
+    let scene = render { Events.dt; motion; actions; viewport = !viewport } in
     let map = debug && state.map <> Input.pressed actions (Input.Key Key.f3) in
     {
       scene;
@@ -53,6 +57,10 @@ let play ?title ?width ?height ?(debug = true)
   let view state = (state.scene.Scene.world, state.player) in
   let finished state = state.scene.Scene.finished in
   let overlay buffer state =
+    viewport := (buffer.Framebuffer.width, buffer.Framebuffer.height);
+    Overlay.draw buffer state.scene.Scene.hud;
+    (* Over the game's own layer, because it is a thing you turn on to look
+       under what is there rather than a thing the game drew. *)
     if state.map then
       Debug_map.draw buffer state.scene.Scene.world state.player state.found
   in

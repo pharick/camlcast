@@ -19,4 +19,10 @@ type t = {
           the same controlled-or-not distinction a text input has. *)
   finished : bool;
       (** whether the description said it is over. See {!Parts.finish}. *)
+  hud : Prim.t list;
+      (** what to draw over the finished world, in the order it was written.
+
+          Kept as the primitives themselves rather than as closures, because a
+          scene should be a value a test can read as easily as the loop can
+          draw. {!Overlay.draw} is what turns them into pixels. *)
 }

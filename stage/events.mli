@@ -28,6 +28,20 @@ type t = {
   actions : Input.actions;
       (** the controls themselves — what is down, what went down this frame, and
           how long it has been held *)
+  viewport : int * int;
+      (** how many pixels wide and tall the buffer is, which is what a HUD
+          places itself in.
+
+          Not the window's size. The engine renders at whatever whole-number
+          fraction of the window keeps it under
+          {!Camlcast.Config.max_render_height} and stretches the result, so a
+          thousand-pixel window is commonly a five-hundred-pixel buffer.
+
+          It is the size the {e last} frame was drawn into, because a
+          description is rendered before there is a frame to measure. On the
+          first frame, and for one frame after the window is resized, it is what
+          it was before — which moves a HUD by a frame and has never been
+          noticed by anyone. *)
 }
 (** One frame's worth of time and input. *)
 
@@ -53,6 +67,10 @@ val use : unit -> t
 
 val use_dt : unit -> float
 (** How long the last frame lasted. *)
+
+val use_viewport : unit -> int * int
+(** How big the buffer is, for a HUD that would rather sit against an edge than
+    at a fixed spot. See {!type-t.viewport} for what it is the size of. *)
 
 val use_actions : unit -> Input.actions
 (** The controls as they stand, for a component asking something the hooks below

@@ -10,21 +10,45 @@ exception Malformed of string
 let node_path (node : prim Camlcast_loom.Host.node) =
   Camlcast_loom.Path.to_string node.Camlcast_loom.Host.path
 
-let unexpected what (node : prim Camlcast_loom.Host.node) =
+let unexpected ~parent (node : prim Camlcast_loom.Host.node) =
   raise
     (Malformed
        (Printf.sprintf "%s: %s does not belong %s" (node_path node)
           (Prim.describe node.Camlcast_loom.Host.prim)
-          what))
+          (Prim.inside parent)))
+
+(* Both readers of the nesting rule ask Prim for it rather than each carrying a
+   copy: this one to refuse the first thing out of place, Check to collect every
+   one of them with the component that wrote it. *)
+let refuse_strangers ~parent (node : prim Camlcast_loom.Host.node) =
+  List.iter
+    (fun (child : prim Camlcast_loom.Host.node) ->
+      if not (Prim.may_contain ~parent ~child:child.Camlcast_loom.Host.prim)
+      then unexpected ~parent child)
+    node.Camlcast_loom.Host.children
 
 (* A wall's decals are its children, because they are the one thing that has to
    be in hand before {!Room.wall} can be called at all. *)
-let decals_of (node : prim Camlcast_loom.Host.node) =
+let decals_of ~parent (node : prim Camlcast_loom.Host.node) =
+  refuse_strangers ~parent node;
   List.filter_map
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
       | Prim.Decal decal -> Some decal
-      | _ -> unexpected "on a wall" child)
+      | _ -> None)
+    node.Camlcast_loom.Host.children
+
+(* Flattened in the order they were written, so the last one written is the last
+   one drawn and therefore the one on top. Nesting is allowed and means nothing
+   but grouping: a component that returns three labels as one thing should not
+   have to say where each of them goes relative to the others twice. *)
+let rec collect_hud (node : prim Camlcast_loom.Host.node) =
+  refuse_strangers ~parent:Prim.Hud node;
+  List.concat_map
+    (fun (child : prim Camlcast_loom.Host.node) ->
+      match child.Camlcast_loom.Host.prim with
+      | Prim.Hud -> collect_hud child
+      | item -> item :: collect_hud child)
     node.Camlcast_loom.Host.children
 
 let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
@@ -33,15 +57,17 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
      wall's index is what {!Sight} reports and what a decal is added by, and a
      threshold's is what a portal runs parallel to. *)
   let walls = ref [] and thresholds = ref [] and sprites = ref [] in
+  refuse_strangers ~parent:node.Camlcast_loom.Host.prim node;
   List.iter
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
-      | Prim.Wall { a; b; height; material } ->
+      | Prim.Wall { a; b; height; material } as parent ->
           walls :=
-            Room.wall ~height ~material ~decals:(decals_of child) a b :: !walls
+            Room.wall ~height ~material ~decals:(decals_of ~parent child) a b
+            :: !walls
       | Prim.Threshold threshold -> thresholds := threshold :: !thresholds
       | Prim.Sprite sprite -> sprites := sprite :: !sprites
-      | _ -> unexpected "in a room" child)
+      | _ -> ())
     node.Camlcast_loom.Host.children;
   Room.make ~thresholds:(List.rev !thresholds) ~sprites:(List.rev !sprites)
     ~floor ~ceiling (List.rev !walls)
@@ -52,7 +78,8 @@ let assemble nodes =
    ({ Camlcast_loom.Host.prim = Prim.World { atmosphere; spawn }; _ } as root);
   ] ->
       let rooms = ref [] and links = ref [] and eye = ref None in
-      let over = ref false in
+      let over = ref false and hud = ref [] in
+      refuse_strangers ~parent:root.Camlcast_loom.Host.prim root;
       List.iter
         (fun (child : prim Camlcast_loom.Host.node) ->
           match child.Camlcast_loom.Host.prim with
@@ -61,7 +88,8 @@ let assemble nodes =
           | Prim.Link { here; there } -> links := (here, there) :: !links
           | Prim.Camera camera -> eye := Some camera
           | Prim.Finish -> over := true
-          | _ -> unexpected "in a world" child)
+          | Prim.Hud -> hud := !hud @ collect_hud child
+          | _ -> ())
         root.Camlcast_loom.Host.children;
       let world =
         World.make ~rooms:(List.rev !rooms) ~links:(List.rev !links) ~atmosphere
@@ -84,7 +112,7 @@ let assemble nodes =
                   ~radians:c.pitch)
           !eye
       in
-      { Scene.world; camera; finished = !over }
+      { Scene.world; camera; finished = !over; hud = !hud }
   | [] -> raise (Malformed "a description has to have a world in it")
   | [ node ] ->
       raise

@@ -25,6 +25,23 @@ let sprite ?key ?base ~size ~image pos =
 let camera ?(pitch = 0.) ~room ~pos ~angle () =
   E.prim (Prim.Camera { room; pos; angle; pitch })
 
+let hud children = E.prim ~children Prim.Hud
+
+let rect ?key ?(alpha = 255) ~x ~y ~w ~h ~color () =
+  E.prim ?key (Prim.Rect { x; y; w; h; color; alpha })
+
+let bar ?key ~x ~y ~w ~h ~fraction ~color () =
+  E.prim ?key (Prim.Bar { x; y; w; h; fraction; color })
+
+let text ?key ?(color = Color.rgb 255 255 255) ~font ~x ~y body =
+  E.prim ?key (Prim.Text { x; y; text = body; color; font })
+
+let picture ?key ?tint ~x ~y image =
+  E.prim ?key (Prim.Picture { x; y; image; tint })
+
+let crosshair ?(color = Color.rgb 255 255 255) () =
+  E.prim (Prim.Crosshair color)
+
 let finish = E.prim Prim.Finish
 let link here there = E.prim (Prim.Link { here; there })
 

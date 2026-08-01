@@ -2,4 +2,9 @@
 
 open Camlcast
 
-type t = { world : World.t; camera : Player.t option; finished : bool }
+type t = {
+  world : World.t;
+  camera : Player.t option;
+  finished : bool;
+  hud : Prim.t list;
+}

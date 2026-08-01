@@ -184,97 +184,102 @@ type described_room = {
   thresholds : (string * Room.threshold * string) list;
 }
 
+(* The nesting rule is Prim's, so this and Host cannot drift about what may go
+   where. What differs is the job: Host raises on the first thing out of place,
+   and this collects every one of them with the component that wrote it. *)
+let belongs_here = function
+  | Prim.World _ ->
+      "A world holds rooms, the links between them, and the layer drawn over \
+       the top."
+  | Prim.Room _ ->
+      "A room holds walls, doorways and sprites. Rooms and links belong to the \
+       world outside it."
+  | Prim.Wall _ -> "Only decals hang on a wall."
+  | Prim.Hud -> "A hud holds what is drawn over the finished frame."
+  | _ -> "Nothing goes inside that."
+
+let strangers ~parent (node : Prim.t Loom.Host.node) =
+  List.filter_map
+    (fun (child : Prim.t Loom.Host.node) ->
+      if Prim.may_contain ~parent ~child:child.Loom.Host.prim then None
+      else
+        Some
+          (error (path_of child)
+             (Printf.sprintf "a %s cannot go %s"
+                (Prim.describe child.Loom.Host.prim)
+                (Prim.inside parent))
+             ~detail:[ belongs_here parent ]))
+    node.Loom.Host.children
+
+let rec walk ~parent (node : Prim.t Loom.Host.node) =
+  strangers ~parent node
+  @ List.concat_map
+      (fun (child : Prim.t Loom.Host.node) ->
+        walk ~parent:child.Loom.Host.prim child)
+      node.Loom.Host.children
+
 let structure forest =
-  let problems = ref [] in
-  let complain d = problems := d :: !problems in
   let rooms = ref [] and links = ref [] and spawn = ref None in
-  let visit_wall (node : Prim.t Loom.Host.node) =
-    List.iter
+  let thresholds_of (node : Prim.t Loom.Host.node) =
+    List.filter_map
       (fun (child : Prim.t Loom.Host.node) ->
         match child.Loom.Host.prim with
-        | Prim.Decal _ -> ()
-        | other ->
-            complain
-              (error (path_of child)
-                 (Printf.sprintf "a %s cannot hang on a wall"
-                    (Prim.describe other))
-                 ~detail:[ "Only decals go on a wall." ]))
-      node.Loom.Host.children
-  in
-  let visit_room (node : Prim.t Loom.Host.node) =
-    let thresholds = ref [] in
-    List.iter
-      (fun (child : Prim.t Loom.Host.node) ->
-        match child.Loom.Host.prim with
-        | Prim.Wall _ -> visit_wall child
-        | Prim.Sprite _ -> ()
         | Prim.Threshold threshold ->
-            thresholds :=
-              (threshold.Room.name, threshold, path_of child) :: !thresholds
-        | other ->
-            complain
-              (error (path_of child)
-                 (Printf.sprintf "a %s cannot go in a room"
-                    (Prim.describe other))
-                 ~detail:
-                   [
-                     "A room holds walls, doorways and sprites. Rooms and \
-                      links belong to the world outside it.";
-                   ]))
-      node.Loom.Host.children;
-    List.rev !thresholds
-  in
-  let visit_world (node : Prim.t Loom.Host.node) =
-    List.iter
-      (fun (child : Prim.t Loom.Host.node) ->
-        match child.Loom.Host.prim with
-        | Prim.Room { name; _ } ->
-            rooms :=
-              {
-                room_path = path_of child;
-                room_name = name;
-                thresholds = visit_room child;
-              }
-              :: !rooms
-        | Prim.Link { here; there } ->
-            links := (here, there, path_of child) :: !links
-        | other ->
-            complain
-              (error (path_of child)
-                 (Printf.sprintf "a %s cannot go in a world"
-                    (Prim.describe other))
-                 ~detail:[ "A world holds rooms and the links between them." ]))
+            Some (threshold.Room.name, threshold, path_of child)
+        | _ -> None)
       node.Loom.Host.children
   in
-  (match forest with
-  | [ ({ Loom.Host.prim = Prim.World { spawn = where; _ }; _ } as root) ] ->
-      spawn := Some where;
-      visit_world root
-  | [] ->
-      complain
-        (error "(root)" "there is no world here"
-           ~detail:
-             [
-               "Every description is one Parts.world with everything inside it.";
-             ])
-  | [ node ] ->
-      complain
-        (error (path_of node)
-           (Printf.sprintf "a %s is not a world"
-              (Prim.describe node.Loom.Host.prim))
-           ~detail:
-             [
-               "Every description is one Parts.world with everything inside it.";
-             ])
-  | _ :: _ :: _ ->
-      complain
-        (error "(root)" "there is more than one world here"
-           ~detail:
-             [
-               "A description has exactly one world in it. Wrap them in a \
-                fragment and it is still two.";
-             ]));
-  (List.rev !problems, List.rev !rooms, List.rev !links, !spawn)
+  let problems =
+    match forest with
+    | [ ({ Loom.Host.prim = Prim.World { spawn = where; _ }; _ } as root) ] ->
+        spawn := Some where;
+        List.iter
+          (fun (child : Prim.t Loom.Host.node) ->
+            match child.Loom.Host.prim with
+            | Prim.Room { name; _ } ->
+                rooms :=
+                  {
+                    room_path = path_of child;
+                    room_name = name;
+                    thresholds = thresholds_of child;
+                  }
+                  :: !rooms
+            | Prim.Link { here; there } ->
+                links := (here, there, path_of child) :: !links
+            | _ -> ())
+          root.Loom.Host.children;
+        walk ~parent:root.Loom.Host.prim root
+    | [] ->
+        [
+          error "(root)" "there is no world here"
+            ~detail:
+              [
+                "Every description is one Parts.world with everything inside \
+                 it.";
+              ];
+        ]
+    | [ node ] ->
+        [
+          error (path_of node)
+            (Printf.sprintf "a %s is not a world"
+               (Prim.describe node.Loom.Host.prim))
+            ~detail:
+              [
+                "Every description is one Parts.world with everything inside \
+                 it.";
+              ];
+        ]
+    | _ :: _ :: _ ->
+        [
+          error "(root)" "there is more than one world here"
+            ~detail:
+              [
+                "A description has exactly one world in it. Wrap them in a \
+                 fragment and it is still two.";
+              ];
+        ]
+  in
+  (problems, List.rev !rooms, List.rev !links, !spawn)
 
 (* The second and any later use of a name is what is complained about, so the
    one that was there first is left alone and a report reads as "this one is the
