@@ -12,6 +12,10 @@
     entry in {!demos} below — which also enrols it in [test_demos] — a row in
     README.md's table, and a line on [doc/demo/index.mld]. *)
 
+(* Not `open Camlcast`: this file names every demo module, and one of them is
+   called Overlay — as is the module in camlcast that turns a described HUD into
+   pixels. Qualifying the two things wanted from it is cheaper than renaming a
+   demo after a collision nobody outside this file will ever have. *)
 open Camlcast_core
 
 type t = {
@@ -23,7 +27,7 @@ type t = {
           Behind a [lazy] because [loading] builds its world out of files, which
           can fail. Eager, one missing picture would stop [--list] from listing
           anything; deferred, it stops only the demo that needed it. *)
-  run : Engine.window -> (Engine.ending, [ `Msg of string ]) result;
+  run : Camlcast.Run.window -> (Camlcast.Run.ending, [ `Msg of string ]) result;
       (** plays it on the launcher's window, and says how the player left it —
           {!Menu} shows itself again on that same window after a demo that was
           [Left], and stops after one that was [Closed] *)
@@ -129,7 +133,7 @@ let demos =
     };
     {
       name = "phases";
-      blurb = "Engine.run: a phase, a clock, and a light going out";
+      blurb = "a component with a phase, a clock, and a light going out";
       world = lazy Phases.world;
       run = Phases.run;
     };

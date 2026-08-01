@@ -12,6 +12,6 @@
     pass it wherever it starts a run. {!Camlcast_demo.Controls} does the larger
     version, with the walking keys moved. *)
 
-open Camlcast_core
+open Camlcast
 
 let escapable = Binding.make ~leave:[ Input.Key Key.escape ] ()
