@@ -17,6 +17,11 @@
 
 open Camlcast
 
+type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
+(** Where a description says the eye is. Its own record rather than an inline
+    one, because {!Host} resolves it after the world exists and wants to pass it
+    about while it does. *)
+
 type t =
   | World of { atmosphere : Atmosphere.t; spawn : string * Vec.t }
       (** the root: the air every room is seen through, and where the player
@@ -31,6 +36,12 @@ type t =
       (** a doorway cut into a room's boundary, named so that {!Link} can join
           it to another *)
   | Sprite of Room.sprite  (** a billboard standing in the room that holds it *)
+  | Camera of camera
+      (** where the eye is, when a description would rather say than let the
+          runtime walk it *)
+  | Finish
+      (** the description saying it is over. Present in a frame, the run ends
+          after it. *)
   | Link of { here : string * string; there : string * string }
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)

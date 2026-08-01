@@ -8,4 +8,15 @@
 
 open Camlcast
 
-type t = { world : World.t }
+type t = {
+  world : World.t;
+  camera : Player.t option;
+      (** where the description said the eye is, if it said.
+
+          [None] is the uncontrolled case and the usual one: the runtime holds
+          the player and walks it from the bindings. [Some] is a description
+          that has taken the camera over — a cutscene, a lift, a death — and is
+          the same controlled-or-not distinction a text input has. *)
+  finished : bool;
+      (** whether the description said it is over. See {!Parts.finish}. *)
+}

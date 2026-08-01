@@ -22,10 +22,16 @@ let play ?title ?width ?height ?(debug = true)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) description =
   Engine.with_window ?title ?width ?height @@ fun window ->
   let mount = Mount.create () in
-  let render () = Mount.render mount description in
-  let first = render () in
-  let update state ~dt:_ ~motion ~actions =
-    let scene = render () in
+  (* The frame is bound around the description rather than pushed into it, so a
+     component reads time and input by asking rather than by having them handed
+     down through every parent between it and here. *)
+  let render frame =
+    Mount.render mount
+      (Camlcast_loom.Element.provide Events.context frame [ description ])
+  in
+  let first = render Events.still in
+  let update state ~dt ~motion ~actions =
+    let scene = render { Events.dt; motion; actions } in
     let map = debug && state.map <> Input.pressed actions (Input.Key Key.f3) in
     {
       scene;
@@ -34,10 +40,18 @@ let play ?title ?width ?height ?(debug = true)
          beside drawing one, but it is also nothing anybody asked for when the
          map is down. *)
       found = (if map then Check.world scene.Scene.world else []);
-      player = Engine.step scene.Scene.world state.player motion;
+      (* Controlled or not, exactly as a text input is: a description that says
+         where the eye is gets it there, and one that does not is walked. The
+         controls are not applied to a camera the description is placing, since
+         a walk it never asked for would fight it every frame. *)
+      player =
+        (match scene.Scene.camera with
+        | Some placed -> placed
+        | None -> Engine.step scene.Scene.world state.player motion);
     }
   in
   let view state = (state.scene.Scene.world, state.player) in
+  let finished state = state.scene.Scene.finished in
   let overlay buffer state =
     if state.map then
       Debug_map.draw buffer state.scene.Scene.world state.player state.found
@@ -45,10 +59,15 @@ let play ?title ?width ?height ?(debug = true)
   let start =
     {
       scene = first;
-      player = Player.spawn first.Scene.world;
+      player =
+        (match first.Scene.camera with
+        | Some placed -> placed
+        | None -> Player.spawn first.Scene.world);
       map = false;
       found = [];
     }
   in
   Result.map snd
-    (Engine.run window (Engine.game ~update ~view ~overlay ~bindings ()) start)
+    (Engine.run window
+       (Engine.game ~update ~view ~overlay ~finished ~bindings ())
+       start)

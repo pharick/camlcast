@@ -22,6 +22,10 @@ let decal ?key ?facing ?glow ~along ~z ~half_width ~half_height image =
 let sprite ?key ?base ~size ~image pos =
   E.prim ?key (Prim.Sprite (Room.sprite ?base ~size ~image pos))
 
+let camera ?(pitch = 0.) ~room ~pos ~angle () =
+  E.prim (Prim.Camera { room; pos; angle; pitch })
+
+let finish = E.prim Prim.Finish
 let link here there = E.prim (Prim.Link { here; there })
 
 (* Room.wall is private, so its parts can be read back out — which is what lets

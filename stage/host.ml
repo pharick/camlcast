@@ -51,20 +51,40 @@ let assemble nodes =
   | [
    ({ Camlcast_loom.Host.prim = Prim.World { atmosphere; spawn }; _ } as root);
   ] ->
-      let rooms = ref [] and links = ref [] in
+      let rooms = ref [] and links = ref [] and eye = ref None in
+      let over = ref false in
       List.iter
         (fun (child : prim Camlcast_loom.Host.node) ->
           match child.Camlcast_loom.Host.prim with
           | Prim.Room { name; floor; ceiling } ->
               rooms := (name, build_room ~floor ~ceiling child) :: !rooms
           | Prim.Link { here; there } -> links := (here, there) :: !links
+          | Prim.Camera camera -> eye := Some camera
+          | Prim.Finish -> over := true
           | _ -> unexpected "in a world" child)
         root.Camlcast_loom.Host.children;
-      {
-        Scene.world =
-          World.make ~rooms:(List.rev !rooms) ~links:(List.rev !links)
-            ~atmosphere ~spawn;
-      }
+      let world =
+        World.make ~rooms:(List.rev !rooms) ~links:(List.rev !links) ~atmosphere
+          ~spawn
+      in
+      (* The camera is resolved once the world exists, because a room's name
+         only becomes an index here. A name that is not a room's is the same
+         mistake as a spawn that names one, and is refused in the same words. *)
+      let camera =
+        Option.map
+          (fun (c : Prim.camera) ->
+            match World.named world c.room with
+            | None ->
+                raise
+                  (Malformed
+                     (Printf.sprintf "the camera is in a room called %S" c.room))
+            | Some room ->
+                Player.pitch_by
+                  (Player.make ~room ~pos:c.pos ~angle:c.angle)
+                  ~radians:c.pitch)
+          !eye
+      in
+      { Scene.world; camera; finished = !over }
   | [] -> raise (Malformed "a description has to have a world in it")
   | [ node ] ->
       raise

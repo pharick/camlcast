@@ -82,6 +82,7 @@
   test_stage
   test_check
   test_debug_map
+  test_events
   test_patterns
   test_pictures
   test_level
@@ -114,10 +115,10 @@
 ; failing comparison should print (3, 2.5) and not a bare false.
 
 (tests
- (names test_stage test_check test_debug_map)
- (modules test_stage test_check test_debug_map)
+ (names test_stage test_check test_debug_map test_events)
+ (modules test_stage test_check test_debug_map test_events)
  (package camlcast)
- (libraries camlcast camlcast_stage alcotest support))
+ (libraries camlcast camlcast_stage camlcast_loom alcotest support))
 
 ; The demos'. Their art comes in through Asset rather than by relative path,
 ; which is why the whole of assets/ is a dependency: test_demos builds every

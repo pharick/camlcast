@@ -15,6 +15,6 @@
 ; here that needs camlcast.stage.
 
 (executables
- (names described_room)
- (modules described_room)
- (libraries camlcast camlcast_stage))
+ (names described_room described_fuse)
+ (modules described_room described_fuse)
+ (libraries camlcast camlcast_stage camlcast_loom))

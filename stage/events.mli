@@ -1,0 +1,77 @@
+(** What a component can know about the frame it is being rendered for, and how
+    it says something happened.
+
+    A description is rebuilt every frame, so time and input do not have to be
+    pushed into it — they can be put in scope and read by whatever cares.
+    {!Run.play} binds {!context} around the description before each render, and
+    everything below is a way of asking it something.
+
+    {1 When a handler runs}
+
+    Never during a render. A render is meant to be a pure function of props and
+    state, and a handler that set state in the middle of one would make what a
+    frame shows depend on the order its components happened to be walked in. So
+    {!use_frame} and {!use_key_down} put their work in a
+    {!Camlcast_loom.Hook.use_effect}, which runs after the scene is assembled.
+
+    The consequence worth knowing: a setter called from a handler shows up on
+    the {e next} frame, not this one. At sixty frames a second that is sixteen
+    milliseconds, and in exchange nothing can loop. *)
+
+open Camlcast
+
+type t = {
+  dt : float;  (** how long the last frame lasted, in seconds *)
+  motion : Input.motion;
+      (** what the bindings made of the controls this frame: the walk, the turn
+          and the pitch already worked out *)
+  actions : Input.actions;
+      (** the controls themselves — what is down, what went down this frame, and
+          how long it has been held *)
+}
+(** One frame's worth of time and input. *)
+
+val still : t
+(** No time passed and nothing pressed. What {!use} answers outside any
+    {!Run.play} — which is what a component rendered by {!Check.report}, or by a
+    test that only wants the geometry, gets. *)
+
+val context : t Camlcast_loom.Context.t
+(** The context {!Run.play} binds each frame.
+
+    Exposed because a test drives a description without a window, and binding
+    this is how it says a frame went by:
+    {[
+    Camlcast_loom.Element.provide Events.context
+      { Events.still with dt = 1. /. 60. }
+      [ description ]
+    ]} *)
+
+val use : unit -> t
+(** Everything about this frame, for a component that wants more than one part
+    of it. *)
+
+val use_dt : unit -> float
+(** How long the last frame lasted. *)
+
+val use_actions : unit -> Input.actions
+(** The controls as they stand, for a component asking something the hooks below
+    do not cover — how long a key has been held, where the pointer is. *)
+
+val use_frame : (dt:float -> unit) -> unit
+(** Run this after every frame is drawn, with the length of it.
+
+    Where a game puts what happens on its own: a fuse burning down, a mote
+    drifting, a door swinging. Anything reached from here may set state, and the
+    frame after this one will show it. *)
+
+val use_key_down : Key.t -> (unit -> unit) -> unit
+(** Run this on the frame a key goes down, and not while it is held.
+
+    The tap, not the hold — {!use_key_held} is the other one. Walking is not
+    written with either: that is the bindings' job, and it reaches a game as
+    {!type-t.motion} without any component asking. *)
+
+val use_key_held : Key.t -> bool
+(** Whether a key is down right now, read during the render rather than run
+    after it. *)

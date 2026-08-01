@@ -124,6 +124,30 @@ val sprite :
     Key anything that can be rearranged. A list of sprites that sorts itself is
     exactly the case keys exist for. *)
 
+val camera :
+  ?pitch:float -> room:string -> pos:Vec.t -> angle:float -> unit -> t
+(** Put the eye here, instead of letting the runtime walk it.
+
+    A child of {!world}. While one of these is in a description the controls do
+    not move the player at all — the description is saying where the eye is,
+    every frame, and a walk it did not ask for would fight it. Take it out again
+    and the player carries on from wherever the description last put it.
+
+    [angle] is in radians and [pitch] is the fraction of the window height the
+    horizon is shifted by, the same as the mouse gives. *)
+
+val finish : t
+(** Say the game is over.
+
+    A child of {!world}. A description that returns this has ended: the frame it
+    appears in is drawn, and then the run stops and the window closes.
+
+    Declared rather than called, because everything else here is. A component
+    that has reached its ending says so by describing an ending, in the same
+    place and the same way it says everything else —
+    [if done then Parts.finish else Element.empty] — instead of reaching for a
+    callback the runtime handed it. *)
+
 val link : string * string -> string * string -> t
 (** [link (room, threshold) (room', threshold')] makes two doorways the two
     sides of one.
