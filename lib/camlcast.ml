@@ -2,7 +2,7 @@
 
    Nothing but aliases. This file exists to be the library's one visible module,
    which is what makes everything it does not mention unreachable — see
-   stage/dune for why that is the point rather than a side effect. *)
+   lib/dune for why that is the point rather than a side effect. *)
 
 module P = P
 module Element = Camlcast_loom.Element
@@ -11,6 +11,7 @@ module Context = Camlcast_loom.Context
 module Store = Camlcast_loom.Store
 module Events = Events
 module Run = Run
+module Controls = Controls
 module Check = Check
 module Scene = Scene
 module Mount = Mount

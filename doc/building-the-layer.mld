@@ -259,6 +259,35 @@ queues its cleanups into that same flush rather than running them where it
 stands, which is what makes the ordering hold across a teardown as well as an
 update.
 
+Two things follow from queueing, and both had to be written down as functions
+before they were true.
+
+A frame that is never assembled owes nothing. [assemble] is the last thing that
+can refuse a description — the host reads a forest it did not build and may find
+it is not a world — and until it has returned there is nothing to commit. So the
+tree is put in place after the scene comes back, not before, and a render that
+raises throws its queued work away instead of leaving it for the next frame to
+flush. Otherwise an effect belonging to a description that was rejected starts
+later, under a component that never existed.
+
+What that does not buy is a frame nobody can tell happened. The components ran:
+a ref one of them wrote is written, a memo it recomputed is recomputed, and the
+trace has already said as much. Rolling those back would mean handing every
+component a copy of its own slots and swapping the copies in at the end — and a
+[use_ref] hands out a box by identity, so the one thing a component is most
+likely to have written is exactly the thing a copy cannot take back. The tree
+and the effects are what the runtime owns, and they are what it rolls back. The
+rest belongs to the component, and the interface says so rather than promising a
+transaction it cannot keep.
+
+A root that is let go of owes everything. Every cleanup this runtime runs is
+reached through a later render that removed the component, so a root simply
+dropped — a one-shot [Mount.build], a checker's forest, a run whose window has
+closed — runs none of them at all, and whatever its effects took stays taken.
+{!Camlcast.Mount.destroy} is the missing half of [create]: it unmounts the tree
+deepest-first into the same flush, which is the same ordering seen from the end
+of a mount's life rather than the middle of one.
+
 {1 Phase 5 — Contexts, and a type witness}
 
 Some things every part of a world needs and no part wants as a prop: the air it

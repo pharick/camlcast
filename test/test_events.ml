@@ -56,6 +56,19 @@ let play ?(held = []) ?(dt = tick) driver =
        { Events.still with Events.dt; actions = driver.actions }
        [ driver.description ])
 
+(* Events puts its handlers in effects that hold nothing, so no component
+   written against this library can tell whether a mount lets go of what it
+   has. One written against the hook underneath can, and a game reaching for it
+   is entitled to an answer. *)
+let journal = ref []
+
+let holder =
+  Element.declare ~name:"holder" @@ fun () ->
+  Hook.use_effect ~deps:() (fun () ->
+      journal := "took" :: !journal;
+      Some (fun () -> journal := "gave back" :: !journal));
+  around [ box "room" 4. ]
+
 let () =
   Alcotest.run "Events"
     [
@@ -88,13 +101,13 @@ let () =
               ignore (Mount.build (ticker ()));
               Alcotest.(check (float 1e-9)) "still" 0. !seen);
         ] );
-      ( "keys",
+      ( "controls",
         [
-          case "use_key_down fires on the tap and not on the hold" (fun () ->
+          case "use_pressed fires on the tap and not on the hold" (fun () ->
               let taps = ref 0 in
               let listener =
                 Element.declare ~name:"listener" @@ fun () ->
-                Events.use_key_down Key.space (fun () -> incr taps);
+                Events.use_pressed (Input.Key Key.space) (fun () -> incr taps);
                 around [ box "room" 4. ]
               in
               let driver = driving (listener ()) in
@@ -108,11 +121,11 @@ let () =
               ignore (play driver);
               ignore (play ~held:[ Input.Key Key.space ] driver);
               Alcotest.(check int) "released and pressed again is" 2 !taps);
-          case "use_key_held reads the key during the render" (fun () ->
+          case "use_down reads the control during the render" (fun () ->
               let held = ref None in
               let listener =
                 Element.declare ~name:"listener" @@ fun () ->
-                held := Some (Events.use_key_held Key.w);
+                held := Some (Events.use_down (Input.Key Key.w));
                 around [ box "room" 4. ]
               in
               let driver = driving (listener ()) in
@@ -123,6 +136,27 @@ let () =
               ignore (play ~held:[ Input.Key Key.w ] driver);
               Alcotest.(check (option bool))
                 "and still down while held" (Some true) !held);
+          (* The reason these take a control and not a key: a mouse button is
+             one, and a component that wants one should not have to be told it
+             cannot have it. *)
+          case "a mouse button drives a component as a key does" (fun () ->
+              let taps = ref 0 and held = ref None in
+              let listener =
+                Element.declare ~name:"listener" @@ fun () ->
+                Events.use_pressed (Input.Button Input.Left) (fun () ->
+                    incr taps);
+                held := Some (Events.use_down (Input.Button Input.Left));
+                around [ box "room" 4. ]
+              in
+              let driver = driving (listener ()) in
+              ignore (play driver);
+              Alcotest.(check int) "nothing yet" 0 !taps;
+              Alcotest.(check (option bool)) "and up" (Some false) !held;
+              ignore (play ~held:[ Input.Button Input.Left ] driver);
+              Alcotest.(check int) "clicked" 1 !taps;
+              Alcotest.(check (option bool)) "and down" (Some true) !held;
+              ignore (play ~held:[ Input.Button Input.Left ] driver);
+              Alcotest.(check int) "and held is not clicked again" 1 !taps);
         ] );
       ( "a game played out",
         [
@@ -139,7 +173,8 @@ let () =
                 Element.declare ~name:"game" @@ fun () ->
                 let burning, set_burning = Hook.use_state false in
                 let left, set_left = Hook.use_state fuse in
-                Events.use_key_down Key.space (fun () -> set_burning true);
+                Events.use_pressed (Input.Key Key.space) (fun () ->
+                    set_burning true);
                 Events.use_frame (fun ~dt ->
                     if burning && left > 0. then
                       set_left (Float.max 0. (left -. dt)));
@@ -171,13 +206,34 @@ let () =
               done;
               Alcotest.check close "and then it is out" 2. (fog (play driver)));
         ] );
+      ( "what a mount holds",
+        [
+          case "building a description once puts back what it took" (fun () ->
+              journal := [];
+              ignore (Mount.build (holder ()));
+              Alcotest.(check (list string))
+                "nothing kept, the effects included" [ "took"; "gave back" ]
+                (List.rev !journal));
+          case "and so does destroying a mount that was played" (fun () ->
+              journal := [];
+              let driver = driving (holder ()) in
+              ignore (play driver);
+              ignore (play driver);
+              Alcotest.(check (list string))
+                "held across the frames" [ "took" ] (List.rev !journal);
+              Mount.destroy driver.mount;
+              Alcotest.(check (list string))
+                "and given back when the mount goes" [ "took"; "gave back" ]
+                (List.rev !journal));
+        ] );
       ( "endings",
         [
           case "a description can say it is over" (fun () ->
               let ending =
                 Element.declare ~name:"ending" @@ fun () ->
                 let over, set_over = Hook.use_state false in
-                Events.use_key_down Key.escape (fun () -> set_over true);
+                Events.use_pressed (Input.Key Key.escape) (fun () ->
+                    set_over true);
                 around
                   [ box "room" 4.; (if over then P.finish else Element.empty) ]
               in

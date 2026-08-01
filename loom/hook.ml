@@ -104,13 +104,34 @@ type pending = {
 
 let pending () = { cleanups = []; setups = [] }
 
+(* Everything queued runs, whatever any of it raises. The queue is emptied
+   before a single one of them is called, so a flush that stopped at the first
+   raise would leave the rest owed with nothing left holding them — and the tree
+   that owes them has already been committed. So a raise is caught and held, and
+   the first one goes back out once nothing is left owing. *)
 let flush pending =
   let cleanups = List.rev pending.cleanups
   and setups = List.rev pending.setups in
   pending.cleanups <- [];
   pending.setups <- [];
-  List.iter (fun f -> f ()) cleanups;
-  List.iter (fun f -> f ()) setups
+  let first = ref None in
+  let run f =
+    try f ()
+    with raised ->
+      (* Taken here and not at the re-raise, where the exception being carried
+         would be one the running has long since walked past. *)
+      let backtrace = Printexc.get_raw_backtrace () in
+      if Option.is_none !first then first := Some (raised, backtrace)
+  in
+  List.iter run cleanups;
+  List.iter run setups;
+  match !first with
+  | None -> ()
+  | Some (raised, backtrace) -> Printexc.raise_with_backtrace raised backtrace
+
+let discard pending =
+  pending.cleanups <- [];
+  pending.setups <- []
 
 (* An effect cell holds its deps beside the cleanup its last run returned. The
    deps' type is the component's own business and is never read here — only

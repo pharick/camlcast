@@ -180,4 +180,4 @@ let world =
           ((fun _ -> ()), fun _ -> ()))))
     .Scene.world
 
-let run window = Run.on window ~bindings:Bindings.escapable (working ())
+let run window = Run.on window ~controls:Bindings.escapable (working ())

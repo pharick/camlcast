@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.Aim}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Aim}; the interface carries the prose. *)
 
 open Camlcast_core
 
@@ -87,8 +87,11 @@ let leaving t path =
               | None -> matching room.thresholds)))
     None t
 
-let crosshair t world player ~was ~used =
-  let sight = Sight.look world player in
+(* The cast comes in rather than being made here. It is one ray, and one ray is
+   nothing beside a frame — but the loop wants the same answer for a second
+   purpose, and casting it twice would leave two answers to one question that
+   nothing guarantees agree. *)
+let crosshair t ~sight ~was ~used =
   let reaction = Option.bind sight (find t) in
   let now = Option.map (fun r -> r.path) reaction in
   if not (Option.equal Camlcast_loom.Path.equal was now) then begin

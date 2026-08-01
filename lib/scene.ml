@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.Scene}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Scene}; the interface carries the prose. *)
 
 open Camlcast_core
 

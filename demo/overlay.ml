@@ -76,4 +76,4 @@ let world =
   (Mount.build (at ~fraction:0. ~viewport:Events.still.Events.viewport))
     .Scene.world
 
-let run window = Run.on window ~bindings:Bindings.escapable (filling ())
+let run window = Run.on window ~controls:Bindings.escapable (filling ())

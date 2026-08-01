@@ -1,17 +1,19 @@
-(** {b The demos' controls.} One table, shared by all of them, because they all
-    want the same thing: the engine's defaults for walking and looking, plus
-    Escape to leave.
+(** {b The demos' controls.} One record, shared by all of them, because they all
+    want the same thing: walk with WASD and the mouse, work a door with E, F3
+    for the map, and Escape to hand the player back to the launcher's list.
 
-    Leaving is the part the engine will not assume — see
-    {!Camlcast_core.Binding.default}. A demo is opened by the launcher and has
-    to hand the player back to the list somehow, so it asks; a game with a pause
-    screen of its own would want that key for the screen instead, and would
-    write its own line here rather than this one.
+    Which is {!Camlcast.Controls.default} exactly, and it is written out here
+    all the same. A demo is a file you read, and the line that says what it
+    answers to is worth having in it — a demo that wanted its own way out, or
+    the map on another key, would change this one line and nothing else.
 
-    This is also all a game has to do to rebind anything: state a table once and
-    pass it wherever it starts a run. {!Camlcast_demo.Controls} does the larger
-    version, with the walking keys moved. *)
+    That is also the whole of what a game does to rebind anything: state a
+    record once and pass it wherever it starts a run. {!Camlcast_demo.Controls}
+    does the larger version, with the walking keys moved. *)
 
 open Camlcast
 
-let escapable = Binding.make ~leave:[ Input.Key Key.escape ] ()
+let escapable =
+  Controls.make
+    ~bindings:(Binding.make ~leave:[ Input.Key Key.escape ] ())
+    ~use:[ Input.Key Key.e ] ~map:[ Input.Key Key.f3 ] ()

@@ -139,4 +139,4 @@ let world =
   (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn [ chamber ]))
     .Scene.world
 
-let run window = Run.on window ~bindings:Bindings.escapable (printed ())
+let run window = Run.on window ~controls:Bindings.escapable (printed ())

@@ -11,8 +11,9 @@
     Never during a render. A render is meant to be a pure function of props and
     state, and a handler that set state in the middle of one would make what a
     frame shows depend on the order its components happened to be walked in. So
-    {!use_frame} and {!use_key_down} put their work in a
-    {!Camlcast_loom.Hook.use_effect}, which runs after the scene is assembled.
+    {!use_frame} and {!use_pressed} put their work in a
+    {!Camlcast_loom.Hook.use_effect}, which runs after the scene is assembled
+    and before it is drawn.
 
     The consequence worth knowing: a setter called from a handler shows up on
     the {e next} frame, not this one. At sixty frames a second that is sixteen
@@ -115,28 +116,44 @@ val use_actions : unit -> Input.actions
     do not cover — how long a key has been held, where the pointer is. *)
 
 val use_frame : (dt:float -> unit) -> unit
-(** Run this after every frame is drawn, with the length of it.
+(** Run this once a frame, with how long the frame before it lasted.
 
     Where a game puts what happens on its own: a fuse burning down, a mote
     drifting, a door swinging. Anything reached from here may set state, and the
-    frame after this one will show it. *)
+    frame after this one will show it.
 
-val use_key_down : Key.t -> (unit -> unit) -> unit
-(** Run this on the frame a key goes down, and not while it is held.
+    Once a frame means exactly this: after the scene has been assembled and
+    before it is drawn, which is where every effect runs and the only moment a
+    component may reach outside itself. And [dt] is the last frame's because
+    that is the last one whose length anyone knows — this one is still being
+    built. *)
 
-    The tap, not the hold — {!use_key_held} is the other one. Walking is not
-    written with either: that is the bindings' job, and it reaches a game as
-    {!type-t.motion} without any component asking. *)
+val use_pressed : Input.control -> (unit -> unit) -> unit
+(** Run this on the frame a control goes down, and not while it is held.
 
-val use_key_held : Key.t -> bool
-(** Whether a key is down right now, read during the render rather than run
-    after it. *)
+    The tap, not the hold — {!use_down} is the other one. Walking is not written
+    with either: that is the bindings' job, and it reaches a game as
+    {!type-t.motion} without any component asking.
+
+    A control and not a key, so that a mouse button can do a component's job as
+    well as a key can. [Input.Key Key.e] is the common case, and reads as one.
+*)
+
+val use_down : Input.control -> bool
+(** Whether a control is down right now, read during the render rather than run
+    after it.
+
+    These two are named after {!Camlcast_core.Input.pressed} and
+    {!Camlcast_core.Input.val-down}, and are those two questions asked of this
+    frame without the frame having to be fetched first. The edge and the state,
+    exactly as they are there. *)
 
 val use_crossings : unit -> crossing list
 (** Every doorway the last frame went through. *)
 
 val use_crossed : (crossing -> unit) -> unit
-(** Run this after the frame, once for each doorway it went through.
+(** Run this once for each doorway the last frame went through, in the same
+    place in a frame that {!use_frame} runs.
 
     A trail of the way home is this and a list; a room that lights when it is
     entered is this and a name. *)

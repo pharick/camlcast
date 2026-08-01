@@ -1,14 +1,6 @@
-(** {b Replacing a room.} A room is immutable, so a room that changes is a room
-    that is built again.
-
-    {!Camlcast_core.World.replace_room} puts a new version of a room where the
-    old one was. It insists the openings are untouched — same thresholds, same
-    order, same names, endpoints and heights, because those are what every
-    portal in the world was derived from or indexes into — and lets everything
-    else become anything: walls, decals, floor and ceiling planes, sprites, and
-    whether a leaf hangs in a doorway.
-
-    Here the room is rebuilt every frame, in [view], and nothing is stored:
+(** {b A room that changes.} A room is immutable, so a room that changes is a
+    room that is described again — which is what every frame does anyway, so
+    there is nothing here but a clock and some arithmetic on it:
 
     - the sign on the far wall slides along it and swaps between two pictures,
       which is what an animated sign is — a decal moved and a frame changed;
@@ -17,13 +9,14 @@
     - the floor rises and falls a little, because a floor is a plane like any
       other and nothing outside the room depends on it.
 
-    The world it all happens in is never modified. [view] hands the renderer a
-    world that was made for that one frame and is dropped after it, which is why
-    [update] can stay a pure function of a clock and a pose.
+    One component holds one number — how far round the cycle it is — and
+    everything above is a function of that. Nothing is stored, nothing is
+    replaced, and nothing has to be told what changed.
 
-    Rebuilding a whole room every frame is what this costs. It is cheap here —
-    one room, six walls — and a game with a hundred rooms would replace only the
-    ones with something moving in them. *)
+    Rebuilding a whole room every frame is what this costs, and it is what the
+    layer costs everywhere: see [bench/frame.exe] for what a frame of it comes
+    to. It is cheap here — one room, six walls — and cheap because a room is
+    reassembled from a description rather than diffed against a picture. *)
 
 open Camlcast
 
@@ -95,4 +88,4 @@ let cycle =
   at ~phase:(elapsed /. period)
 
 let world = (Mount.build (at ~phase:0.)).Scene.world
-let run window = Run.on window ~bindings:Bindings.escapable (cycle ())
+let run window = Run.on window ~controls:Bindings.escapable (cycle ())

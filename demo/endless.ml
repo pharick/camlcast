@@ -1,28 +1,22 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Camlcast_core.Engine.run_world} takes an [extend] callback and calls it on
-    a frame the player went through a doorway on, with the world and where they
-    now are; whatever it returns is the world drawn from then on. It runs on a
-    frame that crossed and not on every frame, so a generator may take its time
-    — and once per such frame however many doorways it crossed, which is why
-    what arrives is a room to build ahead of and not a doorway to build at.
+    A world that grows is a description with more in it than it had last frame,
+    and nothing besides. One number of state says how many segments have been
+    built; {!Camlcast.Events.use_crossings} says which doorways the frame before
+    this one went through, so the deepest of them is how far the player has got;
+    and when that comes close enough to the end, the number goes up and the next
+    description has another segment in it.
 
-    What it does here is build ahead of the player, using the three primitives a
-    world grows by and nothing else:
-
-    - {!Camlcast_core.World.open_doorway} replaces a room with one that has one
-      more threshold than it had, the ones it already had unmoved. That check is
-      the whole safety of this: a room cannot move a doorway that something else
-      is already linked through.
-    - {!Camlcast_core.World.add_room} appends a room whose doorways lead nowhere
-      yet.
-    - {!Camlcast_core.World.link} joins two doorways that both exist and neither
-      of which leads anywhere.
-
-    Each appends and nothing else, so every index anything is holding stays
-    valid, and each leaves a world that renders and walks — a generator that
-    stopped halfway would leave you facing a wall rather than an exception in
-    the middle of a frame.
+    What that replaced is worth naming, because this is the clearest case in the
+    demos of the layer paying for itself. Growing a world used to mean surgery
+    on one — {!Camlcast_core.World.open_doorway} to give a dead end a way on,
+    {!Camlcast_core.World.add_room} for what lay beyond it,
+    {!Camlcast_core.World.link} to join the two, and a search for whether a room
+    already had a way on so that none of it was done twice, every step of it
+    careful to append and never move so that the indices things were holding
+    stayed valid. None of that is here. The segments described again are matched
+    against last frame's and kept, the new one is mounted, and the indices are
+    whatever assembling this frame's description happened to produce.
 
     It builds {!Camlcast_core.Config.max_portal_depth} segments ahead, which is
     exactly as deep as the renderer looks through doorways, so the end of the
@@ -83,14 +77,12 @@ let segment ~index ~back ~onward =
          else wall ~height ~material:coat nw sw);
       ])
 
-(** The corridor as far as it has been built.
+(** The corridor as far as it has been built: one more segment than have been
+    walked into, and a link joining each to the next.
 
-    This is the whole of what used to be a graph walked and surgically extended:
-    open_doorway to give a dead end a way on, add_room for what lies beyond it,
-    link to join the two, and a search for whether a room already had a way on
-    so that none of it was done twice. A description does not need any of that,
-    because it does not modify a world — it says what the world is, and saying
-    it with one more segment in it {e is} growing the corridor. *)
+    Written out from a number every frame, because a description does not modify
+    a world — it says what the world is, and saying it with one more segment in
+    it {e is} growing the corridor. *)
 let corridor ~built =
   P.(
     world ~atmosphere:Surfaces.air
@@ -119,4 +111,4 @@ let walking =
   corridor ~built
 
 let world = (Mount.build (corridor ~built:ahead)).Scene.world
-let run window = Run.on window ~bindings:Bindings.escapable (walking ())
+let run window = Run.on window ~controls:Bindings.escapable (walking ())

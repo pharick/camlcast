@@ -32,11 +32,11 @@
     {1 Where the motes are}
 
     Each one's place, size, fall speed and lateral sway come from its index and
-    nothing else, so the same dust comes back on every run and there is no state
-    to carry between frames — [update] is a clock, and [view] is a function of
-    it. The scattering constants are irrational and pairwise unrelated for the
-    reason {!Pictures.mote} spells out: two that add to one put every mote on a
-    diagonal.
+    nothing else, so the same dust comes back on every run and the only thing
+    carried between frames is the clock — one {!Camlcast.Hook.use_state}, and
+    every mote a function of it. The scattering constants are irrational and
+    pairwise unrelated for the reason {!Pictures.mote} spells out: two that add
+    to one put every mote on a diagonal.
 
     A mote that reaches the floor reappears at the ceiling, which is what makes
     the fall endless without anything remembering how many times round it has
@@ -126,4 +126,4 @@ let falling =
   at ~t:elapsed
 
 let world = (Mount.build (at ~t:0.)).Scene.world
-let run window = Run.on window ~bindings:Bindings.escapable (falling ())
+let run window = Run.on window ~controls:Bindings.escapable (falling ())

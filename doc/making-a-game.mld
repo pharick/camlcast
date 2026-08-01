@@ -334,18 +334,28 @@ to be walked in.
 {1 Step 9 — Input}
 
 {[
-  Events.use_key_down Key.space (fun () -> set_burning true);
-  let running = Events.use_key_held Key.lshift in
+  Events.use_pressed (Input.Key Key.space) (fun () -> set_burning true);
+  let running = Events.use_down (Input.Key Key.lshift) in
 ]}
 
-[use_key_down] is the tap and [use_key_held] the hold.
-{!Camlcast.Events.use_actions} is everything else: how long a key has been held,
-where the pointer is, which mouse buttons are down.
+[use_pressed] is the tap and [use_down] the hold, named after
+{!Camlcast.Input.pressed} and {!Camlcast.Input.val-down} because they are those
+two questions asked of this frame. Both take a {e control} rather than a key, so
+[Input.Button Input.Left] does a component's job as readily as a key does.
+{!Camlcast.Events.use_actions} is everything else: how long something has been
+held, where the pointer is.
 
 {b Walking is written with none of them.} That is the bindings' job, and it
-reaches your description as movement without a component asking. To change which
-keys walk, hand {!Camlcast.Run.play} a {!Camlcast.Binding.t} of your own —
-[demo/controls.ml] adds a second set beside WASD in about a dozen lines.
+reaches your description as movement without a component asking. Everything the
+loop acts on by itself — walking, looking, leaving, the use control and the map
+— is one record, {!Camlcast.Controls.t}, handed to {!Camlcast.Run.play}:
+
+{[
+  Run.play ~controls:(Controls.make ~use:[ Input.Key Key.f; Input.Button Input.Left ] ()) level
+]}
+
+[demo/controls.ml] adds a second set of walking keys beside WASD in about a dozen
+lines.
 
 {1 Step 10 — Being looked at}
 
@@ -459,9 +469,11 @@ It reads a description for what a compiler cannot see: two doorways joined to th
 same third, a room nothing leads to, a spawn inside a wall, a doorway whose ends
 meet no wall, a step in the floor where two rooms meet.
 
-It is a pure function of a description, so its natural home is a test — one case
-per level, and your levels are covered by [dune runtest] for the cost of writing
-that down. Where it can, a diagnostic names the {e component} that wrote the
+It needs no window, so its natural home is a test — one case per level, and your
+levels are covered by [dune runtest] for the cost of writing that down. It does
+render the description, effects and all, because the components have to run
+before there is anything to read; what they took is given back before it
+returns. Where it can, a diagnostic names the {e component} that wrote the
 offending part rather than the room the engine found it in.
 
 {1 Step 15 — The map}
@@ -475,8 +487,10 @@ The ticks are the useful part. A boundary wound the wrong way round is a row of
 them pointing out of the room — the fastest way to see a mistake that otherwise
 shows up only as a room that is black from inside.
 
-[Run.play ~debug:false] takes the key away for a game that has stopped wanting
-it.
+[Run.play ~controls:(Controls.make ~map:[] ())] takes the key away for a game
+that has stopped wanting it — and takes the walk over every wall of every room
+that feeds it with the key, since that only happens while the map is up. Binding
+it somewhere other than F3 is the same line with a control in the list.
 
 {1 Step 16 — Endings, and the camera}
 

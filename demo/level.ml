@@ -31,13 +31,13 @@
     {1 A world, and then a game}
 
     {!default} is the world at rest and is all the tests need: a value, built
-    once, with nothing shut and nothing moving. What {!run} adds is the part a
-    world cannot hold by itself — {b E} works the door you are nearest, the dust
-    in the cellar is re-made every frame, and a crosshair says what you are
-    looking at. That split is the engine's own:
-    {!Camlcast_core.Engine.run_world} runs a world, {!Camlcast_core.Engine.run}
-    runs a state that has a world in it, and this is small enough to show the
-    difference and large enough to need it. *)
+    once with {!Camlcast.Mount.build}, with nothing shut and nothing moving.
+    What {!run} adds is the part a world cannot hold by itself — {b E} works the
+    door you are nearest, the dust in the cellar is re-made every frame, and a
+    crosshair says what you are looking at. That split is the layer's own: a
+    description is a value either way, and mounting one is what gives the
+    components in it somewhere to keep what they remember. This level is small
+    enough to show the difference and large enough to need it. *)
 
 open Camlcast
 
@@ -370,7 +370,8 @@ let showcase =
   Events.use_frame (fun ~dt ->
       set_elapsed (Float.rem (elapsed +. dt) motes_period);
       if refused > 0. then set_refused (Float.max 0. (refused -. dt)));
-  Events.use_key_down Key.e (fun () -> if at_door = None then set_refused 0.9);
+  Events.use_pressed (Input.Key Key.e) (fun () ->
+      if at_door = None then set_refused 0.9);
   at ~shut ~t:elapsed ~aim ~refused
     ~work:(fun name ->
       set_shut
@@ -379,4 +380,4 @@ let showcase =
          else name :: shut))
     ~watch:set_at_door
 
-let run window = Run.on window ~bindings:Bindings.escapable (showcase ())
+let run window = Run.on window ~controls:Bindings.escapable (showcase ())

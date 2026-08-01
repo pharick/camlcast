@@ -90,7 +90,13 @@ val use_selector :
     [equal] decides what changing means and defaults to structural equality,
     which raises on functional values as [( = )] always does.
 
-    [select] and [equal] are captured when the component mounts, so a component
-    that varies its selector between renders will keep comparing with the first
-    one. Selectors are normally top-level functions, and this is one more reason
-    to keep them that way. *)
+    [store] is what the subscription depends on, compared by identity, so a
+    component rendered against a different store drops the first one's
+    subscription and takes one out on the second. Two stores are the same store
+    when they are the same store; nothing here compares what they hold.
+
+    [select] and [equal] are captured when the subscription is taken — on mount,
+    and again on a render that hands over a different store — so a component
+    that varies its selector between renders will keep comparing with the one it
+    subscribed with. Selectors are normally top-level functions, and this is one
+    more reason to keep them that way. *)

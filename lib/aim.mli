@@ -78,18 +78,24 @@ val spot_of : Camlcast_core.Sight.t -> spot
 
 val crosshair :
   t ->
-  Camlcast_core.World.t ->
-  Camlcast_core.Player.t ->
+  sight:Camlcast_core.Sight.t option ->
   was:Camlcast_loom.Path.t option ->
   used:bool ->
   Camlcast_loom.Path.t option
-(** Cast the middle of the screen, tell whatever it lands on, and answer with
-    what that was.
+(** Tell whatever the crosshair landed on that it did, and answer with what that
+    was.
 
     Everything an interacting frame does, in one function of values, so that the
-    loop has no logic of its own to be tested through a window. [was] is what
-    the crosshair was on last frame, [used] whether the player worked the use
-    control, and the answer is what to pass as [was] next time.
+    loop has no logic of its own to be tested through a window. [sight] is the
+    cast — {!Camlcast_core.Sight.look} of the world and the player this frame
+    settled on — [was] is what the crosshair was on last frame, [used] whether
+    the player worked the use control, and the answer is what to pass as [was]
+    next time.
+
+    The cast is a parameter and not something this does for itself, because a
+    frame wants it twice: once to tell what was hit and once as the value a
+    description reads through {!Events.aim}. Two casts would be two answers to
+    one question, and nothing would hold them to agreeing.
 
     Whatever is losing the crosshair hears so before whatever is gaining it, so
     two things swapping a highlight are never both lit. *)

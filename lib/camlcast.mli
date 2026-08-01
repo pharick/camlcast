@@ -23,7 +23,7 @@
     let torch =
       Element.declare ~name:"torch" @@ fun pos ->
       let lit, set_lit = Hook.use_state true in
-      Events.use_key_down Key.e (fun () -> set_lit (not lit));
+      Events.use_pressed (Input.Key Key.e) (fun () -> set_lit (not lit));
       P.sprite ~size:0.8 ~image:(if lit then flame else stub) pos
 
     let level =
@@ -61,6 +61,7 @@ module Events = Events
 (** {1 Running one} *)
 
 module Run = Run
+module Controls = Controls
 module Check = Check
 module Scene = Scene
 module Mount = Mount
@@ -98,7 +99,11 @@ module Door = Camlcast_core.Door
 module Font = Camlcast_core.Font
 module Asset = Camlcast_core.Asset
 
-(** {1 Controls} *)
+(** {1 What the player is doing}
+
+    The platform's own vocabulary for it: places on a keyboard, the controls a
+    frame reports, and the table from those to walking. What a {e run} does with
+    them by itself is {!Controls}, above. *)
 
 module Key = Camlcast_core.Key
 module Input = Camlcast_core.Input

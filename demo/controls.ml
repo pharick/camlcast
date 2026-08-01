@@ -17,15 +17,16 @@
       long the hold lasted.
     - {b Click.} The amber lamp lights. A mouse button is a control like a key.
     - {b Tab.} Releases the mouse. The cursor comes back, a white square follows
-      it, and the camera stops turning with it — that is [pointing] on
-      {!Camlcast_core.Engine.run}, which is how a game that opens a screen over
-      its world hands the mouse to it. Press it again to take the mouse back.
+      it, and the camera stops turning with it — that is {!Camlcast.P.cursor},
+      which a description writes when it wants the mouse for something it has
+      drawn. Press it again to take the mouse back.
     - {b IJKL, as well as WASD.} Walking is bound by a
       {!Camlcast_core.Binding.t} like everything else, and this demo hands
-      {!Camlcast_core.Engine.run} one of its own with a second set of keys
-      added. Both sets are live at once, and holding one of each walks at
-      {e one} speed rather than two — an axis clamps what its terms add up to,
-      which is what stops a table with two keys on one axis from running.
+      {!Camlcast.Run.on} a {!Camlcast.Controls.t} carrying one of its own with a
+      second set of keys added. Both sets are live at once, and holding one of
+      each walks at {e one} speed rather than two — an axis clamps what its
+      terms add up to, which is what stops a table with two keys on one axis
+      from running.
 
     The line across the top is printed from that table with
     {!Camlcast_core.Key.name}, not spelled out: move a key here and the words on
@@ -33,9 +34,9 @@
     so the line says Z on an AZERTY board where it says W on a QWERTY one — and
     it is the same key either way, because a binding is a place.
 
-    The cursor arrives in [update] already in the framebuffer's coordinates,
-    which are the ones the overlay draws in, so the square lands under the
-    pointer at any window size. *)
+    The cursor arrives already in the framebuffer's coordinates, which are the
+    ones the overlay draws in, so the square lands under the pointer at any
+    window size. *)
 
 open Camlcast
 
@@ -174,7 +175,10 @@ let reading =
   let tap, set_tap = Hook.use_state 0. in
   let commit, set_commit = Hook.use_state 0. in
   let click, set_click = Hook.use_state 0. in
-  Events.use_key_down Key.tab (fun () -> set_pointing (not pointing));
+  (* {!screen} by name, and not the key it happens to be. A hook that takes a
+     control rather than a key is what lets this demo's own table be the only
+     place a control is named. *)
+  Events.use_pressed screen (fun () -> set_pointing (not pointing));
   Events.use_frame (fun ~dt ->
       let let_go = Input.released actions interact in
       let lasted = Input.held_for actions interact in
@@ -209,4 +213,5 @@ let world =
   (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn [ chamber ]))
     .Scene.world
 
-let run window = Run.on window ~bindings (reading ())
+let run window =
+  Run.on window ~controls:(Controls.make ~bindings ()) (reading ())

@@ -19,7 +19,11 @@ module Make (H : Host.HOST) = struct
      weaker use of [Obj] than the one in {!Hook}. *)
   type instance =
     | Nothing
-    | Fragment of { path : Path.t; children : instance list }
+    | Fragment of {
+        path : Path.t;
+        key : string option;
+        children : instance list;
+      }
     | Provided of { path : Path.t; children : instance list }
     | Primitive of {
         path : Path.t;
@@ -58,8 +62,8 @@ module Make (H : Host.HOST) = struct
     match context.trace with None -> () | Some f -> f event
 
   let key_of = function
-    | Primitive { key; _ } | Component { key; _ } -> key
-    | Nothing | Fragment _ | Provided _ -> None
+    | Fragment { key; _ } | Primitive { key; _ } | Component { key; _ } -> key
+    | Nothing | Provided _ -> None
 
   let path_for ~parent ~index element =
     Path.child parent ?key:(Element.key element) ?name:(Element.name element)
@@ -91,19 +95,22 @@ module Make (H : Host.HOST) = struct
     | _, Element.Empty ->
         unmount_opt ~context old;
         Nothing
-    | Some (Fragment previous), Element.Fragment children ->
+    | Some (Fragment previous), Element.Fragment { key; children }
+      when same_key previous.key key ->
         Fragment
           {
             path;
+            key;
             children =
               reconcile_children ~context ~env ~parent:path previous.children
                 children;
           }
-    | _, Element.Fragment children ->
+    | _, Element.Fragment { key; children } ->
         unmount_opt ~context old;
         Fragment
           {
             path;
+            key;
             children = reconcile_children ~context ~env ~parent:path [] children;
           }
     (* A binding is in force for the children only, so it is pushed on the way
@@ -221,17 +228,20 @@ module Make (H : Host.HOST) = struct
         | Some key -> Hashtbl.replace keyed key index
         | None -> ())
       olds;
-    let next_unkeyed = ref 0 in
-    let rec take_unkeyed () =
-      if !next_unkeyed >= Array.length live then None
+    (* An unkeyed child is claimed where it stands and nowhere else, which is
+       {!Path}'s rule seen from this end: a keyed step is its key and an unkeyed
+       one is its index. Compacting past the keyed siblings instead — taking the
+       next unkeyed one wherever it had got to — would carry state across a move
+       that the path does not survive, so the reconciler and the path would
+       disagree about which child this is. *)
+    let take_at index =
+      if index >= Array.length live then None
       else
-        let index = !next_unkeyed in
-        incr next_unkeyed;
         match live.(index) with
         | Some instance when Option.is_none (key_of instance) ->
             live.(index) <- None;
             Some instance
-        | _ -> take_unkeyed ()
+        | _ -> None
     in
     let take_keyed key =
       match Hashtbl.find_opt keyed key with
@@ -242,13 +252,25 @@ module Make (H : Host.HOST) = struct
           live.(index) <- None;
           claimed
     in
+    (* Two siblings under one key would be two elements with one path, and a
+       path is what everything outside the runtime refers to a part of a
+       description by. Refused rather than resolved: whichever of the two the
+       matching happened to pick would be an answer nobody wrote down. *)
+    let claimed_keys = Hashtbl.create 8 in
+    let refuse_duplicate key =
+      if Hashtbl.mem claimed_keys key then
+        raise (Element.Duplicate_key { at = Path.to_debug_string parent; key });
+      Hashtbl.add claimed_keys key ()
+    in
     let matched =
       List.mapi
         (fun index element ->
           let old =
             match Element.key element with
-            | Some key -> take_keyed key
-            | None -> take_unkeyed ()
+            | Some key ->
+                refuse_duplicate key;
+                take_keyed key
+            | None -> take_at index
           in
           reconcile ~context ~env
             ~path:(path_for ~parent ~index element)
@@ -271,6 +293,7 @@ module Make (H : Host.HOST) = struct
         [ { Host.path; prim; children = List.concat_map collect children } ]
 
   let render ?trace root element =
+    let owed = root.dirty in
     (* Cleared first, so that a setter called from an effect below marks the
        tree for the frame after this one rather than being wiped by it. *)
     root.dirty <- false;
@@ -282,11 +305,40 @@ module Make (H : Host.HOST) = struct
       }
     in
     let path = path_for ~parent:Path.root ~index:0 element in
-    let tree = reconcile ~context ~env:[] ~path root.tree element in
-    root.tree <- Some tree;
-    let scene = H.assemble (collect tree) in
-    (* After the scene, never during a render: this is the seam where a
-       component is allowed to reach outside itself. *)
+    match
+      let tree = reconcile ~context ~env:[] ~path root.tree element in
+      (* Assembled before anything is committed, because this is the last thing
+         that can refuse the frame and a refused frame has to leave no trace. *)
+      (tree, H.assemble (collect tree))
+    with
+    | tree, scene ->
+        root.tree <- Some tree;
+        (* After the scene, never during a render: this is the seam where a
+           component is allowed to reach outside itself. *)
+        Hook.flush root.pending;
+        scene
+    | exception refused ->
+        (* Caught to tidy up and not to handle, so it goes back out with the
+           backtrace it arrived with: this is the frame a game debugs from. *)
+        let backtrace = Printexc.get_raw_backtrace () in
+        (* Nothing here happened. The tree that queued this work was never
+           committed, so its setups are owed to no one, and the cleanups are
+           owed by components still standing in the tree that was kept. *)
+        Hook.discard root.pending;
+        (* And a frame that was asked for before this one is still asked for. *)
+        root.dirty <- owed || root.dirty;
+        Printexc.raise_with_backtrace refused backtrace
+
+  let destroy ?trace root =
+    let context =
+      { trace; pending = root.pending; invalidate = (fun () -> ()) }
+    in
+    unmount_opt ~context root.tree;
+    (* Emptied before the flush rather than after it, so that a second destroy
+       has nothing to walk: {!Hook.on_unmount} reads a cleanup out of its cell
+       without clearing it, and a row walked twice would owe it twice. *)
+    root.tree <- None;
     Hook.flush root.pending;
-    scene
+    (* A cleanup that called a setter wrote a slot nothing will read again. *)
+    root.dirty <- false
 end

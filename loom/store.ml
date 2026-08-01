@@ -37,7 +37,11 @@ let use_selector ?(equal = ( = )) store select =
      compare against — not the previous store state, which nobody kept. *)
   let rendered = Hook.use_ref selected in
   rendered := selected;
-  Hook.use_effect ~deps:() (fun () ->
+  (* The store is the dependency, so a component handed a different one lets go
+     of the first's subscription and takes one out on the second. Physically
+     compared: two stores are the same store when they are the same store, and
+     the default equality would walk a record of closures and raise. *)
+  Hook.use_effect ~deps:store ~equal:( == ) (fun () ->
       Some
         (subscribe store (fun () ->
              if not (equal !rendered (select store.state)) then invalidate ())));

@@ -29,6 +29,23 @@ end
 
 module R = Reconcile.Make (Mock)
 
+exception Refused
+
+(* The same host, given the one thing every real host has and Mock does not: a
+   description it will not build. Assembling is the last thing that can refuse a
+   frame, and what a refusal leaves behind is only visible through one. *)
+module Fragile = struct
+  include Mock
+
+  let rec unbuildable (node : prim Host.node) =
+    node.Host.prim = "bad" || List.exists unbuildable node.Host.children
+
+  let assemble nodes =
+    if List.exists unbuildable nodes then raise Refused else Mock.assemble nodes
+end
+
+module F = Reconcile.Make (Fragile)
+
 (* Render, and keep what the reconciler said it was doing while it did it. *)
 let run root element =
   let log = ref [] in
@@ -38,6 +55,15 @@ let run root element =
 
 let scene_of root element = fst (run root element)
 let log_of root element = snd (run root element)
+
+(* The same, for a root taken down rather than rendered. *)
+let taking_down root =
+  let log = ref [] in
+  R.destroy
+    ~trace:(fun event -> log := Trace.to_string Fun.id event :: !log)
+    root;
+  List.rev !log
+
 let scene = Alcotest.string
 let log = Alcotest.(list string)
 
@@ -47,6 +73,16 @@ let torch = Element.declare ~name:"torch" (fun () -> Element.prim "flame")
 let lamp = Element.declare ~name:"lamp" (fun () -> Element.prim "glow")
 let room children = Element.prim ~children "room"
 let wall = Element.prim "wall"
+
+exception Broken
+
+(* A component that will not let go quietly. Its cleanup raises, which is the
+   one thing a flush has to carry on past: the work queued behind it is owed by
+   a tree that is already standing. *)
+let brittle =
+  Element.declare ~name:"brittle" @@ fun () ->
+  Hook.use_effect ~deps:() (fun () -> Some (fun () -> raise Broken));
+  Element.prim "brittle"
 
 let mounting =
   [
@@ -167,6 +203,43 @@ let keys =
             "update   #0/torch[one]/#0 : flame";
           ]
           (log_of root (room [ two (); one () ])));
+    (* An unkeyed child is its position and nothing else, so it is claimed at
+       its own index rather than from what is left over after the keyed ones
+       have been dealt with. Compacting instead would keep this wall's state
+       across a move its path did not survive. *)
+    case "an unkeyed child is claimed where it stands" (fun () ->
+        let root = R.create () in
+        ignore (run root (room [ keyed "a"; unkeyed "b" ]));
+        Alcotest.check log "built afresh at the index it landed on"
+          [
+            "update   #0 : room";
+            "mount    #0/#0 : b";
+            "unmount  #0/[a] : a";
+            "unmount  #0/#1 : b";
+          ]
+          (log_of root (room [ unkeyed "b" ])));
+    case "a keyed fragment carries everything under it" (fun () ->
+        let root = R.create () in
+        (* Neither the torch nor the wall can be keyed usefully here: what moves
+           is the pair, and the pair is a fragment. *)
+        let pair key = Element.fragment ~key [ torch ~key:"lit" (); wall ] in
+        ignore (run root (room [ pair "left"; pair "right" ]));
+        Alcotest.check log "both found where they moved to, nothing rebuilt"
+          [
+            "update   #0 : room";
+            "update   #0/[right]/torch[lit]";
+            "update   #0/[right]/torch[lit]/#0 : flame";
+            "update   #0/[right]/#1 : wall";
+            "update   #0/[left]/torch[lit]";
+            "update   #0/[left]/torch[lit]/#0 : flame";
+            "update   #0/[left]/#1 : wall";
+          ]
+          (log_of root (room [ pair "right"; pair "left" ])));
+    case "two children under one key is refused" (fun () ->
+        let root = R.create () in
+        Alcotest.check_raises "they would share a path"
+          (Element.Duplicate_key { at = "#0"; key = "a" })
+          (fun () -> ignore (run root (room [ keyed "a"; keyed "a" ]))));
   ]
 
 (* The property the whole design rests on: for a description that keeps no
@@ -181,6 +254,22 @@ let keys =
    outlive descriptions. So the generator below builds from stateless parts,
    and what is being checked is that reconciling adds nothing of its own on
    top: no leftover child, no dropped sibling, no order the history invented. *)
+(* Sibling keys have to be unique, and a generator drawing them from a pool of
+   four will repeat one soon enough. The repeat is dropped rather than re-keyed,
+   because what this property is about is the shapes reconciling can be handed
+   and not which keys they were built with. *)
+let distinct_keys children =
+  let seen = Hashtbl.create 8 in
+  List.filter
+    (fun child ->
+      match Element.key child with
+      | None -> true
+      | Some key when Hashtbl.mem seen key -> false
+      | Some key ->
+          Hashtbl.add seen key ();
+          true)
+    children
+
 let history_does_not_show =
   let open QCheck2 in
   let element =
@@ -193,25 +282,31 @@ let history_does_not_show =
         in
         if depth <= 0 then leaf
         else
+          let children =
+            Gen.map distinct_keys
+              (Gen.list_size (Gen.int_bound 3) (self (depth - 1)))
+          in
+          let key =
+            Gen.map (fun n -> "k" ^ string_of_int n) (Gen.int_bound 3)
+          in
           Gen.oneof_weighted
             [
               (3, leaf);
               (1, Gen.return Element.empty);
               ( 2,
-                Gen.map
-                  (fun children -> Element.prim ~children "box")
-                  (Gen.list_size (Gen.int_bound 3) (self (depth - 1))) );
+                Gen.map (fun children -> Element.prim ~children "box") children
+              );
               ( 2,
                 Gen.map2
                   (fun key children -> Element.prim ~key ~children "box")
-                  (Gen.map (fun n -> "k" ^ string_of_int n) (Gen.int_bound 3))
-                  (Gen.list_size (Gen.int_bound 3) (self (depth - 1))) );
+                  key children );
               (1, Gen.map (fun () -> torch ()) (Gen.return ()));
               (1, Gen.map (fun () -> lamp ()) (Gen.return ()));
+              (1, Gen.map (fun children -> Element.fragment children) children);
               ( 1,
-                Gen.map
-                  (fun children -> Element.fragment children)
-                  (Gen.list_size (Gen.int_bound 3) (self (depth - 1))) );
+                Gen.map2
+                  (fun key children -> Element.fragment ~key children)
+                  key children );
             ])
   in
   QCheck2.Test.make ~count:500
@@ -385,6 +480,192 @@ let effects =
           "every cleanup before any setup"
           [ "start a"; "stop a"; "start b" ]
           (read ()));
+    (* The queue is emptied before any of it runs, so a flush that stopped at
+       the first raise would leave the rest owed with nothing holding them. The
+       tree these belong to is already committed, which is what makes them owed
+       rather than optional. *)
+    case "a cleanup that raises does not cancel what is queued behind it"
+      (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore
+          (run root
+             (room
+                [
+                  watcher ~key:"a" "a";
+                  brittle ~key:"b" ();
+                  watcher ~key:"c" "c";
+                ]));
+        journal := [];
+        Alcotest.check_raises "the first one to go wrong comes back out" Broken
+          (fun () -> ignore (run root (room [ watcher ~key:"a" "d" ])));
+        Alcotest.check
+          Alcotest.(list string)
+          "everything owed ran: the cleanups either side, then the new setup"
+          [ "stop a"; "stop c"; "start d" ]
+          (read ()));
+  ]
+
+(* The other end of a mount. A root that is only ever rendered into runs a
+   cleanup when the component it belongs to goes away — and a root that is let
+   go of while everything is still in it used to run none at all. *)
+let destroying =
+  let journal = ref [] in
+  let note line = journal := line :: !journal in
+  let read () = List.rev !journal in
+  let beacon =
+    Element.declare ~name:"beacon" @@ fun (tag : string) ->
+    Hook.use_effect ~deps:tag (fun () ->
+        note ("lit " ^ tag);
+        Some (fun () -> note ("out " ^ tag)));
+    Element.prim tag
+  in
+  [
+    case "destroying a root runs every cleanup it was owed" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (room [ beacon "a"; beacon "b" ]));
+        Alcotest.check
+          Alcotest.(list string)
+          "both alight" [ "lit a"; "lit b" ] (read ());
+        R.destroy root;
+        Alcotest.check
+          Alcotest.(list string)
+          "and both out, in the order they were lit"
+          [ "lit a"; "lit b"; "out a"; "out b" ]
+          (read ()));
+    case "and reports what it took down, deepest first" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (room [ beacon "a" ]));
+        Alcotest.check log "the same order an unmount is reported in"
+          [
+            "unmount  #0/beacon/#0 : a";
+            "unmount  #0/beacon";
+            "unmount  #0 : room";
+          ]
+          (taking_down root));
+    case "destroying it twice owes nothing the second time" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (beacon "a"));
+        R.destroy root;
+        R.destroy root;
+        (* The cleanup is read out of its slot without being cleared, so a row
+           walked twice would put it out twice. *)
+        Alcotest.check
+          Alcotest.(list string)
+          "out once" [ "lit a"; "out a" ] (read ()));
+    case "a destroyed root is empty, not spent" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (beacon "a"));
+        R.destroy root;
+        Alcotest.check scene "renders again" "a" (scene_of root (beacon "a"));
+        Alcotest.check
+          Alcotest.(list string)
+          "as a mount and not as an update"
+          [ "lit a"; "out a"; "lit a" ]
+          (read ()));
+    case "one cleanup raising does not keep the others in" (fun () ->
+        let root = R.create () in
+        journal := [];
+        ignore (run root (room [ beacon "a"; brittle (); beacon "c" ]));
+        journal := [];
+        Alcotest.check_raises "the teardown says what went wrong" Broken
+          (fun () -> R.destroy root);
+        Alcotest.check
+          Alcotest.(list string)
+          "and everything either side of it was still given back"
+          [ "out a"; "out c" ] (read ()));
+  ]
+
+(* Assembling is the last thing that can refuse a frame, and it happens after
+   every component in it has run and queued whatever it wanted done. What a
+   refusal must not do is leave any of that lying about for the next frame. *)
+let refusing =
+  let journal = ref [] in
+  let note line = journal := line :: !journal in
+  let read () = List.rev !journal in
+  let flare =
+    Element.declare ~name:"flare" @@ fun (tag : string) ->
+    Hook.use_effect ~deps:tag (fun () ->
+        note ("start " ^ tag);
+        None);
+    Element.prim tag
+  in
+  let lantern =
+    Element.declare ~name:"lantern"
+    @@ fun ((latch, broken) : (int -> unit) ref * bool) ->
+    let count, set = Hook.use_state 0 in
+    latch := set;
+    Element.prim
+      ~children:(if broken then [ Element.prim "bad" ] else [])
+      ("n=" ^ string_of_int count)
+  in
+  let tally =
+    Element.declare ~name:"tally" @@ fun (broken : bool) ->
+    let runs = Hook.use_ref 0 in
+    incr runs;
+    Element.prim
+      ~children:(if broken then [ Element.prim "bad" ] else [])
+      ("runs=" ^ string_of_int !runs)
+  in
+  [
+    case "a refused render starts nothing" (fun () ->
+        let root = F.create () in
+        journal := [];
+        Alcotest.check_raises "the host would not build it" Refused (fun () ->
+            ignore (F.render root (flare "bad")));
+        Alcotest.check Alcotest.(list string) "nothing lit" [] (read ()));
+    case "and the frame after it starts only its own" (fun () ->
+        let root = F.create () in
+        journal := [];
+        (try ignore (F.render root (flare "bad")) with Refused -> ());
+        ignore (F.render root (flare "good"));
+        (* The effect the rejected description asked for belongs to a component
+           that was never mounted, and there is no later frame it is owed to. *)
+        Alcotest.check
+          Alcotest.(list string)
+          "only the description that was built" [ "start good" ] (read ()));
+    case "a refused render leaves the tree where it was" (fun () ->
+        let root = F.create () and latch = ref ignore in
+        ignore (F.render root (lantern (latch, false)));
+        !latch 4;
+        Alcotest.check_raises "refused" Refused (fun () ->
+            ignore (F.render root (lantern (latch, true))));
+        let kept = ref [] in
+        let built =
+          F.render
+            ~trace:(fun event -> kept := Trace.to_string Fun.id event :: !kept)
+            root
+            (lantern (latch, false))
+        in
+        Alcotest.check scene "the state is where the setter put it" "n=4" built;
+        Alcotest.check log "and the component was kept, not mounted again"
+          [ "update   lantern"; "update   lantern/#0 : n=4" ]
+          (List.rev !kept));
+    case "a frame asked for before a refusal is still asked for" (fun () ->
+        let root = F.create () and latch = ref ignore in
+        ignore (F.render root (lantern (latch, false)));
+        Alcotest.(check bool) "settled" false (F.dirty root);
+        !latch 1;
+        (try ignore (F.render root (lantern (latch, true))) with Refused -> ());
+        Alcotest.(check bool)
+          "the setter's frame outlives the render that failed" true
+          (F.dirty root));
+    (* The other side of that promise, and the reason it is worded the way it
+       is. A refusal rolls back the tree and the effects; it cannot roll back
+       what the component did to a box it was handed, because the box is the
+       same box every render and taking the write back would mean it was not. *)
+    case "what a refused render wrote to a ref stays written" (fun () ->
+        let root = F.create () in
+        ignore (F.render root (tally false));
+        Alcotest.check_raises "the second frame is refused" Refused (fun () ->
+            ignore (F.render root (tally true)));
+        Alcotest.check scene "three renders, and the ref counted all three"
+          "runs=3"
+          (F.render root (tally false)));
   ]
 
 (* The rule the whole slot mechanism rests on, and what happens when it is
@@ -541,6 +822,37 @@ let store =
         Alcotest.(check int)
           "and the tree is clean behind it" 0
           (Store.subscriber_count game));
+    case "a component handed another store lets go of the first" (fun () ->
+        let first = fresh () and second = fresh () and root = R.create () in
+        ignore (run root (scoreboard first));
+        Alcotest.(check int)
+          "subscribed to what it was rendered with" 1
+          (Store.subscriber_count first);
+        Store.dispatch second (Scored 3);
+        Alcotest.check scene "and it reads whichever it is handed" "score=3"
+          (scene_of root (scoreboard second));
+        Alcotest.(check int)
+          "the first is let go of" 0
+          (Store.subscriber_count first);
+        Alcotest.(check int)
+          "and the second taken out" 1
+          (Store.subscriber_count second);
+        Alcotest.(check bool) "settled after the swap" false (R.dirty root);
+        Store.dispatch first (Scored 100);
+        Alcotest.(check bool)
+          "the store it left cannot wake it" false (R.dirty root);
+        Store.dispatch second (Scored 1);
+        Alcotest.(check bool) "the one it moved to can" true (R.dirty root));
+    case "nor does a root that is thrown away whole" (fun () ->
+        (* Which is what a run does with its mount when the window closes, and
+           what a one-shot render does with the root it made for itself. *)
+        let game = fresh () and root = R.create () in
+        ignore (run root (room [ scoreboard game; pause_light game ]));
+        Alcotest.(check int) "two readers" 2 (Store.subscriber_count game);
+        R.destroy root;
+        Alcotest.(check int)
+          "and nothing left listening" 0
+          (Store.subscriber_count game));
     (let reducer_calls = ref 0 in
      let counted state action =
        incr reducer_calls;
@@ -569,6 +881,8 @@ let () =
       ("state", state);
       ("memo", memo);
       ("effects", effects);
+      ("destroying", destroying);
+      ("refusing", refusing);
       ("hook order", hook_order);
       ( "properties",
         [

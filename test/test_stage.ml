@@ -260,6 +260,15 @@ let two_room_world ~door =
     ]
 
 let doorways =
+  (* P.opening does the same arithmetic P.doorway does, so it has to refuse what
+     P.doorway refuses. Unrefused, each of these is a pair of nans that comes
+     back much later as a transform that will not invert, a long way from the
+     two points that were wrong. *)
+  let refuses name ~width ~refused a b =
+    case name (fun () ->
+        Alcotest.check_raises "in the words of the function that was called"
+          (Invalid_argument refused) (fun () -> ignore (P.opening ~width a b)))
+  in
   [
     case "a doorway cuts jambs and an opening out of one wall" (fun () ->
         let world = (Mount.build (two_room_world ~door:None)).Scene.world in
@@ -289,6 +298,15 @@ let doorways =
         Alcotest.(check bool)
           "the leaf is hung" true
           (Option.is_some threshold.Room.door));
+    refuses "an opening in no wall at all" ~width:2.
+      ~refused:"P.opening: no wall to cut an opening into" (Vec.make 1. 1.)
+      (Vec.make 1. 1.);
+    refuses "an opening of no width" ~width:0.
+      ~refused:"P.opening: an opening has to have a width" (Vec.make 0. 0.)
+      (Vec.make 4. 0.);
+    refuses "an opening wider than its wall" ~width:5.
+      ~refused:"P.opening: wider than the wall it is cut into" (Vec.make 0. 0.)
+      (Vec.make 4. 0.);
   ]
 
 (* {1 What is not a world} *)

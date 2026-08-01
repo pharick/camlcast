@@ -152,16 +152,16 @@ let list =
   let taken, set_taken = Hook.use_state false in
   let count = Array.length demos in
   Events.use_frame (fun ~dt -> set_angle (angle +. (turn_rate *. dt)));
-  Events.use_key_down Key.down (fun () ->
+  Events.use_pressed (Input.Key Key.down) (fun () ->
       set_selected ((selected + 1) mod count));
-  Events.use_key_down Key.up (fun () ->
+  Events.use_pressed (Input.Key Key.up) (fun () ->
       set_selected ((selected - 1 + count) mod count));
   List.iter
-    (fun key ->
-      Events.use_key_down key (fun () ->
+    (fun control ->
+      Events.use_pressed control (fun () ->
           chosen := Some demos.(selected);
           set_taken true))
-    [ Key.return; Key.kp_enter; Key.space ];
+    [ Input.Key Key.return; Input.Key Key.kp_enter; Input.Key Key.space ];
   backdrop ~angle ~taken
     ~over:(listing font ~selected ~viewport:(Events.use_viewport ()))
 
@@ -174,6 +174,6 @@ let choose ?from window =
   let* font = Typeface.load () in
   let chosen = ref None in
   let+ ending =
-    Run.on window ~bindings:Bindings.escapable (list (font, from, chosen))
+    Run.on window ~controls:Bindings.escapable (list (font, from, chosen))
   in
   match ending with Run.Closed -> None | Run.Left -> !chosen

@@ -74,7 +74,7 @@ let game =
   Element.declare ~name:"game" @@ fun () ->
   let phase, set_phase = Hook.use_state Waiting in
   let left, set_left = Hook.use_state fuse in
-  Events.use_key_down Key.space (fun () ->
+  Events.use_pressed (Input.Key Key.space) (fun () ->
       if phase = Waiting then set_phase Burning);
   Events.use_frame (fun ~dt ->
       if phase = Burning then

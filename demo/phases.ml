@@ -1,19 +1,17 @@
-(** {b A game state.} {!Camlcast_core.Engine.run} runs a state of whatever type
-    you like, and asks four things of it: what it becomes after a frame, what
-    world and player to draw it from, what to put over the top, and whether it
-    is over.
+(** {b A game's own state.} A phase and a clock, held by one component, with
+    nothing anywhere in the engine that knows either exists.
 
-    The state here is a phase, a clock and a player. Nothing happens until you
-    press {b space}; then the light begins to go, and when it has gone the run
-    ends and the window closes by itself. Neither the phase nor the clock exists
-    anywhere in the engine — [update] keeps them, [finished] reads them, and the
-    engine only ever hands the value back.
+    Nothing happens until you press {b space}; then the light begins to go, and
+    when it has gone the run ends and the window closes by itself. The phase is
+    a {!Camlcast.Hook.use_state}, the clock is another counted down by
+    {!Camlcast.Events.use_frame}, and the ending is not a callback the loop asks
+    about but a {!Camlcast.P.finish} the description writes when it is over —
+    said in the same place and the same way as everything else it says.
 
-    [view] is where the light goes. The world's {!Camlcast_core.Atmosphere} is a
-    plain immutable field, so a frame can be drawn from
-    [{ world with atmosphere }] without the world it was made from changing at
-    all. Every frame here is drawn from a world that has never been stored
-    anywhere.
+    The light is where the light goes. The world's {!Camlcast_core.Atmosphere}
+    is a plain immutable field and a description is rebuilt every frame, so the
+    air is a function of how much fuse is left and there is no world stored
+    anywhere for it to be changed in.
 
     Time only passes while the window has focus. Click on another window on the
     way down and the light stops where it was. *)
@@ -71,7 +69,7 @@ let fusing =
   Element.declare ~name:"fusing" @@ fun () ->
   let phase, set_phase = Hook.use_state Waiting in
   let left, set_left = Hook.use_state fuse in
-  Events.use_key_down Key.space (fun () ->
+  Events.use_pressed (Input.Key Key.space) (fun () ->
       if phase = Waiting then set_phase Burning);
   Events.use_frame (fun ~dt ->
       if phase = Burning then
@@ -87,4 +85,4 @@ let fusing =
     ~over:(phase = Done)
 
 let world = (Mount.build (at ~light:1. ~over:false)).Scene.world
-let run window = Run.on window ~bindings:Bindings.escapable (fusing ())
+let run window = Run.on window ~controls:Bindings.escapable (fusing ())

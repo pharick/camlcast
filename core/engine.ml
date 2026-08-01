@@ -157,8 +157,10 @@ let rec loop window game ~state ~actions ~previous =
       simulate game state ~focused ~pointing:(game.pointing state) ~dt ~motion
         ~actions
     in
-    if game.finished state then Ok (state, Left)
-    else if Binding.taken bindings.Binding.leave actions then Ok (state, Left)
+    (* Asked before the frame is drawn because it is a thing the player did with
+       the controls, and this is where what they did is read. What the game says
+       about its own ending is asked further down, after the drawing. *)
+    if Binding.taken bindings.Binding.leave actions then Ok (state, Left)
     else
       (* Which of the two things the mouse is for is the game's to say and the
          engine's to carry out, and the state it has just become is the one that
@@ -176,11 +178,18 @@ let rec loop window game ~state ~actions ~previous =
           ~overlay:(fun fb -> game.overlay fb state)
           world player
       in
-      let idle = Clock.idle_time ~spent:(Clock.now () -. now) in
-      Sdl.delay (Int32.of_float (idle *. 1000.));
-      (* Frames are timed start to start, so the sleep above counts towards the
-         next one's length rather than falling outside every frame. *)
-      loop window game ~state ~actions ~previous:now
+      (* After the frame has been presented, so that the state a game ends on is
+         the last one the player sees rather than the one nobody was shown. A
+         game says it is over by describing an ending, and an ending drawn one
+         frame late is an ending never drawn at all. *)
+      if game.finished state then Ok (state, Left)
+      else begin
+        let idle = Clock.idle_time ~spent:(Clock.now () -. now) in
+        Sdl.delay (Int32.of_float (idle *. 1000.));
+        (* Frames are timed start to start, so the sleep above counts towards
+           the next one's length rather than falling outside every frame. *)
+        loop window game ~state ~actions ~previous:now
+      end
 
 let with_window ?(title = Config.window_title) ?(width = Config.initial_width)
     ?(height = Config.initial_height) use =

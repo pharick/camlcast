@@ -160,9 +160,9 @@ you.
 
 `camlcast.loom` depends on nothing but the standard library and knows nothing of
 walls; `camlcast` is the only library that knows both it and the platform. The
-declarative layer is a rewrite in progress: the guides and the demos still teach
-`camlcast.core` directly, which is the API this engine had before it had a layer
-over the top.
+guides and the demos teach the layer: `camlcast.core` is what a game reaches for
+when it genuinely needs a `World` or a `Renderer`, and the rest of the time it
+is the floor under the room rather than the room.
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
 it lives outside the library it is content for. It stays in this repository
@@ -258,7 +258,7 @@ function from props to a description, holding state with hooks:
 let torch =
   Element.declare ~name:"torch" @@ fun pos ->
   let lit, set_lit = Hook.use_state true in
-  Events.use_key_down Key.e (fun () -> set_lit (not lit));
+  Events.use_pressed (Input.Key Key.e) (fun () -> set_lit (not lit));
   P.sprite ~size:0.8 ~image:(if lit then flame else stub) pos
 ```
 

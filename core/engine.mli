@@ -52,7 +52,9 @@ type 'a game = {
   pointing : 'a -> bool;
       (** whether the player is working a cursor over something the game has
           drawn, rather than looking around with the mouse *)
-  finished : 'a -> bool;  (** asked after every update; [true] ends the run *)
+  finished : 'a -> bool;
+      (** asked once the frame this state describes has been drawn; [true] ends
+          the run, so the frame a game ends on is one the player saw *)
   bindings : Binding.t;
       (** what the player's controls are for: which of them walk, which look,
           which toggles fullscreen, and which — if any — ends the run. The

@@ -149,13 +149,13 @@ a key goes down on still shows what was selected before it.
 | `trail` | the doorways a frame went through | `Events.use_crossed` |
 | `phases` | a phase, a clock, an ending | `use_state`, `use_frame`, `P.finish` |
 | `overlay`, `text` | drawing over the world, a bitmap font | `P.hud`, `P.text` |
-| `controls` | binding keys | `Run.play ~bindings` |
+| `controls` | binding controls | `Run.play ~controls` |
 | `showcase` | all of the above at once | all of the above |
 
-The demos themselves still use `camlcast.core` and are not rewritten. They are
-the reference the new layer is compared against — `test_stage` renders a
-described world and a hand-built one and compares every pixel — and a reference
-that has been rewritten is not one.
+What the layer is still compared against is not a demo but `examples/room.ml`,
+the hand-built world the README quotes: `test_stage` renders that and its
+described twin and compares every pixel. A reference has to be something that
+was not rewritten, and that one was not.
 
 ## Benchmarks
 

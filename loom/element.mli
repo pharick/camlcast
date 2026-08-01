@@ -33,7 +33,27 @@
     children, a keyed element is matched to last frame's by its key alone and an
     unkeyed one by its position — so a list of enemies that sorts itself by
     distance keeps each enemy's state only if the enemies are keyed. See {!Path}
-    for the same rule stated from the identity end. *)
+    for the same rule stated from the identity end.
+
+    {b A parent's keys have to be unique}, and a repeat raises {!Duplicate_key}.
+    Two children under one key are two elements with one path between them, and
+    a path is how everything outside the runtime refers to a part of a
+    description — what the crosshair is on, what a diagnostic names, what a
+    trace reports. Which of the two an ambiguous path meant is not a question
+    with an answer, so it is not one this asks.
+
+    A {!Fragment} can be keyed like anything else. That is what a helper
+    returning several primitives at once needs: there is no one primitive to put
+    the key on, and without it a list of such things cannot be rearranged
+    without losing what is inside them. *)
+
+exception Duplicate_key of { at : string; key : string }
+(** Two of one parent's children were given the same key. [at] is the parent's
+    path and [key] is what they both said.
+
+    Raised while reconciling, which makes it a frame the host never assembled —
+    so the tree from the frame before is still standing and nothing has been
+    committed. See {!Reconcile}. *)
 
 (** A description of a subtree.
 
@@ -42,9 +62,12 @@
     none of them can be malformed. *)
 type 'prim t =
   | Empty  (** nothing at all; what a component returns to describe absence *)
-  | Fragment of 'prim t list
+  | Fragment of { key : string option; children : 'prim t list }
       (** several elements where one is expected, with no primitive of their
-          own. They flatten away entirely when the frame is committed. *)
+          own. They flatten away entirely when the frame is committed — but the
+          key does not flatten away with them: it is how the fragment as a whole
+          is matched against last frame's, and so how everything under it keeps
+          its state through a rearrangement. *)
   | Prim of { prim : 'prim; key : string option; children : 'prim t list }
       (** one of the host's own primitives — a wall, a sprite, a run of text —
           and whatever it contains *)
@@ -68,8 +91,8 @@ type 'prim t =
 val empty : 'prim t
 (** {!Empty}, named so a game need not reach for the constructor. *)
 
-val fragment : 'prim t list -> 'prim t
-(** {!Fragment}. *)
+val fragment : ?key:string -> 'prim t list -> 'prim t
+(** {!Fragment}. Key it if the list it sits in can be rearranged. *)
 
 val provide : 'a Context.t -> 'a -> 'prim t list -> 'prim t
 (** [provide context value children] renders [children] with [context] bound to
@@ -109,9 +132,9 @@ val declare :
     by construction instead of by remembering it. *)
 
 val key : 'prim t -> string option
-(** The key this element was given, if it was given one. {!Empty} and
-    {!Fragment} never have one: neither survives into the instance tree as
-    anything a sibling could be confused with. *)
+(** The key this element was given, if it was given one. {!Empty} never has one,
+    having nothing to keep, and neither does {!Provide}: a context binding is
+    not a thing a game rearranges, and nothing has asked to key one. *)
 
 val name : 'prim t -> string option
 (** What to call this in a diagnostic — a component's own name, and nothing for

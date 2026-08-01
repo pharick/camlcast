@@ -34,16 +34,16 @@ let ceiling = Room.roof ~plane:(Plane.above flat height) ~material:stone
 
 (* Three sides run open and the fourth cut, which together close the boundary.
    Everything below is this, bent one way or another. *)
-let west_side ?(corner = Vec.make 0. (-4.)) () =
-  P.path ~height ~material:stone
+let west_side ?key ?(corner = Vec.make 0. (-4.)) () =
+  P.path ?key ~height ~material:stone
     [ Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.); corner ]
 
 let east_side =
   P.path ~height ~material:stone
     [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ]
 
-let west_door ?door ?(width = 2.) ?(name = "east") () =
-  P.doorway ?door ~name ~width ~opening:2.5 ~height ~material:stone
+let west_door ?key ?door ?(width = 2.) ?(name = "east") () =
+  P.doorway ?key ?door ~name ~width ~opening:2.5 ~height ~material:stone
     (Vec.make 0. (-4.)) (Vec.make 0. 4.)
 
 let east_door ?door ?(width = 2.) ?(name = "west") () =
@@ -239,6 +239,82 @@ let the_world_it_makes =
                     [ east_side; east_door () ];
                   P.link ("west", "east") ("east", "west");
                 ])));
+    case "the camera is in a room that is not there" (fun () ->
+        (* The same mistake as the spawn above, and the engine's own words for
+           it. Host raises on this from inside assembling the world, which used
+           to come back out through here as a crash rather than a report. *)
+        Alcotest.check lines "named, so it can be looked for"
+          [ {|the camera is in a room called "cellar"|} ]
+          (summaries
+             (P.world ~atmosphere:Atmosphere.default
+                ~spawn:("west", Vec.make (-3.) 0.)
+                [
+                  P.room ~name:"west" ~floor ~ceiling
+                    [ west_side (); west_door () ];
+                  P.room ~name:"east" ~floor ~ceiling
+                    [ east_side; east_door () ];
+                  P.link ("west", "east") ("east", "west");
+                  P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ();
+                ])));
+    case "and one that names a room there is nothing to say about" (fun () ->
+        Alcotest.check lines "silence" []
+          (summaries
+             (P.world ~atmosphere:Atmosphere.default
+                ~spawn:("west", Vec.make (-3.) 0.)
+                [
+                  P.room ~name:"west" ~floor ~ceiling
+                    [ west_side (); west_door () ];
+                  P.room ~name:"east" ~floor ~ceiling
+                    [ east_side; east_door () ];
+                  P.link ("west", "east") ("east", "west");
+                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
+                ])));
+    case "two cameras, and the one that is not being listened to" (fun () ->
+        (* Host takes the last and says nothing about the rest, so the ones it
+           dropped are exactly what a reader of the description cannot see. *)
+        Alcotest.check lines "the earlier one, named"
+          [ "this camera is overruled by a later one" ]
+          (summaries
+             (P.world ~atmosphere:Atmosphere.default
+                ~spawn:("west", Vec.make (-3.) 0.)
+                [
+                  P.room ~name:"west" ~floor ~ceiling
+                    [ west_side (); west_door () ];
+                  P.room ~name:"east" ~floor ~ceiling
+                    [ east_side; east_door () ];
+                  P.link ("west", "east") ("east", "west");
+                  P.camera ~room:"west" ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
+                ])));
+    case "which is a warning, because the world still runs" (fun () ->
+        Alcotest.check lines "one of the two is obeyed" [ "warning" ]
+          (severities
+             (P.world ~atmosphere:Atmosphere.default
+                ~spawn:("west", Vec.make (-3.) 0.)
+                [
+                  P.room ~name:"west" ~floor ~ceiling
+                    [ west_side (); west_door () ];
+                  P.room ~name:"east" ~floor ~ceiling
+                    [ east_side; east_door () ];
+                  P.link ("west", "east") ("east", "west");
+                  P.camera ~room:"west" ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
+                ])));
+    case "two children under one key are reported, not thrown" (fun () ->
+        (* Reconciling refuses this outright, which is a crash where a check is
+           supposed to be a report. *)
+        Alcotest.check lines "named where the pair of them sit"
+          [ {|two of these children are keyed "side"|} ]
+          (summaries
+             (P.world ~atmosphere:Atmosphere.default
+                ~spawn:("west", Vec.make (-3.) 0.)
+                [
+                  P.room ~name:"west" ~floor ~ceiling
+                    [ west_side ~key:"side" (); west_door ~key:"side" () ];
+                  P.room ~name:"east" ~floor ~ceiling
+                    [ east_side; east_door () ];
+                  P.link ("west", "east") ("east", "west");
+                ])));
     case "the player starts inside a wall" (fun () ->
         Alcotest.check lines "the first step would be refused"
           [ "the player starts inside a wall" ]
@@ -339,6 +415,26 @@ let where_it_says =
                ])
         in
         Alcotest.check lines "named by where it was written" [ "gallery" ]
+          (List.map (fun (d : Check.t) -> d.Check.where) report));
+    case "the component that placed the camera" (fun () ->
+        (* A spawn is an argument of the world and belongs to no component, so
+           it can only say "(root)". A camera is written somewhere. *)
+        let eye =
+          Camlcast_loom.Element.declare ~name:"eye" @@ fun () ->
+          P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ()
+        in
+        let report =
+          Check.report
+            (P.world ~atmosphere:Atmosphere.default
+               ~spawn:("west", Vec.make (-3.) 0.)
+               [
+                 gallery ();
+                 annexe ();
+                 P.link ("west", "east") ("east", "west");
+                 eye ();
+               ])
+        in
+        Alcotest.check lines "named by where it was written" [ "eye" ]
           (List.map (fun (d : Check.t) -> d.Check.where) report));
   ]
 

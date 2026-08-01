@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.Run}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Run}; the interface carries the prose. *)
 
 open Camlcast_core
 
@@ -62,9 +62,14 @@ type ending = Engine.ending = Closed | Left
 
 let with_window = Engine.with_window
 
-let on window ?(debug = true) ?(use = Input.Key Key.e)
-    ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) description =
+let on window ?(controls = Controls.default) description =
   let mount = Mount.create () in
+  (* Everything below is inside the mount's lifetime, the first render included:
+     a run that ends, and a run that never got started because the first
+     description was refused, owe the same cleanups. This sits inside
+     {!with_window}, so what an effect took while there was a window is given
+     back while there still is one. *)
+  Fun.protect ~finally:(fun () -> Mount.destroy mount) @@ fun () ->
   (* The frame is bound around the description rather than pushed into it, so a
      component reads time and input by asking rather than by having them handed
      down through every parent between it and here. *)
@@ -89,7 +94,9 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
           viewport = !viewport;
         }
     in
-    let map = debug && state.map <> Input.pressed actions (Input.Key Key.f3) in
+    (* No separate "is there a map at all": a game that has stopped wanting one
+       binds it to nothing, and nothing is never taken. *)
+    let map = state.map <> Binding.taken controls.Controls.map actions in
     (* Controlled or not, exactly as a text input is: a description that says
        where the eye is gets it there, and one that does not is walked. The
        controls are not applied to a camera the description is placing, since a
@@ -108,19 +115,22 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
           in
           (movement.Player.player, crossings_of scene movement)
     in
+    (* One cast, here, where the frame holds the world it settled on and the
+       player it settled them at. Two things want it — whatever it lands on has
+       to be told, and a description wants it as a value — and casting it once
+       is what makes those two the same answer rather than two answers taken a
+       few lines apart. *)
+    let sight = Sight.look scene.Scene.world player in
     (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
        no logic of its own that could only be tested through a window. *)
     let looking =
-      Aim.crosshair scene.Scene.targets scene.Scene.world player
-        ~was:state.gazed
-        ~used:(Input.pressed actions use)
+      Aim.crosshair scene.Scene.targets ~sight ~was:state.gazed
+        ~used:(Binding.taken controls.Controls.use actions)
     in
-    (* What the crosshair is on as a value, for a description that shows
-       something about whatever is being looked at without the thing itself
-       having to say so. Cast again rather than threaded out of Aim.crosshair,
-       which answers a different question and should go on answering only
-       that. *)
-    let aim = Option.map Aim.spot_of (Sight.look scene.Scene.world player) in
+    (* And the same cast as a value, for a description that shows something
+       about whatever is being looked at without the thing itself having to say
+       so. *)
+    let aim = Option.map Aim.spot_of sight in
     {
       scene;
       map;
@@ -167,9 +177,10 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
   in
   Result.map snd
     (Engine.run window
-       (Engine.game ~update ~view ~overlay ~finished ~pointing ~bindings ())
+       (Engine.game ~update ~view ~overlay ~finished ~pointing
+          ~bindings:controls.Controls.bindings ())
        start)
 
-let play ?title ?width ?height ?debug ?use ?bindings description =
+let play ?title ?width ?height ?controls description =
   with_window ?title ?width ?height (fun window ->
-      on window ?debug ?use ?bindings description)
+      on window ?controls description)

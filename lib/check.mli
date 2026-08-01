@@ -14,10 +14,18 @@
 
     {1 Where to run it}
 
-    {!report} is a pure function of a description, so the natural home is a
-    test: a game gets [dune runtest] coverage of its own levels for the cost of
-    one case per level. Until now that has existed only as [test_demos.ml],
-    hard-coded in this repository for this repository's demos.
+    {!report} needs no window and no SDL — a description is data, and most of
+    reading one is arithmetic — so the natural home is a test: a game gets
+    [dune runtest] coverage of its own levels for the cost of one case per
+    level. Until now that has existed only as [test_demos.ml], hard-coded in
+    this repository for this repository's demos.
+
+    What it is {e not} is a pure function of the description. It renders one,
+    and a render runs the components in it and starts the effects they ask for;
+    {!report} says what that costs and what is given back afterwards. Reading a
+    description without running it would mean checking a different description
+    from the one a game plays, and the one a game plays is the one worth
+    checking.
 
     It is also what a dev build should run whenever the shape of a world
     changes, and what a release build should not run at all.
@@ -83,7 +91,10 @@ val report : P.t -> t list
     {b This renders the description}, because the components in it have to run
     before there is anything to read. Their effects run too. A check is a frame
     that is not drawn, and a component whose effect does something drastic will
-    find that out here. *)
+    find that out here. What those effects then took is given back before this
+    returns: the tree is unmounted and every cleanup owed is run, so a suite
+    that checks twenty levels does not finish holding twenty worlds' worth of
+    subscriptions. *)
 
 val world : World.t -> t list
 (** Everything wrong with an assembled world.

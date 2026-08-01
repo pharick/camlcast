@@ -16,6 +16,12 @@ let stone =
 let height = 4.
 let flat = Plane.horizontal 0.
 
+(* The loop casts the crosshair once and hands the answer on, because a frame
+   wants it for two things. So does this, in one line, so that every case below
+   reads as the question it is asking rather than as the plumbing. *)
+let crosshair targets world player ~was ~used =
+  Aim.crosshair targets ~sight:(Sight.look world player) ~was ~used
+
 (* A square room whose four sides are separate walls, so each can be given
    handlers of its own and told apart by which one fires. *)
 let corners =
@@ -63,8 +69,8 @@ let () =
                 Mount.build (world_of (List.init 4 (fun i -> watched i)))
               in
               let seen =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east
-                  ~was:None ~used:false
+                crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                  ~used:false
               in
               Alcotest.(check bool)
                 "something was found" true (Option.is_some seen);
@@ -84,12 +90,12 @@ let () =
                 Mount.build (world_of (List.init 4 (fun i -> watched i)))
               in
               let was =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east
-                  ~was:None ~used:false
+                crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                  ~used:false
               in
               heard := [];
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world west ~was
+                (crosshair scene.Scene.targets scene.Scene.world west ~was
                    ~used:false);
               Alcotest.(check (list (pair int bool)))
                 "east let go before west took hold"
@@ -107,16 +113,16 @@ let () =
                 Mount.build (world_of (List.init 4 (fun i -> watched i)))
               in
               let was =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east
-                  ~was:None ~used:false
+                crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                  ~used:false
               in
               Alcotest.(check int) "an enter" 1 !heard;
               let was =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east ~was
+                crosshair scene.Scene.targets scene.Scene.world east ~was
                   ~used:false
               in
               let _ =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east ~was
+                crosshair scene.Scene.targets scene.Scene.world east ~was
                   ~used:false
               in
               Alcotest.(check int)
@@ -138,8 +144,8 @@ let () =
                      ])
               in
               let seen =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east
-                  ~was:None ~used:false
+                crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                  ~used:false
               in
               Alcotest.(check bool)
                 "nothing to report on the east wall" true (Option.is_none seen);
@@ -161,17 +167,17 @@ let () =
                           else plain index)))
               in
               let was =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east
-                  ~was:None ~used:false
+                crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                  ~used:false
               in
               Alcotest.(check int) "not yet" 0 !opened;
               let was =
-                Aim.crosshair scene.Scene.targets scene.Scene.world east ~was
+                crosshair scene.Scene.targets scene.Scene.world east ~was
                   ~used:true
               in
               Alcotest.(check int) "worked" 1 !opened;
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world west ~was
+                (crosshair scene.Scene.targets scene.Scene.world west ~was
                    ~used:true);
               Alcotest.(check int)
                 "and not while looking at something else" 1 !opened);
@@ -188,8 +194,8 @@ let () =
                        ]))
               in
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world east
-                   ~was:None ~used:true);
+                (crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                   ~used:true);
               Alcotest.(check int) "the barrel in front of the wall" 1 !taken);
         ] );
       ( "where on it",
@@ -210,8 +216,8 @@ let () =
                           else plain index)))
               in
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world east
-                   ~was:None ~used:true);
+                (crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                   ~used:true);
               match !seen with
               | None -> Alcotest.fail "the east wall was not told"
               | Some { Aim.where = Aim.On_wall { along; z; _ }; distance; _ } ->
@@ -238,8 +244,8 @@ let () =
                        ]))
               in
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world east
-                   ~was:None ~used:true);
+                (crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                   ~used:true);
               Alcotest.(check bool)
                 "a picture that turns to face you has no coordinate" true
                 (!seen = Some Aim.On_sprite));
@@ -278,8 +284,8 @@ let () =
               let scene = render () in
               Alcotest.(check int) "a clean wall" 0 (decals scene);
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world east
-                   ~was:None ~used:true);
+                (crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                   ~used:true);
               Alcotest.(check int) "and a mark on it" 1 (decals (render ())));
         ] );
       ( "a door that opens itself",
@@ -346,8 +352,8 @@ let () =
                 Player.make ~room:0 ~pos:(Vec.make (-2.) 0.) ~angle:0.
               in
               ignore
-                (Aim.crosshair scene.Scene.targets scene.Scene.world eye
-                   ~was:None ~used:true);
+                (crosshair scene.Scene.targets scene.Scene.world eye ~was:None
+                   ~used:true);
               (* A setter shows up the frame after the one that called it. *)
               Alcotest.(check bool)
                 "and open the frame after" false

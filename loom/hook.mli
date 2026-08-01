@@ -68,7 +68,12 @@ val use_ref : 'a -> 'a ref
     The same box, physically, every render: writing to it is how a component
     remembers something without asking to be re-rendered. That is the whole
     difference from {!use_state} — a ref is for what the component needs to
-    know, state is for what the picture depends on. *)
+    know, state is for what the picture depends on.
+
+    Being the same box is also why a write to it survives a frame the host
+    refuses. What a refused frame rolls back is the tree and the effects, and a
+    ref is neither: it is the component's own, and it was written before there
+    was any refusing. See {!Reconcile}. *)
 
 val use_memo : ?equal:('d -> 'd -> bool) -> deps:'d -> (unit -> 'a) -> 'a
 (** [use_memo ~deps compute] is [compute ()], recomputed only when [deps]
@@ -146,7 +151,23 @@ val flush : pending -> unit
 (** Run everything accumulated, cleanups before setups, and empty the queue.
 
     Cleanups first and all of them first: an effect that takes a resource its
-    predecessor is still holding must not see the two overlap. *)
+    predecessor is still holding must not see the two overlap.
+
+    {b Everything queued runs, whatever any of it raises.} The queue is emptied
+    before the first of them is called, so stopping at a raise would leave the
+    rest owed with nothing left holding them and no second flush coming — and
+    the tree that owes them is already committed. A raise is therefore caught
+    and held, and the first one is re-raised, with its own backtrace, once
+    nothing is left owing. Later ones are lost: a frame has one thing to report,
+    and this is the thing that went wrong first. *)
+
+val discard : pending -> unit
+(** Throw everything accumulated away without running any of it.
+
+    What a render that did not finish does with the work it queued. A setup
+    belongs to a tree that was never committed, and a cleanup to a component
+    that is therefore still standing: neither is owed, and the render that tries
+    again decides both again from the tree as it really is. *)
 
 val run :
   slots:slots ->

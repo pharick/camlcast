@@ -141,4 +141,4 @@ let drift =
   at ~phase:(elapsed /. period)
 
 let world = (Mount.build (at ~phase:0.)).Scene.world
-let run window = Run.on window ~bindings:Bindings.escapable (drift ())
+let run window = Run.on window ~controls:Bindings.escapable (drift ())

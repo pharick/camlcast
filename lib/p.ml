@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.P}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.P}; the interface carries the prose. *)
 
 open Camlcast_core
 module E = Camlcast_loom.Element
@@ -63,6 +63,10 @@ let link here there = E.prim (Prim.Link { here; there })
    engine built. *)
 let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
 
+(* No [?key], unlike its neighbours: every argument here is labelled, so there
+   is no positional one for an optional to be erased against. Nothing is lost by
+   it — a polygon is walls and holds no state, and a game that needs to key a
+   group of them can say so with {!Camlcast_loom.Element.fragment} directly. *)
 let polygon ~center ~radius ~sides ~rotation ~height ~material =
   E.fragment
     (List.map of_wall
@@ -75,6 +79,17 @@ let polygon ~center ~radius ~sides ~rotation ~height ~material =
 let opening ~width a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
+  (* The same three refusals {!Room.doorway} makes, in the words of the function
+     that was actually called. Without them the division below is a nan, and a
+     nan travels: it comes back as a transform that will not invert or a doorway
+     whose ends meet nothing, a long way from the pair of points that was
+     wrong. Negated, so a nan argument is refused with the degenerate ones. *)
+  if not (Float.is_finite span && span > 0.) then
+    invalid_arg "P.opening: no wall to cut an opening into";
+  if not (Float.is_finite width && width > 0.) then
+    invalid_arg "P.opening: an opening has to have a width";
+  if not (width <= span) then
+    invalid_arg "P.opening: wider than the wall it is cut into";
   let half = Vec.scale edge (width /. (2. *. span)) in
   let middle = Vec.scale (Vec.add a b) 0.5 in
   (Vec.sub middle half, Vec.add middle half)
@@ -108,24 +123,28 @@ let twice_signed_area points =
 let wound points =
   if twice_signed_area points < 0. then List.rev points else points
 
-let path ~height ~material points =
-  E.fragment
+let path ?key ~height ~material points =
+  E.fragment ?key
     (List.map of_wall
        (Room.path ~closed:false ~height ~material (wound points)))
 
-let outline ~height ~material points =
+let outline ?key ~height ~material points =
   let wound = wound points in
   (* Room.path does the closing and the refusing — fewer than three corners, two
      the same in a row — so those stay refused in one place and in the words
      they have always been refused in. *)
-  E.fragment (List.map of_wall (Room.path ~closed:true ~height ~material wound))
+  E.fragment ?key
+    (List.map of_wall (Room.path ~closed:true ~height ~material wound))
 
-let doorway ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material a b =
+let doorway ?key ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material
+    a b =
   let jambs, threshold =
     Room.doorway ?door ~name ~width ~opening ~height ~material a b
   in
   (* The handlers go on the opening and not on the jambs either side of it: what
-     a player aims at to work a door is the door. *)
-  E.fragment
+     a player aims at to work a door is the door. The key goes on the fragment
+     over the pair of them, because what a game rearranges is the doorway and
+     there is no one primitive here that is it. *)
+  E.fragment ?key
     (List.map of_wall jambs
     @ [ E.prim (Prim.Threshold (threshold, reacts ?on_gaze ?on_use ())) ])

@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.Debug_map}; the interface carries the
+(* Implementation of {!Camlcast.Debug_map}; the interface carries the
    prose. *)
 
 open Camlcast_core

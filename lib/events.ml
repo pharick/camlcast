@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.Events}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Events}; the interface carries the prose. *)
 
 open Camlcast_core
 module Loom = Camlcast_loom
@@ -54,13 +54,13 @@ let use_frame handler =
       handler ~dt;
       None)
 
-let use_key_down key handler =
-  let went_down = Input.pressed (use_actions ()) (Input.Key key) in
+let use_pressed control handler =
+  let went_down = Input.pressed (use_actions ()) control in
   after_every_frame (fun () ->
       if went_down then handler ();
       None)
 
-let use_key_held key = Input.down (use_actions ()) (Input.Key key)
+let use_down control = Input.down (use_actions ()) control
 let use_crossings () = (use ()).crossings
 
 let use_crossed handler =

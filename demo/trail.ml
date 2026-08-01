@@ -139,4 +139,4 @@ let world =
   (Mount.build (corridor ~stack:[] ~viewport:Events.still.Events.viewport))
     .Scene.world
 
-let run window = Run.on window ~bindings:Bindings.escapable (unwinding ())
+let run window = Run.on window ~controls:Bindings.escapable (unwinding ())

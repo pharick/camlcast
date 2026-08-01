@@ -82,13 +82,14 @@ val room :
     {!Camlcast_core.Room.roof} or {!Camlcast_core.Room.open_sky} for what is
     overhead. *)
 
-val outline : height:float -> material:Material.t -> Vec.t list -> t
+val outline :
+  ?key:string -> height:float -> material:Material.t -> Vec.t list -> t
 (** A closed boundary through these corners, wound so the room is on the inside.
 
     The corners in either order describe the same room; see the note at the top
     of this page. Three at least, and no two the same in a row. *)
 
-val path : height:float -> material:Material.t -> Vec.t list -> t
+val path : ?key:string -> height:float -> material:Material.t -> Vec.t list -> t
 (** An open run of wall through these corners: what a boundary is when part of
     it is a {!doorway} rather than a wall.
 
@@ -121,7 +122,14 @@ val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
     description that wants to say "this room's floor is that room's floor,
     carried through the doorway between them" has to name the doorway in terms
     of both sides, and this is how it gets them without doing the arithmetic
-    twice. Feed the pair to {!through}. *)
+    twice. Feed the pair to {!through}.
+
+    @raise Invalid_argument
+      on the geometry {!doorway} refuses, and for the same reasons: two points
+      in the same place, a width that is not positive and finite, or one wider
+      than the wall it is being cut into. Caught here rather than divided by,
+      because the answer would be a pair of nans and a nan travels — it comes
+      back much later as a transform that will not invert. *)
 
 val through : from:Vec.t * Vec.t -> into:Vec.t * Vec.t -> Plane.t -> Plane.t
 (** A plane carried through a doorway: [from] and [into] are the same opening's
@@ -185,6 +193,7 @@ val decal :
     much light it makes of its own, which is none. *)
 
 val doorway :
+  ?key:string ->
   ?door:Door.t ->
   ?on_gaze:(bool -> unit) ->
   ?on_use:(Aim.spot -> unit) ->
@@ -202,7 +211,12 @@ val doorway :
     [width] is how wide the opening is and [opening] how tall, under a lintel
     that reaches [height]. The jambs and the threshold are made together and
     cannot drift apart, which is the whole reason to cut a doorway rather than
-    place one. *)
+    place one.
+
+    [key] goes on the three of them together. What a game rearranges is the
+    doorway, and no one part of it is the doorway — so this is a case where the
+    key belongs where {!Camlcast_loom.Element.fragment} takes one rather than on
+    a primitive. *)
 
 val sprite :
   ?key:string ->
@@ -229,7 +243,12 @@ val camera :
     and the player carries on from wherever the description last put it.
 
     [angle] is in radians and [pitch] is the fraction of the window height the
-    horizon is shifted by, the same as the mouse gives. *)
+    horizon is shifted by, the same as the mouse gives.
+
+    {b One to a world.} A description that places the camera twice is saying two
+    things, and what it is answered with is the last one written — a rule worth
+    knowing rather than discovering, since two components can each be sure they
+    have the eye. {!Check} reports the ones being overruled. *)
 
 (** {1 The layer over the top}
 

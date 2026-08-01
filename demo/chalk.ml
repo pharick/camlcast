@@ -353,8 +353,8 @@ let marking =
   let selected, set_selected = Hook.use_state 0 in
   let elapsed, set_elapsed = Hook.use_state 0. in
   Events.use_frame (fun ~dt -> set_elapsed (elapsed +. dt));
-  Events.use_key_down Key.k1 (fun () -> set_selected 0);
-  Events.use_key_down Key.k2 (fun () -> set_selected 1);
+  Events.use_pressed (Input.Key Key.k1) (fun () -> set_selected 0);
+  Events.use_pressed (Input.Key Key.k2) (fun () -> set_selected 1);
   at ~marks ~selected
     ~left:(strokes - List.length marks)
     ~elapsed ~aim:(Events.use_aim ())
@@ -362,4 +362,4 @@ let marking =
     ~font:(Some (Lazy.force Typeface.font))
     ~viewport:(Events.use_viewport ())
 
-let run window = Run.on window ~bindings:Bindings.escapable (marking ())
+let run window = Run.on window ~controls:Bindings.escapable (marking ())

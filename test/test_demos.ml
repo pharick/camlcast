@@ -387,8 +387,9 @@ let aiming ?(from = Vec.make 0.5 (-0.5)) ?(angle = Float.pi /. 2.) ?(pitch = 0.)
 let use render player =
   let scene = render () in
   ignore
-    (Aim.crosshair scene.Scene.targets scene.Scene.world player ~was:None
-       ~used:true);
+    (Aim.crosshair scene.Scene.targets
+       ~sight:(Sight.look scene.Scene.world player)
+       ~was:None ~used:true);
   render ()
 
 (* How many marks are on the partition, which is wall five of the hall and what
@@ -526,8 +527,12 @@ let the_controls_demo_binds_a_second_set_of_walking_keys () =
       ~down:(fun control -> List.mem control held)
       ~mouse:(0., 0.) ~pointer:(0, 0) ~dt:tick
   in
+  (* Qualified: [Camlcast.Controls] is the record a run's controls arrive in,
+     and it shadows the demo of the same name for every file that opens the
+     library. The demo's own table is the one wanted here. *)
+  let table = Camlcast_demo.Controls.bindings in
   let forward held =
-    (Binding.motion Controls.bindings (frame held) ~dt:tick).Input.forward
+    (Binding.motion table (frame held) ~dt:tick).Input.forward
   in
   let expected = Config.move_speed *. tick in
   Alcotest.check close "the engine's own key still walks" expected
@@ -540,8 +545,7 @@ let the_controls_demo_binds_a_second_set_of_walking_keys () =
     (forward [ Input.Key Key.i; Input.Key Key.s ]);
   Alcotest.(check bool)
     "Escape leaves, which the engine's table would not have done" true
-    (Binding.taken Controls.bindings.Binding.leave
-       (frame [ Input.Key Key.escape ]))
+    (Binding.taken table.Binding.leave (frame [ Input.Key Key.escape ]))
 
 (* The declarative layer's checker, pointed at twenty-odd worlds that are known
    to be right. Every complaint it can make is one of these worlds' invariants

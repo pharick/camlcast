@@ -189,4 +189,4 @@ let world =
         ~viewport:Events.still.Events.viewport))
     .Scene.world
 
-let run window = Run.on window ~bindings:Bindings.escapable (studying ())
+let run window = Run.on window ~controls:Bindings.escapable (studying ())

@@ -50,8 +50,9 @@ type window = Engine.window
 
     Transparent, and only just: a program that opens one window and plays run
     after run on it — a launcher — has to be able to say what it is holding, and
-    the equation is how. Nothing can be {e done} with one from here; the
-    functions that take it are all in [camlcast.core]. *)
+    the equation is how. What a game does with one is {!on}, below, and nothing
+    else here; everything that opens, draws into or closes one is in
+    [camlcast.core] and stays there. *)
 
 type ending = Engine.ending =
   | Closed  (** the window was shut, or the desktop asked the program to stop *)
@@ -73,16 +74,20 @@ val with_window :
 *)
 
 val on :
-  window ->
-  ?debug:bool ->
-  ?use:Input.control ->
-  ?bindings:Binding.t ->
-  P.t ->
-  (ending, [ `Msg of string ]) result
+  window -> ?controls:Controls.t -> P.t -> (ending, [ `Msg of string ]) result
 (** Play a description on a window already open, and say how it ended.
 
     {!play} is this and {!with_window} together, and is what a game with one
-    world to show wants. *)
+    world to show wants.
+
+    [controls] is everything the loop acts on by itself — walking, looking,
+    leaving, working what the crosshair is on, and the map — and defaults to
+    {!Controls.default}.
+
+    However the run ends — quit, ending, or a description that could not be
+    built — the mount it was played on is destroyed before this returns, so
+    every effect the description started is stopped while there is still a
+    window for it to have been holding something from. *)
 
 val crossings_of : Scene.t -> Player.movement -> Events.crossing list
 (** The doorways a step went through, by the names the description gave them.
@@ -107,25 +112,17 @@ val play :
   ?title:string ->
   ?width:int ->
   ?height:int ->
-  ?debug:bool ->
-  ?use:Input.control ->
-  ?bindings:Binding.t ->
+  ?controls:Controls.t ->
   P.t ->
   (ending, [ `Msg of string ]) result
 (** Open a window, play this description on it until the player quits, and close
     it again.
 
     [title], [width] and [height] are the window's, and default to the engine's
-    own. [bindings] defaults to the engine's table with Escape added to it,
-    which is what a description with nothing else to end it wants.
-
-    [use] is the control that works whatever the crosshair is on — see {!P.wall}
-    and its neighbours for [on_use] — and is [E].
-
-    [debug] leaves F3 bound to {!Debug_map} and is true. A game that has stopped
-    wanting a map over its world passes false, and the key does nothing —
-    including the walk over the world that {!Check.world} does to feed it, which
-    only happens while the map is up.
+    own. [controls] is {!Controls.default}: WASD and the mouse to move, Escape
+    to leave, [E] to work whatever the crosshair is on, and [F3] for the map.
+    One record, so that rebinding the map is the same kind of act as rebinding
+    the way out.
 
     The description is rendered once before the first frame, so that the player
     can be spawned where its world says. After that it is rendered once per

@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast_stage.Check}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Check}; the interface carries the prose. *)
 
 open Camlcast_core
 module Loom = Camlcast_loom
@@ -220,6 +220,7 @@ let rec walk ~parent (node : Prim.t Loom.Host.node) =
 
 let structure forest =
   let rooms = ref [] and links = ref [] and spawn = ref None in
+  let cameras = ref [] in
   let thresholds_of (node : Prim.t Loom.Host.node) =
     List.filter_map
       (fun (child : Prim.t Loom.Host.node) ->
@@ -246,6 +247,11 @@ let structure forest =
                   :: !rooms
             | Prim.Link { here; there } ->
                 links := (here, there, path_of child) :: !links
+            (* All of them, in the order they were written. Host takes the last
+               and says nothing about the rest, which is exactly the thing a
+               reader of this cannot see for themselves. *)
+            | Prim.Camera { room; _ } ->
+                cameras := (room, path_of child) :: !cameras
             | _ -> ())
           root.Loom.Host.children;
         walk ~parent:root.Loom.Host.prim root
@@ -273,7 +279,7 @@ let structure forest =
               ];
         ]
   in
-  (problems, List.rev !rooms, List.rev !links, !spawn)
+  (problems, List.rev !rooms, List.rev !links, !spawn, List.rev !cameras)
 
 (* The second and any later use of a name is what is complained about, so the
    one that was there first is left alone and a report reads as "this one is the
@@ -305,6 +311,30 @@ let naming rooms =
           (List.map (fun (name, _, at) -> (name, at)) room.thresholds))
       rooms
 
+(* A room named by something that is not a room: the same mistake wherever it is
+   made — a link, a spawn, a camera — so the same sentence under it. *)
+let no_such_room = "There is no room by that name in this world."
+
+(* Every camera but the last, because the last is the one {!Host} takes. The
+   complaint goes on the ones that are not being listened to rather than on the
+   one that is: "this camera does nothing" is what there is to act on, and the
+   winner is not itself wrong. A warning and not an error — the world builds,
+   and one of the cameras is even obeyed. *)
+let overruled_cameras cameras =
+  match List.rev cameras with
+  | [] | [ _ ] -> []
+  | _ :: earlier ->
+      List.rev_map
+        (fun (_, at) ->
+          warning at "this camera is overruled by a later one"
+            ~detail:
+              [
+                "A world is drawn from one eye. Where a description places it \
+                 more than once, the last one written is the one taken and the \
+                 others are dropped.";
+              ])
+        earlier
+
 let linking rooms links =
   let problems = ref [] in
   let complain d = problems := d :: !problems in
@@ -324,7 +354,7 @@ let linking rooms links =
         complain
           (error at
              (Printf.sprintf "this link names a room called %S" room_name)
-             ~detail:[ "There is no room by that name in this world." ]);
+             ~detail:[ no_such_room ]);
         false
     | Some room -> (
         match
@@ -428,40 +458,56 @@ let linking rooms links =
     (fun a b -> compare (a.where, a.summary) (b.where, b.summary))
     (List.rev !problems)
 
-let report description =
-  let forest = Forest.render (Forest.create ()) description in
-  let structural, rooms, links, spawn = structure forest in
+let of_forest forest =
+  let structural, rooms, links, spawn, cameras = structure forest in
   let named = naming rooms in
-  if structural <> [] || named <> [] then structural @ named
-  else
-    let spawn_room =
-      match spawn with
-      | Some (room_name, _) ->
-          if List.exists (fun room -> room.room_name = room_name) rooms then []
-          else
+  let found =
+    if structural <> [] || named <> [] then structural @ named
+    else
+      let names_a_room name =
+        List.exists (fun room -> room.room_name = name) rooms
+      in
+      let spawn_room =
+        match spawn with
+        | Some (room_name, _) when not (names_a_room room_name) ->
             [
               error "(root)"
                 (Printf.sprintf "the player starts in a room called %S"
                    room_name)
-                ~detail:[ "There is no room by that name in this world." ];
+                ~detail:[ no_such_room ];
             ]
-      | None -> []
-    in
-    let linked = linking rooms links in
-    if spawn_room <> [] || linked <> [] then spawn_room @ linked
-    else
-      (* Everything that could stop a world being built has been ruled out, so
-         what is left is what only an assembled world can answer. *)
-      let by_index =
-        Array.of_list (List.map (fun room -> room.room_path) rooms)
+        | Some _ | None -> []
       in
-      let locate index =
-        if index < Array.length by_index then by_index.(index)
-        else string_of_int index
+      (* The camera's own words are Host's, which raises on this from deep inside
+         assembling the world. Caught here instead, where the component that wrote
+         the camera can be named. *)
+      let camera_room =
+        List.filter_map
+          (fun (room_name, at) ->
+            if names_a_room room_name then None
+            else
+              Some
+                (error at
+                   (Printf.sprintf "the camera is in a room called %S" room_name)
+                   ~detail:[ no_such_room ]))
+          cameras
       in
-      match Host.assemble forest with
-      | scene -> inspect ~locate scene.Scene.world
-      | exception Invalid_argument message ->
+      let linked = linking rooms links in
+      if spawn_room <> [] || camera_room <> [] || linked <> [] then
+        spawn_room @ camera_room @ linked
+      else
+        (* Everything that could stop a world being built has been ruled out, so
+           what is left is what only an assembled world can answer. *)
+        let by_index =
+          Array.of_list (List.map (fun room -> room.room_path) rooms)
+        in
+        let locate index =
+          if index < Array.length by_index then by_index.(index)
+          else string_of_int index
+        in
+        (* Both of the ways the engine has of refusing a description, so that a
+           check written to replace a crash cannot end in one. *)
+        let refused message =
           [
             error "(root)" "the engine refused to build this world"
               ~detail:
@@ -471,3 +517,39 @@ let report description =
                    message above is the engine's own.";
                 ];
           ]
+        in
+        match Host.assemble forest with
+        | scene -> inspect ~locate scene.Scene.world
+        | exception Invalid_argument message -> refused message
+        | exception Host.Malformed message -> refused message
+  in
+  (* Appended rather than folded into the tiers above: a description that
+     places the camera twice is saying two things whatever else is or is not
+     wrong with it, and nothing in those tiers depends on the answer. *)
+  found @ overruled_cameras cameras
+
+let report description =
+  let root = Forest.create () in
+  (* Rendering a description starts its effects, and reading one is over when
+     the reading is. See the interface: a check is a frame that is not drawn,
+     and it is not a frame that is still running afterwards either. *)
+  Fun.protect ~finally:(fun () -> Forest.destroy root) @@ fun () ->
+  match Forest.render root description with
+  | forest -> of_forest forest
+  (* The one mistake that stops a description becoming a forest at all, and so
+     the one that has to be caught here rather than read off one. Reported
+     rather than raised, for the same reason the two refusals above are: a check
+     written to replace a crash cannot end in one. *)
+  | exception Loom.Element.Duplicate_key { at; key } ->
+      [
+        error at
+          (Printf.sprintf "two of these children are keyed %S" key)
+          ~detail:
+            [
+              "A key is what tells one of a parent's children from another, so \
+               two under one key are two parts of a description with one name \
+               between them.";
+              "Give them keys of their own, or take the keys off if nothing \
+               here is ever rearranged.";
+            ];
+      ]

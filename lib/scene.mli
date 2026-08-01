@@ -1,10 +1,12 @@
 (** What a frame of description comes to.
 
-    A record of one field today, and a record rather than a bare
-    {!Camlcast_core.World.t} because of what is about to join it: where the
-    camera stands, and whatever a HUD tree draws over the top. Those arrive in
-    their own steps, and a caller that already pattern-matches on a record will
-    not have to be rewritten when they do. *)
+    A world, where the eye is if the description said, whether the run is over,
+    whether the pointer is loose, what a HUD tree draws over the top, and every
+    handler the description hung on something the crosshair can land on. A
+    record rather than a bare {!Camlcast_core.World.t} because a frame turned
+    out to be all of that — it began as the world alone, and each of the others
+    arrived without a caller that matched on the record having to be rewritten,
+    which is the argument for the shape restated as what happened. *)
 
 open Camlcast_core
 

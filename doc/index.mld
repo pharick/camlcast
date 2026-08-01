@@ -56,28 +56,54 @@ and two games can share an engine without sharing a look.
 
 {1 Building a game on it}
 
-{!Camlcast_core.Engine.with_window} opens a window and closes it again when the
-function it is handed to is done with it. {!Camlcast_core.Engine.run} plays a run on
-one, and a program that has several to play — a launcher and its menu — opens
-the window once and plays them all on it, so that going from one to the next is
-the picture changing and not the window going away.
+A game hands over what its world should be, every frame, and never touches the
+loop. {!Camlcast.Run.play} opens a window, plays a description on it until the
+player quits, and closes it again; {!Camlcast.Run.on} is the same run on a window
+already open, which is what a launcher wants so that going from its menu to a
+level is the picture changing rather than the window going away.
 
-{!Camlcast_core.Engine.run} runs a state of whatever type the game likes, described
-by an {!Camlcast_core.Engine.type-game} — built with {!Camlcast_core.Engine.val-game} from
-the two things every game has and the four it may not: [update], given the
-frame's length, the movement asked for over it and what the player is pressing
-and holding through it; [view], which world and which player to draw this frame
-from; and optionally [overlay], anything drawn over the finished picture;
-[pointing], whether the mouse is working a cursor over something the game has
-drawn instead of looking around; [finished], whether the run is over; and
-[bindings], what the player's controls are for. Everything else a game keeps —
-phases, doors, a journal, a random seed, what it has already built — stays on
-the game's side of the line and the engine stays a pure function of what it is
-handed. Time passes only while the window has focus.
+{[
+  let () = ignore (Run.play ~title:"A game" level)
+]}
 
-It reports how the run ended, as an {!Camlcast_core.Engine.ending}: [Closed] for a
-window that was shut, [Left] for a run that finished on its own terms. Only
-something that plays one run after another needs the difference.
+A description is made with {!Camlcast.P} — [world], [room], [outline], [doorway],
+[sprite], [hud] — and the parts of it that have to remember something are
+{e components}: functions from props to a description, holding state with
+{!Camlcast.Hook.use_state} and reaching the outside world through
+{!Camlcast.Hook.use_effect}. {!Camlcast.Events} is how one reads the frame it is
+being rendered for: how long the last one took, what the player is pressing, what
+the crosshair is on, which doorways were crossed. {!Camlcast.Store} is for what
+belongs to no component in particular — a score, an inventory, which chapter the
+player is in.
+
+Everything the loop acts on by itself is one record, {!Camlcast.Controls.t}:
+which controls walk and look, which leaves the run, which works whatever the
+crosshair is on, and which shows the map over the world. Each is a list of
+{!Camlcast_core.Input.control}s, so a mouse button and a key do the same job and
+an empty list turns something off.
+
+It reports how the run ended, as a {!Camlcast.Run.ending}: [Closed] for a window
+that was shut, [Left] for a run that finished on its own terms — a leaving
+control, or a description that said {!Camlcast.P.finish}. Only something that
+plays one run after another needs the difference.
+
+{2 The platform underneath}
+
+None of the above is where the loop actually is. {!Camlcast_core.Engine.run}
+plays a state of whatever type a game likes, described by an
+{!Camlcast_core.Engine.type-game}: [update], given the frame's length, the
+movement asked for and what the player is holding; [view], which world and which
+player to draw from; and optionally [overlay], [pointing], [finished] and
+[bindings]. {!Camlcast_core.Engine.run_world} is that loop over a bare
+{!Camlcast_core.World} and the player walking it, plus an optional
+[extend : World.t -> Player.t -> World.t] called on any frame the player crossed
+into another room on.
+
+That is the API this engine had before it had a layer over the top, and it is
+still the floor the layer stands on — {!Camlcast.Run} is one call to
+{!Camlcast_core.Engine.run} with a mount kept beside it. A game reaches for it
+when it genuinely needs a {!Camlcast_core.World} or a {!Camlcast_core.Renderer},
+by adding [camlcast.core] to its dune file and saying so.
 
 Input arrives as controls and not as actions — {!Camlcast_core.Input.pressed},
 {!Camlcast_core.Input.released}, {!Camlcast_core.Input.val-down} and
@@ -94,16 +120,7 @@ mouse is a {e displacement} that has already moved and is added as it stands.
 Reading a table is {!Camlcast_core.Binding.motion}, which touches nothing and is
 where a second kind of device would arrive.
 
-{!Camlcast_core.Engine.run_world} is that loop over a bare {!Camlcast_core.World} and the
-player walking it, plus an optional [extend : World.t -> Player.t -> World.t],
-which it calls on any frame the player crossed into another room on — once per
-such frame, with where they ended up, however many doorways that took. A program
-with only one world to show has no use for the ending and can [ignore] it.
-
-A game that builds its world as the player explores it uses [extend] to stay far
-enough ahead that the edge is never in shot: {!Camlcast_core.Config.max_portal_depth}
-doorways, which is exactly as deep as the renderer looks through them. The
-[endless] demo does this in miniature.
+Time passes only while the window has focus.
 
 {1 The house rules}
 
