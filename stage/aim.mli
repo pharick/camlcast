@@ -14,14 +14,39 @@
     That path is what makes an enter and a leave possible at all. Indices move
     when a room is rebuilt; a path does not. *)
 
+type where =
+  | On_wall of {
+      along : float;  (** how far along the wall, from the end it starts at *)
+      z : float;  (** how far up it, above the floor under that point *)
+      facing : Camlcast_core.Room.side;  (** which face is being looked at *)
+      decal : int option;  (** which picture on it, if the eye stopped on one *)
+    }
+  | On_sprite
+  | On_doorway
+      (** Which of the three things the eye stopped on, and where on it.
+
+          Only a wall has a where: a sprite is a picture that turns to face you
+          and a doorway is a hole, and neither has a coordinate a game could
+          usefully be told. *)
+
+type spot = {
+  distance : float;  (** how far away, in cells *)
+  crossed : int;  (** how many doorways the ray went through to get there *)
+  where : where;
+}
+(** Where the crosshair landed, for a handler that needs to know more than that
+    it did. Marking a wall wants [along] and [z]; a prompt that only appears
+    within reach wants [distance]. *)
+
 type reaction = {
   path : Camlcast_loom.Path.t;
       (** which part of the description this is, stable across frames *)
   on_gaze : (bool -> unit) option;
       (** called with [true] when the crosshair arrives and [false] when it
           leaves, and not once a frame in between *)
-  on_use : (unit -> unit) option;
-      (** called when the player works the use control while looking at it *)
+  on_use : (spot -> unit) option;
+      (** called when the player works the use control while looking at it, with
+          where on it the crosshair was *)
 }
 (** What one thing in a world asked to be told. *)
 
@@ -45,6 +70,11 @@ val find : t -> Camlcast_core.Sight.t -> reaction option
     [None] for a world grown since this was built, rather than an exception: a
     stale index is a frame out of date and not a mistake, and the next frame
     will have the right one. *)
+
+val spot_of : Camlcast_core.Sight.t -> spot
+(** What a cast of the crosshair comes to, without the indices — those name
+    places in a world that is rebuilt every frame, and a handler has no use for
+    them. *)
 
 val crosshair :
   t ->

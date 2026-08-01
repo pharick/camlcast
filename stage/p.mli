@@ -40,7 +40,9 @@ type t = Prim.t Camlcast_loom.Element.t
     [on_gaze] is called with [true] when the crosshair arrives and [false] when
     it leaves, and not once a frame in between: it is an enter and a leave, not
     a poll. [on_use] is called when the player works the use control while
-    looking at it. Both may set state, and the frame after will show it.
+    looking at it, with an {!Aim.spot} saying where on it the crosshair was —
+    which is what marking a wall where you pointed needs. Both may set state,
+    and the frame after will show it.
 
     On a {!doorway} they go on the opening rather than on the jambs either side
     of it, because what a player aims at to work a door is the door. *)
@@ -101,7 +103,7 @@ val path : height:float -> material:Material.t -> Vec.t list -> t
 val wall :
   ?key:string ->
   ?on_gaze:(bool -> unit) ->
-  ?on_use:(unit -> unit) ->
+  ?on_use:(Aim.spot -> unit) ->
   ?decals:t list ->
   height:float ->
   material:Material.t ->
@@ -132,7 +134,7 @@ val decal :
 val doorway :
   ?door:Door.t ->
   ?on_gaze:(bool -> unit) ->
-  ?on_use:(unit -> unit) ->
+  ?on_use:(Aim.spot -> unit) ->
   name:string ->
   width:float ->
   opening:float ->
@@ -152,7 +154,7 @@ val doorway :
 val sprite :
   ?key:string ->
   ?on_gaze:(bool -> unit) ->
-  ?on_use:(unit -> unit) ->
+  ?on_use:(Aim.spot -> unit) ->
   ?base:float ->
   size:float ->
   image:Image.t ->

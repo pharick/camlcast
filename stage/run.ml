@@ -11,6 +11,23 @@ open Camlcast_core
    The map and what it has to say live here for the same reason: the loop hands
    this state to the overlay, so a frame draws the map of the world it decided
    on rather than of whatever a ref happened to be holding. *)
+(* Indices out, names in: a doorway is what the description called it, not what
+   assembling the description happened to number it. *)
+let named_crossings (scene : Scene.t) (movement : Player.movement) =
+  let world = scene.Scene.world in
+  let doorway room threshold =
+    (Room.threshold_at (World.room world room) threshold).Room.name
+  in
+  List.map
+    (fun (c : Player.crossing) ->
+      {
+        Events.from_room = World.name world c.from_room;
+        from_doorway = doorway c.from_room c.from_threshold;
+        to_room = World.name world c.to_room;
+        to_doorway = doorway c.to_room c.to_threshold;
+      })
+    movement.Player.crossings
+
 let carry (scene : Scene.t) ~was player =
   match World.named scene.Scene.world was with
   | Some room when room = player.Player.room -> player
@@ -26,6 +43,9 @@ type frame = {
      every frame and an index is what assembling one happened to produce. See
      run.mli for what that buys. *)
   room : string;
+  (* Last frame's, because a description is rendered before the player is moved
+     through the world it describes. See Events.crossings. *)
+  crossings : Events.crossing list;
   scene : Scene.t;
   map : bool;
   found : Check.t list;
@@ -53,19 +73,34 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
   let viewport = ref Events.still.Events.viewport in
   let first = render Events.still in
   let update state ~dt ~motion ~actions =
-    let scene = render { Events.dt; motion; actions; viewport = !viewport } in
+    let scene =
+      render
+        {
+          Events.dt;
+          motion;
+          actions;
+          crossings = state.crossings;
+          viewport = !viewport;
+        }
+    in
     let map = debug && state.map <> Input.pressed actions (Input.Key Key.f3) in
     (* Controlled or not, exactly as a text input is: a description that says
        where the eye is gets it there, and one that does not is walked. The
        controls are not applied to a camera the description is placing, since a
        walk it never asked for would fight it every frame. *)
-    let player =
+    (* Engine.move rather than Engine.step, which is the same walk with the
+       crossings thrown away. A description that wants to know where it has been
+       needs them, and nothing else in the frame does. *)
+    let player, crossings =
       match scene.Scene.camera with
-      | Some placed -> placed
+      | Some placed -> (placed, [])
       | None ->
-          Engine.step scene.Scene.world
-            (carry scene ~was:state.room state.player)
-            motion
+          let movement =
+            Engine.move scene.Scene.world
+              (carry scene ~was:state.room state.player)
+              motion
+          in
+          (movement.Player.player, named_crossings scene movement)
     in
     (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
        no logic of its own that could only be tested through a window. *)
@@ -83,6 +118,7 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
       found = (if map then Check.world scene.Scene.world else []);
       player;
       room = World.name scene.Scene.world player.Player.room;
+      crossings;
       gazed = looking;
     }
   in
@@ -106,6 +142,7 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
       scene = first;
       player;
       room = World.name first.Scene.world player.Player.room;
+      crossings = [];
       map = false;
       found = [];
       gazed = None;

@@ -2,10 +2,34 @@
 
 open Camlcast_core
 
+type where =
+  | On_wall of {
+      along : float;
+      z : float;
+      facing : Room.side;
+      decal : int option;
+    }
+  | On_sprite
+  | On_doorway
+
+type spot = { distance : float; crossed : int; where : where }
+
+let spot_of (sight : Sight.t) =
+  {
+    distance = sight.distance;
+    crossed = sight.crossed;
+    where =
+      (match sight.kind with
+      | Sight.Wall { along; z; facing; decal; _ } ->
+          On_wall { along; z; facing; decal }
+      | Sight.Sprite _ -> On_sprite
+      | Sight.Doorway _ -> On_doorway);
+  }
+
 type reaction = {
   path : Camlcast_loom.Path.t;
   on_gaze : (bool -> unit) option;
-  on_use : (unit -> unit) option;
+  on_use : (spot -> unit) option;
 }
 
 type room = {
@@ -64,7 +88,8 @@ let leaving t path =
     None t
 
 let crosshair t world player ~was ~used =
-  let reaction = Option.bind (Sight.look world player) (find t) in
+  let sight = Sight.look world player in
+  let reaction = Option.bind sight (find t) in
   let now = Option.map (fun r -> r.path) reaction in
   if not (Option.equal Camlcast_loom.Path.equal was now) then begin
     (* The one losing it first. Only the path was kept, so the leaving one is
@@ -79,7 +104,7 @@ let crosshair t world player ~was ~used =
     | _ -> ()
   end;
   (if used then
-     match reaction with
-     | Some { on_use = Some on_use; _ } -> on_use ()
+     match (reaction, sight) with
+     | Some { on_use = Some on_use; _ }, Some sight -> on_use (spot_of sight)
      | _ -> ());
   now

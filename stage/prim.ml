@@ -4,7 +4,7 @@ open Camlcast_core
 
 type reacts = {
   on_gaze : (bool -> unit) option;
-  on_use : (unit -> unit) option;
+  on_use : (Aim.spot -> unit) option;
 }
 
 let deaf = { on_gaze = None; on_use = None }

@@ -19,7 +19,7 @@ open Camlcast_core
 
 type reacts = {
   on_gaze : (bool -> unit) option;
-  on_use : (unit -> unit) option;
+  on_use : (Aim.spot -> unit) option;
 }
 (** What a thing in the world asked to be told about the crosshair. Carried by
     the three primitives {!Camlcast_core.Sight} can land on, and nothing else:

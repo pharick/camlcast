@@ -88,6 +88,47 @@ resolves. **That set of warnings is the expected output** — anything else in i
 is a real reference that has gone stale. `@doc-new`, the odoc 3 driver alias
 that would put `Stdlib` in scope, does not build in this tree.
 
+## Feature parity with the demos
+
+The declarative layer is finished when everything the twenty-two demos show can
+be described. That was audited feature by feature rather than by transcribing
+them, because the demos are *content* — patterns, pictures, five hand-placed
+rooms — and copying content proves less than checking the mechanisms it needs.
+
+Everything is expressible. Two gaps were found by the audit and closed:
+
+- **`chalk`** marks a wall where the crosshair is, which needs *where on the
+  wall* the eye landed. `on_use` now takes an `Aim.spot`, and `test_aim` leaves
+  a mark with it.
+- **`trail`** builds a route home from the doorways a frame went through, which
+  `Engine.step` throws away. The loop uses `Engine.move` now and the crossings
+  reach a description as `Events.use_crossed`, by room and doorway *name*.
+
+| demo | what it needs | where |
+| --- | --- | --- |
+| `masonry`, `loading` | materials, art from disk | `P.outline`, `Texture`, `Asset` |
+| `gallery` | decals and sprites | `P.decal`, `P.sprite` |
+| `glass`, `barred` | see-through materials, a door you see through | `P.wall`, `P.doorway ~door` |
+| `slopes` | inclined floors and roofs | `P.floor`, `P.roof` |
+| `daylight` | the open sky, per room | `P.open_sky` |
+| `haze` | atmosphere | `P.world ~atmosphere` |
+| `portals`, `doors` | doorways, links, doors that open | `P.doorway`, `P.link`, `on_use` |
+| `changing` | a room rebuilt every frame | describing it differently |
+| `floating`, `dust` | sprites off the floor, sprites that move | `P.sprite ~base`, `use_frame` |
+| `chalk` | marking a wall where you point | `on_use` and its `Aim.spot` |
+| `endless` | a world that grows | rooms appear; `Run.carry` holds the player |
+| `targets` | what the crosshair is on, through a doorway | `on_gaze` |
+| `trail` | the doorways a frame went through | `Events.use_crossed` |
+| `phases` | a phase, a clock, an ending | `use_state`, `use_frame`, `P.finish` |
+| `overlay`, `text` | drawing over the world, a bitmap font | `P.hud`, `P.text` |
+| `controls` | binding keys | `Run.play ~bindings` |
+| `showcase` | all of the above at once | all of the above |
+
+The demos themselves still use `camlcast.core` and are not rewritten. They are
+the reference the new layer is compared against — `test_stage` renders a
+described world and a hand-built one and compares every pixel — and a reference
+that has been rewritten is not one.
+
 ## Benchmarks
 
 ```sh

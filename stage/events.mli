@@ -20,6 +20,18 @@
 
 open Camlcast_core
 
+type crossing = {
+  from_room : string;
+  from_doorway : string;
+  to_room : string;
+  to_doorway : string;
+}
+(** One doorway a frame went through, by the names a description gave it.
+
+    By name and not by index for the reason everything else here is: a world is
+    rebuilt every frame and an index is what assembling one happened to produce.
+*)
+
 type t = {
   dt : float;  (** how long the last frame lasted, in seconds *)
   motion : Input.motion;
@@ -28,6 +40,16 @@ type t = {
   actions : Input.actions;
       (** the controls themselves — what is down, what went down this frame, and
           how long it has been held *)
+  crossings : crossing list;
+      (** the doorways the {e last} frame went through, in the order they were
+          gone through.
+
+          A single step can cross several — a leg is clipped at each opening and
+          the rest of it carried through — so this is a list and not an option.
+
+          Last frame's, because a description is rendered before the player is
+          moved through the world it describes. One frame late, like
+          {!type-t.viewport}, and for the same reason. *)
   viewport : int * int;
       (** how many pixels wide and tall the buffer is, which is what a HUD
           places itself in.
@@ -93,3 +115,12 @@ val use_key_down : Key.t -> (unit -> unit) -> unit
 val use_key_held : Key.t -> bool
 (** Whether a key is down right now, read during the render rather than run
     after it. *)
+
+val use_crossings : unit -> crossing list
+(** Every doorway the last frame went through. *)
+
+val use_crossed : (crossing -> unit) -> unit
+(** Run this after the frame, once for each doorway it went through.
+
+    A trail of the way home is this and a list; a room that lights when it is
+    entered is this and a name. *)

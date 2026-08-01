@@ -19,8 +19,12 @@ patterns from a procedural {!Camlcast_core.Texture} and their colour from their
 material, dimmed by the world's {!Camlcast_core.Atmosphere}. The buffer is then
 scaled to the window by the GPU.
 
-{1 Two guides}
+{1 Three guides}
 
+- {{!page-"describing-a-world"} {b Describing a world}} — the declarative layer,
+  where a game says what its world should be and the runtime works out what
+  changed. This is the newer of the two ways in, and the one a new game should
+  start from.
 - {{!page-"making-a-game"} {b Making a game on CamlCast}} — from an empty
   directory to a game, one engine feature at a time, with the demo that isolates
   each one. Start here if you want to build something on the engine.

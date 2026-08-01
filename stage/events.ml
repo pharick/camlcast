@@ -3,10 +3,18 @@
 open Camlcast_core
 module Loom = Camlcast_loom
 
+type crossing = {
+  from_room : string;
+  from_doorway : string;
+  to_room : string;
+  to_doorway : string;
+}
+
 type t = {
   dt : float;
   motion : Input.motion;
   actions : Input.actions;
+  crossings : crossing list;
   viewport : int * int;
 }
 
@@ -15,6 +23,7 @@ let still =
     dt = 0.;
     motion = Input.still;
     actions = Input.untouched;
+    crossings = [];
     (* The engine's own initial window, put through the same rule the loop
        would, so a description rendered outside a run measures itself against
        something real rather than against nothing. *)
@@ -49,3 +58,10 @@ let use_key_down key handler =
       None)
 
 let use_key_held key = Input.down (use_actions ()) (Input.Key key)
+let use_crossings () = (use ()).crossings
+
+let use_crossed handler =
+  let crossings = use_crossings () in
+  after_every_frame (fun () ->
+      List.iter handler crossings;
+      None)

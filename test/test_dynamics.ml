@@ -39,6 +39,43 @@ let play mount frame description =
 
 let where scene player = World.name scene.Scene.world player.Player.room
 
+(* Two rooms and the doorway between them, so a frame can be made to cross. *)
+let joined =
+  P.(
+    world ~atmosphere:Atmosphere.default
+      ~spawn:("west", Vec.make (-2.) 0.)
+      [
+        room ~name:"west"
+          ~floor:(floor ~plane:flat ~material:stone)
+          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+          [
+            path ~height ~material:stone
+              [
+                Vec.make 0. 3.;
+                Vec.make (-5.) 3.;
+                Vec.make (-5.) (-3.);
+                Vec.make 0. (-3.);
+              ];
+            doorway ~name:"east" ~width:2. ~opening:2.5 ~height ~material:stone
+              (Vec.make 0. (-3.)) (Vec.make 0. 3.);
+          ];
+        room ~name:"east"
+          ~floor:(floor ~plane:flat ~material:stone)
+          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+          [
+            path ~height ~material:stone
+              [
+                Vec.make 0. (-3.);
+                Vec.make 5. (-3.);
+                Vec.make 5. 3.;
+                Vec.make 0. 3.;
+              ];
+            doorway ~name:"west" ~width:2. ~opening:2.5 ~height ~material:stone
+              (Vec.make 0. 3.) (Vec.make 0. (-3.));
+          ];
+        link ("west", "east") ("east", "west");
+      ])
+
 let () =
   Alcotest.run "Dynamics"
     [
@@ -140,6 +177,75 @@ let () =
                 "and lands at the spawn" "hall" (where shrunk carried);
               Alcotest.check vec "which is where the world says"
                 (Vec.make 0. 0.) carried.Player.pos);
+        ] );
+      ( "going through a doorway",
+        [
+          case "a frame that crosses says which doorway, by name" (fun () ->
+              (* What the trail demo reaches into Player.crossing for, without
+                 the indices: a doorway is what the description called it. *)
+              let scene = Mount.build joined in
+              let at x = Player.make ~room:0 ~pos:(Vec.make x 0.) ~angle:0. in
+              let movement =
+                Engine.move scene.Scene.world (at (-0.4))
+                  { Input.still with Input.forward = 1. }
+              in
+              Alcotest.(check bool)
+                "the step went through" true (Player.crossed movement);
+              Alcotest.(check string)
+                "and ended up east" "east"
+                (World.name scene.Scene.world movement.Player.player.Player.room);
+              let named =
+                List.map
+                  (fun (c : Player.crossing) ->
+                    ( World.name scene.Scene.world c.Player.from_room,
+                      (Room.threshold_at
+                         (World.room scene.Scene.world c.Player.from_room)
+                         c.Player.from_threshold)
+                        .Room.name,
+                      World.name scene.Scene.world c.Player.to_room ))
+                  movement.Player.crossings
+              in
+              Alcotest.(check (list (triple string string string)))
+                "out of the west room by its east door"
+                [ ("west", "east", "east") ]
+                named);
+          case "a component is told, once per doorway" (fun () ->
+              let heard = ref [] in
+              let watcher =
+                Element.declare ~name:"watcher" @@ fun () ->
+                Events.use_crossed (fun c ->
+                    heard := (c.Events.from_room, c.Events.to_room) :: !heard);
+                joined
+              in
+              let mount = Mount.create () in
+              let play crossings =
+                Mount.render mount
+                  (Element.provide Events.context
+                     { Events.still with Events.crossings }
+                     [ watcher () ])
+              in
+              ignore (play []);
+              Alcotest.(check (list (pair string string)))
+                "nowhere yet" [] !heard;
+              ignore
+                (play
+                   [
+                     {
+                       Events.from_room = "west";
+                       from_doorway = "east";
+                       to_room = "east";
+                       to_doorway = "west";
+                     };
+                   ]);
+              Alcotest.(check (list (pair string string)))
+                "and now once"
+                [ ("west", "east") ]
+                !heard;
+              ignore (play []);
+              Alcotest.(check (list (pair string string)))
+                "and not again"
+                [ ("west", "east") ]
+                !heard);
         ] );
       ( "things that move",
         [

@@ -156,7 +156,7 @@ let () =
                           let a, b = side index in
                           if index = 1 then
                             P.wall ~height ~material:stone
-                              ~on_use:(fun () -> incr opened)
+                              ~on_use:(fun _ -> incr opened)
                               a b
                           else plain index)))
               in
@@ -183,7 +183,7 @@ let () =
                      (List.init 4 plain
                      @ [
                          P.sprite ~size:1.6 ~image:poster
-                           ~on_use:(fun () -> incr taken)
+                           ~on_use:(fun _ -> incr taken)
                            (Vec.make 2. 0.);
                        ]))
               in
@@ -191,6 +191,96 @@ let () =
                 (Aim.crosshair scene.Scene.targets scene.Scene.world east
                    ~was:None ~used:true);
               Alcotest.(check int) "the barrel in front of the wall" 1 !taken);
+        ] );
+      ( "where on it",
+        [
+          case "a wall is told where the crosshair landed on it" (fun () ->
+              (* What marking a wall needs, and the only thing the old chalk
+                 demo reached into Sight for. *)
+              let seen = ref None in
+              let scene =
+                Mount.build
+                  (world_of
+                     (List.init 4 (fun index ->
+                          let a, b = side index in
+                          if index = 1 then
+                            P.wall ~height ~material:stone
+                              ~on_use:(fun spot -> seen := Some spot)
+                              a b
+                          else plain index)))
+              in
+              ignore
+                (Aim.crosshair scene.Scene.targets scene.Scene.world east
+                   ~was:None ~used:true);
+              match !seen with
+              | None -> Alcotest.fail "the east wall was not told"
+              | Some { Aim.where = Aim.On_wall { along; z; _ }; distance; _ } ->
+                  (* Facing due east from the middle of a room reaching four
+                     cells: the wall is four away, and the eye is half a cell
+                     up, which is where a level ray meets it. *)
+                  Alcotest.check close "how far" 4. distance;
+                  Alcotest.check close "how high up the wall" Config.eye_height
+                    z;
+                  (* The wall runs from (4,-4) to (4,4), so the middle of it is
+                     four cells along. *)
+                  Alcotest.check close "how far along it" 4. along
+              | Some _ -> Alcotest.fail "a wall should report where on it");
+          case "a sprite has no where to report" (fun () ->
+              let seen = ref None in
+              let scene =
+                Mount.build
+                  (world_of
+                     (List.init 4 plain
+                     @ [
+                         P.sprite ~size:1.6 ~image:poster
+                           ~on_use:(fun spot -> seen := Some spot.Aim.where)
+                           (Vec.make 2. 0.);
+                       ]))
+              in
+              ignore
+                (Aim.crosshair scene.Scene.targets scene.Scene.world east
+                   ~was:None ~used:true);
+              Alcotest.(check bool)
+                "a picture that turns to face you has no coordinate" true
+                (!seen = Some Aim.On_sprite));
+          case "a mark can be left where the crosshair was" (fun () ->
+              (* The chalk demo, without a rebuild anybody had to write: the
+                 component keeps a list of marks and describes them as decals,
+                 and the wall they are on is the wall that was told. *)
+              let chalk =
+                Element.declare ~name:"chalk" @@ fun () ->
+                let marks, set_marks = Hook.use_state [] in
+                world_of
+                  (List.init 4 (fun index ->
+                       let a, b = side index in
+                       if index = 1 then
+                         P.wall ~height ~material:stone
+                           ~on_use:(fun spot ->
+                             match spot.Aim.where with
+                             | Aim.On_wall { along; z; _ } ->
+                                 set_marks ((along, z) :: marks)
+                             | _ -> ())
+                           ~decals:
+                             (List.map
+                                (fun (along, z) ->
+                                  P.decal ~along ~z ~half_width:0.2
+                                    ~half_height:0.2 poster)
+                                marks)
+                           a b
+                       else plain index))
+              in
+              let mount = Mount.create () in
+              let render () = Mount.render mount (chalk ()) in
+              let decals scene =
+                List.length
+                  (Room.wall_at (World.room scene.Scene.world 0) 1).Room.decals
+              in
+              let scene = render () in
+              Alcotest.(check int) "a clean wall" 0 (decals scene);
+              ignore
+                (Aim.crosshair scene.Scene.targets scene.Scene.world east
+                   ~was:None ~used:true);
+              Alcotest.(check int) "and a mark on it" 1 (decals (render ())));
         ] );
       ( "a door that opens itself",
         [
@@ -221,7 +311,7 @@ let () =
                             ];
                           doorway
                             ?door:(if shut then Some leaf else None)
-                            ~on_use:(fun () -> set_shut (not shut))
+                            ~on_use:(fun _ -> set_shut (not shut))
                             ~name:"east" ~width:2. ~opening:2.5 ~height
                             ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.);
                         ];
