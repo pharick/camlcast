@@ -20,7 +20,7 @@
     the barrels turn amber — they are in {e your} room now, and this demo will
     not take them. That rule is the demo's, not the engine's:
     {!Camlcast_core.Sight} reports how many doorways it looked through and
-    {!collectable} is where the "at least one" is written down. The engine has
+    {!may_take} is where the "at least one" is written down. The engine has
     no notion of a thing worth collecting, only of the sprite that happens to be
     one.
 
