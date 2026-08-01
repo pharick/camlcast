@@ -78,6 +78,7 @@
   :standard
   \
   support
+  test_loom
   test_patterns
   test_pictures
   test_level
@@ -87,6 +88,22 @@
  (deps
   (glob_files fixtures/*))
  (libraries camlcast alcotest support))
+
+; The runtime's own, and a stanza to itself for the same reason loom's dune has
+; an empty (libraries) line. A suite sitting in the engine's stanza would link
+; camlcast, and could then come to lean on it without anyone noticing — at which
+; point the independence is a thing to remember rather than a thing the build
+; will not let you break. Support is absent for that reason too: it is built on
+; the engine's types, and a host made of strings has no use for a Vec testable.
+;
+; It belongs to the camlcast package because camlcast.loom does. `-p camlcast
+; @runtest` runs it; `-p camlcast-demo @runtest` does not.
+
+(tests
+ (names test_loom)
+ (modules test_loom)
+ (package camlcast)
+ (libraries camlcast_loom alcotest qcheck-alcotest))
 
 ; The demos'. Their art comes in through Asset rather than by relative path,
 ; which is why the whole of assets/ is a dependency: test_demos builds every

@@ -89,4 +89,17 @@ val to_string : t -> string
 
     Steps with neither a name nor a key are dropped rather than printed as bare
     numbers: a wall is the fourth child of its room, and saying so helps nobody.
-    A path with nothing named anywhere along it prints as ["(root)"]. *)
+    A path with nothing named anywhere along it prints as ["(root)"].
+
+    This is the form to show a game developer, and it is lossy on purpose. Use
+    {!to_debug_string} for one that is not. *)
+
+val to_debug_string : t -> string
+(** Every step, joined by ["/"], keeping the ones {!to_string} drops: a named
+    step by its name, an unnamed keyed one by its key, and an unnamed unkeyed
+    one by its index behind a ["#"].
+
+    {v plaza/#3/torch[north]/#0 v}
+
+    Two different places never print the same way here, which is what a trace of
+    a frame needs and what makes it worth having a second spelling at all. *)

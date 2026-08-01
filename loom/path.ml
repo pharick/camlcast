@@ -50,3 +50,18 @@ let to_string t =
   match List.filter_map show_step (steps t) with
   | [] -> "(root)"
   | shown -> String.concat " / " shown
+
+(* The index is only worth printing where nothing better identifies the step:
+   a key already says which of its siblings this is, and says it in the terms
+   the matching actually uses. *)
+let debug_step step =
+  match (step.name, step.key) with
+  | Some name, Some key -> name ^ "[" ^ key ^ "]"
+  | Some name, None -> name
+  | None, Some key -> "[" ^ key ^ "]"
+  | None, None -> "#" ^ string_of_int step.index
+
+let to_debug_string t =
+  match steps t with
+  | [] -> "(root)"
+  | steps -> String.concat "/" (List.map debug_step steps)
