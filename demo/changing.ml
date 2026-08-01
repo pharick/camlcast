@@ -25,13 +25,10 @@
     one room, six walls — and a game with a hundred rooms would replace only the
     ones with something moving in them. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
 
 let height = 4.
 let period = 6.
-
-type t = { elapsed : float; player : Player.t }
 
 (* The wall the sign hangs on, which is the one you are facing when you arrive.
    Its endpoints never move: only what is painted on it does. *)
@@ -41,71 +38,61 @@ let sw = Vec.make (-7.) (-6.)
 let se = Vec.make 7. (-6.)
 let ne = Vec.make 7. 6.
 let nw = Vec.make (-7.) 6.
+let coats = [| Surfaces.brick; Surfaces.panel; Surfaces.stone; Surfaces.tile |]
 
-(** The room as it stands at [phase], a fraction of the way round the cycle. *)
-let room ~phase =
+(** The world as it stands at [phase], a fraction of the way round the cycle.
+
+    The old version of this demo kept one authored world for the player to walk
+    in and replaced its room every frame with another for the renderer to draw.
+    It does not have to any more: the walls never move, and collision is a flat
+    question about wall segments that the floor plane takes no part in — so the
+    world described here is the world walked in, and there is only one of it. *)
+let at ~phase =
   let turn = phase *. 2. *. Float.pi in
-  let coats =
-    [| Surfaces.brick; Surfaces.panel; Surfaces.stone; Surfaces.tile |]
-  in
   let coat = coats.(int_of_float (phase *. 4.) mod 4) in
-  (* Two pictures alternating is a two-frame animation; the slide along the
-     wall is the same decal placed somewhere else. *)
-  let sign =
-    Room.decal
-      ~along:(6. +. (3.5 *. sin turn))
-      ~z:(1.8 +. (0.25 *. sin (turn *. 2.)))
-      ~half_width:0.9 ~half_height:0.9
-      (if Float.rem (phase *. 6.) 1. < 0.5 then Pictures.painting
-       else Pictures.poster)
-  in
-  let floor = Plane.horizontal (0.3 *. sin turn) in
-  let wall material a b = Room.wall ~height ~material a b in
-  Room.make
-    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-    ~ceiling:
-      (Room.roof
-         ~plane:(Plane.horizontal (height +. 0.5))
-         ~material:Surfaces.soffit)
-    ~sprites:
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:("room", Vec.make (-4.5) 0.)
       [
-        Room.sprite ~size:0.9 ~image:Pictures.barrel
-          (Vec.make 2. (2. *. sin turn));
-        Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 4. (-3.));
-      ]
-    [
-      wall Surfaces.stone sw se;
-      Room.wall ~height ~material:coat sign_wall_a sign_wall_b ~decals:[ sign ];
-      wall Surfaces.stone ne nw;
-      wall Surfaces.stone nw sw;
-    ]
+        room ~name:"room"
+          ~floor:
+            (floor
+               ~plane:(Plane.horizontal (0.3 *. sin turn))
+               ~material:Surfaces.ground)
+          ~ceiling:
+            (roof
+               ~plane:(Plane.horizontal (height +. 0.5))
+               ~material:Surfaces.soffit)
+          [
+            wall ~height ~material:Surfaces.stone sw se;
+            wall ~height ~material:coat sign_wall_a sign_wall_b
+              ~decals:
+                [
+                  (* Two pictures alternating is a two-frame animation; the
+                     slide along the wall is the same decal placed somewhere
+                     else. *)
+                  decal
+                    ~along:(6. +. (3.5 *. sin turn))
+                    ~z:(1.8 +. (0.25 *. sin (turn *. 2.)))
+                    ~half_width:0.9 ~half_height:0.9
+                    (if Float.rem (phase *. 6.) 1. < 0.5 then Pictures.painting
+                     else Pictures.poster);
+                ];
+            wall ~height ~material:Surfaces.stone ne nw;
+            wall ~height ~material:Surfaces.stone nw sw;
+            sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
+              (Vec.make 2. (2. *. sin turn));
+            sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
+              (Vec.make 4. (-3.));
+          ];
+      ])
 
-(** The world the demo starts from, and the one every frame is a replacement
-    into. Its one room is the cycle at rest. *)
-let world =
-  World.make
-    ~rooms:[ ("room", room ~phase:0.) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make (-4.5) 0.)
+(** The clock, and nothing else. Everything that changes is a function of it. *)
+let cycle =
+  Element.declare ~name:"cycle" @@ fun () ->
+  let elapsed, set_elapsed = Hook.use_state 0. in
+  Events.use_frame (fun ~dt -> set_elapsed (Float.rem (elapsed +. dt) period));
+  at ~phase:(elapsed /. period)
 
-let start = { elapsed = 0.; player = Player.spawn world }
-
-let update state ~dt ~motion ~actions:_ =
-  {
-    elapsed = Float.rem (state.elapsed +. dt) period;
-    player = Engine.step world state.player motion;
-  }
-
-(* The player walks in [world], whose floor is flat and whose walls never move,
-   so collision is against the room as authored. Only what is drawn changes. *)
-let view state =
-  let phase = state.elapsed /. period in
-  (World.replace_room world ~room:0 ~replacement:(room ~phase), state.player)
-
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update ~view ())
-      start
-  in
-  ending
+let world = (Mount.build (at ~phase:0.)).Scene.world
+let run window = Run.on window ~bindings:Bindings.escapable (cycle ())

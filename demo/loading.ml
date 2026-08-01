@@ -35,14 +35,13 @@
     relative to the executable rather than to this source tree. Set
     [CAMLCAST_ASSETS] to make it look somewhere else. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
+open Camlcast_core.Result_ext
 
 let height = 4.
 
-(* {!Camlcast_core.Texture.of_asset} and {!Camlcast_core.Image.of_asset} find the file
-   and read it in one step; the names here just say which kind this demo
-   means. *)
+(* {!Camlcast.Texture.of_asset} and {!Camlcast.Image.of_asset} find the file and
+   read it in one step; the names here just say which kind this demo means. *)
 let pattern = Texture.of_asset
 let picture = Image.of_asset
 
@@ -53,6 +52,17 @@ let air =
   Atmosphere.make ~haze:(Color.rgb 24 24 32) ~fog_distance:26.
     ~min_brightness:0.45 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.7
     ~directional:0.3 ()
+
+let flat = Plane.horizontal 0.
+let sw = Vec.make (-6.) (-4.)
+let se = Vec.make 6. (-4.)
+let ne = Vec.make 6. 4.
+let nw = Vec.make (-6.) 4.
+
+(* The wall you face, in halves, split at the middle. You spawn looking east,
+   where the engine's screen-right is +y — so the southern half is on your left
+   and the northern one on your right. *)
+let mid = Vec.make 6. 0.
 
 let build () =
   let* tiles = pattern "assets/tiles.png" in
@@ -67,69 +77,60 @@ let build () =
      overrule either of them with. *)
   let plaster = Color.rgb 198 190 176 and iron = Color.rgb 105 108 120 in
   let stone = Surfaces.solid (Patterns.stone ~color:(Color.rgb 150 146 140)) in
-  let sw = Vec.make (-6.) (-4.)
-  and se = Vec.make 6. (-4.)
-  and ne = Vec.make 6. 4.
-  and nw = Vec.make (-6.) 4. in
-  (* The wall you face, in halves, split at the middle. You spawn looking east,
-     where the engine's screen-right is +y — so the southern half is on your
-     left and the northern one on your right. *)
-  let mid = Vec.make 6. 0. in
   let print image =
-    [ Room.decal ~along:2.5 ~z:1.7 ~half_width:1.2 ~half_height:0.8 image ]
-  in
-  let screen material a b = Room.wall ~height:2.6 ~material a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      ~sprites:
-        [
-          Room.sprite ~size:1.9 ~image:figure (Vec.make 0.5 (-2.));
-          Room.sprite ~size:1.9 ~image:Pictures.figure (Vec.make 0.5 2.);
-        ]
-      [
-        Room.wall ~height ~material:stone sw se;
-        (* Left: everything on this side came out of a file, colour and all. *)
-        Room.wall ~height
-          ~material:(Material.make ~pattern:tiles)
-          se mid ~decals:(print poster);
-        (* Right: everything on this side is a function of u and v, and its
-           colours are the arguments that function was given. *)
-        Room.wall ~height
-          ~material:
-            (Surfaces.solid
-               (Patterns.brick ~color:plaster ~mortar:(Color.rgb 176 170 160)))
-          mid ne ~decals:(print Pictures.painting);
-        Room.wall ~height ~material:stone ne nw;
-        Room.wall ~height ~material:stone nw sw;
-        (* A pair of see-through screens, one from each source, each with a wall
-           behind it to reveal. *)
-        screen
-          (Material.make ~pattern:grille)
-          (Vec.make 4. (-3.4)) (Vec.make 4. (-0.6));
-        screen
-          (Surfaces.seen_through (Patterns.bars ~color:iron))
-          (Vec.make 4. 0.6) (Vec.make 4. 3.4);
-      ]
+    P.[ decal ~along:2.5 ~z:1.7 ~half_width:1.2 ~half_height:0.8 image ]
   in
   Ok
-    (World.make
-       ~rooms:[ ("room", room) ]
-       ~links:[] ~atmosphere:air
-       ~spawn:("room", Vec.make (-4.) 0.))
+    P.(
+      world ~atmosphere:air
+        ~spawn:("room", Vec.make (-4.) 0.)
+        [
+          room ~name:"room"
+            ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+            ~ceiling:
+              (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+            [
+              wall ~height ~material:stone sw se;
+              (* Left: everything on this side came out of a file, colour and
+                 all. *)
+              wall ~height
+                ~material:(Material.make ~pattern:tiles)
+                ~decals:(print poster) se mid;
+              (* Right: everything on this side is a function of u and v, and its
+                 colours are the arguments that function was given. *)
+              wall ~height
+                ~material:
+                  (Surfaces.solid
+                     (Patterns.brick ~color:plaster
+                        ~mortar:(Color.rgb 176 170 160)))
+                ~decals:(print Pictures.painting) mid ne;
+              wall ~height ~material:stone ne nw;
+              wall ~height ~material:stone nw sw;
+              (* A pair of see-through screens, one from each source, each with a
+                 wall behind it to reveal. *)
+              wall ~height:2.6
+                ~material:(Material.make ~pattern:grille)
+                (Vec.make 4. (-3.4)) (Vec.make 4. (-0.6));
+              wall ~height:2.6
+                ~material:(Surfaces.seen_through (Patterns.bars ~color:iron))
+                (Vec.make 4. 0.6) (Vec.make 4. 3.4);
+              sprite ~key:"read" ~size:1.9 ~image:figure (Vec.make 0.5 (-2.));
+              sprite ~key:"made" ~size:1.9 ~image:Pictures.figure
+                (Vec.make 0.5 2.);
+            ];
+        ])
 
-(** The world sits behind a [lazy] in the catalogue, so this runs the first time
-    something asks for it and not when the program starts. That is what keeps a
-    missing file from stopping [camlcast-demo --list] from listing the demos,
-    and it is why the failure below can afford to name the file. *)
-let world =
+(** The description sits behind a [lazy] for the same reason the world used to:
+    this runs the first time something asks for it and not when the program
+    starts, which is what keeps a missing file from stopping
+    [camlcast-demo --list] from listing the demos, and is why the failure below
+    can afford to name the file. *)
+let level =
   lazy
     (match build () with
-    | Ok world -> world
+    | Ok level -> level
     | Error (`Msg m) ->
         failwith ("the loading demo could not read its art: " ^ m))
 
-let run window = Engine.run_world window (Lazy.force world)
+let world = lazy (Mount.build (Lazy.force level)).Scene.world
+let run window = Run.on window (Lazy.force level)
