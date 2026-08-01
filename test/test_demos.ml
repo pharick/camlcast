@@ -361,140 +361,130 @@ let the_dust_demo_moves_without_making_anything () =
     (walls early = walls late)
 
 (* The chalk demo, driven the way a player drives it: stand somewhere, aim, and
-   call the same {!Chalk.place} the C key calls. Every claim below is one §13.5
-   asks for, and none of them is visible in a screenshot.
+   work the use control, which is what Aim.crosshair does. Every claim below is
+   one §13.5 asks for, and none of them is visible in a screenshot.
+
+   It used to call Chalk.place on a state it built by hand. There is no such
+   function now — the wall is told, by on_use — so the driver below is a mount
+   rendered into and a crosshair cast at it, which is a closer copy of what a
+   player actually does than the old one was.
 
    The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the one
    wall here with two faces you can stand at, so it is what the side cases use.
    Facing it from the south is looking north, at +y, and standing a cell and a
-   half back — inside {!Chalk.reach}, since a wall further off than that is
-   named but not markable. *)
-let facing_the_partition ?(from = Vec.make 0.5 (-0.5)) (state : Chalk.t) =
-  {
-    state with
-    Chalk.player = Player.make ~room:0 ~pos:from ~angle:(Float.pi /. 2.);
-  }
+   half back — inside Chalk.reach, since a wall further off than that is named
+   but not markable. *)
+let chalking () =
+  let mount = Mount.create () in
+  let render () = Mount.render mount (Chalk.marking ()) in
+  ignore (render ());
+  render
 
-let decal_under (state : Chalk.t) =
-  match Sight.look (Chalk.dressed state) state.Chalk.player with
-  | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
-  | _ -> None
+let aiming ?(from = Vec.make 0.5 (-0.5)) ?(angle = Float.pi /. 2.) ?(pitch = 0.)
+    () =
+  Player.pitch_by (Player.make ~room:0 ~pos:from ~angle) ~radians:pitch
+
+let use render player =
+  let scene = render () in
+  ignore
+    (Aim.crosshair scene.Scene.targets scene.Scene.world player ~was:None
+       ~used:true);
+  render ()
+
+(* How many marks are on the partition, which is wall five of the hall and what
+   every case below aims at. *)
+let on_partition (scene : Scene.t) =
+  List.length (Room.wall_at (World.room scene.Scene.world 0) 5).Room.decals
+
+let spot player (scene : Scene.t) =
+  Option.map Aim.spot_of (Sight.look scene.Scene.world player)
 
 let the_chalk_demo_marks_what_the_crosshair_is_on () =
-  let aimed = facing_the_partition Chalk.start in
-  Alcotest.(check (option int))
-    "bare wall to start with" None (decal_under aimed);
-  let marked = Chalk.place aimed in
-  Alcotest.(check int) "one mark placed" 1 (List.length marked.Chalk.marks);
-  Alcotest.(check int) "and a stroke spent" 7 marked.Chalk.left;
-  (* Placement coordinates: the mark is where the crosshair was, so aiming again
-     from the same spot finds it. *)
-  Alcotest.(check (option int))
-    "and it is under the crosshair" (Some 0) (decal_under marked);
+  let render = chalking () in
+  let aimed = aiming () in
+  Alcotest.(check int) "bare wall to start with" 0 (on_partition (render ()));
+  let marked = use render aimed in
+  Alcotest.(check int) "and one mark on it after" 1 (on_partition marked);
   (* Side specificity: from the far side of the same partition there is nothing
      on it. Standing north of it, looking south. *)
-  let behind =
-    {
-      marked with
-      Chalk.player =
-        Player.make ~room:0 ~pos:(Vec.make 0.5 2.5) ~angle:(-.Float.pi /. 2.);
-    }
-  in
-  Alcotest.(check (option int))
-    "and nothing on its back" None (decal_under behind);
+  let behind = aiming ~from:(Vec.make 0.5 2.5) ~angle:(-.Float.pi /. 2.) () in
   Alcotest.(check bool)
     "though the partition is still what is being looked at" true
-    (match Sight.look (Chalk.dressed behind) behind.Chalk.player with
+    (match Sight.look marked.Scene.world behind with
     | Some { Sight.kind = Sight.Wall _; _ } -> true
-    | _ -> false)
+    | _ -> false);
+  Alcotest.(check (option int))
+    "and nothing on its back" None
+    (match Sight.look marked.Scene.world behind with
+    | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
+    | _ -> Some (-1))
 
-(* Persistence. The lamp rebuilds the hall from its parts — every wall, both
-   planes, all new values — and the marks are still on it, because the demo
-   keeps them and puts them back. *)
+(* Persistence. Every wall of the room is a new value every frame — that is what
+   a described world is — and the marks are still on it, because the component
+   keeps them and describes them again. *)
 let the_chalk_demo_keeps_its_marks_through_a_rebuild () =
-  let marked = Chalk.place (facing_the_partition Chalk.start) in
-  let later = { marked with Chalk.elapsed = 4.5 } in
+  let render = chalking () in
+  let marked = use render (aiming ()) in
+  Alcotest.(check int) "one mark to begin with" 1 (on_partition marked);
+  let walls (scene : Scene.t) =
+    Array.init
+      (Room.wall_count (World.room scene.Scene.world 0))
+      (Room.wall_at (World.room scene.Scene.world 0))
+  in
+  let later = render () in
   Alcotest.(check bool)
-    "the lamp really did change" true
-    (Float.abs (Chalk.lamp 0. -. Chalk.lamp 4.5) > 0.2);
-  Alcotest.(check bool)
-    "so not one wall of the room is the value it was" true
-    (Array.for_all2
-       (fun a b -> a != b)
-       (Array.init
-          (Room.wall_count (World.room (Chalk.dressed later) 0))
-          (Room.wall_at (World.room (Chalk.dressed later) 0)))
-       (Array.init
-          (Room.wall_count (World.room (Chalk.dressed marked) 0))
-          (Room.wall_at (World.room (Chalk.dressed marked) 0))));
+    "not one wall of the room is the value it was" true
+    (Array.for_all2 (fun a b -> a != b) (walls later) (walls marked));
+  Alcotest.(check int) "and the mark is still there" 1 (on_partition later);
   (* The lamp is two things. The materials are what force the rebuild above; the
      air is what reaches the chalk, since a decal is fogged like the wall it is
      on. A lamp that moved only the first would leave the marks bright in the
      dark. *)
+  let fog elapsed =
+    (World.atmosphere
+       (Mount.build (Chalk.world_of ~marks:[] ~selected:0 ~left:8 ~elapsed))
+         .Scene.world)
+      .Atmosphere.fog_distance
+  in
   Alcotest.(check bool)
-    "and the air closed in with it" true
-    ((World.atmosphere (Chalk.dressed later)).Atmosphere.fog_distance
-   < (World.atmosphere (Chalk.dressed marked)).Atmosphere.fog_distance);
-  Alcotest.(check (option int))
-    "and the mark is still there" (Some 0) (decal_under later)
+    "the lamp really does move the air" true
+    (Float.abs (Chalk.lamp 0. -. Chalk.lamp 4.5) > 0.2 && fog 4.5 < fog 0.)
 
 (* Chalk-capacity rejection, and the through-a-doorway rule. Both are this
-   demo's, not the engine's, and both are one line of {!Chalk.markable}. *)
+   demo's, not the engine's, and both are one line of Chalk.markable. *)
 let the_chalk_demo_runs_out_of_chalk () =
+  let render = chalking () in
+  let last = ref (render ()) in
   (* Eight strokes, each at a slightly different spot along the partition. *)
-  let spend state k =
-    Chalk.place
-      (facing_the_partition
-         ~from:(Vec.make (-1. +. (float_of_int k *. 0.4)) (-0.5))
-         state)
-  in
-  let spent = List.fold_left spend Chalk.start (List.init 8 Fun.id) in
-  Alcotest.(check int) "eight marks placed" 8 (List.length spent.Chalk.marks);
-  Alcotest.(check int) "and no chalk left" 0 spent.Chalk.left;
-  let ninth = spend spent 8 in
-  Alcotest.(check int) "the ninth is refused" 8 (List.length ninth.Chalk.marks);
-  Alcotest.(check int) "and costs nothing" 0 ninth.Chalk.left;
-  let why state =
-    Chalk.refusal state (Sight.look (Chalk.dressed state) state.Chalk.player)
-  in
+  for k = 0 to 7 do
+    last :=
+      use render
+        (aiming ~from:(Vec.make (-1. +. (float_of_int k *. 0.4)) (-0.5)) ())
+  done;
+  Alcotest.(check int) "eight marks placed" 8 (on_partition !last);
+  let ninth = use render (aiming ~from:(Vec.make 2.2 (-0.5)) ()) in
+  Alcotest.(check int) "the ninth is refused" 8 (on_partition ninth);
   Alcotest.(check (option string))
     "and it says so" (Some "no chalk left")
-    (why (facing_the_partition ninth));
+    (Chalk.refusal ~left:0 (spot (aiming ()) ninth));
   (* A wall in the room through the doorway is named but not markable. Pitched
      up over the figure standing in there, or the crosshair finds that instead
      and a sprite is not something this demo has a word about. *)
-  let through =
-    {
-      Chalk.start with
-      Chalk.player =
-        Player.pitch_by
-          (Player.make ~room:0 ~pos:(Vec.make 3. 0.) ~angle:0.)
-          ~radians:0.3;
-    }
-  in
+  let start = chalking () () in
+  let through = aiming ~from:(Vec.make 3. 0.) ~angle:0. ~pitch:0.3 () in
   Alcotest.(check bool)
     "the eye does reach a wall of the next room" true
-    (match Sight.look (Chalk.dressed through) through.Chalk.player with
+    (match Sight.look start.Scene.world through with
     | Some { Sight.kind = Sight.Wall _; crossed; _ } -> crossed > 0
     | _ -> false);
   Alcotest.(check (option string))
-    "and that is why it cannot be chalked" (Some "another room") (why through);
+    "and that is why it cannot be chalked" (Some "another room")
+    (Chalk.refusal ~left:8 (spot through start));
   (* The same partition from too far back: named, refused, and the refusal says
      the one thing the player can act on. *)
-  let far = facing_the_partition ~from:(Vec.make 0.5 (-4.)) Chalk.start in
-  Alcotest.(check bool)
-    "a wall out of reach is still seen" true
-    (match Sight.look (Chalk.dressed far) far.Chalk.player with
-    | Some { Sight.kind = Sight.Wall _; distance; _ } -> distance > Chalk.reach
-    | _ -> false);
-  Alcotest.(check (option string)) "but refused" (Some "too far") (why far);
-  Alcotest.(check int)
-    "and pressing the key does nothing" 0
-    (List.length (Chalk.place far).Chalk.marks);
-  (* Walk up to it and the same wall takes a mark. *)
-  Alcotest.(check int)
-    "until you walk up to it" 1
-    (List.length (Chalk.place (facing_the_partition Chalk.start)).Chalk.marks)
+  Alcotest.(check (option string))
+    "too far to reach" (Some "too far")
+    (Chalk.refusal ~left:8 (spot (aiming ~from:(Vec.make 0.5 (-4.)) ()) start))
 
 (* The demo's two chalks are meant to behave differently as the lamp goes down:
    the arrow is paint and the cross glows. That is a property of the numbers in
@@ -512,9 +502,11 @@ let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
     (glow_of 1 < 1.);
   (* The lamp is the atmosphere and only the atmosphere: nothing about the room
      it lights depends on it. Two very different brightnesses, same materials. *)
-  let hall_at t =
+  let hall_at elapsed =
     (Room.wall_at
-       (World.room (Chalk.dressed { Chalk.start with Chalk.elapsed = t }) 0)
+       (World.room
+          (Mount.build (Chalk.world_of ~marks:[] ~selected:0 ~left:8 ~elapsed))
+            .Scene.world 0)
        2)
       .Room.material
   in

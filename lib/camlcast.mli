@@ -111,6 +111,14 @@ module Config = Camlcast_core.Config
     business — so the three things about a room a description does name are
     here, and {!P.floor}, {!P.roof} and {!P.open_sky} are how they are made. *)
 
+type lintel = Camlcast_core.Room.lintel = {
+  top : float;  (** how far the wall a doorway was cut into rises *)
+  material : Material.t;  (** and what the strip above the opening is made of *)
+}
+(** The wall over an opening. What {!P.threshold} hangs there, for the one case
+    {!P.doorway} will not do: a lintel of a different material from the wall
+    under it. *)
+
 type surface = Camlcast_core.Room.surface = {
   plane : Plane.t;
   material : Material.t;
