@@ -53,7 +53,20 @@ module Make (H : Host.HOST) : sig
       already holds, commits the result, and returns the scene the host
       assembled from it.
 
+      Effects run last, after the scene has been assembled — see {!Hook} for why
+      that is the only time they may — and cleanups run before setups, so a
+      component leaving and a component arriving in the same frame never overlap
+      on whatever they both hold.
+
       [trace], if given, is called with every mount, update and unmount as they
       happen, in the order they happen. Left out, nothing is recorded and
       nothing is spent recording it. *)
+
+  val dirty : t -> bool
+  (** Whether a setter has run since this root was last rendered.
+
+      Cleared at the start of every {!render} and set by {!Hook.use_state}'s
+      setter, wherever it was called from — an effect, an event handler, a
+      timer. A game that renders every frame regardless can ignore it; a menu
+      that would rather not rebuild a scene nothing has changed can ask. *)
 end
