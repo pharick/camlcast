@@ -182,16 +182,15 @@ let rec loop window game ~state ~actions ~previous =
          next one's length rather than falling outside every frame. *)
       loop window game ~state ~actions ~previous:now
 
-let with_window use =
+let with_window ?(title = Config.window_title) ?(width = Config.initial_width)
+    ?(height = Config.initial_height) use =
   with_resource
     (fun () -> Sdl.init Sdl.Init.(video + events))
     (fun () -> Sdl.quit ())
   @@ fun () ->
   with_resource
     (fun () ->
-      Sdl.create_window Config.window_title ~w:Config.initial_width
-        ~h:Config.initial_height
-        Sdl.Window.(shown + resizable))
+      Sdl.create_window title ~w:width ~h:height Sdl.Window.(shown + resizable))
     Sdl.destroy_window
   @@ fun handle ->
   with_resource (fun () -> Sdl.create_renderer handle) Sdl.destroy_renderer
@@ -211,11 +210,10 @@ let with_window use =
      replace the one in the ref; the finaliser frees whichever is current. It
      nests inside the renderer's release above because the texture behind it
      belongs to that renderer and must go first. *)
-  let width, height =
-    Renderer.internal_size ~width:Config.initial_width
-      ~height:Config.initial_height
+  let buffer_width, buffer_height = Renderer.internal_size ~width ~height in
+  let* initial =
+    Framebuffer.make renderer ~width:buffer_width ~height:buffer_height
   in
-  let* initial = Framebuffer.make renderer ~width ~height in
   let framebuffer = ref initial in
   Fun.protect
     ~finally:(fun () -> Framebuffer.destroy !framebuffer)

@@ -87,9 +87,22 @@ val game :
     nothing else could. *)
 
 val with_window :
-  (window -> ('a, [ `Msg of string ]) result) -> ('a, [ `Msg of string ]) result
+  ?title:string ->
+  ?width:int ->
+  ?height:int ->
+  (window -> ('a, [ `Msg of string ]) result) ->
+  ('a, [ `Msg of string ]) result
 (** Open a window, hand it to the given function, and close it again when that
     function is done with it — however it is done, error or exception included.
+
+    [title], [width] and [height] default to {!Config.window_title},
+    {!Config.initial_width} and {!Config.initial_height}, which is what every
+    call made before these existed still gets. They are here because a game
+    could not previously name its own window: {!Config} is compile-time
+    constants, and this function took no arguments at all, so every game built
+    on this engine opened a window called CamlCast. The field of view is still
+    in that position — it is read inside {!Viewport}, several calls below
+    anything a game can reach — and is not fixed here.
 
     Everything a frame needs is acquired here and released in reverse: SDL, the
     window, the renderer, relative mouse mode, and the buffer frames are drawn

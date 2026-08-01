@@ -362,10 +362,64 @@ let furnishing =
           lamp.Room.pos);
   ]
 
+(* {1 The pixels}
+
+   Two worlds that answer every accessor alike ought to draw alike, and up to
+   here that has been an argument rather than a measurement. This measures it.
+
+   Framebuffer.offscreen has no streaming texture behind it and
+   Renderer.draw_frame makes no SDL call, so a whole frame can be drawn and read
+   back with no window open. That is the engine's own testing trick, and it is
+   what makes the strongest available gate for this rewrite cost nothing: draw
+   the described world and the hand-built one from the same eye, and compare
+   every pixel. *)
+
+let render_from world player ~width ~height =
+  let buffer = Framebuffer.offscreen ~width ~height in
+  Renderer.draw_frame buffer world player;
+  buffer
+
+let differing_pixel one other ~width ~height =
+  let rec scan x y =
+    if y >= height then None
+    else if x >= width then scan 0 (y + 1)
+    else if Framebuffer.pixel one ~x ~y = Framebuffer.pixel other ~x ~y then
+      scan (x + 1) y
+    else Some (x, y)
+  in
+  scan 0 0
+
+(* Several angles, because one eye can miss a difference by facing away from
+   it: straight ahead, two turns into the corners, and most of the way round. *)
+let the_same_picture =
+  let width = 320 and height = 240 in
+  List.map
+    (fun angle ->
+      case
+        (Printf.sprintf "the described world draws the built one, facing %g"
+           angle) (fun () ->
+          let player = Player.make ~room:0 ~pos:(Vec.make (-4.5) 0.) ~angle in
+          let expected = render_from built player ~width ~height
+          and actual =
+            render_from (Mount.build described).Scene.world player ~width
+              ~height
+          in
+          match differing_pixel expected actual ~width ~height with
+          | None -> ()
+          | Some (x, y) ->
+              let colour buffer =
+                let c = Framebuffer.pixel buffer ~x ~y in
+                Printf.sprintf "#%02x%02x%02x" c.Color.r c.Color.g c.Color.b
+              in
+              Alcotest.failf "pixel (%d, %d) is %s and should be %s" x y
+                (colour actual) (colour expected)))
+    [ 0.; 0.7; 2.4; 4.1 ]
+
 let () =
   Alcotest.run "Stage"
     [
       ("the smallest game", the_smallest_game);
+      ("the same picture", the_same_picture);
       ("winding", winding);
       ("doorways", doorways);
       ("malformed", malformed);
