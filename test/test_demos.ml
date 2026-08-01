@@ -124,69 +124,96 @@ let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
         "a raised failure arrives as a message that still names the file" true
         (mentions message "assets/tiles.png")
 
-(* Growing is where a world is most easily broken, because open_doorway and
-   link are checking invariants the generator has to keep by hand. Walk the
-   corridor by growing from the far end over and over, and the result has to
-   still be a world every time. *)
+(* Growing is where a world was most easily broken, and the shape of the risk
+   has changed. The old corridor grew by surgery — open_doorway to give a dead
+   end a way on, add_room for what lay beyond it, link to join the two — and
+   every one of those checks an invariant the generator had to keep by hand.
+
+   A description grows by being longer. There is nothing to keep by hand, so
+   what is asserted is not that the surgery was done right but that the result
+   is a world: longer corridors, each of them checked, with no seam anywhere and
+   no threshold left leading nowhere. *)
 let growing_leaves_a_world_that_still_works () =
-  let world = ref Endless.world in
-  let count () = World.room_count !world in
-  let before = count () in
-  for _ = 1 to 8 do
-    let far = count () - 1 in
-    world :=
-      Endless.extend !world
-        (Player.make ~room:far ~pos:(Vec.make 0. 2.) ~angle:0.);
-    World.check !world;
+  let before = World.room_count Endless.world in
+  let longest = ref before in
+  for built = Endless.ahead to Endless.ahead + 8 do
+    let world = (Mount.build (Endless.corridor ~built)).Scene.world in
+    longest := World.room_count world;
+    World.check world;
     List.iter
       (fun (room, _, p) ->
         let portal : World.portal = Option.get p in
         Alcotest.check close "no seam appeared" 0.
-          (World.seam_gap !world ~room portal))
-      (doorways !world)
+          (World.seam_gap world ~room portal))
+      (doorways world);
+    (* Every room has a way back and a way on, and no threshold anywhere is left
+       leading nowhere. *)
+    List.iter
+      (fun (room, index, portal) ->
+        Alcotest.(check bool)
+          (Printf.sprintf "room %d threshold %d leads somewhere" room index)
+          true (portal <> None))
+      (doorways world)
   done;
   Alcotest.(check bool)
-    "the corridor is longer than it was" true
-    (count () > before);
-  (* Every room the player has walked through has a way back and a way on, and
-     no threshold anywhere is left leading nowhere. *)
-  List.iter
-    (fun (room, index, portal) ->
-      Alcotest.(check bool)
-        (Printf.sprintf "room %d threshold %d leads somewhere" room index)
-        true (portal <> None))
-    (doorways !world)
+    "the corridor is longer than it was" true (!longest > before)
 
 (* The trail demo builds a return route out of the crossings each frame reports,
    pushing one unless it undoes the one on top. Walking to the far end of the
    corridor and back again has to leave that route exactly as it was found —
    which is the whole point of a traversal trace, asserted over a few hundred
-   frames of walking rather than a single step. *)
+   frames of walking rather than a single step.
+
+   The route is the component's own state and nothing outside it can read it, so
+   what is counted here is what a player sees: one tick on the HUD per doorway
+   between here and the way out, in the colour the demo draws a route in. That
+   is a better thing to assert than the state anyway. *)
 let the_trail_demo_unwinds_its_own_route () =
-  let frame state forward =
-    Trail.update state ~dt:(1. /. 60.)
-      ~motion:{ Input.still with Input.forward }
-      ~actions:Input.untouched
+  let route = Color.rgb 235 200 110 in
+  let ticks (scene : Scene.t) =
+    List.length
+      (List.filter
+         (function Prim.Rect { color; _ } -> color = route | _ -> false)
+         scene.Scene.hud)
   in
-  let walk state ~forward ~frames =
-    List.fold_left (fun s _ -> frame s forward) state (List.init frames Fun.id)
+  let mount = Mount.create () in
+  let player = ref None and crossings = ref [] in
+  let frame forward =
+    let scene =
+      Mount.render mount
+        (Element.provide Events.context
+           { Events.still with Events.crossings = !crossings }
+           [ Trail.unwinding () ])
+    in
+    let walking =
+      match !player with
+      | Some walking -> walking
+      | None -> Player.spawn scene.Scene.world
+    in
+    let moved =
+      Engine.move scene.Scene.world walking { Input.still with Input.forward }
+    in
+    player := Some moved.Player.player;
+    crossings := Run.crossings_of scene moved;
+    scene
   in
+  let walk ~forward ~frames =
+    let last = ref (frame forward) in
+    for _ = 2 to frames do
+      last := frame forward
+    done;
+    !last
+  in
+  Alcotest.(check int) "nothing behind you to begin with" 0 (ticks (frame 0.));
+  let out = walk ~forward:0.15 ~frames:320 in
   Alcotest.(check int)
-    "nothing behind you to begin with" 0
-    (List.length Trail.start.Trail.stack);
-  let out = walk Trail.start ~forward:0.15 ~frames:320 in
-  Alcotest.(check int)
-    "walking east reaches the far chamber" 4 out.Trail.player.Player.room;
-  Alcotest.(check int)
-    "with four doorways on the way home" 4
-    (List.length out.Trail.stack);
+    "walking east reaches the far chamber" 4 (Option.get !player).Player.room;
+  Alcotest.(check int) "with four doorways on the way home" 4 (ticks out);
   (* Backwards down the same corridor, still facing the same way. *)
-  let home = walk out ~forward:(-0.15) ~frames:320 in
+  let home = walk ~forward:(-0.15) ~frames:320 in
   Alcotest.(check int)
-    "and back where it started" 0 home.Trail.player.Player.room;
-  Alcotest.(check int)
-    "with the route unwound to nothing" 0
-    (List.length home.Trail.stack)
+    "and back where it started" 0 (Option.get !player).Player.room;
+  Alcotest.(check int) "with the route unwound to nothing" 0 (ticks home)
 
 (* The loading demo is the one whose world is not a value in a source file: it
    is read off the disk when something forces it, through Asset and the two

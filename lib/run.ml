@@ -13,7 +13,7 @@ open Camlcast_core
    on rather than of whatever a ref happened to be holding. *)
 (* Indices out, names in: a doorway is what the description called it, not what
    assembling the description happened to number it. *)
-let named_crossings (scene : Scene.t) (movement : Player.movement) =
+let crossings_of (scene : Scene.t) (movement : Player.movement) =
   let world = scene.Scene.world in
   let doorway room threshold =
     (Room.threshold_at (World.room world room) threshold).Room.name
@@ -104,7 +104,7 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
               (carry scene ~was:state.room state.player)
               motion
           in
-          (movement.Player.player, named_crossings scene movement)
+          (movement.Player.player, crossings_of scene movement)
     in
     (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
        no logic of its own that could only be tested through a window. *)

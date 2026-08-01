@@ -84,6 +84,14 @@ val on :
     {!play} is this and {!with_window} together, and is what a game with one
     world to show wants. *)
 
+val crossings_of : Scene.t -> Player.movement -> Events.crossing list
+(** The doorways a step went through, by the names the description gave them.
+
+    What the loop hands a description as {!Events.crossings}, exposed for the
+    same reason {!carry} is: it is a function of values, and a test that walks a
+    player about should be able to ask it the same question the loop does rather
+    than a similar one it wrote itself. *)
+
 val carry : Scene.t -> was:string -> Player.t -> Player.t
 (** The same pose, in the room this scene calls [was].
 
