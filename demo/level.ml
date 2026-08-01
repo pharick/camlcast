@@ -39,315 +39,73 @@
     runs a state that has a world in it, and this is small enough to show the
     difference and large enough to need it. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
 
 (** A floor or ceiling of the level's usual materials. *)
-let ground plane = Room.floor ~plane ~material:Surfaces.ground
+let ground plane = P.floor ~plane ~material:Surfaces.ground
 
-let roof plane = Room.roof ~plane ~material:Surfaces.soffit
+let roofed plane = P.roof ~plane ~material:Surfaces.soffit
 
-(** The two leaves in the level, both hung open.
+(** The two leaves in the level, both hung open at rest.
 
-    Open is what they are at rest, not what they are for: {!update} works them
-    with the {b E} key, and a leaf that is shut is drawn and walked into like
-    any other wall. Starting them open is what keeps the level walkable end to
-    end before anyone has touched anything — shutting yourself out of somewhere
-    is a thing you should have to do on purpose.
+    Open is what they are at rest, not what they are for: the {b E} key works
+    whichever you are looking at, and a leaf that is shut is drawn and walked
+    into like any other wall. Starting them open is what keeps the level
+    walkable end to end before anyone has touched anything — shutting yourself
+    out of somewhere is a thing you should have to do on purpose.
 
     The oak one is between the hall and the cellar. The garden's is a steel
     grille, so shutting it leaves the plaza in plain sight through the bars and
-    entirely out of reach: {!Camlcast_core.Material} decides what you can see
-    through and {!Camlcast_core.Door} decides what you can walk through, and
-    this is the one place in the level where those two answers differ.
+    entirely out of reach: {!Camlcast.Material} decides what you can see through
+    and {!Camlcast.Door} decides what you can walk through, and this is the one
+    place in the level where those two answers differ.
 
-    Each is one value hung in {e both} thresholds of its link, because
-    {!Camlcast_core.World.set_door} changes a door on both sides at once and
-    {!Camlcast_core.World.check} refuses a world whose two halves disagree. Note
-    that {!Camlcast_core.Door.make} defaults to shut, so open is asked for. *)
-let cellar_door = Door.make ~state:Door.Open Surfaces.oak
+    Both sides of a link ask this with the same name, so they cannot disagree —
+    which is what World.set_door used to have to keep in step and now nobody
+    does. *)
+let leaf material ~shut =
+  Door.make ~state:(if shut then Door.Closed else Door.Open) material
 
-let garden_gate = Door.make ~state:Door.Open Surfaces.grille
+let cellar_leaf = leaf Surfaces.oak
+let garden_leaf = leaf Surfaces.grille
 
-let default =
-  (* Doorways are cut with {!Camlcast_core.Room.doorway}, which splits the wall and
-     returns the jambs alongside the threshold, so an opening and the wall it is
-     cut into can never drift apart. *)
-  let plaza_corner k =
-    let angle = float_of_int k *. Float.pi /. 6. in
-    Vec.make (11. *. cos angle) (11. *. sin angle)
-  in
-  let plaza_side k =
-    Room.wall ~height:7. ~material:Surfaces.stone (plaza_corner k)
-      (plaza_corner ((k + 1) mod 12))
-  in
-  let plaza_gate ?door name k =
-    Room.doorway ?door ~name ~width:2.4 ~opening:2.6 ~height:7.
-      ~material:Surfaces.stone (plaza_corner k)
-      (plaza_corner ((k + 1) mod 12))
-  in
-  let east_jambs, plaza_east = plaza_gate "east" 0
-  and north_jambs, plaza_north = plaza_gate "north" 3
-  and west_jambs, plaza_west = plaza_gate ~door:garden_gate "west" 6 in
-  let hall_jambs, hall_west =
-    Room.doorway ~name:"west" ~width:2.4 ~opening:2.6 ~height:4.5
-      ~material:Surfaces.brick (Vec.make 0. 5.) (Vec.make 0. (-5.))
-  and hall_door_jambs, hall_cellar =
-    Room.doorway ~name:"cellar" ~door:cellar_door ~width:1.6 ~opening:2.2
-      ~height:4.5 ~material:Surfaces.brick (Vec.make 6. (-5.)) (Vec.make 6. 5.)
-  in
-  let nook_jambs, nook_south =
-    Room.doorway ~name:"south" ~width:2.4 ~opening:2.6 ~height:3.2
-      ~material:Surfaces.tile (Vec.make (-3.) 0.) (Vec.make 3. 0.)
-  in
-  (* The garden's side of the gate is cut by hand rather than with
-     {!Camlcast_core.Room.doorway}, for the one thing that does not do: a lintel of a
-     material other than the wall's. The strip left standing over this opening is
-     brick where the wall either side of it is stone, which is what makes it read
-     as a transom rather than as more wall. Splitting about the middle keeps both
-     jambs wound the way the boundary is, which is what the link is derived from.
-     The plaza's side is a plain doorway, so the two rooms disagree about what is
-     over the opening — as two rooms built by different hands would. *)
-  let garden_jambs, garden_east =
-    let a = Vec.make 0. (-5.) and b = Vec.make 0. 5. in
-    let half = Vec.scale (Vec.sub b a) (2.4 /. (2. *. Vec.length (Vec.sub b a)))
-    and middle = Vec.scale (Vec.add a b) 0.5 in
-    let p = Vec.sub middle half and q = Vec.add middle half in
-    ( [
-        Room.wall ~height:7. ~material:Surfaces.stone a p;
-        Room.wall ~height:7. ~material:Surfaces.stone q b;
-      ],
-      Room.threshold ~name:"east" ~door:garden_gate ~height:2.6
-        ~lintel:{ Room.top = 7.; material = Surfaces.brick }
-        p q )
-  in
-  let cellar_jambs, cellar_up =
-    Room.doorway ~name:"up" ~door:cellar_door ~width:1.6 ~opening:2.2
-      ~height:2.8 ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.))
-  in
-  (* Room.across is the transform of a link, exactly as {!Camlcast_core.World.make}
-     will derive it, so a neighbour's floor can be built to meet this one
-     across the doorway. *)
-  let link = Room.across in
-  let plaza_floor = Plane.make ~a:0.06 ~b:0.03 ~c:0. in
-  let hall_floor = Plane.through (link plaza_east hall_west) plaza_floor in
-  let nook_floor = Plane.through (link plaza_north nook_south) plaza_floor in
-  let garden_floor = Plane.through (link plaza_west garden_east) plaza_floor in
-  let cellar_floor = Plane.through (link hall_cellar cellar_up) hall_floor in
-  let plaza =
-    let pillars =
-      (* Six square pillars ringed around the spawn, each a different height and
-         material, so you weave between them and see over the low ones. *)
-      let coats =
-        [| Surfaces.brick; Surfaces.panel; Surfaces.stone; Surfaces.tile |]
-      in
-      List.concat
-        (List.init 6 (fun k ->
-             let angle = float_of_int k *. Float.pi /. 3. in
-             let center = Vec.make (6. *. cos angle) (6. *. sin angle) in
-             let height = [| 3.5; 0.6; 2.2; 4.5; 1.3; 2.8 |].(k) in
-             Room.regular_polygon ~center ~radius:0.6 ~sides:4 ~rotation:0.6
-               ~height
-               ~material:coats.(k mod 4)))
-    and gallery =
-      (* A brick wall hung on both sides: a painting and a poster facing the
-         spawn, and on the back of it a lit sign.
+(* The plaza is a twelve-sided ring; its gates are cut into sides 0, 3 and 6. *)
+let plaza_corner k =
+  let angle = float_of_int k *. Float.pi /. 6. in
+  Vec.make (11. *. cos angle) (11. *. sin angle)
 
-         The sign is the only decal in the level that is neither [Front] nor
-         unlit. [Back] hangs it on the far face, so walking round the wall is
-         what finds it; [glow] lifts it clear of the light the rest of the wall
-         is under, which is how a thing that is meant to be its own light source
-         reads in a room lit from somewhere else. *)
-      [
-        Room.wall ~height:3.2 ~material:Surfaces.brick (Vec.make (-3.) (-4.))
-          (Vec.make 3. (-4.))
-          ~decals:
-            [
-              Room.decal ~along:2. ~z:1.6 ~half_width:0.9 ~half_height:0.9
-                Pictures.painting;
-              Room.decal ~along:4. ~z:1.6 ~half_width:0.7 ~half_height:0.9
-                Pictures.poster;
-              Room.decal ~facing:Room.Back ~glow:0.8 ~along:3. ~z:1.7
-                ~half_width:0.8 ~half_height:0.5 Pictures.poster;
-            ];
-      ]
-    and see_through =
-      (* A steel grille and a leaded window, each with something behind it. *)
-      [
-        Room.wall ~height:2. ~material:Surfaces.grille (Vec.make (-4.) 4.)
-          (Vec.make 1. 4.);
-        Room.wall ~height:2.6 ~material:Surfaces.window (Vec.make 3. 3.)
-          (Vec.make 6. 3.);
-      ]
-    in
-    Room.make
-      ~thresholds:[ plaza_east; plaza_north; plaza_west ]
-      ~floor:(ground plaza_floor)
-      ~ceiling:(Room.open_sky Surfaces.day)
-        (* Kept off the bearings of the three doorways (15, 105 and 195
-           degrees), so that from the spawn each opening is seen through rather
-           than blocked by something standing in front of it. *)
-      ~sprites:
-        [
-          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 2.2 (-1.8));
-          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.6 (-0.8));
-          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make (-3.5) 4.);
-          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 4.5 4.3);
-        ]
-      (List.concat
-         [
-           east_jambs;
-           north_jambs;
-           west_jambs;
-           List.map plaza_side [ 1; 2; 4; 5; 7; 8; 9; 10; 11 ];
-           pillars;
-           gallery;
-           see_through;
-         ])
-  and hall =
-    Room.make ~thresholds:[ hall_west; hall_cellar ]
-      ~floor:(ground hall_floor)
-        (* Not {!Camlcast_core.Plane.above}, which is the floor's own slope carried up
-         bodily and so a ceiling of fixed headroom. This one has a slope of its
-         own, steeper than the floor's, so the two diverge: the hall is 4 cells
-         high where you come in and rather more of that by the far wall, and you
-         can watch the roof climb away from you as you cross it. Nothing else in
-         the level does this — every other ceiling here is parallel to what it
-         is over. *)
-      ~ceiling:
-        (roof
-           (Plane.make
-              ~a:(Plane.gradient hall_floor (Vec.make 1. 0.) +. 0.05)
-              ~b:(Plane.gradient hall_floor (Vec.make 0. 1.))
-              ~c:(Plane.elevation hall_floor (Vec.make 0. 0.) +. 4.)))
-      ~sprites:
-        [ Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 3. (-2.)) ]
-      (List.concat
-         [
-           hall_jambs;
-           hall_door_jambs;
-           [
-             Room.wall ~height:4.5 ~material:Surfaces.brick (Vec.make 0. (-5.))
-               (Vec.make 6. (-5.));
-             Room.wall ~height:4.5 ~material:Surfaces.brick (Vec.make 6. 5.)
-               (Vec.make 0. 5.);
-             (* A low bench you see over. *)
-             Room.wall ~height:0.5 ~material:Surfaces.panel (Vec.make 3. (-4.))
-               (Vec.make 5. (-4.));
-           ];
-           Room.regular_polygon ~center:(Vec.make 4. 3.) ~radius:0.7 ~sides:4
-             ~rotation:0.3 ~height:4.5 ~material:Surfaces.tile;
-         ])
-  and nook =
-    Room.make ~thresholds:[ nook_south ] ~floor:(ground nook_floor)
-      ~ceiling:(roof (Plane.above nook_floor 2.9))
-      (nook_jambs
-      @ Room.path ~height:3.2 ~material:Surfaces.tile
-          [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ])
-  and garden =
-    Room.make ~thresholds:[ garden_east ]
-      ~floor:(ground garden_floor)
-        (* A sky of its own, and the only thing about the garden that is not the
-         plaza's. A {!Camlcast_core.Sky} belongs to the room it roofs, so two rooms
-         under two skies costs a second value and nothing else; the light on the
-         walls does not follow, because that is the world's one
-         {!Camlcast_core.Atmosphere} and it lights both. *)
-      ~ceiling:(Room.open_sky Surfaces.dusk)
-      ~sprites:
-        [
-          (* Held clear of the floor, which nothing else in the level is: a
-             sprite's [base] is where its feet are, and a barrel with its feet
-             at 1.6 is a barrel sitting on nothing. *)
-          Room.sprite ~base:1.6 ~size:0.9 ~image:Pictures.barrel
-            (Vec.make (-3.) 0.5);
-          (* Wider than it is tall — the one picture here that is — so it also
-             says that a sprite is sized by its height and takes its width from
-             the image. *)
-          Room.sprite ~base:0.9 ~size:0.5 ~image:Pictures.motes.(0)
-            (Vec.make (-5.) 2.);
-        ]
-      (List.concat
-         [
-           garden_jambs;
-           [
-             Room.wall ~height:7. ~material:Surfaces.stone (Vec.make 0. 5.)
-               (Vec.make (-8.) 5.);
-             Room.wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) 5.)
-               (Vec.make (-8.) (-5.));
-             Room.wall ~height:7. ~material:Surfaces.stone
-               (Vec.make (-8.) (-5.)) (Vec.make 0. (-5.));
-             (* A lone tall monolith. *)
-             Room.wall ~height:6. ~material:Surfaces.brick
-               (Vec.make (-6.) (-3.5)) (Vec.make (-4.5) (-4.5));
-           ];
-           (* A winding low wall you look over into the sky beyond. *)
-           Room.path ~height:0.5 ~material:Surfaces.panel
-             [
-               Vec.make (-7.) (-3.);
-               Vec.make (-2.) (-2.);
-               Vec.make (-4.) 1.;
-               Vec.make (-1.) 3.;
-               Vec.make (-6.) 4.;
-             ];
-         ])
-  and cellar =
-    Room.make ~thresholds:[ cellar_up ] ~floor:(ground cellar_floor)
-      ~ceiling:(roof (Plane.above cellar_floor 2.5))
-      ~sprites:
-        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2.5 0.) ]
-      (cellar_jambs
-      @ [
-          Room.wall ~height:2.8 ~material:Surfaces.stone (Vec.make 0. (-3.))
-            (Vec.make 5. (-3.));
-          Room.wall ~height:2.8 ~material:Surfaces.stone (Vec.make 5. (-3.))
-            (Vec.make 5. 3.);
-          Room.wall ~height:2.8 ~material:Surfaces.stone (Vec.make 5. 3.)
-            (Vec.make 0. 3.);
-        ])
-  in
-  World.make
-    ~rooms:
-      [
-        ("plaza", plaza);
-        ("hall", hall);
-        ("nook", nook);
-        ("garden", garden);
-        ("cellar", cellar);
-      ]
-    ~links:
-      [
-        (("plaza", "east"), ("hall", "west"));
-        (("plaza", "north"), ("nook", "south"));
-        (("plaza", "west"), ("garden", "east"));
-        (("hall", "cellar"), ("cellar", "up"));
-      ]
-    ~atmosphere:Surfaces.air
-    ~spawn:("plaza", Vec.make 0. 0.)
+let gate_width = 2.4
+let door_width = 1.6
 
-(** {1 The game around it} *)
+(* Every opening's two ends, worked out once. A floor is carried from one room
+   to its neighbour through the doorway they share, so both sides of every join
+   have to be nameable — and the garden's jambs are written by hand, which needs
+   them too. *)
+let plaza_east = P.opening ~width:gate_width (plaza_corner 0) (plaza_corner 1)
+let plaza_north = P.opening ~width:gate_width (plaza_corner 3) (plaza_corner 4)
+let plaza_west = P.opening ~width:gate_width (plaza_corner 6) (plaza_corner 7)
+let hall_west = P.opening ~width:gate_width (Vec.make 0. 5.) (Vec.make 0. (-5.))
 
-(** The cellar's index in {!default}, which the dust is put into by number
-    because {!Camlcast_core.World.replace_room} asks for one. Taken from the
-    world rather than written down, so re-ordering the rooms above cannot leave
-    this pointing at the plaza. *)
-let cellar_room =
-  match World.named default "cellar" with
-  | Some i -> i
-  | None -> invalid_arg "Level: no cellar to put the dust in"
+let hall_cellar =
+  P.opening ~width:door_width (Vec.make 6. (-5.)) (Vec.make 6. 5.)
 
-(** {2 Dust}
+let nook_south =
+  P.opening ~width:gate_width (Vec.make (-3.) 0.) (Vec.make 3. 0.)
 
-    The same idea as the {!Dust} demo and a quarter of the arithmetic, because
-    the cellar is small and dim and a dozen motes read where seventy would be
-    soup. Each one's place, size and fall come from its index alone, so the same
-    dust comes back on every run and there is nothing to carry between frames:
-    the state is a clock, and the motes are a function of it. The constants are
-    irrational and pairwise unrelated for the reason {!Pictures.mote} gives —
-    two that add to one put every mote on a diagonal.
+let garden_east =
+  P.opening ~width:gate_width (Vec.make 0. (-5.)) (Vec.make 0. 5.)
 
-    A mote that reaches the floor reappears at the ceiling, which is what makes
-    the fall endless with nothing remembering how far round it has been. *)
+let cellar_up = P.opening ~width:door_width (Vec.make 0. 3.) (Vec.make 0. (-3.))
 
+(* Each neighbour's floor is carried across the doorway rather than restated, so
+   no two rooms can disagree about where the ground is at a threshold they
+   share. Check reports a step in the floor at a doorway, and a plane carried
+   through one never has one. *)
+let plaza_floor = Plane.make ~a:0.06 ~b:0.03 ~c:0.
+let hall_floor = P.through ~from:plaza_east ~into:hall_west plaza_floor
+let nook_floor = P.through ~from:plaza_north ~into:nook_south plaza_floor
+let garden_floor = P.through ~from:plaza_west ~into:garden_east plaza_floor
+let cellar_floor = P.through ~from:hall_cellar ~into:cellar_up hall_floor
 let motes_count = 18
 let motes_period = 7.
 let fraction step k = Float.rem (float_of_int k *. step) 1.
@@ -364,110 +122,261 @@ let mote ~t k =
     0.4 *. (1.3 -. fall)
     *. sin (((t /. motes_period) +. fraction 0.6180339887 k) *. 6.3)
   in
-  Room.sprite ~base:(fall *. 2.2)
+  P.sprite ~key:(string_of_int k) ~base:(fall *. 2.2)
     ~size:(0.3 +. (0.35 *. fraction 0.7320508076 k))
     ~image:Pictures.motes.((k + int_of_float (t *. 7.)) mod frames)
     (Vec.make (spot.Vec.x +. drift) (spot.Vec.y +. (drift *. 0.6)))
 
-(** What the cellar was authored with, kept because
-    {!Camlcast_core.Room.with_sprites} {e replaces} the array rather than adding
-    to it: hand it only the motes and the figure standing down there disappears,
-    which looks like a fault in the renderer rather than a fault here. The
-    {!Dust} demo never meets this, its chamber having nothing else in it. *)
-let cellar_sprites =
-  let here = World.room default cellar_room in
-  List.init (Room.sprite_count here) (Room.sprite_at here)
-
-let dusty world ~t =
-  World.replace_room world ~room:cellar_room
-    ~replacement:
-      (Room.with_sprites
-         (World.room world cellar_room)
-         (cellar_sprites @ List.init motes_count (mote ~t)))
-
-type t = {
-  world : World.t;
-  player : Player.t;
-  elapsed : float;
-  refused : float;  (** seconds left of the "nothing within reach" flash *)
-}
-(** {2 The state}
-
-    A world of its own rather than {!default}, because working a door rebuilds
-    one — {!Camlcast_core.World.set_door} hands back a new world and the old one
-    is still the level at rest, which is what the tests read. *)
-
-let start =
-  { world = default; player = Player.spawn default; elapsed = 0.; refused = 0. }
-
-(** How far from the middle of an opening you have to be to work its leaf. Long
-    enough that you need not stand in the doorway — which matters, because a
-    door that shuts on the square you are standing in leaves you inside it. *)
-let reach = 3.2
-
-(** The doorway with a leaf in it that the player is nearest to, if they are
-    near enough to reach one. The {!Doors} demo does the same thing and says
-    more about why it is nearest-wins rather than what-you-are-looking-at. *)
-let nearest (world : World.t) (player : Player.t) =
-  Room.nearest_threshold ~within:reach
-    ~where:(fun t -> t.Room.door <> None)
-    (World.room world player.Player.room)
-    player.Player.pos
-
-let update state ~dt ~motion ~actions =
-  let player = Engine.step state.world state.player motion in
-  let elapsed = Float.rem (state.elapsed +. dt) motes_period
-  and fade = Float.max 0. (state.refused -. dt) in
-  match
-    (Input.pressed actions (Input.Key Key.e), nearest state.world player)
-  with
-  | false, _ -> { state with player; elapsed; refused = fade }
-  | true, None -> { state with player; elapsed; refused = 0.9 }
-  | true, Some threshold ->
-      let next =
-        match
-          (Room.threshold_at
-             (World.room state.world player.Player.room)
-             threshold)
-            .Room.door
-        with
-        | Some { Door.state = Door.Closed; _ } -> Door.Open
-        | _ -> Door.Closed
-      in
-      {
-        world =
-          World.set_door state.world ~room:player.Player.room ~threshold next;
-        player;
-        elapsed;
-        refused = fade;
-      }
-
-(** The dust is put in here rather than in {!update} because it is not state:
-    nothing about the motes survives a frame, and a world rebuilt in [view] is a
-    world the renderer sees and nothing else keeps. *)
-let view state = (dusty state.world ~t:state.elapsed, state.player)
+(** {1 The level} *)
 
 (** A crosshair that says what it is on, and nothing else. The colours are the
     {!Targets} demo's, because a reader who has seen that one should not have to
     learn a second vocabulary: a doorway reads blue, a hung picture violet, a
     plain wall amber, a sprite green, and the open sky white. *)
-let overlay fb state =
-  let r, g, b =
-    match Sight.look (fst (view state)) state.player with
-    | _ when state.refused > 0. -> (235, 80, 70)
-    | Some { Sight.kind = Sight.Doorway _; _ } -> (120, 170, 240)
-    | Some { Sight.kind = Sight.Wall { decal = Some _; _ }; _ } ->
-        (215, 130, 235)
-    | Some { Sight.kind = Sight.Sprite _; _ } -> (120, 230, 130)
-    | Some _ -> (235, 195, 100)
-    | None -> (245, 245, 245)
-  in
-  Paint.crosshair fb ~color:(Color.rgb r g b)
+let tint ~refused (aim : Aim.spot option) =
+  match aim with
+  | _ when refused > 0. -> Color.rgb 235 80 70
+  | Some { Aim.where = Aim.On_doorway; _ } -> Color.rgb 120 170 240
+  | Some { Aim.where = Aim.On_wall { decal = Some _; _ }; _ } ->
+      Color.rgb 215 130 235
+  | Some { Aim.where = Aim.On_sprite; _ } -> Color.rgb 120 230 130
+  | Some _ -> Color.rgb 235 195 100
+  | None -> Color.rgb 245 245 245
 
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update ~view ~overlay ())
-      start
+let at ~shut ~t ~aim ~refused ~work ~watch =
+  let door name material =
+    let is_shut = List.mem name shut in
+    ( material ~shut:is_shut,
+      (fun here -> watch (if here then Some name else None)),
+      fun _ -> work name )
   in
-  ending
+  let cellar_door, cellar_gaze, cellar_use = door "cellar" cellar_leaf in
+  let garden_door, garden_gaze, garden_use = door "gate" garden_leaf in
+  (* The garden's own ends, not the plaza's. Two rooms have no coordinates in
+     common, which is the whole point of a world of linked rooms — and using the
+     wrong pair here put a three-quarter-cell step in the floor at the gate,
+     which is what the seam check is for and what it found. *)
+  let garden_p, garden_q = garden_east in
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:("plaza", Vec.make 0. 0.)
+      [
+        room ~name:"plaza" ~floor:(ground plaza_floor)
+          ~ceiling:(open_sky Surfaces.day)
+          ([
+             doorway ~name:"east" ~width:gate_width ~opening:2.6 ~height:7.
+               ~material:Surfaces.stone (plaza_corner 0) (plaza_corner 1);
+             doorway ~name:"north" ~width:gate_width ~opening:2.6 ~height:7.
+               ~material:Surfaces.stone (plaza_corner 3) (plaza_corner 4);
+             doorway ~name:"west" ~door:garden_door ~on_gaze:garden_gaze
+               ~on_use:garden_use ~width:gate_width ~opening:2.6 ~height:7.
+               ~material:Surfaces.stone (plaza_corner 6) (plaza_corner 7);
+           ]
+          @ List.map
+              (fun k ->
+                wall ~height:7. ~material:Surfaces.stone (plaza_corner k)
+                  (plaza_corner ((k + 1) mod 12)))
+              [ 1; 2; 4; 5; 7; 8; 9; 10; 11 ]
+          (* Six square pillars ringed around the spawn, each a different height
+             and material, so you weave between them and see over the low
+             ones. *)
+          @ List.init 6 (fun k ->
+              let angle = float_of_int k *. Float.pi /. 3. in
+              polygon
+                ~center:(Vec.make (6. *. cos angle) (6. *. sin angle))
+                ~radius:0.6 ~sides:4 ~rotation:0.6
+                ~height:[| 3.5; 0.6; 2.2; 4.5; 1.3; 2.8 |].(k)
+                ~material:
+                  [|
+                    Surfaces.brick;
+                    Surfaces.panel;
+                    Surfaces.stone;
+                    Surfaces.tile;
+                  |].(k mod 4))
+          @ [
+              (* A brick wall hung on both sides: a painting and a poster facing
+                 the spawn, and on the back of it a lit sign.
+
+                 The sign is the only decal in the level that is neither Front
+                 nor unlit. Back hangs it on the far face, so walking round the
+                 wall is what finds it; glow lifts it clear of the light the
+                 rest of the wall is under. *)
+              wall ~height:3.2 ~material:Surfaces.brick (Vec.make (-3.) (-4.))
+                (Vec.make 3. (-4.))
+                ~decals:
+                  [
+                    decal ~along:2. ~z:1.6 ~half_width:0.9 ~half_height:0.9
+                      Pictures.painting;
+                    decal ~along:4. ~z:1.6 ~half_width:0.7 ~half_height:0.9
+                      Pictures.poster;
+                    decal ~facing:Back ~glow:0.8 ~along:3. ~z:1.7
+                      ~half_width:0.8 ~half_height:0.5 Pictures.poster;
+                  ];
+              (* A steel grille and a leaded window, each with something behind
+                 it. *)
+              wall ~height:2. ~material:Surfaces.grille (Vec.make (-4.) 4.)
+                (Vec.make 1. 4.);
+              wall ~height:2.6 ~material:Surfaces.window (Vec.make 3. 3.)
+                (Vec.make 6. 3.);
+              (* Kept off the bearings of the three doorways, so that from the
+                 spawn each opening is seen through rather than blocked by
+                 something standing in front of it. *)
+              sprite ~key:"barrel-a" ~size:0.9 ~image:Pictures.barrel
+                (Vec.make 2.2 (-1.8));
+              sprite ~key:"figure-a" ~size:1.8 ~image:Pictures.figure
+                (Vec.make 2.6 (-0.8));
+              sprite ~key:"figure-b" ~size:1.8 ~image:Pictures.figure
+                (Vec.make (-3.5) 4.);
+              sprite ~key:"barrel-b" ~size:0.9 ~image:Pictures.barrel
+                (Vec.make 4.5 4.3);
+            ]);
+        room ~name:"hall"
+          ~floor:(ground hall_floor)
+            (* Not Plane.above, which is the floor's own slope carried up bodily
+             and so a ceiling of fixed headroom. This one has a slope of its
+             own, steeper than the floor's, so the two diverge: the hall is 4
+             cells high where you come in and rather more of that by the far
+             wall. Nothing else in the level does this. *)
+          ~ceiling:
+            (roofed
+               (Plane.make
+                  ~a:(Plane.gradient hall_floor (Vec.make 1. 0.) +. 0.05)
+                  ~b:(Plane.gradient hall_floor (Vec.make 0. 1.))
+                  ~c:(Plane.elevation hall_floor (Vec.make 0. 0.) +. 4.)))
+          [
+            doorway ~name:"west" ~width:gate_width ~opening:2.6 ~height:4.5
+              ~material:Surfaces.brick (Vec.make 0. 5.) (Vec.make 0. (-5.));
+            doorway ~name:"cellar" ~door:cellar_door ~on_gaze:cellar_gaze
+              ~on_use:cellar_use ~width:door_width ~opening:2.2 ~height:4.5
+              ~material:Surfaces.brick (Vec.make 6. (-5.)) (Vec.make 6. 5.);
+            wall ~height:4.5 ~material:Surfaces.brick (Vec.make 0. (-5.))
+              (Vec.make 6. (-5.));
+            wall ~height:4.5 ~material:Surfaces.brick (Vec.make 6. 5.)
+              (Vec.make 0. 5.);
+            (* A low bench you see over. *)
+            wall ~height:0.5 ~material:Surfaces.panel (Vec.make 3. (-4.))
+              (Vec.make 5. (-4.));
+            polygon ~center:(Vec.make 4. 3.) ~radius:0.7 ~sides:4 ~rotation:0.3
+              ~height:4.5 ~material:Surfaces.tile;
+            sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
+              (Vec.make 3. (-2.));
+          ];
+        room ~name:"nook" ~floor:(ground nook_floor)
+          ~ceiling:(roofed (Plane.above nook_floor 2.9))
+          [
+            doorway ~name:"south" ~width:gate_width ~opening:2.6 ~height:3.2
+              ~material:Surfaces.tile (Vec.make (-3.) 0.) (Vec.make 3. 0.);
+            path ~height:3.2 ~material:Surfaces.tile
+              [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ];
+          ];
+        room ~name:"garden"
+          ~floor:(ground garden_floor)
+            (* A sky of its own, and the only thing about the garden that is not
+             the plaza's. A Sky belongs to the room it roofs, so two rooms under
+             two skies costs a second value and nothing else; the light on the
+             walls does not follow, because that is the world's one Atmosphere
+             and it lights both. *)
+          ~ceiling:(open_sky Surfaces.dusk)
+          [
+            (* The garden's side of the gate is written by hand rather than cut,
+               for the one thing P.doorway will not do: a lintel of a material
+               other than the wall's. The strip left standing over this opening
+               is brick where the wall either side of it is stone, which is what
+               makes it read as a transom rather than as more wall. The plaza's
+               side is a plain doorway, so the two rooms disagree about what is
+               over the opening — as two rooms built by different hands would. *)
+            wall ~height:7. ~material:Surfaces.stone (Vec.make 0. (-5.))
+              garden_p;
+            wall ~height:7. ~material:Surfaces.stone garden_q (Vec.make 0. 5.);
+            threshold ~name:"east" ~door:garden_door ~on_gaze:garden_gaze
+              ~on_use:garden_use ~height:2.6
+              ~lintel:{ top = 7.; material = Surfaces.brick }
+              garden_p garden_q;
+            wall ~height:7. ~material:Surfaces.stone (Vec.make 0. 5.)
+              (Vec.make (-8.) 5.);
+            wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) 5.)
+              (Vec.make (-8.) (-5.));
+            wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) (-5.))
+              (Vec.make 0. (-5.));
+            (* A lone tall monolith. *)
+            wall ~height:6. ~material:Surfaces.brick (Vec.make (-6.) (-3.5))
+              (Vec.make (-4.5) (-4.5));
+            (* A winding low wall you look over into the sky beyond. *)
+            path ~height:0.5 ~material:Surfaces.panel
+              [
+                Vec.make (-7.) (-3.);
+                Vec.make (-2.) (-2.);
+                Vec.make (-4.) 1.;
+                Vec.make (-1.) 3.;
+                Vec.make (-6.) 4.;
+              ];
+            (* Held clear of the floor, which nothing else in the level is: a
+               sprite's base is where its feet are, and a barrel with its feet
+               at 1.6 is a barrel sitting on nothing. *)
+            sprite ~key:"floating" ~base:1.6 ~size:0.9 ~image:Pictures.barrel
+              (Vec.make (-3.) 0.5);
+            (* Wider than it is tall — the one picture here that is — so it also
+               says that a sprite is sized by its height and takes its width
+               from the image. *)
+            sprite ~key:"mote" ~base:0.9 ~size:0.5 ~image:Pictures.motes.(0)
+              (Vec.make (-5.) 2.);
+          ];
+        room ~name:"cellar" ~floor:(ground cellar_floor)
+          ~ceiling:(roofed (Plane.above cellar_floor 2.5))
+          ([
+             doorway ~name:"up" ~door:cellar_door ~on_gaze:cellar_gaze
+               ~on_use:cellar_use ~width:door_width ~opening:2.2 ~height:2.8
+               ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.));
+             wall ~height:2.8 ~material:Surfaces.stone (Vec.make 0. (-3.))
+               (Vec.make 5. (-3.));
+             wall ~height:2.8 ~material:Surfaces.stone (Vec.make 5. (-3.))
+               (Vec.make 5. 3.);
+             wall ~height:2.8 ~material:Surfaces.stone (Vec.make 5. 3.)
+               (Vec.make 0. 3.);
+             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
+               (Vec.make 2.5 0.);
+           ]
+          (* The dust. Where the old version had to keep the cellar's own
+             sprites and hand them back with the motes — with_sprites replaces
+             the array rather than adding to it, and handing it only the motes
+             made the figure disappear — a description simply says both. *)
+          @ List.init motes_count (mote ~t));
+        link ("plaza", "east") ("hall", "west");
+        link ("plaza", "north") ("nook", "south");
+        link ("plaza", "west") ("garden", "east");
+        link ("hall", "cellar") ("cellar", "up");
+        hud [ crosshair ~color:(tint ~refused aim) () ];
+      ])
+
+let default =
+  (Mount.build
+     (at ~shut:[] ~t:0. ~aim:None ~refused:0.
+        ~work:(fun _ -> ())
+        ~watch:(fun _ -> ())))
+    .Scene.world
+
+(** {1 The game around it} *)
+
+let showcase =
+  Element.declare ~name:"showcase" @@ fun () ->
+  let shut, set_shut = Hook.use_state [] in
+  let elapsed, set_elapsed = Hook.use_state 0. in
+  let refused, set_refused = Hook.use_state 0. in
+  (* Which door the crosshair is on, if it is on one. The old version found the
+     nearest opening with a leaf in it and worked that; a doorway is told now,
+     and this is only kept so that pressing E at nothing can say so. *)
+  let at_door, set_at_door = Hook.use_state None in
+  let aim = Events.use_aim () in
+  Events.use_frame (fun ~dt ->
+      set_elapsed (Float.rem (elapsed +. dt) motes_period);
+      if refused > 0. then set_refused (Float.max 0. (refused -. dt)));
+  Events.use_key_down Key.e (fun () -> if at_door = None then set_refused 0.9);
+  at ~shut ~t:elapsed ~aim ~refused
+    ~work:(fun name ->
+      set_shut
+        (if List.mem name shut then
+           List.filter (fun other -> other <> name) shut
+         else name :: shut))
+    ~watch:set_at_door
+
+let run window = Run.on window ~bindings:Bindings.escapable (showcase ())
