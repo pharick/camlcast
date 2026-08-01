@@ -97,6 +97,26 @@ val use_effect :
     [~deps:()] is the common case of "once, on mount". To run every frame
     instead, pass [~equal:(fun _ _ -> false)]. *)
 
+val use_context : 'a Context.t -> 'a
+(** The value the nearest enclosing {!Element.provide} bound for this context,
+    or the context's own default where there is none.
+
+    Claims no slot, because it answers the same way every render of a given
+    component — so unlike its neighbours above, it is harmless inside a
+    conditional. Write it unconditionally anyway; the rule is easier to keep
+    than to keep track of exceptions to. *)
+
+val use_invalidate : unit -> unit -> unit
+(** A function that tells this component's root it has work to do.
+
+    The seam for anything the runtime does not own: a store, a timer, a file
+    being watched. Take a subscription in a {!use_effect}, call this from the
+    callback, drop the subscription in the cleanup, and the outside world can
+    reach a frame without knowing what a frame is. {!Store} is exactly that and
+    nothing more.
+
+    Claims no slot, for the same reason {!use_context} does not. *)
+
 (** {1 The runtime side}
 
     Below is what {!Reconcile} needs to drive the above, and nothing a game
@@ -132,11 +152,13 @@ val run :
   slots:slots ->
   pending:pending ->
   at:string ->
+  env:Context.binding list ->
   invalidate:(unit -> unit) ->
   (unit -> 'a) ->
   'a
 (** Call a component's render with the hook effects handled against [slots].
 
-    [at] names the component in an exception, [invalidate] is what a setter
-    calls to say the tree has work to do. Raises {!Hook_order_changed} if this
-    render's hooks do not line up with the row as it stands. *)
+    [at] names the component in an exception, [env] is the context bindings in
+    force here — innermost first — and [invalidate] is what a setter calls to
+    say the tree has work to do. Raises {!Hook_order_changed} if this render's
+    hooks do not line up with the row as it stands. *)

@@ -48,6 +48,11 @@ type 'prim t =
   | Prim of { prim : 'prim; key : string option; children : 'prim t list }
       (** one of the host's own primitives — a wall, a sprite, a run of text —
           and whatever it contains *)
+  | Provide of { binding : Context.binding; children : 'prim t list }
+      (** a {!Context} value in force over these children, and no primitive of
+          its own. It flattens away when the frame is committed, exactly as a
+          fragment does; what it leaves behind is what its children could see
+          while they were being rendered. *)
   | Component : {
       render : 'props -> 'prim t;
       props : 'props;
@@ -65,6 +70,14 @@ val empty : 'prim t
 
 val fragment : 'prim t list -> 'prim t
 (** {!Fragment}. *)
+
+val provide : 'a Context.t -> 'a -> 'prim t list -> 'prim t
+(** [provide context value children] renders [children] with [context] bound to
+    [value], shadowing any binding further out.
+
+    A component reads it back with {!Hook.use_context}. Nothing subscribes and
+    nothing needs to: a description is rebuilt every frame, so a changed value
+    is simply what the next render sees. *)
 
 val prim : ?key:string -> ?children:'prim t list -> 'prim -> 'prim t
 (** [prim p] is the host primitive [p], with [children] under it and nothing by

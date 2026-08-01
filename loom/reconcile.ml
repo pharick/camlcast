@@ -20,6 +20,7 @@ module Make (H : Host.HOST) = struct
   type instance =
     | Nothing
     | Fragment of { path : Path.t; children : instance list }
+    | Provided of { path : Path.t; children : instance list }
     | Primitive of {
         path : Path.t;
         prim : H.prim;
@@ -58,7 +59,7 @@ module Make (H : Host.HOST) = struct
 
   let key_of = function
     | Primitive { key; _ } | Component { key; _ } -> key
-    | Nothing | Fragment _ -> None
+    | Nothing | Fragment _ | Provided _ -> None
 
   let path_for ~parent ~index element =
     Path.child parent ?key:(Element.key element) ?name:(Element.name element)
@@ -69,7 +70,8 @@ module Make (H : Host.HOST) = struct
   let rec unmount ~context instance =
     match instance with
     | Nothing -> ()
-    | Fragment { children; _ } -> List.iter (unmount ~context) children
+    | Fragment { children; _ } | Provided { children; _ } ->
+        List.iter (unmount ~context) children
     | Primitive { path; prim; children; _ } ->
         List.iter (unmount ~context) children;
         emit context (Trace.Unmounted (path, Trace.Primitive prim))
@@ -84,7 +86,7 @@ module Make (H : Host.HOST) = struct
 
   let same_key a b = Option.equal String.equal a b
 
-  let rec reconcile ~context ~path old element =
+  let rec reconcile ~context ~env ~path old element =
     match (old, element) with
     | _, Element.Empty ->
         unmount_opt ~context old;
@@ -94,7 +96,7 @@ module Make (H : Host.HOST) = struct
           {
             path;
             children =
-              reconcile_children ~context ~parent:path previous.children
+              reconcile_children ~context ~env ~parent:path previous.children
                 children;
           }
     | _, Element.Fragment children ->
@@ -102,7 +104,28 @@ module Make (H : Host.HOST) = struct
         Fragment
           {
             path;
-            children = reconcile_children ~context ~parent:path [] children;
+            children = reconcile_children ~context ~env ~parent:path [] children;
+          }
+    (* A binding is in force for the children only, so it is pushed on the way
+       down and gone on the way back up. Nothing subscribes to a context: the
+       description is rebuilt every frame, so a changed value is simply what the
+       next render reads. *)
+    | Some (Provided previous), Element.Provide { binding; children } ->
+        Provided
+          {
+            path;
+            children =
+              reconcile_children ~context ~env:(binding :: env) ~parent:path
+                previous.children children;
+          }
+    | _, Element.Provide { binding; children } ->
+        unmount_opt ~context old;
+        Provided
+          {
+            path;
+            children =
+              reconcile_children ~context ~env:(binding :: env) ~parent:path []
+                children;
           }
     | Some (Primitive previous), Element.Prim { prim; key; children }
       when same_key previous.key key ->
@@ -113,7 +136,7 @@ module Make (H : Host.HOST) = struct
             prim;
             key;
             children =
-              reconcile_children ~context ~parent:path previous.children
+              reconcile_children ~context ~env ~parent:path previous.children
                 children;
           }
     | _, Element.Prim { prim; key; children } ->
@@ -124,7 +147,7 @@ module Make (H : Host.HOST) = struct
             path;
             prim;
             key;
-            children = reconcile_children ~context ~parent:path [] children;
+            children = reconcile_children ~context ~env ~parent:path [] children;
           }
     (* The two component branches call [render] where they stand rather than
        through a shared helper. They cannot do otherwise: ['props] is
@@ -134,7 +157,9 @@ module Make (H : Host.HOST) = struct
       when previous.render_id == Obj.repr render && same_key previous.key key ->
         emit context (Trace.Updated (path, Trace.Component name));
         let slots = previous.slots in
-        let described = render_with_hooks ~context ~path ~slots render props in
+        let described =
+          render_with_hooks ~context ~env ~path ~slots render props
+        in
         Component
           {
             path;
@@ -143,7 +168,7 @@ module Make (H : Host.HOST) = struct
             name;
             slots;
             child =
-              reconcile ~context
+              reconcile ~context ~env
                 ~path:(path_for ~parent:path ~index:0 described)
                 (Some previous.child) described;
           }
@@ -151,7 +176,9 @@ module Make (H : Host.HOST) = struct
         unmount_opt ~context old;
         emit context (Trace.Mounted (path, Trace.Component name));
         let slots = Hook.slots () in
-        let described = render_with_hooks ~context ~path ~slots render props in
+        let described =
+          render_with_hooks ~context ~env ~path ~slots render props
+        in
         Component
           {
             path;
@@ -160,7 +187,7 @@ module Make (H : Host.HOST) = struct
             name;
             slots;
             child =
-              reconcile ~context
+              reconcile ~context ~env
                 ~path:(path_for ~parent:path ~index:0 described)
                 None described;
           }
@@ -170,16 +197,17 @@ module Make (H : Host.HOST) = struct
   and render_with_hooks :
       'props.
       context:context ->
+      env:Context.binding list ->
       path:Path.t ->
       slots:Hook.slots ->
       ('props -> element) ->
       'props ->
       element =
-   fun ~context ~path ~slots render props ->
+   fun ~context ~env ~path ~slots render props ->
     Hook.run ~slots ~pending:context.pending ~at:(Path.to_debug_string path)
-      ~invalidate:context.invalidate (fun () -> render props)
+      ~env ~invalidate:context.invalidate (fun () -> render props)
 
-  and reconcile_children ~context ~parent olds news =
+  and reconcile_children ~context ~env ~parent olds news =
     let olds = Array.of_list olds in
     (* [live] is what has not yet been claimed. Claiming empties a slot rather
        than removing it, so the leftovers at the end are still in the order they
@@ -222,7 +250,9 @@ module Make (H : Host.HOST) = struct
             | Some key -> take_keyed key
             | None -> take_unkeyed ()
           in
-          reconcile ~context ~path:(path_for ~parent ~index element) old element)
+          reconcile ~context ~env
+            ~path:(path_for ~parent ~index element)
+            old element)
         news
     in
     Array.iter (unmount_opt ~context) live;
@@ -234,7 +264,8 @@ module Make (H : Host.HOST) = struct
   let rec collect instance =
     match instance with
     | Nothing -> []
-    | Fragment { children; _ } -> List.concat_map collect children
+    | Fragment { children; _ } | Provided { children; _ } ->
+        List.concat_map collect children
     | Component { child; _ } -> collect child
     | Primitive { path; prim; children; _ } ->
         [ { Host.path; prim; children = List.concat_map collect children } ]
@@ -251,7 +282,7 @@ module Make (H : Host.HOST) = struct
       }
     in
     let path = path_for ~parent:Path.root ~index:0 element in
-    let tree = reconcile ~context ~path root.tree element in
+    let tree = reconcile ~context ~env:[] ~path root.tree element in
     root.tree <- Some tree;
     let scene = H.assemble (collect tree) in
     (* After the scene, never during a render: this is the seam where a

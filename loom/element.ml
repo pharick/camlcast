@@ -4,6 +4,7 @@ type 'prim t =
   | Empty
   | Fragment of 'prim t list
   | Prim of { prim : 'prim; key : string option; children : 'prim t list }
+  | Provide of { binding : Context.binding; children : 'prim t list }
   | Component : {
       render : 'props -> 'prim t;
       props : 'props;
@@ -14,6 +15,10 @@ type 'prim t =
 
 let empty = Empty
 let fragment children = Fragment children
+
+let provide context value children =
+  Provide { binding = Context.bind context value; children }
+
 let prim ?key ?(children = []) prim = Prim { prim; key; children }
 let component ?key ~name render props = Component { render; props; key; name }
 
@@ -25,8 +30,8 @@ let declare ~name render ?key props = Component { render; props; key; name }
 
 let key = function
   | Prim { key; _ } | Component { key; _ } -> key
-  | Empty | Fragment _ -> None
+  | Empty | Fragment _ | Provide _ -> None
 
 let name = function
   | Component { name; _ } -> Some name
-  | Empty | Fragment _ | Prim _ -> None
+  | Empty | Fragment _ | Prim _ | Provide _ -> None

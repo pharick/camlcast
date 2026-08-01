@@ -23,6 +23,8 @@ type _ Effect.t +=
       equal : 'd -> 'd -> bool;
     }
       -> unit Effect.t
+  | Use_context : 'a Context.t -> 'a Effect.t
+  | Use_invalidate : (unit -> unit) Effect.t
 
 let perform request =
   try Effect.perform request
@@ -36,6 +38,9 @@ let use_memo ?(equal = ( = )) ~deps compute =
 
 let use_effect ?(equal = ( = )) ~deps start =
   perform (Use_effect { start; deps; equal })
+
+let use_context context = perform (Use_context context)
+let use_invalidate () = perform Use_invalidate
 
 (* Slots. A tag says which hook made a cell, which is what turns most broken
    hook orders into an exception instead of a bad cast. See the interface for
@@ -123,7 +128,7 @@ let on_unmount pending slots =
       | None -> ()
   done
 
-let run ~slots ~pending ~at ~invalidate render =
+let run ~slots ~pending ~at ~env ~invalidate render =
   slots.cursor <- 0;
   let result =
     Effect.Deep.match_with render ()
@@ -194,6 +199,22 @@ let run ~slots ~pending ~at ~invalidate render =
                       end
                     end;
                     Effect.Deep.continue k ())
+            (* Neither of these claims a slot. Both answer the same thing every
+               render of a given component, so there is nothing to remember and
+               nothing a changed hook order could misalign. *)
+            | Use_context context ->
+                Some
+                  (fun (k : (a, _) Effect.Deep.continuation) ->
+                    let value =
+                      match Context.find env context with
+                      | Some bound -> bound
+                      | None -> Context.default context
+                    in
+                    Effect.Deep.continue k value)
+            | Use_invalidate ->
+                Some
+                  (fun (k : (a, _) Effect.Deep.continuation) ->
+                    Effect.Deep.continue k invalidate)
             | _ -> None);
       }
   in

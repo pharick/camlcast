@@ -215,7 +215,7 @@ let history_does_not_show =
             ])
   in
   QCheck2.Test.make ~count:500
-    ~name:"a root's history does not show in its scene"
+    ~name:"a stateless description does not remember its root's history"
     (Gen.pair element element) (fun (first, second) ->
       let used = R.create () in
       ignore (R.render used first);
@@ -434,10 +434,136 @@ let hook_order =
           Hook.Hook_outside_render (fun () -> ignore (Hook.use_state 0)));
   ]
 
+(* Two contexts of different types, to show that finding a binding also proves
+   what type it holds. Neither of these needs a cast to read back. *)
+let depth = Context.make 0
+let theme = Context.make "plain"
+
+let context =
+  let reader =
+    Element.declare ~name:"reader" @@ fun () ->
+    Element.prim (string_of_int (Hook.use_context depth))
+  in
+  let both =
+    Element.declare ~name:"both" @@ fun () ->
+    Element.prim
+      (Hook.use_context theme ^ "@" ^ string_of_int (Hook.use_context depth))
+  in
+  [
+    case "unprovided is the default" (fun () ->
+        Alcotest.check scene "nobody bound it" "0"
+          (scene_of (R.create ()) (reader ())));
+    case "a binding reaches the whole subtree" (fun () ->
+        Alcotest.check scene "through a room it was not passed by" "room\n  4"
+          (scene_of (R.create ())
+             (Element.provide depth 4 [ room [ reader () ] ])));
+    case "the nearest binding wins" (fun () ->
+        Alcotest.check scene "the inner one shadows the outer" "1\n2"
+          (scene_of (R.create ())
+             (Element.provide depth 1
+                [ reader (); Element.provide depth 2 [ reader () ] ])));
+    case "a binding ends where its children do" (fun () ->
+        Alcotest.check scene "the second reader is outside it" "5\n0"
+          (scene_of (R.create ())
+             (Element.fragment
+                [ Element.provide depth 5 [ reader () ]; reader () ])));
+    case "contexts of different types do not collide" (fun () ->
+        Alcotest.check scene "each read back at its own type" "dusk@3"
+          (scene_of (R.create ())
+             (Element.provide theme "dusk"
+                [ Element.provide depth 3 [ both () ] ])));
+    case "providing builds nothing of its own" (fun () ->
+        Alcotest.check scene "it flattens away like a fragment" "wall"
+          (scene_of (R.create ()) (Element.provide depth 9 [ wall ])));
+  ]
+
+(* A store of the shape a game would actually keep. *)
+type game = { score : int; paused : bool }
+type action = Scored of int | Toggle_pause
+
+let reducer state = function
+  | Scored points -> { state with score = state.score + points }
+  | Toggle_pause -> { state with paused = not state.paused }
+
+(* Declared once, as components must be: two of these built inside the cases
+   below would be two different components to the reconciler. *)
+let scoreboard =
+  Element.declare ~name:"scoreboard" @@ fun (game : (game, action) Store.t) ->
+  let score = Store.use_selector game (fun s -> s.score) in
+  Element.prim ("score=" ^ string_of_int score)
+
+let pause_light =
+  Element.declare ~name:"pause_light" @@ fun (game : (game, action) Store.t) ->
+  let paused = Store.use_selector game (fun s -> s.paused) in
+  Element.prim (if paused then "paused" else "running")
+
+let fresh () = Store.create ~reducer ~initial:{ score = 0; paused = false }
+
+let store =
+  [
+    case "a selector reads its slice, and a dispatch moves it" (fun () ->
+        let game = fresh () and root = R.create () in
+        Alcotest.check scene "starts where the store did" "score=0"
+          (scene_of root (scoreboard game));
+        Store.dispatch game (Scored 10);
+        Alcotest.check scene "and follows it" "score=10"
+          (scene_of root (scoreboard game)));
+    case "only the component whose slice moved asks for a frame" (fun () ->
+        let game = fresh () in
+        (* Two roots, because "dirty" is a question about a root. Each holds one
+           component, and the two read different slices. *)
+        let scores = R.create () and lights = R.create () in
+        ignore (run scores (scoreboard game));
+        ignore (run lights (pause_light game));
+        Alcotest.(check bool) "both settled" false (R.dirty scores);
+        Alcotest.(check bool) "both settled" false (R.dirty lights);
+        Store.dispatch game (Scored 5);
+        Alcotest.(check bool) "the scoreboard reads score" true (R.dirty scores);
+        Alcotest.(check bool) "the light does not" false (R.dirty lights));
+    case "an action that changes nothing it reads wakes nobody" (fun () ->
+        let game = fresh () and root = R.create () in
+        ignore (run root (scoreboard game));
+        Store.dispatch game (Scored 0);
+        Alcotest.(check bool) "the slice is where it was" false (R.dirty root);
+        Store.dispatch game Toggle_pause;
+        Alcotest.(check bool)
+          "and this one never touched it" false (R.dirty root));
+    case "the tree does not leak subscriptions" (fun () ->
+        let game = fresh () and root = R.create () in
+        Alcotest.(check int) "nothing yet" 0 (Store.subscriber_count game);
+        ignore (run root (room [ scoreboard game; scoreboard game ]));
+        Alcotest.(check int) "one each" 2 (Store.subscriber_count game);
+        ignore (run root (room [ scoreboard game ]));
+        Alcotest.(check int)
+          "the one that went, went" 1
+          (Store.subscriber_count game);
+        ignore (run root Element.empty);
+        Alcotest.(check int)
+          "and the tree is clean behind it" 0
+          (Store.subscriber_count game));
+    (let reducer_calls = ref 0 in
+     let counted state action =
+       incr reducer_calls;
+       reducer state action
+     in
+     case "the reducer is the only thing that writes" (fun () ->
+         let game =
+           Store.create ~reducer:counted ~initial:{ score = 1; paused = false }
+         in
+         reducer_calls := 0;
+         Store.dispatch game (Scored 2);
+         Store.dispatch game (Scored 3);
+         Alcotest.(check int) "once per dispatch" 2 !reducer_calls;
+         Alcotest.(check int)
+           "and the arithmetic is the reducer's" 6 (Store.state game).score));
+  ]
+
 let () =
   Alcotest.run "Loom"
     [
       ("mounting", mounting);
+      ("context", context);
+      ("store", store);
       ("keeping", keeping);
       ("keys", keys);
       ("state", state);
