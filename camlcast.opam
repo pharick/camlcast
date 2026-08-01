@@ -14,6 +14,8 @@ depends: [
   "tsdl"
   "tsdl-image"
   "alcotest" {with-test}
+  "qcheck-alcotest" {with-test}
+  "bechamel" {with-test}
   "ocaml-lsp-server" {with-dev-setup}
   "ocamlformat" {with-dev-setup & = "0.29.0"}
   "odoc" {with-doc}

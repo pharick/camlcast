@@ -8,7 +8,7 @@
 # with no environment variable and no rewriting of anything — which covers both
 # the link closure and the SDL2_image that tsdl-image dlopens by bare name. The
 # assets sit beside the binary too, which is the second of the roots
-# lib/asset.ml searches.
+# core/asset.ml searches.
 #
 # Only DLLs from /mingw64 are copied. The rest of what ldd reports lives in
 # C:\Windows\System32 and is part of the operating system.

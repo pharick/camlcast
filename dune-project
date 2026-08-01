@@ -24,11 +24,24 @@
   ; is a floor that is checked rather than one that is merely asserted.
   (ocaml (>= 5.1))
   tsdl
-  ; PNG and JPEG decoding for Surface, Image.load and Texture.load. It brings
+  ; PNG and JPEG decoding for Bitmap, Image.load and Texture.load. It brings
   ; SDL2_image and its codecs with it, which is the bulk of what a distributable
   ; bundle has to carry.
   tsdl-image
   (alcotest :with-test)
+  ; Properties, where the engine's own suites are examples. The two things the
+  ; declarative layer adds have invariants crisp enough to state outright —
+  ; mounting A and then B leaves the same instances as mounting B directly, an
+  ; auto-wound outline encloses positive area whatever order its points arrive
+  ; in — and those are worth checking against generated input rather than
+  ; against the handful of cases anyone thinks to write down.
+  (qcheck-alcotest :with-test)
+  ; The declarative layer assembles a World every frame where the old API built
+  ; one and kept it, so "is that too slow?" becomes a question this repo has to
+  ; be able to answer. It could not before: there is no benchmark here at all,
+  ; and the only performance numbers anywhere are a comment in demo/dust.ml.
+  ; bechamel needs nothing but fmt.
+  (bechamel :with-test)
   (ocaml-lsp-server :with-dev-setup)
   ; Pinned, and pinned to the same version .ocamlformat names: the formatting
   ; is a build check, and a check whose tool floats is one that fails on a

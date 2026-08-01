@@ -9,10 +9,10 @@ generated in the engine on purpose: a picture that came out of a paint program
 is exactly the case `Image.load` and `Texture.load` exist for, and one produced
 by the engine's own generators would prove less than it looked like it did.
 
-`test/fixtures/` is the input to `test_surface`, `test_image` and `test_texture`.
+`test/fixtures/` is the input to `test_bitmap`, `test_image` and `test_texture`.
 Those files matter for a subtler reason: **this encoder shares no code with the
 decoder under test.** It is the Python standard library's zlib and a PNG header
-written out by hand, so a channel swap or an off-by-one in `lib/surface.ml`
+written out by hand, so a channel swap or an off-by-one in `core/bitmap.ml`
 cannot be cancelled out by the same mistake here. Their pixel values are chosen
 to be distinct in every channel for that reason, and the OCaml tests assert them
 as literals.

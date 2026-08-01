@@ -147,7 +147,7 @@ and two games can share an engine without sharing a look.
 
 | directory | library         | what it is                                                     |
 | --------- | --------------- | -------------------------------------------------------------- |
-| `lib/`    | `camlcast`      | the engine: geometry, ray casting, rendering, SDL              |
+| `core/`   | `camlcast`      | the engine: geometry, ray casting, rendering, SDL              |
 | `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo` |
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
