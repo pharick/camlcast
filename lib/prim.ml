@@ -37,6 +37,7 @@ type t =
     }
   | Text of { x : int; y : int; text : string; color : Color.t; font : Font.t }
   | Picture of { x : int; y : int; image : Image.t; tint : Color.t option }
+  | Highlight of Color.t
   | Crosshair of Color.t
   | Cursor
   | Finish
@@ -57,6 +58,7 @@ let describe = function
   | Bar { x; y; _ } -> Printf.sprintf "bar at %d,%d" x y
   | Text { text; _ } -> Printf.sprintf "text %S" text
   | Picture { x; y; _ } -> Printf.sprintf "picture at %d,%d" x y
+  | Highlight _ -> "highlight"
   | Crosshair _ -> "crosshair"
   | Cursor -> "cursor"
   | Finish -> "finish"
@@ -75,5 +77,7 @@ let may_contain ~parent ~child =
   | World _, (Room _ | Link _ | Camera _ | Cursor | Finish | Hud) -> true
   | Room _, (Wall _ | Threshold _ | Sprite _) -> true
   | Wall _, Decal _ -> true
-  | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Crosshair _ | Hud) -> true
+  | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Highlight _ | Crosshair _ | Hud)
+    ->
+      true
   | _ -> false

@@ -50,6 +50,19 @@ type t = {
           Last frame's, because a description is rendered before the player is
           moved through the world it describes. One frame late, like
           {!type-t.viewport}, and for the same reason. *)
+  aim : Aim.spot option;
+      (** what the crosshair was on when the {e last} frame was drawn, and where
+          on it.
+
+          For a description that shows something about whatever is being looked
+          at without the thing itself having to say so — a prompt, a name, a
+          colour that changes. Where the thing itself should react, {!P.wall}'s
+          [on_gaze] is the better answer, because it is told and this has to be
+          asked.
+
+          One frame late, like {!type-t.viewport}, and for the same reason: a
+          description is rendered before the player has moved through the world
+          it describes. *)
   viewport : int * int;
       (** how many pixels wide and tall the buffer is, which is what a HUD
           places itself in.
@@ -89,6 +102,9 @@ val use : unit -> t
 
 val use_dt : unit -> float
 (** How long the last frame lasted. *)
+
+val use_aim : unit -> Aim.spot option
+(** What the crosshair was on when the last frame was drawn. *)
 
 val use_viewport : unit -> int * int
 (** How big the buffer is, for a HUD that would rather sit against an edge than

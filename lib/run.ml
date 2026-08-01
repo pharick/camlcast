@@ -46,6 +46,7 @@ type frame = {
   (* Last frame's, because a description is rendered before the player is moved
      through the world it describes. See Events.crossings. *)
   crossings : Events.crossing list;
+  aim : Aim.spot option;
   scene : Scene.t;
   map : bool;
   found : Check.t list;
@@ -84,6 +85,7 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
           motion;
           actions;
           crossings = state.crossings;
+          aim = state.aim;
           viewport = !viewport;
         }
     in
@@ -113,6 +115,12 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
         ~was:state.gazed
         ~used:(Input.pressed actions use)
     in
+    (* What the crosshair is on as a value, for a description that shows
+       something about whatever is being looked at without the thing itself
+       having to say so. Cast again rather than threaded out of Aim.crosshair,
+       which answers a different question and should go on answering only
+       that. *)
+    let aim = Option.map Aim.spot_of (Sight.look scene.Scene.world player) in
     {
       scene;
       map;
@@ -123,6 +131,7 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
       player;
       room = World.name scene.Scene.world player.Player.room;
       crossings;
+      aim;
       gazed = looking;
     }
   in
@@ -131,7 +140,9 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
   let pointing state = state.scene.Scene.pointing in
   let overlay buffer state =
     viewport := (buffer.Framebuffer.width, buffer.Framebuffer.height);
-    Overlay.draw buffer state.scene.Scene.hud;
+    Overlay.draw
+      ~aim:(state.scene.Scene.world, state.player)
+      buffer state.scene.Scene.hud;
     (* Over the game's own layer, because it is a thing you turn on to look
        under what is there rather than a thing the game drew. *)
     if state.map then
@@ -148,6 +159,7 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
       player;
       room = World.name first.Scene.world player.Player.room;
       crossings = [];
+      aim = None;
       map = false;
       found = [];
       gazed = None;

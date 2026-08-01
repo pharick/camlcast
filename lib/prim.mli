@@ -68,6 +68,7 @@ type t =
     }
   | Text of { x : int; y : int; text : string; color : Color.t; font : Font.t }
   | Picture of { x : int; y : int; image : Image.t; tint : Color.t option }
+  | Highlight of Color.t
   | Crosshair of Color.t
   | Cursor
       (** the description asking for the pointer. Present in a frame, the mouse

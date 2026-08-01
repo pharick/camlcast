@@ -108,3 +108,49 @@ let crosshair t world player ~was ~used =
      | Some { on_use = Some on_use; _ }, Some sight -> on_use (spot_of sight)
      | _ -> ());
   now
+
+let ring world player ~width ~height =
+  let here = World.room world player.Player.room in
+  let viewport =
+    Viewport.make ~pitch:player.Player.pitch
+      ~eye_z:
+        (Plane.elevation (Room.floor_plane here) player.Player.pos
+        +. Config.eye_height)
+      ~width ~height
+  in
+  let whole = List.filter_map Fun.id in
+  match Sight.look world player with
+  | Some { Sight.kind = Sight.Sprite s; room; pose; distance; _ } ->
+      let there = World.room world room in
+      let sprite = Room.sprite_at there s.index in
+      let left, top, right, bottom =
+        Viewport.sprite_box viewport pose
+          ~floor_z:(Plane.elevation (Room.floor_plane there) sprite.Room.pos)
+          ~distance sprite
+      in
+      Some [ (left, top); (right, top); (right, bottom); (left, bottom) ]
+  | Some { Sight.kind = Sight.Wall { index; decal = Some d; _ }; room; pose; _ }
+    ->
+      let there = World.room world room in
+      let wall = Room.wall_at there index in
+      let decal = List.nth wall.Room.decals d in
+      (* Where along the wall the picture starts and stops, as points on it. *)
+      let at along =
+        Vec.add wall.Room.a
+          (Vec.scale wall.Room.edge (along /. wall.Room.length))
+      in
+      let near = at (decal.Room.along -. decal.Room.half_width)
+      and far = at (decal.Room.along +. decal.Room.half_width) in
+      (* A decal hangs above the floor under the wall, so on a sloped one its two
+         ends are at different elevations — measured at each end, not once. *)
+      let corner point up =
+        let foot = Plane.elevation (Room.floor_plane there) point in
+        Viewport.project_point viewport pose ~point
+          ~z:(foot +. decal.Room.z +. (up *. decal.Room.half_height))
+      in
+      let corners =
+        whole
+          [ corner near 1.; corner far 1.; corner far (-1.); corner near (-1.) ]
+      in
+      if List.length corners = 4 then Some corners else None
+  | _ -> None

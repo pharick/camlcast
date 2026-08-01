@@ -46,8 +46,7 @@
     because a sprite is a cut-out and the pick is asked of the texel rather than
     the box. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
 
 let height = 4.
 
@@ -58,205 +57,136 @@ let air =
     ~min_brightness:0.4 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.65
     ~directional:0.35 ()
 
-type t = {
-  player : Player.t;
-  collected : (int * int) list;  (** room and sprite, of each one recorded *)
-}
+let flat = Plane.horizontal 0.
+let ground = P.floor ~plane:flat ~material:Surfaces.ground
+let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
 
-let barrel pos = Room.sprite ~size:1.2 ~image:Pictures.barrel pos
+(** Three of them, spread across the doorway's view: one square on, one to each
+    side, so turning the head picks a different one.
 
-let world =
-  let near_jambs, east =
-    Room.doorway ~name:"east" ~width:2.6 ~opening:2.8 ~height
-      ~material:Surfaces.brick (Vec.make 6. (-6.)) (Vec.make 6. 6.)
-  and far_jambs, west =
-    Room.doorway ~name:"west" ~width:2.6 ~opening:2.8 ~height
-      ~material:Surfaces.stone (Vec.make 0. 6.) (Vec.make 0. (-6.))
-  in
-  let wall material a b = Room.wall ~height ~material a b in
-  let floor = Plane.horizontal 0. in
-  let surfaces plane =
-    ( Room.floor ~plane ~material:Surfaces.ground,
-      Room.roof ~plane:(Plane.above plane height) ~material:Surfaces.soffit )
-  in
-  let ground, roof = surfaces floor in
-  let near =
-    Room.make ~thresholds:[ east ] ~floor:ground ~ceiling:roof
-      ~sprites:
-        [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2. 3.5) ]
-      (near_jambs
-      @ [
-          wall Surfaces.brick (Vec.make (-6.) (-6.)) (Vec.make 6. (-6.));
-          wall Surfaces.brick (Vec.make 6. 6.) (Vec.make (-6.) 6.);
-          wall Surfaces.brick (Vec.make (-6.) 6.) (Vec.make (-6.) (-6.));
-        ])
-  and hung =
-    (* A picture on the far room's end wall, square in the doorway's view. *)
-    Room.wall ~height ~material:Surfaces.stone (Vec.make 9. (-6.))
-      (Vec.make 9. 6.)
-      ~decals:
-        [
-          Room.decal ~along:6. ~z:1.6 ~half_width:1. ~half_height:1.
-            Pictures.painting;
-        ]
-  and sidelong =
-    (* And one down the far room's side wall, which the doorway only ever shows
-       you at an angle — the ring round this one is a trapezoid. *)
-    Room.wall ~height ~material:Surfaces.stone (Vec.make 0. (-6.))
-      (Vec.make 9. (-6.))
-      ~decals:
-        [
-          Room.decal ~along:6.5 ~z:1.7 ~half_width:1. ~half_height:1.
-            Pictures.poster;
-        ]
-  in
-  let far =
-    Room.make ~thresholds:[ west ] ~floor:ground
-      ~ceiling:roof
-        (* Three of them, spread across the doorway's view: one square on, one to
-         each side, so turning the head picks a different one. *)
-      ~sprites:
-        [
-          barrel (Vec.make 3. 0.);
-          barrel (Vec.make 4. 2.5);
-          barrel (Vec.make 4. (-2.5));
-        ]
-      (far_jambs
-      @ [
-          sidelong; hung; wall Surfaces.stone (Vec.make 9. 6.) (Vec.make 0. 6.);
-        ])
-  in
-  World.make
-    ~rooms:[ ("near", near); ("far", far) ]
-    ~links:[ (("near", "east"), ("far", "west")) ]
-    ~atmosphere:air
-    ~spawn:("near", Vec.make 1. 0.)
+    Each is keyed by a name, and that name is what it is recorded under — where
+    the old version recorded a room and a sprite index, which are numbers
+    assembling a description happens to produce and not anything the demo meant.
+*)
+let barrels =
+  [
+    ("straight", Vec.make 3. 0.);
+    ("aside", Vec.make 4. 2.5);
+    ("across", Vec.make 4. (-2.5));
+  ]
 
-let start = { player = Player.spawn world; collected = [] }
-
-(** This demo's rule about what may be recorded, and the whole of it: a sprite,
+(** This demo's rule about what may be recorded, and the whole of it: a barrel,
     in a room the eye reached through at least one doorway, that has not been
     recorded already.
 
     The [crossed] test is the "from safety" part — you may study the next room
     without standing in it, and what you are already standing among does not
     count. Nothing in the engine says so. *)
-let collectable state (seen : Sight.t option) =
-  match seen with
-  | Some { Sight.kind = Sight.Sprite s; room; crossed; _ }
-    when crossed >= 1 && not (List.mem (room, s.index) state.collected) ->
-      Some (room, s.index)
-  | _ -> None
+let may_take ~collected name (spot : Aim.spot) =
+  spot.Aim.crossed >= 1 && not (List.mem name collected)
 
-let update state ~dt:_ ~motion ~actions =
-  let player = Engine.step world state.player motion in
-  let state = { state with player } in
-  match (Input.pressed actions (Input.Key Key.e), Sight.look world player) with
-  | true, seen -> (
-      match collectable state seen with
-      | Some what -> { state with collected = what :: state.collected }
-      | None -> state)
-  | false, _ -> state
+(** What colour to ring and aim in, which is the demo saying what it thinks of
+    what you are looking at.
 
-(** The corners of the target on the screen, joined up, if there is one worth
-    ringing.
+    Two questions are asked of two different things, because they are two
+    different questions. What {e kind} of thing it is comes from
+    {!Camlcast.Events.use_aim}, which answers about the crosshair; {e which}
+    barrel it is comes from the barrel, which was told by [on_gaze]. *)
+let tint ~collected ~aimed (aim : Aim.spot option) =
+  match (aim, aimed) with
+  | Some { Aim.where = Aim.On_sprite; crossed; _ }, Some name
+    when crossed >= 1 && not (List.mem name collected) ->
+      Color.rgb 120 230 130
+  | Some { Aim.where = Aim.On_wall { decal = Some _; _ }; _ }, _ ->
+      Color.rgb 215 130 235
+  | Some { Aim.where = Aim.On_doorway; _ }, _ -> Color.rgb 120 170 240
+  | Some _, _ -> Color.rgb 235 195 100
+  | None, _ -> Color.rgb 245 245 245
 
-    Both cases rebuild the viewport the frame was drawn with — the same window
-    size, the same pitch, the same eye — and both take the pose from the
-    sighting, so a thing in the room next door is placed in {e that} room's
-    coordinates and still lands where it was drawn.
+(* Not (width, height): a local open of P puts a wall's height in scope. *)
+let at ~collected ~aimed ~aim ~take ~look ~viewport:(_, down) =
+  let unit = Int.max 3 (down / 60) in
+  let color = tint ~collected ~aimed aim in
+  P.(
+    world ~atmosphere:air
+      ~spawn:("near", Vec.make 1. 0.)
+      [
+        room ~name:"near" ~floor:ground ~ceiling:roofed
+          [
+            path ~height ~material:Surfaces.brick
+              [
+                Vec.make 6. 6.;
+                Vec.make (-6.) 6.;
+                Vec.make (-6.) (-6.);
+                Vec.make 6. (-6.);
+              ];
+            doorway ~name:"east" ~width:2.6 ~opening:2.8 ~height
+              ~material:Surfaces.brick (Vec.make 6. (-6.)) (Vec.make 6. 6.);
+            sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
+              (Vec.make 2. 3.5);
+          ];
+        room ~name:"far" ~floor:ground ~ceiling:roofed
+          ([
+             (* One down the far room's side wall, which the doorway only ever
+                shows you at an angle — the ring round this one is a
+                trapezoid. *)
+             wall ~height ~material:Surfaces.stone (Vec.make 0. (-6.))
+               (Vec.make 9. (-6.))
+               ~decals:
+                 [
+                   decal ~along:6.5 ~z:1.7 ~half_width:1. ~half_height:1.
+                     Pictures.poster;
+                 ];
+             (* And one on the end wall, square in the doorway's view. *)
+             wall ~height ~material:Surfaces.stone (Vec.make 9. (-6.))
+               (Vec.make 9. 6.)
+               ~decals:
+                 [
+                   decal ~along:6. ~z:1.6 ~half_width:1. ~half_height:1.
+                     Pictures.painting;
+                 ];
+             wall ~height ~material:Surfaces.stone (Vec.make 9. 6.)
+               (Vec.make 0. 6.);
+             doorway ~name:"west" ~width:2.6 ~opening:2.8 ~height
+               ~material:Surfaces.stone (Vec.make 0. 6.) (Vec.make 0. (-6.));
+           ]
+          @ List.map
+              (fun (name, pos) ->
+                sprite ~key:name ~size:1.2 ~image:Pictures.barrel
+                  ~on_gaze:(fun here -> look (if here then Some name else None))
+                  ~on_use:(fun spot ->
+                    if may_take ~collected name spot then take name)
+                  pos)
+              barrels);
+        link ("near", "east") ("far", "west");
+        hud
+          ((* Round the target, wherever the renderer put it. *)
+           highlight ~color ()
+          :: crosshair ~color ()
+          :: (* One tick per barrel recorded. *)
+             List.mapi
+               (fun i _ ->
+                 rect
+                   ~x:((2 * unit) + (i * 3 * unit))
+                   ~y:(down - (5 * unit))
+                   ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 120 230 130) ())
+               collected);
+      ])
 
-    A {b sprite} is square to the view, so {!Camlcast_core.Viewport.sprite_box}
-    gives it outright and the ring is a rectangle. A {b decal} is flat on a
-    wall, so it is not: a wall recedes, and the far edge of a picture on it is
-    smaller than the near one. What holds is that its four corners project to
-    four points and the straight edges between them stay straight, so the ring
-    is the trapezoid through those. *)
-let ringed fb (state : t) (seen : Sight.t option) =
-  let here = World.room world state.player.Player.room in
-  let viewport =
-    Viewport.make ~pitch:state.player.Player.pitch
-      ~eye_z:
-        (Plane.elevation (Room.floor_plane here) state.player.Player.pos
-        +. Config.eye_height)
-      ~width:fb.Framebuffer.width ~height:fb.Framebuffer.height
-  in
-  let whole = List.filter_map Fun.id in
-  match seen with
-  | Some { Sight.kind = Sight.Sprite s; room; pose; distance; _ } ->
-      let there = World.room world room in
-      let sprite = Room.sprite_at there s.index in
-      let left, top, right, bottom =
-        Viewport.sprite_box viewport pose
-          ~floor_z:(Plane.elevation (Room.floor_plane there) sprite.Room.pos)
-          ~distance sprite
-      in
-      Some [ (left, top); (right, top); (right, bottom); (left, bottom) ]
-  | Some { Sight.kind = Sight.Wall { index; decal = Some d; _ }; room; pose; _ }
-    ->
-      let there = World.room world room in
-      let wall = Room.wall_at there index in
-      let decal = List.nth wall.Room.decals d in
-      (* Where along the wall the picture starts and stops, as points on it. *)
-      let at along =
-        Vec.add wall.Room.a
-          (Vec.scale wall.Room.edge (along /. wall.Room.length))
-      in
-      let near = at (decal.Room.along -. decal.Room.half_width)
-      and far = at (decal.Room.along +. decal.Room.half_width) in
-      (* A decal hangs above the floor under the wall, so on a sloped one its
-         two ends are at different elevations — measured at each end, not once. *)
-      let corner point up =
-        let foot = Plane.elevation (Room.floor_plane there) point in
-        Viewport.project_point viewport pose ~point
-          ~z:(foot +. decal.Room.z +. (up *. decal.Room.half_height))
-      in
-      let corners =
-        whole
-          [ corner near 1.; corner far 1.; corner far (-1.); corner near (-1.) ]
-      in
-      if List.length corners = 4 then Some corners else None
-  | _ -> None
+let studying =
+  Element.declare ~name:"studying" @@ fun () ->
+  let collected, set_collected = Hook.use_state [] in
+  let aimed, set_aimed = Hook.use_state None in
+  at ~collected ~aimed ~aim:(Events.use_aim ())
+    ~take:(fun name -> set_collected (name :: collected))
+    ~look:set_aimed ~viewport:(Events.use_viewport ())
 
-let overlay fb state =
-  let height = fb.Framebuffer.height in
-  let unit = Int.max 3 (height / 60) in
-  let seen = Sight.look world state.player in
-  let r, g, b =
-    match (collectable state seen, seen) with
-    | Some _, _ -> (120, 230, 130)
-    | None, Some { Sight.kind = Sight.Wall { decal = Some _; _ }; _ } ->
-        (215, 130, 235)
-    | None, Some { Sight.kind = Sight.Doorway _; _ } -> (120, 170, 240)
-    | None, Some _ -> (235, 195, 100)
-    | None, None -> (245, 245, 245)
-  in
-  (* Round the target, wherever the renderer put it. *)
-  Option.iter
-    (fun corners ->
-      Paint.ring fb
-        (List.map
-           (fun (x, y) ->
-             (int_of_float (Float.round x), int_of_float (Float.round y)))
-           corners)
-        ~color:(Color.rgb r g b))
-    (ringed fb state seen);
-  Paint.crosshair fb ~color:(Color.rgb r g b);
-  (* One tick per barrel recorded. *)
-  List.iteri
-    (fun i _ ->
-      Paint.rect fb
-        ~x:((2 * unit) + (i * 3 * unit))
-        ~y:(height - (5 * unit))
-        ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 120 230 130) ~alpha:255)
-    state.collected
+let world =
+  (Mount.build
+     (at ~collected:[] ~aimed:None ~aim:None
+        ~take:(fun _ -> ())
+        ~look:(fun _ -> ())
+        ~viewport:Events.still.Events.viewport))
+    .Scene.world
 
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update
-         ~view:(fun state -> (world, state.player))
-         ~overlay ())
-      start
-  in
-  ending
+let run window = Run.on window ~bindings:Bindings.escapable (studying ())

@@ -15,6 +15,7 @@ type t = {
   motion : Input.motion;
   actions : Input.actions;
   crossings : crossing list;
+  aim : Aim.spot option;
   viewport : int * int;
 }
 
@@ -24,6 +25,7 @@ let still =
     motion = Input.still;
     actions = Input.untouched;
     crossings = [];
+    aim = None;
     (* The engine's own initial window, put through the same rule the loop
        would, so a description rendered outside a run measures itself against
        something real rather than against nothing. *)
@@ -37,6 +39,7 @@ let use () = Loom.Hook.use_context context
 let use_dt () = (use ()).dt
 let use_actions () = (use ()).actions
 let use_viewport () = (use ()).viewport
+let use_aim () = (use ()).aim
 
 (* Deps that are never equal, so the effect is torn down and set up again every
    frame. That is the plain way to say "after each frame" in terms of the one

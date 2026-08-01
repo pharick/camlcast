@@ -288,6 +288,16 @@ val picture : ?key:string -> ?tint:Color.t -> x:int -> y:int -> Image.t -> t
 (** A picture with its top-left corner at [(x, y)], multiplied by [tint] if one
     is given. *)
 
+val highlight : ?color:Color.t -> unit -> t
+(** Draw a ring round whatever the crosshair is on.
+
+    A sprite is ringed by a rectangle and a picture on a wall by the trapezoid
+    its four corners project to, because a wall recedes. Nothing is drawn when
+    the crosshair is on a bare wall, a doorway or nothing at all.
+
+    The maths needs the viewport the frame is drawn with, which a description is
+    written before there is — so this asks for it and {!Aim.ring} does it. *)
+
 val crosshair : ?color:Color.t -> unit -> t
 (** Two short arms at the middle of the buffer — the pixel the straight-ahead
     ray goes through, which is what makes it agree with {!Camlcast_core.Sight}.

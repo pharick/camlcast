@@ -8,9 +8,13 @@
 
 open Camlcast_core
 
-val draw : Framebuffer.t -> Prim.t list -> unit
+val draw : ?aim:World.t * Player.t -> Framebuffer.t -> Prim.t list -> unit
 (** Draw these over a finished frame, first written first, so the last one is on
     top.
+
+    [aim] is the world and the eye this frame was drawn from, which
+    {!P.highlight} needs and nothing else does. Without it a highlight draws
+    nothing, which is what a test asserting where a label landed wants.
 
     Anything that is not a HUD primitive is ignored rather than refused: what
     may go on a HUD is {!Host.assemble}'s question, and it has already been

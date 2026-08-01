@@ -47,6 +47,9 @@ let text ?key ?(color = Color.rgb 255 255 255) ~font ~x ~y body =
 let picture ?key ?tint ~x ~y image =
   E.prim ?key (Prim.Picture { x; y; image; tint })
 
+let highlight ?(color = Color.rgb 255 255 255) () =
+  E.prim (Prim.Highlight color)
+
 let crosshair ?(color = Color.rgb 255 255 255) () =
   E.prim (Prim.Crosshair color)
 

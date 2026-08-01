@@ -94,6 +94,27 @@ val crosshair :
     Whatever is losing the crosshair hears so before whatever is gaining it, so
     two things swapping a highlight are never both lit. *)
 
+val ring :
+  Camlcast_core.World.t ->
+  Camlcast_core.Player.t ->
+  width:int ->
+  height:int ->
+  (float * float) list option
+(** The corners of whatever the crosshair is on, projected onto a buffer this
+    size, or [None] if it is on nothing worth ringing.
+
+    This is in the library because it cannot be anywhere else: it needs the
+    {!Camlcast_core.Viewport} the frame was drawn with, and a description is
+    written before there is a frame. {!P.highlight} is how a description asks
+    for it.
+
+    A {b sprite} is square to the view, so its box is a rectangle. A {b decal}
+    is flat on a wall, which recedes — the far edge of a picture on it is
+    smaller than the near one — so its ring is the trapezoid through its four
+    projected corners. Both take the pose from the sighting rather than from the
+    player, so a thing in the room next door is placed in {e that} room's
+    coordinates and still lands where it was drawn. *)
+
 val leaving : t -> Camlcast_loom.Path.t -> (bool -> unit) option
 (** The [on_gaze] of whatever sits at this path, for telling last frame's target
     that the crosshair has gone.
