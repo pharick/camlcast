@@ -2,8 +2,8 @@
     it: two numbers for the fade and three for the shading.
 
     A long colonnade, deliberately longer than you can see the end of. The
-    {!Camlcast_core.Atmosphere} here has a short [fog_distance], so the far
-    pillars are lost in the haze colour while the near ones are not, and a low
+    {!Camlcast.Atmosphere} here has a short [fog_distance], so the far pillars
+    are lost in the haze colour while the near ones are not, and a low
     [min_brightness], so the fade goes nearly the whole way down. The pillars
     are hexagonal, which means each presents six faces at six angles to the
     light: [directional] is how much of the shading depends on which way a wall
@@ -12,7 +12,7 @@
     Walk the length of it. The pillar that was a silhouette resolves into six
     lit faces as you reach it, and the one behind takes its place. *)
 
-open Camlcast_core
+open Camlcast
 
 let height = 6.
 let length = 90.
@@ -25,34 +25,35 @@ let fog =
     ~min_brightness:0.15 ~light:(Vec.make (-0.5) (-0.85)) ~ambient:0.35
     ~directional:0.65 ()
 
-let world =
-  (* The colonnade runs east, which is the way you are facing when you
-     arrive. A plain box boundary, so the two corners say all of it. *)
-  let bounds =
-    Room.rectangle ~height ~material:Surfaces.stone (Vec.make 0. (-6.))
-      (Vec.make length 6.)
-  in
-  let floor = Plane.horizontal 0. in
-  let colonnade =
-    List.concat
-      (List.init 14 (fun k ->
-           let x = 6. +. (float_of_int k *. 6.) in
-           List.concat_map
-             (fun y ->
-               Room.regular_polygon ~center:(Vec.make x y) ~radius:0.7 ~sides:6
-                 ~rotation:0.2 ~height ~material:Surfaces.brick)
-             [ -3.5; 3.5 ]))
-  in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      (bounds @ colonnade)
-  in
-  World.make
-    ~rooms:[ ("colonnade", room) ]
-    ~links:[] ~atmosphere:fog
-    ~spawn:("colonnade", Vec.make 2. 0.)
+let flat = Plane.horizontal 0.
 
-let run window = Engine.run_world window world
+let level =
+  P.(
+    world ~atmosphere:fog
+      ~spawn:("colonnade", Vec.make 2. 0.)
+      [
+        room ~name:"colonnade"
+          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+          ~ceiling:
+            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          (* The colonnade runs east, which is the way you are facing when you
+             arrive. A plain box boundary, so four corners say all of it. *)
+          (outline ~height ~material:Surfaces.stone
+             [
+               Vec.make 0. (-6.);
+               Vec.make length (-6.);
+               Vec.make length 6.;
+               Vec.make 0. 6.;
+             ]
+          :: List.concat
+               (List.init 14 (fun k ->
+                    let x = 6. +. (float_of_int k *. 6.) in
+                    List.map
+                      (fun y ->
+                        polygon ~center:(Vec.make x y) ~radius:0.7 ~sides:6
+                          ~rotation:0.2 ~height ~material:Surfaces.brick)
+                      [ -3.5; 3.5 ])));
+      ])
+
+let world = (Mount.build level).Scene.world
+let run window = Run.on window level

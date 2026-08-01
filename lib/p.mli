@@ -100,6 +100,38 @@ val path : height:float -> material:Material.t -> Vec.t list -> t
 
     Two corners at least. *)
 
+val polygon :
+  center:Vec.t ->
+  radius:float ->
+  sides:int ->
+  rotation:float ->
+  height:float ->
+  material:Material.t ->
+  t
+(** A regular polygon of [sides] walls, wound so its inside is inside.
+
+    A pillar, most of the time. [radius] is to a corner and not to a face, and
+    [rotation] turns the whole thing about its centre. *)
+
+val threshold :
+  ?key:string ->
+  ?door:Door.t ->
+  ?lintel:Room.lintel ->
+  ?on_gaze:(bool -> unit) ->
+  ?on_use:(Aim.spot -> unit) ->
+  name:string ->
+  height:float ->
+  Vec.t ->
+  Vec.t ->
+  t
+(** An opening between two points, with nothing cut for it.
+
+    {!doorway} is what to reach for: it cuts the opening out of a wall and hands
+    back the jambs with it, so the two cannot drift apart. This is for the case
+    that will not do — a lintel of a different material from the wall under it,
+    or a boundary whose jambs are already drawn some other way. Whoever uses it
+    owns making the walls either side meet its ends. *)
+
 val wall :
   ?key:string ->
   ?on_gaze:(bool -> unit) ->

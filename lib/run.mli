@@ -44,6 +44,46 @@
 
 open Camlcast_core
 
+type window = Engine.window
+(** A window, and everything behind it: SDL, the renderer, and the buffer a
+    frame is drawn into.
+
+    Transparent, and only just: a program that opens one window and plays run
+    after run on it — a launcher — has to be able to say what it is holding, and
+    the equation is how. Nothing can be {e done} with one from here; the
+    functions that take it are all in [camlcast.core]. *)
+
+type ending = Engine.ending =
+  | Closed  (** the window was shut, or the desktop asked the program to stop *)
+  | Left  (** the run ended on its own terms: {!P.finish}, or a leaving key *)
+
+val with_window :
+  ?title:string ->
+  ?width:int ->
+  ?height:int ->
+  (window -> ('a, [ `Msg of string ]) result) ->
+  ('a, [ `Msg of string ]) result
+(** Open a window, hand it over, and close it again when the function is done
+    with it — however it is done, error or exception included.
+
+    A window and a run are two lifetimes, and this is the first. A game with one
+    world to show never notices; a launcher does, because it plays run after run
+    on the same window so that going back to its menu is the picture changing
+    rather than the window vanishing and coming back at the size it first had.
+*)
+
+val on :
+  window ->
+  ?debug:bool ->
+  ?use:Input.control ->
+  ?bindings:Binding.t ->
+  P.t ->
+  (ending, [ `Msg of string ]) result
+(** Play a description on a window already open, and say how it ended.
+
+    {!play} is this and {!with_window} together, and is what a game with one
+    world to show wants. *)
+
 val carry : Scene.t -> was:string -> Player.t -> Player.t
 (** The same pose, in the room this scene calls [was].
 
@@ -63,7 +103,7 @@ val play :
   ?use:Input.control ->
   ?bindings:Binding.t ->
   P.t ->
-  (Engine.ending, [ `Msg of string ]) result
+  (ending, [ `Msg of string ]) result
 (** Open a window, play this description on it until the player quits, and close
     it again.
 

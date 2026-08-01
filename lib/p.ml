@@ -59,6 +59,17 @@ let link here there = E.prim (Prim.Link { here; there })
    engine built. *)
 let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
 
+let polygon ~center ~radius ~sides ~rotation ~height ~material =
+  E.fragment
+    (List.map of_wall
+       (Room.regular_polygon ~center ~radius ~sides ~rotation ~height ~material))
+
+let threshold ?key ?door ?lintel ?on_gaze ?on_use ~name ~height a b =
+  E.prim ?key
+    (Prim.Threshold
+       ( Room.threshold ~name ~height ?door ?lintel a b,
+         reacts ?on_gaze ?on_use () ))
+
 (* Twice the signed area, by the shoelace sum. Positive is the winding
    Room.rectangle produces, and Room.rectangle is the one boundary the engine
    documents as impossible to get wrong — so it is the definition to measure

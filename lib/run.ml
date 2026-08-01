@@ -56,9 +56,13 @@ type frame = {
   gazed : Camlcast_loom.Path.t option;
 }
 
-let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
+type window = Engine.window
+type ending = Engine.ending = Closed | Left
+
+let with_window = Engine.with_window
+
+let on window ?(debug = true) ?(use = Input.Key Key.e)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) description =
-  Engine.with_window ?title ?width ?height @@ fun window ->
   let mount = Mount.create () in
   (* The frame is bound around the description rather than pushed into it, so a
      component reads time and input by asking rather than by having them handed
@@ -152,3 +156,7 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
     (Engine.run window
        (Engine.game ~update ~view ~overlay ~finished ~bindings ())
        start)
+
+let play ?title ?width ?height ?debug ?use ?bindings description =
+  with_window ?title ?width ?height (fun window ->
+      on window ?debug ?use ?bindings description)

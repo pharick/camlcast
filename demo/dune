@@ -22,4 +22,4 @@
 (library
  (name camlcast_demo)
  (public_name camlcast-demo)
- (libraries camlcast_core))
+ (libraries camlcast_core camlcast))

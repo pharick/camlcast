@@ -147,7 +147,7 @@ and two games can share an engine without sharing a look.
 
 | directory | library         | what it is                                                      |
 | --------- | --------------- | --------------------------------------------------------------- |
-| `stage/`  | `camlcast`      | **what a game opens**: the parts a world is described with       |
+| `lib/`    | `camlcast`      | **what a game opens**: the parts a world is described with       |
 | `loom/`   | `camlcast.loom` | the declarative runtime: elements, reconciling, hooks, store     |
 | `core/`   | `camlcast.core` | the platform: geometry, ray casting, rendering, SDL              |
 | `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo`  |

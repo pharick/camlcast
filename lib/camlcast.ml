@@ -41,4 +41,5 @@ type surface = Camlcast_core.Room.surface = {
 }
 
 type ceiling = Camlcast_core.Room.ceiling = Roof of surface | Open of Sky.t
+type lintel = Camlcast_core.Room.lintel = { top : float; material : Material.t }
 type side = Camlcast_core.Room.side = Front | Back
