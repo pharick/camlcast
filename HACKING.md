@@ -88,6 +88,23 @@ resolves. **That set of warnings is the expected output** — anything else in i
 is a real reference that has gone stale. `@doc-new`, the odoc 3 driver alias
 that would put `Stdlib` in scope, does not build in this tree.
 
+## Benchmarks
+
+```sh
+dune exec bench/frame.exe                    # what a frame costs
+dune exec --profile release bench/frame.exe  # and what it costs shipped
+```
+
+`bench/` is an executable and not a test: `dune build` compiles it so it cannot
+rot, and `dune runtest` never runs it. A benchmark answers a question somebody
+asked, and spending a minute of every CI run on one nobody reads is how a suite
+comes to be ignored.
+
+`bench/frame.ml` is the one that settled whether the declarative layer needs to
+cache what it assembles. It does not — describing the largest world this engine
+has costs a seventh of one percent of drawing it — and the file says so with the
+numbers, so the next person to wonder can re-run it rather than re-argue it.
+
 ## Bundles
 
 `tools/bundle-macos.sh`, `bundle-linux.sh` and `bundle-windows.sh` each turn a

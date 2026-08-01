@@ -6,10 +6,19 @@
     {!Camlcast_core.Room.make} and {!Camlcast_core.World.make} a hand-written
     level always did.
 
-    It builds the world from scratch each time. That is a real cost and a
-    deliberately deferred one: every node carries a {!Camlcast_loom.Path.t} that
-    is stable from frame to frame, so caching what a subtree assembled is a
-    change to this module alone, to be made when a benchmark asks for it. *)
+    It builds the world from scratch each time. Every step of this rewrite
+    called that a real cost and deferred settling it until something measured
+    it; [bench/frame.exe] has, and the answer is that there is nothing to
+    settle. Describing five rooms and a hundred and forty-five walls — the shape
+    and size of the largest world this engine has — takes {b 20 microseconds}
+    against the {b 14 milliseconds} the renderer spends drawing that same frame.
+    The layer is a seventh of one percent of the work, and caching it would be
+    optimising the wrong end by two and a half orders of magnitude.
+
+    If that ever stops being true, every node carries a {!Camlcast_loom.Path.t}
+    stable from frame to frame, so caching what a subtree assembled is a change
+    to this module alone. The benchmark is there to be re-run before anybody
+    makes it. *)
 
 type prim = Prim.t
 type scene = Scene.t
