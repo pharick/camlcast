@@ -10,13 +10,14 @@ type t = {
   where : string;
   summary : string;
   detail : string list;
+  spot : (int * Vec.t) option;
 }
 
-let error ?(detail = []) where summary =
-  { severity = Error; where; summary; detail }
+let error ?(detail = []) ?spot where summary =
+  { severity = Error; where; summary; detail; spot }
 
-let warning ?(detail = []) where summary =
-  { severity = Warning; where; summary; detail }
+let warning ?(detail = []) ?spot where summary =
+  { severity = Warning; where; summary; detail; spot }
 
 let to_string diagnostic =
   let head =
@@ -63,7 +64,7 @@ let doorway_ends_meet_a_wall ~locate world room =
              if List.exists (near corner) ends then None
              else
                Some
-                 (error (locate room)
+                 (error (locate room) ~spot:(room, corner)
                     (Printf.sprintf
                        "the doorway %S has a corner that meets no wall"
                        threshold.Room.name)
@@ -82,7 +83,9 @@ let spawn_is_clear ~locate world =
   let spawn = World.spawn world in
   if Room.blocked (World.room world spawn.World.room) spawn.World.pos then
     [
-      error (locate spawn.World.room) "the player starts inside a wall"
+      error (locate spawn.World.room)
+        ~spot:(spawn.World.room, spawn.World.pos)
+        "the player starts inside a wall"
         ~detail:
           [
             Printf.sprintf "the spawn is at %s." (point spawn.World.pos);

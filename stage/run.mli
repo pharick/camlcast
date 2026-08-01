@@ -29,6 +29,7 @@ val play :
   ?title:string ->
   ?width:int ->
   ?height:int ->
+  ?debug:bool ->
   ?bindings:Binding.t ->
   Parts.t ->
   (Engine.ending, [ `Msg of string ]) result
@@ -38,6 +39,11 @@ val play :
     [title], [width] and [height] are the window's, and default to the engine's
     own. [bindings] defaults to the engine's table with Escape added to it,
     which is what a description with nothing else to end it wants.
+
+    [debug] leaves F3 bound to {!Debug_map} and is true. A game that has stopped
+    wanting a map over its world passes false, and the key does nothing —
+    including the walk over the world that {!Check.world} does to feed it, which
+    only happens while the map is up.
 
     The description is rendered once before the first frame, so that the player
     can be spawned where its world says. After that it is rendered once per

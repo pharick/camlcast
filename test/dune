@@ -81,6 +81,7 @@
   test_loom
   test_stage
   test_check
+  test_debug_map
   test_patterns
   test_pictures
   test_level
@@ -113,8 +114,8 @@
 ; failing comparison should print (3, 2.5) and not a bare false.
 
 (tests
- (names test_stage test_check)
- (modules test_stage test_check)
+ (names test_stage test_check test_debug_map)
+ (modules test_stage test_check test_debug_map)
  (package camlcast)
  (libraries camlcast camlcast_stage alcotest support))
 

@@ -63,6 +63,13 @@ type t = {
       *)
   summary : string;  (** one line, the whole of the complaint *)
   detail : string list;  (** further lines, each already a sentence *)
+  spot : (int * Vec.t) option;
+      (** the room and the point this is about, where there is one.
+
+          What {!Debug_map} puts a mark on. A complaint about a link or a name
+          is about no particular place and leaves this empty; one about a corner
+          or a spawn knows exactly where it is, and saying so is the difference
+          between a description of the problem and a look at it. *)
 }
 (** One thing wrong. *)
 
