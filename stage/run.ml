@@ -16,9 +16,14 @@ type frame = {
   scene : Scene.t;
   map : bool;
   found : Check.t list;
+  (* What the crosshair was on last frame, by path rather than by index: a room
+     is rebuilt every frame and its indices move, and being looked at has to
+     survive that. This is the whole of what makes an enter and a leave possible
+     rather than a poll. *)
+  gazed : Camlcast_loom.Path.t option;
 }
 
-let play ?title ?width ?height ?(debug = true)
+let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
     ?(bindings = Binding.make ~leave:[ Input.Key Key.escape ] ()) description =
   Engine.with_window ?title ?width ?height @@ fun window ->
   let mount = Mount.create () in
@@ -37,6 +42,22 @@ let play ?title ?width ?height ?(debug = true)
   let update state ~dt ~motion ~actions =
     let scene = render { Events.dt; motion; actions; viewport = !viewport } in
     let map = debug && state.map <> Input.pressed actions (Input.Key Key.f3) in
+    (* Controlled or not, exactly as a text input is: a description that says
+       where the eye is gets it there, and one that does not is walked. The
+       controls are not applied to a camera the description is placing, since a
+       walk it never asked for would fight it every frame. *)
+    let player =
+      match scene.Scene.camera with
+      | Some placed -> placed
+      | None -> Engine.step scene.Scene.world state.player motion
+    in
+    (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
+       no logic of its own that could only be tested through a window. *)
+    let looking =
+      Aim.crosshair scene.Scene.targets scene.Scene.world player
+        ~was:state.gazed
+        ~used:(Input.pressed actions use)
+    in
     {
       scene;
       map;
@@ -44,14 +65,8 @@ let play ?title ?width ?height ?(debug = true)
          beside drawing one, but it is also nothing anybody asked for when the
          map is down. *)
       found = (if map then Check.world scene.Scene.world else []);
-      (* Controlled or not, exactly as a text input is: a description that says
-         where the eye is gets it there, and one that does not is walked. The
-         controls are not applied to a camera the description is placing, since
-         a walk it never asked for would fight it every frame. *)
-      player =
-        (match scene.Scene.camera with
-        | Some placed -> placed
-        | None -> Engine.step scene.Scene.world state.player motion);
+      player;
+      gazed = looking;
     }
   in
   let view state = (state.scene.Scene.world, state.player) in
@@ -73,6 +88,7 @@ let play ?title ?width ?height ?(debug = true)
         | None -> Player.spawn first.Scene.world);
       map = false;
       found = [];
+      gazed = None;
     }
   in
   Result.map snd

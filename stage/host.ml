@@ -51,26 +51,47 @@ let rec collect_hud (node : prim Camlcast_loom.Host.node) =
       | item -> item :: collect_hud child)
     node.Camlcast_loom.Host.children
 
+(* Nothing where a thing asked for nothing, so a world full of scenery costs an
+   array of Nones rather than a closure each. *)
+let reaction_of (node : prim Camlcast_loom.Host.node) (r : Prim.reacts) =
+  match (r.Prim.on_gaze, r.Prim.on_use) with
+  | None, None -> None
+  | on_gaze, on_use ->
+      Some { Aim.path = node.Camlcast_loom.Host.path; on_gaze; on_use }
+
 let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
   (* Accumulated reversed and reversed back, so that each list reaches
      {!Room.make} in the order the game wrote it. That order is not cosmetic: a
      wall's index is what {!Sight} reports and what a decal is added by, and a
-     threshold's is what a portal runs parallel to. *)
+     threshold's is what a portal runs parallel to — and it is what the arrays
+     of reactions beside them are found by. *)
   let walls = ref [] and thresholds = ref [] and sprites = ref [] in
+  let wall_reacts = ref []
+  and threshold_reacts = ref []
+  and sprite_reacts = ref [] in
   refuse_strangers ~parent:node.Camlcast_loom.Host.prim node;
   List.iter
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
-      | Prim.Wall { a; b; height; material } as parent ->
+      | Prim.Wall { a; b; height; material; reacts } as parent ->
           walls :=
             Room.wall ~height ~material ~decals:(decals_of ~parent child) a b
-            :: !walls
-      | Prim.Threshold threshold -> thresholds := threshold :: !thresholds
-      | Prim.Sprite sprite -> sprites := sprite :: !sprites
+            :: !walls;
+          wall_reacts := reaction_of child reacts :: !wall_reacts
+      | Prim.Threshold (threshold, reacts) ->
+          thresholds := threshold :: !thresholds;
+          threshold_reacts := reaction_of child reacts :: !threshold_reacts
+      | Prim.Sprite (sprite, reacts) ->
+          sprites := sprite :: !sprites;
+          sprite_reacts := reaction_of child reacts :: !sprite_reacts
       | _ -> ())
     node.Camlcast_loom.Host.children;
-  Room.make ~thresholds:(List.rev !thresholds) ~sprites:(List.rev !sprites)
-    ~floor ~ceiling (List.rev !walls)
+  let built =
+    Room.make ~thresholds:(List.rev !thresholds) ~sprites:(List.rev !sprites)
+      ~floor ~ceiling (List.rev !walls)
+  in
+  let array reacts = Array.of_list (List.rev !reacts) in
+  (built, (array wall_reacts, array sprite_reacts, array threshold_reacts))
 
 let assemble nodes =
   match nodes with
@@ -91,10 +112,13 @@ let assemble nodes =
           | Prim.Hud -> hud := !hud @ collect_hud child
           | _ -> ())
         root.Camlcast_loom.Host.children;
+      let built = List.rev !rooms in
       let world =
-        World.make ~rooms:(List.rev !rooms) ~links:(List.rev !links) ~atmosphere
-          ~spawn
+        World.make
+          ~rooms:(List.map (fun (name, (room, _)) -> (name, room)) built)
+          ~links:(List.rev !links) ~atmosphere ~spawn
       in
+      let targets = Aim.of_rooms (List.map (fun (_, (_, r)) -> r) built) in
       (* The camera is resolved once the world exists, because a room's name
          only becomes an index here. A name that is not a room's is the same
          mistake as a spawn that names one, and is refused in the same words. *)
@@ -112,7 +136,7 @@ let assemble nodes =
                   ~radians:c.pitch)
           !eye
       in
-      { Scene.world; camera; finished = !over; hud = !hud }
+      { Scene.world; camera; finished = !over; hud = !hud; targets }
   | [] -> raise (Malformed "a description has to have a world in it")
   | [ node ] ->
       raise

@@ -15,16 +15,20 @@ let world ~atmosphere ~spawn children =
 let room ?key ~name ~floor ~ceiling children =
   E.prim ?key ~children (Prim.Room { name; floor; ceiling })
 
-let wall ?key ?(decals = []) ~height ~material a b =
-  E.prim ?key ~children:decals (Prim.Wall { a; b; height; material })
+let reacts ?on_gaze ?on_use () = { Prim.on_gaze; on_use }
+
+let wall ?key ?on_gaze ?on_use ?(decals = []) ~height ~material a b =
+  E.prim ?key ~children:decals
+    (Prim.Wall { a; b; height; material; reacts = reacts ?on_gaze ?on_use () })
 
 let decal ?key ?facing ?glow ~along ~z ~half_width ~half_height image =
   E.prim ?key
     (Prim.Decal
        (Room.decal ?facing ?glow ~along ~z ~half_width ~half_height image))
 
-let sprite ?key ?base ~size ~image pos =
-  E.prim ?key (Prim.Sprite (Room.sprite ?base ~size ~image pos))
+let sprite ?key ?on_gaze ?on_use ?base ~size ~image pos =
+  E.prim ?key
+    (Prim.Sprite (Room.sprite ?base ~size ~image pos, reacts ?on_gaze ?on_use ()))
 
 let camera ?(pitch = 0.) ~room ~pos ~angle () =
   E.prim (Prim.Camera { room; pos; angle; pitch })
@@ -87,8 +91,12 @@ let outline ~height ~material points =
      they have always been refused in. *)
   E.fragment (List.map of_wall (Room.path ~closed:true ~height ~material wound))
 
-let doorway ?door ~name ~width ~opening ~height ~material a b =
+let doorway ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material a b =
   let jambs, threshold =
     Room.doorway ?door ~name ~width ~opening ~height ~material a b
   in
-  E.fragment (List.map of_wall jambs @ [ E.prim (Prim.Threshold threshold) ])
+  (* The handlers go on the opening and not on the jambs either side of it: what
+     a player aims at to work a door is the door. *)
+  E.fragment
+    (List.map of_wall jambs
+    @ [ E.prim (Prim.Threshold (threshold, reacts ?on_gaze ?on_use ())) ])

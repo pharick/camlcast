@@ -4,6 +4,14 @@
     queue, the clock, SDL itself — is on the other side of this one function. A
     game hands over what its world should be and never sees any of it.
 
+    {1 What the crosshair is on}
+
+    Every frame, after the player has moved, the middle of the screen is cast
+    through the world by {!Camlcast_core.Sight} — the same ray the renderer
+    draws with, so what can be picked is exactly what can be seen — and whatever
+    it lands on is told, if it asked to be. {!P.wall}, {!P.sprite} and
+    {!P.doorway} are the three things that can ask.
+
     {1 The camera}
 
     The runtime holds the player and walks it. A description says where the
@@ -30,6 +38,7 @@ val play :
   ?width:int ->
   ?height:int ->
   ?debug:bool ->
+  ?use:Input.control ->
   ?bindings:Binding.t ->
   P.t ->
   (Engine.ending, [ `Msg of string ]) result
@@ -39,6 +48,9 @@ val play :
     [title], [width] and [height] are the window's, and default to the engine's
     own. [bindings] defaults to the engine's table with Escape added to it,
     which is what a description with nothing else to end it wants.
+
+    [use] is the control that works whatever the crosshair is on — see {!P.wall}
+    and its neighbours for [on_use] — and is [E].
 
     [debug] leaves F3 bound to {!Debug_map} and is true. A game that has stopped
     wanting a map over its world passes false, and the key does nothing —

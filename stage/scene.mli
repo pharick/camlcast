@@ -19,6 +19,9 @@ type t = {
           the same controlled-or-not distinction a text input has. *)
   finished : bool;
       (** whether the description said it is over. See {!P.finish}. *)
+  targets : Aim.t;
+      (** what each thing in the world asked to be told about the crosshair,
+          found by what {!Camlcast_core.Sight} reports *)
   hud : Prim.t list;
       (** what to draw over the finished world, in the order it was written.
 

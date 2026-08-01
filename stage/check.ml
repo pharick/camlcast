@@ -224,7 +224,7 @@ let structure forest =
     List.filter_map
       (fun (child : Prim.t Loom.Host.node) ->
         match child.Loom.Host.prim with
-        | Prim.Threshold threshold ->
+        | Prim.Threshold (threshold, _) ->
             Some (threshold.Room.name, threshold, path_of child)
         | _ -> None)
       node.Loom.Host.children

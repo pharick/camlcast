@@ -30,6 +30,21 @@ open Camlcast_core
 type t = Prim.t Camlcast_loom.Element.t
 (** A description of part of a world — what a component returns. *)
 
+(** {1 Being looked at}
+
+    {!wall}, {!sprite} and {!doorway} each take [on_gaze] and [on_use], because
+    those are the three things an eye can stop on — {!Camlcast_core.Sight} says
+    so, and it says so by casting the same ray the renderer draws with, so what
+    can be picked is exactly what can be seen.
+
+    [on_gaze] is called with [true] when the crosshair arrives and [false] when
+    it leaves, and not once a frame in between: it is an enter and a leave, not
+    a poll. [on_use] is called when the player works the use control while
+    looking at it. Both may set state, and the frame after will show it.
+
+    On a {!doorway} they go on the opening rather than on the jambs either side
+    of it, because what a player aims at to work a door is the door. *)
+
 (** {1 What is under a room and over it} *)
 
 val floor : plane:Plane.t -> material:Material.t -> Room.surface
@@ -85,6 +100,8 @@ val path : height:float -> material:Material.t -> Vec.t list -> t
 
 val wall :
   ?key:string ->
+  ?on_gaze:(bool -> unit) ->
+  ?on_use:(unit -> unit) ->
   ?decals:t list ->
   height:float ->
   material:Material.t ->
@@ -114,6 +131,8 @@ val decal :
 
 val doorway :
   ?door:Door.t ->
+  ?on_gaze:(bool -> unit) ->
+  ?on_use:(unit -> unit) ->
   name:string ->
   width:float ->
   opening:float ->
@@ -131,7 +150,14 @@ val doorway :
     place one. *)
 
 val sprite :
-  ?key:string -> ?base:float -> size:float -> image:Image.t -> Vec.t -> t
+  ?key:string ->
+  ?on_gaze:(bool -> unit) ->
+  ?on_use:(unit -> unit) ->
+  ?base:float ->
+  size:float ->
+  image:Image.t ->
+  Vec.t ->
+  t
 (** A billboard standing at a point, [size] cells tall, turning to face the
     player. [base] floats it above the floor; without it, it stands on it.
 

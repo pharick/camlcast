@@ -18,6 +18,7 @@ module Debug_map = Debug_map
 module Prim = Prim
 module Host = Host
 module Overlay = Overlay
+module Aim = Aim
 module Vec = Camlcast_core.Vec
 module Color = Camlcast_core.Color
 module Plane = Camlcast_core.Plane

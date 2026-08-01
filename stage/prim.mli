@@ -17,6 +17,15 @@
 
 open Camlcast_core
 
+type reacts = {
+  on_gaze : (bool -> unit) option;
+  on_use : (unit -> unit) option;
+}
+(** What a thing in the world asked to be told about the crosshair. Carried by
+    the three primitives {!Camlcast_core.Sight} can land on, and nothing else:
+    an eye stops on a wall, a sprite or a doorway, and never on a decal or a
+    room. *)
+
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 (** Where a description says the eye is. Its own record rather than an inline
     one, because {!Host} resolves it after the world exists and wants to pass it
@@ -29,13 +38,19 @@ type t =
   | Room of { name : string; floor : Room.surface; ceiling : Room.ceiling }
       (** a room in its own coordinate frame, named so that {!Link} can find it
       *)
-  | Wall of { a : Vec.t; b : Vec.t; height : float; material : Material.t }
-      (** one segment of a boundary. Its children are the {!Decal}s on it. *)
+  | Wall of {
+      a : Vec.t;
+      b : Vec.t;
+      height : float;
+      material : Material.t;
+      reacts : reacts;
+    }  (** one segment of a boundary. Its children are the {!Decal}s on it. *)
   | Decal of Room.decal  (** a picture hung on the wall that contains it *)
-  | Threshold of Room.threshold
+  | Threshold of Room.threshold * reacts
       (** a doorway cut into a room's boundary, named so that {!Link} can join
           it to another *)
-  | Sprite of Room.sprite  (** a billboard standing in the room that holds it *)
+  | Sprite of Room.sprite * reacts
+      (** a billboard standing in the room that holds it *)
   | Camera of camera
       (** where the eye is, when a description would rather say than let the
           runtime walk it *)
@@ -60,6 +75,9 @@ type t =
   | Link of { here : string * string; there : string * string }
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)
+
+val deaf : reacts
+(** Asking for nothing, which is what most of a world does. *)
 
 val describe : t -> string
 (** A short phrase naming this primitive, for a {!Camlcast_loom.Trace}. *)

@@ -70,12 +70,15 @@ module Debug_map = Debug_map
 
     Not the platform — these are this library's own, and a game meets them at
     its edges. {!Host.Malformed} is what a description that could not be a world
-    raises, {!Prim} is what a {!Scene} is made of, and {!Overlay} is what turns
-    the last of those into pixels. *)
+    raises, {!Prim} is what a {!Scene} is made of, {!Overlay} is what turns the
+    last of those into pixels, and {!Aim} is everything an interacting frame
+    does — written as a function of values so that a game can drive it in a test
+    without opening a window. *)
 
 module Prim = Prim
 module Host = Host
 module Overlay = Overlay
+module Aim = Aim
 
 (** {1 The things a description is made of}
 

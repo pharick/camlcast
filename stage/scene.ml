@@ -6,5 +6,6 @@ type t = {
   world : World.t;
   camera : Player.t option;
   finished : bool;
+  targets : Aim.t;
   hud : Prim.t list;
 }

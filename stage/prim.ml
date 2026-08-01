@@ -2,15 +2,28 @@
 
 open Camlcast_core
 
+type reacts = {
+  on_gaze : (bool -> unit) option;
+  on_use : (unit -> unit) option;
+}
+
+let deaf = { on_gaze = None; on_use = None }
+
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 
 type t =
   | World of { atmosphere : Atmosphere.t; spawn : string * Vec.t }
   | Room of { name : string; floor : Room.surface; ceiling : Room.ceiling }
-  | Wall of { a : Vec.t; b : Vec.t; height : float; material : Material.t }
+  | Wall of {
+      a : Vec.t;
+      b : Vec.t;
+      height : float;
+      material : Material.t;
+      reacts : reacts;
+    }
   | Decal of Room.decal
-  | Threshold of Room.threshold
-  | Sprite of Room.sprite
+  | Threshold of Room.threshold * reacts
+  | Sprite of Room.sprite * reacts
   | Camera of camera
   | Hud
   | Rect of { x : int; y : int; w : int; h : int; color : Color.t; alpha : int }
@@ -35,8 +48,8 @@ let describe = function
   | Room { name; _ } -> "room " ^ name
   | Wall { a; b; _ } -> "wall " ^ point a ^ "-" ^ point b
   | Decal _ -> "decal"
-  | Threshold t -> "threshold " ^ t.Room.name
-  | Sprite s -> "sprite " ^ point s.Room.pos
+  | Threshold (t, _) -> "threshold " ^ t.Room.name
+  | Sprite (s, _) -> "sprite " ^ point s.Room.pos
   | Camera { room; pos; _ } -> "camera in " ^ room ^ " at " ^ point pos
   | Hud -> "hud"
   | Rect { x; y; _ } -> Printf.sprintf "rect at %d,%d" x y
