@@ -11,8 +11,21 @@ open Camlcast_core
    The map and what it has to say live here for the same reason: the loop hands
    this state to the overlay, so a frame draws the map of the world it decided
    on rather than of whatever a ref happened to be holding. *)
+let carry (scene : Scene.t) ~was player =
+  match World.named scene.Scene.world was with
+  | Some room when room = player.Player.room -> player
+  | Some room ->
+      (* The rooms were written in another order, or one before this was added
+         or taken away. An identity transform moves the index and nothing else. *)
+      Player.through Transform.identity ~room player
+  | None -> Player.spawn scene.Scene.world
+
 type frame = {
   player : Player.t;
+  (* The room by name rather than by index, because a description is rebuilt
+     every frame and an index is what assembling one happened to produce. See
+     run.mli for what that buys. *)
+  room : string;
   scene : Scene.t;
   map : bool;
   found : Check.t list;
@@ -49,7 +62,10 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
     let player =
       match scene.Scene.camera with
       | Some placed -> placed
-      | None -> Engine.step scene.Scene.world state.player motion
+      | None ->
+          Engine.step scene.Scene.world
+            (carry scene ~was:state.room state.player)
+            motion
     in
     (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
        no logic of its own that could only be tested through a window. *)
@@ -66,6 +82,7 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
          map is down. *)
       found = (if map then Check.world scene.Scene.world else []);
       player;
+      room = World.name scene.Scene.world player.Player.room;
       gazed = looking;
     }
   in
@@ -80,12 +97,15 @@ let play ?title ?width ?height ?(debug = true) ?(use = Input.Key Key.e)
       Debug_map.draw buffer state.scene.Scene.world state.player state.found
   in
   let start =
+    let player =
+      match first.Scene.camera with
+      | Some placed -> placed
+      | None -> Player.spawn first.Scene.world
+    in
     {
       scene = first;
-      player =
-        (match first.Scene.camera with
-        | Some placed -> placed
-        | None -> Player.spawn first.Scene.world);
+      player;
+      room = World.name first.Scene.world player.Player.room;
       map = false;
       found = [];
       gazed = None;

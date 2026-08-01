@@ -85,6 +85,7 @@
   test_events
   test_overlay
   test_aim
+  test_dynamics
   test_patterns
   test_pictures
   test_level
@@ -123,14 +124,16 @@
   test_debug_map
   test_events
   test_overlay
-  test_aim)
+  test_aim
+  test_dynamics)
  (modules
   test_stage
   test_check
   test_debug_map
   test_events
   test_overlay
-  test_aim)
+  test_aim
+  test_dynamics)
  (package camlcast)
  (libraries camlcast_core camlcast camlcast_loom alcotest support))
 

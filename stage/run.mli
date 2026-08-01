@@ -23,15 +23,37 @@
     description that wants to put the camera somewhere itself — a cutscene, a
     lift, a death — is the controlled case, and it arrives with the input hooks.
 
-    {1 What a description may not do yet}
+    {1 Worlds that change under the player}
 
-    Change the shape of the world. The player carries a room index across
-    frames, and nothing yet keeps that index meaning the same room when the
-    rooms it counts are rebuilt. A description that adds or removes rooms
-    between frames will walk the player into the wrong one. Descriptions that
-    only change what is {e in} their rooms are fine. *)
+    A description is rebuilt every frame, so a world can grow a room, lose one,
+    or write its rooms in another order — and a {!Camlcast_core.Player.t}
+    carries a bare room {e index}, which means something different the moment
+    any of that happens.
+
+    So the loop does not keep an index across frames. It keeps the room's
+    {b name}, looks it up in each new world, and carries the pose into whatever
+    index that name landed at this time. Names are what a description says and
+    indices are what assembling one produces, so the name is the thing that was
+    actually meant.
+
+    A description that stops naming the room the player is standing in has
+    removed the ground from under them, and there is no answer to that but to
+    put them back at the world's spawn. That is what happens, and a game that
+    means to move someone should say where with {!P.camera} rather than by
+    deleting the floor. *)
 
 open Camlcast_core
+
+val carry : Scene.t -> was:string -> Player.t -> Player.t
+(** The same pose, in the room this scene calls [was].
+
+    What the loop does to a player between one frame's world and the next, and a
+    function of values so it can be driven without a window. The pose is carried
+    with an identity {!Camlcast_core.Transform}, so position, facing and pitch
+    are untouched and only the index moves.
+
+    If no room is called [was] any more, the answer is a player at the scene's
+    own spawn. *)
 
 val play :
   ?title:string ->
