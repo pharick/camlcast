@@ -113,6 +113,27 @@ val polygon :
     A pillar, most of the time. [radius] is to a corner and not to a face, and
     [rotation] turns the whole thing about its centre. *)
 
+val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
+(** The two ends of the opening {!doorway} would cut into the wall from [a] to
+    [b].
+
+    {!doorway} works them out for itself, which is the point of it — but a
+    description that wants to say "this room's floor is that room's floor,
+    carried through the doorway between them" has to name the doorway in terms
+    of both sides, and this is how it gets them without doing the arithmetic
+    twice. Feed the pair to {!through}. *)
+
+val through : from:Vec.t * Vec.t -> into:Vec.t * Vec.t -> Plane.t -> Plane.t
+(** A plane carried through a doorway: [from] and [into] are the same opening's
+    two ends as each of its rooms writes them, and the answer is the plane in
+    the second room's frame.
+
+    This is how a floor meets itself across a threshold. Two rooms have no
+    coordinates in common — that is the whole point of a {!Camlcast_core.World}
+    — so a second floor written by hand to look right is a second floor that
+    will drift. Derived, it cannot: {!Check} reports a step in the floor at a
+    doorway, and a plane carried through one never has one. *)
+
 val threshold :
   ?key:string ->
   ?door:Door.t ->

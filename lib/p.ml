@@ -64,6 +64,20 @@ let polygon ~center ~radius ~sides ~rotation ~height ~material =
     (List.map of_wall
        (Room.regular_polygon ~center ~radius ~sides ~rotation ~height ~material))
 
+(* The same arithmetic Room.doorway does to place its opening: half the width
+   either side of the wall's middle, along the wall. Written once there and
+   read back here rather than restated, so the two cannot disagree about where
+   a doorway is. *)
+let opening ~width a b =
+  let edge = Vec.sub b a in
+  let span = Vec.length edge in
+  let half = Vec.scale edge (width /. (2. *. span)) in
+  let middle = Vec.scale (Vec.add a b) 0.5 in
+  (Vec.sub middle half, Vec.add middle half)
+
+let through ~from:(a1, a2) ~into:(b1, b2) plane =
+  Plane.through (Transform.between ~a1 ~a2 ~b1 ~b2) plane
+
 let threshold ?key ?door ?lintel ?on_gaze ?on_use ~name ~height a b =
   E.prim ?key
     (Prim.Threshold
