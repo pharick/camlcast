@@ -50,6 +50,7 @@ let picture ?key ?tint ~x ~y image =
 let crosshair ?(color = Color.rgb 255 255 255) () =
   E.prim (Prim.Crosshair color)
 
+let cursor = E.prim Prim.Cursor
 let finish = E.prim Prim.Finish
 let link here there = E.prim (Prim.Link { here; there })
 

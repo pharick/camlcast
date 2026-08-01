@@ -69,6 +69,9 @@ type t =
   | Text of { x : int; y : int; text : string; color : Color.t; font : Font.t }
   | Picture of { x : int; y : int; image : Image.t; tint : Color.t option }
   | Crosshair of Color.t
+  | Cursor
+      (** the description asking for the pointer. Present in a frame, the mouse
+          is loose and does not turn the camera. *)
   | Finish
       (** the description saying it is over. Present in a frame, the run ends
           after it. *)

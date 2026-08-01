@@ -99,7 +99,7 @@ let assemble nodes =
    ({ Camlcast_loom.Host.prim = Prim.World { atmosphere; spawn }; _ } as root);
   ] ->
       let rooms = ref [] and links = ref [] and eye = ref None in
-      let over = ref false and hud = ref [] in
+      let over = ref false and hud = ref [] and pointing = ref false in
       refuse_strangers ~parent:root.Camlcast_loom.Host.prim root;
       List.iter
         (fun (child : prim Camlcast_loom.Host.node) ->
@@ -109,6 +109,7 @@ let assemble nodes =
           | Prim.Link { here; there } -> links := (here, there) :: !links
           | Prim.Camera camera -> eye := Some camera
           | Prim.Finish -> over := true
+          | Prim.Cursor -> pointing := true
           | Prim.Hud -> hud := !hud @ collect_hud child
           | _ -> ())
         root.Camlcast_loom.Host.children;
@@ -136,7 +137,14 @@ let assemble nodes =
                   ~radians:c.pitch)
           !eye
       in
-      { Scene.world; camera; finished = !over; hud = !hud; targets }
+      {
+        Scene.world;
+        camera;
+        pointing = !pointing;
+        finished = !over;
+        hud = !hud;
+        targets;
+      }
   | [] -> raise (Malformed "a description has to have a world in it")
   | [ node ] ->
       raise

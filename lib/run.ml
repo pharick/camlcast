@@ -128,6 +128,7 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
   in
   let view state = (state.scene.Scene.world, state.player) in
   let finished state = state.scene.Scene.finished in
+  let pointing state = state.scene.Scene.pointing in
   let overlay buffer state =
     viewport := (buffer.Framebuffer.width, buffer.Framebuffer.height);
     Overlay.draw buffer state.scene.Scene.hud;
@@ -154,7 +155,7 @@ let on window ?(debug = true) ?(use = Input.Key Key.e)
   in
   Result.map snd
     (Engine.run window
-       (Engine.game ~update ~view ~overlay ~finished ~bindings ())
+       (Engine.game ~update ~view ~overlay ~finished ~pointing ~bindings ())
        start)
 
 let play ?title ?width ?height ?debug ?use ?bindings description =

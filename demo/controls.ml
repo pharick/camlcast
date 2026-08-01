@@ -37,8 +37,7 @@
     which are the ones the overlay draws in, so the square lands under the
     pointer at any window size. *)
 
-open Camlcast_core
-open Result_ext
+open Camlcast
 
 let height = 4.
 
@@ -48,10 +47,10 @@ let interact = Input.Key Key.e
 let screen = Input.Key Key.tab
 let primary = Input.Button Input.Left
 
-(** What to print for a control. {!Camlcast_core.Key.name} does the hard half —
-    which key of the layout in front of the player this place is — and a game
-    supplies its own word for a mouse button, because "click" is a choice about
-    wording rather than about hardware. *)
+(** What to print for a control. {!Camlcast.Key.name} does the hard half — which
+    key of the layout in front of the player this place is — and a game supplies
+    its own word for a mouse button, because "click" is a choice about wording
+    rather than about hardware. *)
 let named = function
   | Input.Key key -> Key.name key
   | Input.Button Input.Left -> "click"
@@ -60,12 +59,12 @@ let named = function
 
 (** The engine's table with a second set of walking keys added to it: the whole
     of rebinding is a value like this one, stated once and handed to
-    {!Camlcast_core.Engine.run}.
+    {!Camlcast.Run.on}.
 
-    [~leave] has to be asked for — {!Camlcast_core.Binding.default} binds no key
-    that ends a run, since a game with screens in it wants Escape for closing
-    them — which is what {!Camlcast_demo.Bindings} does for the demos that take
-    it as it stands. *)
+    [~leave] has to be asked for — {!Camlcast.Binding.default} binds no key that
+    ends a run, since a game with screens in it wants Escape for closing them —
+    which is what {!Camlcast_demo.Bindings} does for the demos that take it as
+    it stands. *)
 let bindings =
   let also axis ~positive ~negative =
     {
@@ -87,8 +86,8 @@ let bindings =
 
 (** Read off the table above, so the two cannot drift apart.
 
-    Lazy, and that is not an optimisation: {!Camlcast_core.Key.name} answers for
-    the layout SDL knows about, and SDL only reads the real one when the video
+    Lazy, and that is not an optimisation: {!Camlcast.Key.name} answers for the
+    layout SDL knows about, and SDL only reads the real one when the video
     subsystem starts. Built at module load this line would name the US keyboard
     on every machine. Built on the first frame it names the player's. *)
 let help =
@@ -105,118 +104,109 @@ let commit_after = 1.5
 (** How long a lamp stays lit after the thing it reports. *)
 let lamp_time = 0.8
 
-type t = {
-  player : Player.t;
-  pointing : bool;
-  hold : float;  (** how long E has been held, or zero *)
-  tap : float;  (** seconds of lamp left, for each of the three *)
-  commit : float;
-  click : float;
-  pointer : int * int;
-}
+let flat = Plane.horizontal 0.
+let sw = Vec.make (-7.) (-7.)
+let se = Vec.make 7. (-7.)
+let ne = Vec.make 7. 7.
+let nw = Vec.make (-7.) 7.
 
-let world =
-  let sw = Vec.make (-7.) (-7.)
-  and se = Vec.make 7. (-7.)
-  and ne = Vec.make 7. 7.
-  and nw = Vec.make (-7.) 7. in
-  let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      ~sprites:
-        [
-          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
-          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 0. (-2.5));
-        ]
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
-  in
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make (-4.5) 0.)
+let chamber =
+  P.(
+    room ~name:"room"
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      [
+        outline ~height ~material:Surfaces.stone [ sw; se; ne; nw ];
+        sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
+        sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
+          (Vec.make 0. (-2.5));
+      ])
 
-let start =
-  {
-    player = Player.spawn world;
-    pointing = false;
-    hold = 0.;
-    tap = 0.;
-    commit = 0.;
-    click = 0.;
-    pointer = (0, 0);
-  }
+let spawn = ("room", Vec.make (-4.5) 0.)
+
+(* Not (width, height): a local open of P puts a wall's height in scope, and a
+   buffer's is a different number. *)
+let panel ~hold ~lamps ~pointing ~pointer ~viewport:(across, down) =
+  let font = Lazy.force font in
+  let unit = Int.max 3 (down / 60) in
+  let margin = 2 * unit in
+  let full = hold >= commit_after in
+  P.(
+    [
+      text ~font ~x:margin ~y:margin ~color:(Color.rgb 150 156 170)
+        (Lazy.force help);
+      (* The hold meter, turning from amber to green as it passes the mark. *)
+      bar ~x:margin
+        ~y:(down - margin - (2 * unit))
+        ~w:(across / 3) ~h:(2 * unit) ~fraction:(hold /. commit_after)
+        ~color:
+          (Color.rgb
+             (if full then 120 else 230)
+             (if full then 220 else 180)
+             (if full then 130 else 80))
+        ();
+    ]
+    (* Three lamps in a row, each fading out over [lamp_time]. *)
+    @ List.mapi
+        (fun i (left, (r, g, b)) ->
+          rect
+            ~x:(margin + (i * 5 * unit))
+            ~y:(down - margin - (7 * unit))
+            ~w:(4 * unit) ~h:(3 * unit) ~color:(Color.rgb r g b)
+            ~alpha:(int_of_float (255. *. Float.min 1. (left /. lamp_time)))
+            ())
+        lamps
+    @
+    if pointing then
+      let x, y = pointer in
+      [
+        rect ~x:(x - unit) ~y:(y - unit) ~w:(2 * unit) ~h:(2 * unit)
+          ~color:(Color.rgb 250 250 250) ~alpha:255 ();
+      ]
+    else [ crosshair ~color:(Color.rgb 245 245 245) () ])
 
 let fade lamp dt = Float.max 0. (lamp -. dt)
 
-let update state ~dt ~motion ~actions =
-  let let_go = Input.released actions interact in
-  let lasted = Input.held_for actions interact in
-  {
-    player = Engine.step world state.player motion;
-    pointing =
-      (if Input.pressed actions screen then not state.pointing
-       else state.pointing);
-    hold = (if Input.down actions interact then lasted else 0.);
-    tap =
-      (if let_go && lasted < commit_after then lamp_time else fade state.tap dt);
-    commit =
-      (if let_go && lasted >= commit_after then lamp_time
-       else fade state.commit dt);
-    click =
-      (if Input.pressed actions primary then lamp_time else fade state.click dt);
-    pointer = Input.pointer actions;
-  }
+let reading =
+  Element.declare ~name:"reading" @@ fun () ->
+  let actions = Events.use_actions () in
+  let pointing, set_pointing = Hook.use_state false in
+  let tap, set_tap = Hook.use_state 0. in
+  let commit, set_commit = Hook.use_state 0. in
+  let click, set_click = Hook.use_state 0. in
+  Events.use_key_down Key.tab (fun () -> set_pointing (not pointing));
+  Events.use_frame (fun ~dt ->
+      let let_go = Input.released actions interact in
+      let lasted = Input.held_for actions interact in
+      set_tap
+        (if let_go && lasted < commit_after then lamp_time else fade tap dt);
+      set_commit
+        (if let_go && lasted >= commit_after then lamp_time else fade commit dt);
+      set_click
+        (if Input.pressed actions primary then lamp_time else fade click dt));
+  P.(
+    world ~atmosphere:Surfaces.air ~spawn
+      [
+        chamber;
+        (if pointing then cursor else Element.empty);
+        hud
+          (panel
+             ~hold:
+               (if Input.down actions interact then
+                  Input.held_for actions interact
+                else 0.)
+             ~lamps:
+               [
+                 (tap, (110, 170, 245));
+                 (commit, (120, 220, 130));
+                 (click, (240, 190, 90));
+               ]
+             ~pointing ~pointer:(Input.pointer actions)
+             ~viewport:(Events.use_viewport ()));
+      ])
 
-let overlay fb state =
-  let font = Lazy.force font in
-  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
-  let unit = Int.max 3 (height / 60) in
-  let margin = 2 * unit in
-  Font.draw fb font (Lazy.force help) ~x:margin ~y:margin
-    ~color:(Color.rgb 150 156 170);
-  (* The hold meter, turning from amber to green as it passes the mark. *)
-  let full = state.hold >= commit_after in
-  Paint.bar fb ~x:margin
-    ~y:(height - margin - (2 * unit))
-    ~w:(width / 3) ~h:(2 * unit)
-    ~fraction:(state.hold /. commit_after)
-    ~color:
-      (Color.rgb
-         (if full then 120 else 230)
-         (if full then 220 else 180)
-         (if full then 130 else 80));
-  (* Three lamps in a row, each fading out over [lamp_time]. *)
-  List.iteri
-    (fun i (left, (r, g, b)) ->
-      let alpha = int_of_float (255. *. Float.min 1. (left /. lamp_time)) in
-      Paint.rect fb
-        ~x:(margin + (i * 5 * unit))
-        ~y:(height - margin - (7 * unit))
-        ~w:(4 * unit) ~h:(3 * unit) ~color:(Color.rgb r g b) ~alpha)
-    [
-      (state.tap, (110, 170, 245));
-      (state.commit, (120, 220, 130));
-      (state.click, (240, 190, 90));
-    ];
-  if state.pointing then begin
-    let x, y = state.pointer in
-    Paint.rect fb ~x:(x - unit) ~y:(y - unit) ~w:(2 * unit) ~h:(2 * unit)
-      ~color:(Color.rgb 250 250 250) ~alpha:255
-  end
-  else Paint.crosshair fb ~color:(Color.rgb 245 245 245)
+let world =
+  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn [ chamber ]))
+    .Scene.world
 
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings ~update
-         ~view:(fun state -> (world, state.player))
-         ~overlay
-         ~pointing:(fun state -> state.pointing)
-         ())
-      start
-  in
-  ending
+let run window = Run.on window ~bindings (reading ())

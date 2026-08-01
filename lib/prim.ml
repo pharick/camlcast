@@ -38,6 +38,7 @@ type t =
   | Text of { x : int; y : int; text : string; color : Color.t; font : Font.t }
   | Picture of { x : int; y : int; image : Image.t; tint : Color.t option }
   | Crosshair of Color.t
+  | Cursor
   | Finish
   | Link of { here : string * string; there : string * string }
 
@@ -57,6 +58,7 @@ let describe = function
   | Text { text; _ } -> Printf.sprintf "text %S" text
   | Picture { x; y; _ } -> Printf.sprintf "picture at %d,%d" x y
   | Crosshair _ -> "crosshair"
+  | Cursor -> "cursor"
   | Finish -> "finish"
   | Link { here = ra, ta; there = rb, tb } ->
       Printf.sprintf "link %s.%s-%s.%s" ra ta rb tb
@@ -70,7 +72,7 @@ let inside = function
 
 let may_contain ~parent ~child =
   match (parent, child) with
-  | World _, (Room _ | Link _ | Camera _ | Finish | Hud) -> true
+  | World _, (Room _ | Link _ | Camera _ | Cursor | Finish | Hud) -> true
   | Room _, (Wall _ | Threshold _ | Sprite _) -> true
   | Wall _, Decal _ -> true
   | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Crosshair _ | Hud) -> true

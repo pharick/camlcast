@@ -5,6 +5,7 @@ open Camlcast_core
 type t = {
   world : World.t;
   camera : Player.t option;
+  pointing : bool;
   finished : bool;
   targets : Aim.t;
   hud : Prim.t list;

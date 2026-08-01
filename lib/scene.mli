@@ -17,6 +17,8 @@ type t = {
           the player and walks it from the bindings. [Some] is a description
           that has taken the camera over — a cutscene, a lift, a death — and is
           the same controlled-or-not distinction a text input has. *)
+  pointing : bool;
+      (** whether the description asked for the pointer. See {!P.cursor}. *)
   finished : bool;
       (** whether the description said it is over. See {!P.finish}. *)
   targets : Aim.t;

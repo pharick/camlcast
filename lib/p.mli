@@ -293,6 +293,17 @@ val crosshair : ?color:Color.t -> unit -> t
     ray goes through, which is what makes it agree with {!Camlcast_core.Sight}.
 *)
 
+val cursor : t
+(** Ask for the pointer instead of the camera.
+
+    A child of {!world}. While one of these is in a description the mouse is
+    loose and visible, and moving it does not turn the eye — which is what a
+    screen drawn over a world wants, and what the world underneath must not also
+    want at the same time. Take it out again and the mouse goes back to looking
+    around.
+
+    Declared rather than called, because everything else here is. *)
+
 val finish : t
 (** Say the game is over.
 
