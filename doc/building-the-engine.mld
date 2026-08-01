@@ -1,5 +1,15 @@
 {0 Building the engine from scratch}
 
+{b The first of two pages about how this engine is made.} This one is the
+raycaster: rays against wall segments, a floor cast per pixel, portals drawn
+recursively into an opening — everything under the line a game never crosses.
+The second, {{!page-"building-the-layer"} Building the layer from scratch}, is
+what sits over it: how a description of a world becomes one, and how a component
+keeps state across a frame that rebuilt everything.
+
+Read them in order if you want the whole thing. Read only this one if what you
+want is to know how the picture is drawn.
+
 A step-by-step tutorial for rebuilding this engine by hand, in OCaml on SDL2.
 Each {b phase} ends in something you can run and see, and each {b step} adds one
 idea. Read the concept, write the module, check the checkpoint, move on.
@@ -10,8 +20,8 @@ inclined floor and either an inclined ceiling or an open sky, mouse look with
 pitch, a resizable and fullscreen window, see-through walls, wall decals and
 billboarded sprites — all drawn by a small software renderer you wrote.
 
-If instead you want to {e use} this engine rather than rebuild it, the other page
-is the one you want: {{!page-"making-a-game"} Making a game on CamlCast}.
+If instead you want to {e use} this engine rather than rebuild it,
+{{!page-"making-a-game"} Making a game on CamlCast} is the page you want.
 
 {1 Before you start}
 

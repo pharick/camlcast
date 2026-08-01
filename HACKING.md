@@ -40,17 +40,29 @@ rather than quietly reflowing the tree.
 
 ## The examples
 
-`examples/` holds the complete programs the guides quote — `room.ml` is step 1
-of the making-a-game guide and the example in README.md, `doorways.ml` step 5,
-`game.ml` step 12, `rebind.ml` step 13. They compile with the default build and
-belong to no package, so `dune build` fails the moment the engine moves under
-them — which is the point: a snippet on a page cannot rot while the program it
-is quoted from still builds. Changing one of them means changing the page that
-quotes it, and the other way round.
+`examples/` holds the complete programs the guides quote. They compile with the
+default build and belong to no package, so `dune build` fails the moment the
+engine moves under them — which is the point: a snippet on a page cannot rot
+while the program it is quoted from still builds. Changing one means changing
+the page that quotes it, and the other way round.
+
+They come in pairs on purpose:
+
+| against the layer | against the platform | what it shows |
+| --- | --- | --- |
+| `described_room.ml` | `room.ml` | one room. `test_stage` renders both and compares every pixel |
+| `described_fuse.ml` | `game.ml` | a small game with a phase and a clock |
+| | `doorways.ml`, `rebind.ml` | two rooms; rebinding, on the older API |
+
+`described_room.ml` is what README.md quotes and step 1 of the guide.
+`described_fuse.ml` beside `game.ml` is the shortest account of what the layer
+is for: there, one record holds a phase, a clock and a player advanced by one
+`update`; here the phase and the clock belong to the component that uses them
+and the player belongs to the runtime.
 
 ## The docs and the site
 
-Every push to `main` publishes the odoc pages and both guides to
+Every push to `main` publishes the odoc pages and all three guides to
 [pharick.github.io/camlcast](https://pharick.github.io/camlcast/). Locally:
 
 ```sh
@@ -88,21 +100,37 @@ resolves. **That set of warnings is the expected output** — anything else in i
 is a real reference that has gone stale. `@doc-new`, the odoc 3 driver alias
 that would put `Stdlib` in scope, does not build in this tree.
 
-## Feature parity with the demos
+## The demos, and what migrating them found
 
-The declarative layer is finished when everything the twenty-two demos show can
-be described. That was audited feature by feature rather than by transcribing
-them, because the demos are *content* — patterns, pictures, five hand-placed
-rooms — and copying content proves less than checking the mechanisms it needs.
+All twenty-two demos are descriptions. Migrating them was the parity check, and
+it worked as one: five primitives were found by rewriting a demo that had always
+needed them, rather than by design.
 
-Everything is expressible. Two gaps were found by the audit and closed:
+| found by | what it closed |
+| --- | --- |
+| `slopes`, `floating`, `level` | `P.opening` / `P.through` — carrying a floor across a doorway |
+| `barred`, `level` | `P.threshold` — a lintel of a different material from its wall |
+| `controls` | `P.cursor` — freeing the mouse instead of capturing it |
+| `targets` | `P.highlight` and `Aim.ring` — the projection needed the viewport |
+| `targets`, `level` | `Events.aim` — what kind of thing the crosshair is on |
 
-- **`chalk`** marks a wall where the crosshair is, which needs *where on the
-  wall* the eye landed. `on_use` now takes an `Aim.spot`, and `test_aim` leaves
-  a mark with it.
-- **`trail`** builds a route home from the doorways a frame went through, which
-  `Engine.step` throws away. The loop uses `Engine.move` now and the crossings
-  reach a description as `Events.use_crossed`, by room and doorway *name*.
+Two more came from the audit before it: `on_use` takes an `Aim.spot`, because
+`chalk` marks a wall where the crosshair is; and `Events.use_crossed`, because
+`trail` builds a route home from the doorways a frame went through and
+`Engine.step` throws those away.
+
+Four tests stopped meaning what they meant, and each says so where it is rather
+than being quietly made to compile:
+
+- `dust` asserted that a moving room *shares* the walls of the room it moved
+  from. False now by design; `bench/frame.exe` is why that is affordable.
+- `endless` asserted that graph surgery was done right. There is no surgery.
+- `trail` and `menu` read private state. They read what the player sees now — the
+  ticks on the HUD, the row the list highlights.
+
+`test_menu` also found the one place a component differs visibly from the pure
+`update` it replaced: a handler runs *after* the frame it fired on, so the frame
+a key goes down on still shows what was selected before it.
 
 | demo | what it needs | where |
 | --- | --- | --- |
@@ -173,7 +201,9 @@ floor moves only when the pin in `.github/workflows/release.yml` does.
 
 A demo is added in four places, and the suite holds you to the first two:
 
-1. its file in `demo/` — one feature, short enough to read in a sitting;
+1. its file in `demo/` — one feature, short enough to read in a sitting. It
+   exposes `level` (or a component), `world` for the catalogue and the suites,
+   and `run window = Run.on window ...`;
 2. an entry in `Catalogue.demos`, which also enrols it in `test_demos` (spawn
    is standable, rooms enclose themselves, every room reachable, no floor step
    across a doorway);

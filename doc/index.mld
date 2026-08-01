@@ -21,24 +21,33 @@ scaled to the window by the GPU.
 
 {1 Three guides}
 
-- {{!page-"describing-a-world"} {b Describing a world}} — the declarative layer,
-  where a game says what its world should be and the runtime works out what
-  changed. This is the newer of the two ways in, and the one a new game should
-  start from.
 - {{!page-"making-a-game"} {b Making a game on CamlCast}} — from an empty
-  directory to a game, one engine feature at a time, with the demo that isolates
+  directory to a game, one feature at a time, with the demo that isolates
   each one. Start here if you want to build something on the engine.
 - {{!page-"building-the-engine"} {b Building the engine from scratch}} — how the
   picture is drawn, rebuilt by hand in eight phases with every derivation written
   out. Start here if you want to know how a raycaster works.
+- {{!page-"building-the-layer"} {b Building the layer from scratch}} — how a
+  description of a world becomes one, and how a component keeps state across a
+  frame that rebuilt everything: elements, reconciling, hooks on effect
+  handlers, and the seam between the two. The second half of the one above.
 
-{1 Two libraries}
+{1 The libraries}
 
 The engine holds no content: not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-- {b [camlcast]} — the engine. Geometry, ray casting, rendering, SDL.
+- {b [camlcast]} — {b what a game opens.} The parts a world is described with,
+  the components that hold its state, and the loop that plays one. See
+  {!Camlcast}.
+- {b [camlcast.loom]} — the runtime under that: elements, reconciling, hooks,
+  contexts, a store. It depends on nothing but the standard library and knows
+  nothing of walls.
+- {b [camlcast.core]} — the platform. Geometry, ray casting, rendering, SDL. A
+  game that genuinely needs {!Camlcast_core.World} or
+  {!Camlcast_core.Renderer} adds this to its dune file and says so, which makes
+  reaching past the layer a decision rather than a drift.
 - {b [camlcast-demo]} — the demos and the art they are made of, run by
   [camlcast-demo]. One small world per engine feature, plus the five-room
   showcase that has all of them at once. It is content, and it lives outside the
