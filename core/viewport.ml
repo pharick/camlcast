@@ -192,6 +192,7 @@ let project_point t (pose : Player.t) ~point ~z =
       ( (camera_x +. 1.) *. float_of_int t.width /. 2.,
         project_height t ~z ~distance )
 
+type box = { left : float; top : float; right : float; bottom : float }
 (** Where a sprite lands on the screen: [(left, top, right, bottom)] in pixels.
 
     A sprite is a billboard facing the view, so [pose] places it — the player
@@ -214,6 +215,7 @@ let project_point t (pose : Player.t) ~point ~z =
     player is looking at — has to land on the same rectangle, and there should
     be one answer to where that is. {!Sight.t} carries the [pose] and the
     [distance] it needs. *)
+
 let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
   let lateral =
     Vec.dot (Vec.sub s.Room.pos pose.Player.pos) pose.Player.right
@@ -223,7 +225,7 @@ let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
   let base = project_height t ~z:(Room.sprite_foot s ~floor_z) ~distance in
   let top = project_height t ~z:(Room.sprite_head s ~floor_z) ~distance in
   let half = (base -. top) *. Room.sprite_half_width s /. s.Room.size in
-  (centre -. half, top, centre +. half, base)
+  { left = centre -. half; top; right = centre +. half; bottom = base }
 
 (** How fast the middle of the screen rises with distance, at a given pitch: the
     vertical half of the ray the crosshair looks along, as world height gained

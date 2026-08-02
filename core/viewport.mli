@@ -97,17 +97,20 @@ val project_point :
     are enough to outline anything flat — which is what a game wanting to ring a
     decal needs, and why this is public. *)
 
+type box = { left : float; top : float; right : float; bottom : float }
+(** A rectangle on the screen, in pixels.
+
+    A record because the four are one type and the prose was the only thing
+    saying which was which. Its two callers took it as a bare tuple and unpacked
+    it under different names — [left, y_top, rightx, y_base] in {!Renderer} and
+    [left, top, right, bottom] in {!Camlcast.Aim} — so a transposition was a
+    silently misplaced rectangle rather than an error. *)
+
 val sprite_box :
-  t ->
-  Player.t ->
-  floor_z:float ->
-  distance:float ->
-  Room.sprite ->
-  float * float * float * float
-(** Where a sprite lands on the screen: [(left, top, right, bottom)] in pixels.
-    The pose is the player expressed in the room the sprite is in, [floor_z] the
-    elevation of the floor under it, and [distance] how far ahead it stands
-    along the view.
+  t -> Player.t -> floor_z:float -> distance:float -> Room.sprite -> box
+(** Where a sprite lands on the screen, in pixels. The pose is the player
+    expressed in the room the sprite is in, [floor_z] the elevation of the floor
+    under it, and [distance] how far ahead it stands along the view.
 
     {!Renderer} draws sprites with this. It is here, and public, because
     anything that wants to draw attention to one — an outline around what the

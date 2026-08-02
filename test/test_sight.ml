@@ -812,7 +812,7 @@ let a_target_can_be_found_on_the_screen () =
           ~width:640 ~height:400
       in
       let sprite = Room.sprite_at (World.room world room) s.index in
-      let left, top, right, bottom =
+      let { Viewport.left; top; right; bottom } =
         Viewport.sprite_box viewport pose
           ~floor_z:(Plane.elevation flat_floor.Room.plane sprite.Room.pos)
           ~distance sprite

@@ -309,7 +309,7 @@ let a_sprite_on_the_floor_is_where_the_viewport_says () =
   let s = Room.sprite ~size:1.6 ~image:square (Vec.make 5. 0.) in
   let with_it, without = alone [ s ] in
   let l, t, r, b = box ~with_it ~without (looking_east ()) in
-  let el, et, er, eb =
+  let { Viewport.left = el; top = et; right = er; bottom = eb } =
     Viewport.sprite_box (viewport ~floor_z:0.) (looking_east ()) ~floor_z:0.
       ~distance:5. s
   in
@@ -465,7 +465,7 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
   (* And it is genuinely trimmed rather than merely small: unclipped it would be
      wider than the opening it came through. *)
   let unclipped =
-    let el, _, er, _ =
+    let { Viewport.left = el; right = er; _ } =
       Viewport.sprite_box (viewport ~floor_z:0.) looking ~floor_z:0.
         ~distance:4. sprite
     in
@@ -2072,7 +2072,7 @@ let a_billboard_covers_the_pixels_its_box_holds () =
       let with_it, without = alone [ s ] in
       let player = looking_east () in
       let drawn = box ~with_it ~without player in
-      let el, et, er, eb =
+      let { Viewport.left = el; top = et; right = er; bottom = eb } =
         Viewport.sprite_box v player ~floor_z:0. ~distance:pos.Vec.x s
       in
       let l, r = covered ~n:width el er and t, b = covered ~n:height et eb in

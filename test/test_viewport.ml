@@ -322,7 +322,7 @@ let a_square_picture_is_as_wide_as_it_is_tall () =
   in
   List.iter
     (fun distance ->
-      let l, t, r, b =
+      let { Viewport.left = l; top = t; right = r; bottom = b } =
         Viewport.sprite_box reference facing_east ~floor_z:0. ~distance s
       in
       Alcotest.check close
@@ -344,7 +344,7 @@ let a_wide_picture_is_as_wide_as_its_picture () =
   in
   List.iter
     (fun distance ->
-      let l, t, r, b =
+      let { Viewport.left = l; top = t; right = r; bottom = b } =
         Viewport.sprite_box reference facing_east ~floor_z:0. ~distance s
       in
       Alcotest.check close
@@ -367,15 +367,16 @@ let a_base_raises_both_edges_together () =
   and lifted =
     Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4. (at 1.25)
   in
-  let gl, gt, gr, gb = ground and ll, lt, lr, lb = lifted in
-  Alcotest.check close "the same left edge" gl ll;
-  Alcotest.check close "the same right edge" gr lr;
+  let open Viewport in
+  Alcotest.check close "the same left edge" ground.left lifted.left;
+  Alcotest.check close "the same right edge" ground.right lifted.right;
   let rise =
     Viewport.project_height reference ~z:0. ~distance:4.
     -. Viewport.project_height reference ~z:1.25 ~distance:4.
   in
-  Alcotest.check close "the top rose" (gt -. rise) lt;
-  Alcotest.check close "and the foot by the same" (gb -. rise) lb
+  Alcotest.check close "the top rose" (ground.top -. rise) lifted.top;
+  Alcotest.check close "and the foot by the same" (ground.bottom -. rise)
+    lifted.bottom
 
 (* The lift is measured from the floor under it and not from an absolute height,
    which is what makes a sprite ride a slope instead of the ground climbing
@@ -390,9 +391,11 @@ let a_base_is_measured_from_the_floor () =
     Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4.
       (Room.sprite ~base:1. ~size:1.5 ~image (Vec.make 4. 0.))
   in
-  let _, at, _, ab = on_a_high_floor and _, bt, _, bb = lifted_off_a_low_one in
-  Alcotest.check close "the same top" at bt;
-  Alcotest.check close "the same foot" ab bb
+  let open Viewport in
+  Alcotest.check close "the same top" on_a_high_floor.top
+    lifted_off_a_low_one.top;
+  Alcotest.check close "the same foot" on_a_high_floor.bottom
+    lifted_off_a_low_one.bottom
 
 let () =
   Alcotest.run "Viewport"

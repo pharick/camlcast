@@ -124,7 +124,7 @@ let ring world player ~width ~height =
   | Some { Sight.kind = Sight.Sprite s; room; pose; distance; _ } ->
       let there = World.room world room in
       let sprite = Room.sprite_at there s.index in
-      let left, top, right, bottom =
+      let { Viewport.left; top; right; bottom } =
         Viewport.sprite_box viewport pose
           ~floor_z:(Plane.elevation (Room.floor_plane there) sprite.Room.pos)
           ~distance sprite

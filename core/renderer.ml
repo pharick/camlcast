@@ -365,7 +365,7 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let depth = fb.Framebuffer.depth in
   let floor_z = Plane.elevation (Room.floor_plane room) s.Room.pos in
-  let left, y_top, rightx, y_base =
+  let { Viewport.left; top = y_top; right = rightx; bottom = y_base } =
     Viewport.sprite_box viewport player ~floor_z ~distance:depth_s s
   in
   let span = rightx -. left and vspan = y_base -. y_top in
