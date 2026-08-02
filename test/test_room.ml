@@ -543,6 +543,83 @@ let a_doorway_as_wide_as_its_wall_leaves_no_jamb () =
   Alcotest.check vec "from one end of it" (Vec.make 0. 0.) t.Room.a;
   Alcotest.check vec "to the other" (Vec.make 4. 0.) t.Room.b
 
+(* The same claim, on coordinates whose arithmetic does not cancel by luck.
+   [(0,0)-(4,0)] above is exact in binary, so it left nothing standing however
+   the cut points were worked out; the pairs below do not, and they did.
+
+   Measuring out from the middle — [(a + b) / 2 +- edge * (width / 2 span)] —
+   is the same number on paper and a different one in floating point, so at
+   [width = span] the ends came back a few times [1e-17] away from where they
+   started and a jamb that long survived being dropped. Nothing draws such a
+   wall, because it is far too short for a ray to meet; [blocked] measures to
+   the nearest point of it all the same, which makes it an invisible disc of
+   collision_padding at the corner of an opening meant to be walked through.
+   And it takes a wall index, which is what Sight reports and what add_decal
+   counts from.
+
+   The endpoints are compared exactly rather than with [vec], whose tolerance is
+   1e-9 and would not see the difference this is about. *)
+let a_full_width_doorway_cancels_exactly () =
+  let same what (x : Vec.t) (y : Vec.t) =
+    Alcotest.(check bool) what true (x.Vec.x = y.Vec.x && x.Vec.y = y.Vec.y)
+  in
+  List.iter
+    (fun (a, b) ->
+      let span = Vec.length (Vec.sub b a) in
+      let jambs, t =
+        Room.doorway ~name:"whole" ~width:span ~opening:2. ~height:3.
+          ~material:pale a b
+      in
+      let where =
+        Printf.sprintf "(%g,%g)-(%g,%g)" a.Vec.x a.Vec.y b.Vec.x b.Vec.y
+      in
+      Alcotest.(check int) (where ^ ": no jamb") 0 (List.length jambs);
+      same
+        (where ^ ": the opening starts exactly where the wall does")
+        a t.Room.a;
+      same (where ^ ": and ends exactly where it ends") b t.Room.b)
+    [
+      (Vec.make 0.1 0., Vec.make 0.3 0.);
+      (Vec.make 0.1 0.2, Vec.make 0.7 1.3);
+      (Vec.make 1.7 2.9, Vec.make 3.1 0.4);
+      (Vec.make (-0.3) 0.9, Vec.make 0.45 (-1.1));
+    ]
+
+(* And a doorway narrower than its wall still lands centred on awkward
+   coordinates: two jambs, and the three pieces adding back up to the wall. *)
+let a_partial_doorway_still_splits_evenly () =
+  List.iter
+    (fun (a, b) ->
+      let span = Vec.length (Vec.sub b a) in
+      let width = span /. 3. in
+      let jambs, t =
+        Room.doorway ~name:"third" ~width ~opening:2. ~height:3. ~material:pale
+          a b
+      in
+      Alcotest.(check int) "a jamb either side" 2 (List.length jambs);
+      Alcotest.check close "the opening is the width asked for" width
+        t.Room.length;
+      let total =
+        List.fold_left
+          (fun acc (w : Room.wall) -> acc +. w.Room.length)
+          0. jambs
+      in
+      Alcotest.check close "and the pieces tile the wall" span
+        (total +. t.Room.length);
+      match jambs with
+      | [ first; second ] ->
+          Alcotest.check close "the two jambs are the same length"
+            first.Room.length second.Room.length;
+          Alcotest.check vec "the first runs from the wall's start" a
+            first.Room.a;
+          Alcotest.check vec "and the second to its end" b second.Room.b
+      | _ -> Alcotest.fail "expected two jambs")
+    [
+      (Vec.make 0.1 0.2, Vec.make 0.7 1.3);
+      (Vec.make 1.7 2.9, Vec.make 3.1 0.4);
+      (Vec.make 0. 0., Vec.make 4. 0.);
+    ]
+
 (* The same argument as the doorway above, one type down. A decal of no width
    and a sprite of no size both survive being written and both fail later,
    inside a frame: {!Room.decal_column} divides by twice the half width,
@@ -1182,6 +1259,10 @@ let () =
             a_doorway_splits_the_wall_it_is_cut_into;
           case "a doorway that could not be cut is refused"
             a_doorway_that_could_not_be_cut_is_refused;
+          case "a full width doorway cancels exactly"
+            a_full_width_doorway_cancels_exactly;
+          case "a partial doorway still splits evenly"
+            a_partial_doorway_still_splits_evenly;
           case "a doorway as wide as its wall leaves no jamb"
             a_doorway_as_wide_as_its_wall_leaves_no_jamb;
           case "a doorway can hang a door" a_doorway_can_hang_a_door;
