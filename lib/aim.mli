@@ -14,7 +14,9 @@
     being rebuilt from scratch every frame.
 
     That path is what makes an enter and a leave possible at all. Indices move
-    when a room is rebuilt; a path does not. *)
+    when a room is rebuilt; a path does not — though a description that
+    rearranges its unkeyed children moves what a path {e means}, which is the
+    one thing a game has to know about this and is set out under {!leaving}. *)
 
 type where =
   | On_wall of {
@@ -42,7 +44,9 @@ type spot = {
 
 type reaction = {
   path : Camlcast_loom.Path.t;
-      (** which part of the description this is, stable across frames *)
+      (** which part of the description this is: stable across a rebuild, and
+          across a rearrangement of its siblings only if it was given a key —
+          see {!leaving} *)
   on_gaze : (bool -> unit) option;
       (** called with [true] when the crosshair arrives and [false] when it
           leaves, and not once a frame in between *)
@@ -130,4 +134,16 @@ val leaving : t -> Camlcast_loom.Path.t -> (bool -> unit) option
     By path and not by index, because the world it was found in has been rebuilt
     since and the indices have moved. [None] if that part of the description is
     no longer there at all — which is a thing that was being looked at and then
-    ceased to exist, and has nothing left to tell. *)
+    ceased to exist, and has nothing left to tell.
+
+    A path is as stable as the description makes it, and this is the one place
+    in the runtime that leans on it {e across} a frame: everything else here is
+    answered from the cast this frame made against the world this frame built.
+    {!Camlcast_loom.Path.equal} identifies a keyed child by its key and an
+    unkeyed one by its position, so a description that rearranges unkeyed
+    siblings between frames sends the leave to whichever child now stands where
+    last frame's target stood. That is the identity model working as specified
+    rather than a fault to be worked around here — a runtime guessing at which
+    unkeyed wall was "really" the old one would be wrong in the cases keys exist
+    to settle — and it is why {!P} tells a game to key anything it rearranges.
+*)

@@ -45,7 +45,33 @@ type t = Prim.t Camlcast_loom.Element.t
     and the frame after will show it.
 
     On a {!doorway} they go on the opening rather than on the jambs either side
-    of it, because what a player aims at to work a door is the door. *)
+    of it, because what a player aims at to work a door is the door.
+
+    {2 Give one a [key] if its siblings can change}
+
+    The two halves of [on_gaze] are found in different ways, and only one of
+    them is found afresh. The {b enter} comes from this frame's cast against
+    this frame's world, so it is always the thing the player is actually looking
+    at. The {b leave} has to be sent to something the crosshair has already
+    moved off, which means last frame's target has to be recognised in a world
+    that has since been rebuilt — and it is recognised by its
+    {!Camlcast_loom.Path.t}, whose last step, for a child with no [key], is
+    {e its position among its siblings}.
+
+    So a description that inserts, removes or reorders unkeyed children between
+    frames moves that position out from under the leave. Write one more wall
+    ahead of the one being looked at and the [false] goes to whichever child now
+    stands where it stood: a thing that never had the crosshair is told it has
+    lost it, and the thing that did have it is never told, so a highlight stays
+    lit and a handler that toggles is left inverted. Nothing raises; the frame
+    is otherwise correct.
+
+    [key] is the whole of the remedy, and every constructor here takes one. A
+    keyed child is identified by its key and never by where it stands, so it
+    keeps the crosshair — and its hook state with it — across any rearrangement
+    of its siblings. Key anything a description can rearrange, and reach for one
+    the moment a list of walls or sprites is built from something that varies. A
+    fixed list written out in order needs none. *)
 
 (** {1 What is under a room and over it} *)
 

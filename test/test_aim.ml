@@ -101,6 +101,59 @@ let () =
                 "east let go before west took hold"
                 [ (1, false); (3, true) ]
                 (List.rev !heard));
+          case "a key carries the crosshair over an inserted sibling" (fun () ->
+              (* The leave is the one thing a frame has to recognise from the
+                 last one, and it recognises it by {!Camlcast_loom.Path.t}. An
+                 unkeyed child's path is its position among its siblings, so a
+                 description that writes one more wall ahead of the wall being
+                 looked at hands the [false] to whichever child has taken that
+                 position — the wrong wall told it lost the crosshair, and the
+                 right one never told, which leaves a highlight lit and a
+                 toggling handler inverted.
+
+                 A key is the whole of the remedy, and this is the case that
+                 says so. The inserted wall is a stub in a corner that no ray
+                 here reaches; all it does is shift its siblings along by one.
+
+                 Both frames go through one mount, because a rebuild is the
+                 point: two builds would each be a first frame and there would
+                 be nothing to recognise. *)
+              let heard = ref [] in
+              let named = [| "south"; "east"; "north"; "west" |] in
+              let described ~extra =
+                let watched i =
+                  let a, b = side i in
+                  P.wall ~key:named.(i) ~height ~material:stone
+                    ~on_gaze:(fun here -> heard := (named.(i), here) :: !heard)
+                    a b
+                in
+                let sides = List.init 4 watched in
+                world_of
+                  (if extra then
+                     P.wall ~height:0.4 ~material:stone (Vec.make (-3.9) (-3.9))
+                       (Vec.make (-3.5) (-3.9))
+                     :: sides
+                   else sides)
+              in
+              let mount = Mount.create () in
+              let scene = Mount.render mount (described ~extra:false) in
+              let was =
+                crosshair scene.Scene.targets scene.Scene.world east ~was:None
+                  ~used:false
+              in
+              Alcotest.(check (list (pair string bool)))
+                "the east wall has the crosshair"
+                [ ("east", true) ]
+                !heard;
+              heard := [];
+              let scene = Mount.render mount (described ~extra:true) in
+              ignore
+                (crosshair scene.Scene.targets scene.Scene.world west ~was
+                   ~used:false);
+              Alcotest.(check (list (pair string bool)))
+                "and east is what lets go of it, sibling or no sibling"
+                [ ("east", false); ("west", true) ]
+                (List.rev !heard));
           case "holding still says nothing more" (fun () ->
               let heard = ref 0 in
               let watched index =
