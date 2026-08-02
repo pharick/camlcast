@@ -7,6 +7,16 @@
     monospaced, which for a journal, a death screen and a lamp warning at this
     resolution is not much of a cost.
 
+    {b A character here is a byte.} The cell is the byte less {!t.first}, and
+    {!measure}, {!wrap} and {!draw} all step a string one byte at a time — so in
+    ASCII, or in Latin-1 with an atlas that reaches that far, a byte is a
+    character and everything here reads as written. In UTF-8 it does not: a
+    two-byte letter is measured two cells wide, drawn as two glyphs, and may be
+    wrapped between its own halves. Nothing raises and nothing is inconsistent —
+    the three agree with each other, which is why it comes out as a tidy layout
+    of something that is not the text. More than one byte to a character wants
+    an atlas and an index built for it, and this module is the grid.
+
     {b The atlas's colour is multiplied by the one {!draw} is given}, so a
     typeface drawn white comes out in whatever colour a screen asks for. That is
     the same split {!Texture} makes between a pattern and the {!Material}
