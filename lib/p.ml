@@ -127,6 +127,82 @@ let twice_signed_area points =
 let wound points =
   if twice_signed_area points < 0. then List.rev points else points
 
+type leg = {
+  key : string option;
+  on_gaze : (bool -> unit) option;
+  on_use : (Aim.spot -> unit) option;
+  decals : t list;
+  material : Material.t option;
+  height : float option;
+}
+
+type corner = { at : Vec.t; leg : leg }
+
+let bare l =
+  Option.is_none l.key && Option.is_none l.on_gaze && Option.is_none l.on_use
+  && Option.is_none l.material && Option.is_none l.height
+  && match l.decals with [] -> true | _ -> false
+
+let via ?key ?on_gaze ?on_use ?(decals = []) ?material ?height at =
+  { at; leg = { key; on_gaze; on_use; decals; material; height } }
+
+(* The segments a run describes, in the order they were written, each carrying
+   the leg of the corner it leaves. Built here rather than read back off
+   {!Room.path} because winding may reverse the run, and a leg has to stay with
+   its own wall through that — see {!run}. *)
+let legs ~closed corners =
+  let rec go = function
+    | { at = a; leg } :: ({ at = b; _ } :: _ as rest) -> (a, b, leg) :: go rest
+    | [ { at = last; leg } ] when closed -> (
+        match corners with [] -> [] | first :: _ -> [ (last, first.at, leg) ])
+    | _ -> []
+  in
+  go corners
+
+let run ?key ?(closed = false) ~height ~material corners =
+  let points = List.map (fun c -> c.at) corners in
+  (* Refused by the same call {!outline} and {!path} are refused by, so a run of
+     two identical corners or a closed one of two says what it has always said,
+     under a name a caller wrote. The walls it builds are discarded: they carry
+     one material and one height, which is the whole of what this exists not to
+     do. That is a handful of vectors normalised per run per frame, which is
+     what {!outline} already pays to build the walls it keeps. *)
+  ignore (Room.path ~closed ~height ~material points : Room.wall list);
+  (match List.rev corners with
+  | last :: _ when (not closed) && not (bare last.leg) ->
+      invalid_arg
+        "P.run: the last corner of an open run leaves no wall, so it can carry \
+         nothing"
+  | _ -> ());
+  let written = legs ~closed corners in
+  (* One reversal, and each wall flipped with it, so a leg stays on the wall its
+     corner named however the run came out wound. Reversing the corners and
+     letting the legs travel with them is the same thing off by one — a leg
+     describes the wall it {e leaves}, and after a reversal that is the wall it
+     arrives by. *)
+  let laid =
+    if twice_signed_area points >= 0. then written
+    else
+      (* Each wall flipped, and the traversal reversed — except that a closed
+         run's last wall is the one that shuts the loop, and it shuts it at
+         either winding, so it stays last. Reversing the whole list instead
+         leaves the same walls rotated by one, which builds the same room and
+         puts every leg on its neighbour. *)
+      let flipped = List.map (fun (a, b, leg) -> (b, a, leg)) written in
+      match List.rev flipped with
+      | closing :: rest when closed -> rest @ [ closing ]
+      | reversed -> reversed
+  in
+  E.fragment ?key
+    (List.map
+       (fun (a, b, leg) ->
+         wall ?key:leg.key ?on_gaze:leg.on_gaze ?on_use:leg.on_use
+           ~decals:leg.decals
+           ~height:(Option.value leg.height ~default:height)
+           ~material:(Option.value leg.material ~default:material)
+           a b)
+       laid)
+
 let path ?key ~height ~material points =
   E.fragment ?key
     (List.map of_wall

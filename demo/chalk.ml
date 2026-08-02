@@ -282,16 +282,27 @@ let panel ~selected ~left ~aim ~font ~across ~down =
 
 let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
     =
-  (* A wall that can be chalked: named, so a mark can say which one it is on,
+  (* What makes a wall chalkable: named, so a mark can say which one it is on,
      and told, so it can take one. *)
+  let takes_a_mark name spot =
+    match spot.Aim.where with
+    | Aim.On_wall { along; z; facing; _ } when markable ~left spot ->
+        mark { wall = name; along; z; facing; symbol = selected }
+    | _ -> ()
+  in
+  (* The boundary walls, as legs of a {!P.run}: the run winds itself, which is
+     what this demo used to give up by writing every wall out. A leg carries
+     everything P.wall does, which it has to — the jambs are brick where the
+     rest is stone. *)
+  let chalk_leg ?material name p =
+    P.via ?material ~key:name ~decals:(chalked ~marks name)
+      ~on_use:(takes_a_mark name) p
+  in
+  (* And free-standing walls, which are not part of any boundary and stay as
+     they were. *)
   let chalkable ?(material = Surfaces.stone) ?(tall = height) name a b =
     P.wall ~key:name ~height:tall ~material ~decals:(chalked ~marks name)
-      ~on_use:(fun spot ->
-        match spot.Aim.where with
-        | Aim.On_wall { along; z; facing; _ } when markable ~left spot ->
-            mark { wall = name; along; z; facing; symbol = selected }
-        | _ -> ())
-      a b
+      ~on_use:(takes_a_mark name) a b
   in
   let hall_p, hall_q = hall_gate and back_p, back_q = back_gate in
   P.(
@@ -304,11 +315,15 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
-            chalkable "south" hall_sw hall_se;
-            chalkable "north" hall_ne hall_nw;
-            chalkable "west" hall_nw hall_sw;
-            chalkable ~material:Surfaces.brick "jamb-south" hall_se hall_p;
-            chalkable ~material:Surfaces.brick "jamb-north" hall_q hall_ne;
+            run ~height ~material:Surfaces.stone
+              [
+                chalk_leg ~material:Surfaces.brick "jamb-north" hall_q;
+                chalk_leg "north" hall_ne;
+                chalk_leg "west" hall_nw;
+                chalk_leg "south" hall_sw;
+                chalk_leg ~material:Surfaces.brick "jamb-south" hall_se;
+                via hall_p;
+              ];
             threshold ~name:"onward" ~height:clearance ~lintel:this_demos_lintel
               hall_p hall_q;
             (* The one wall with two faces you can get to. Chalk it and walk
@@ -324,11 +339,15 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
           ~ceiling:
             (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
           [
-            chalkable "back-south" back_sw back_se;
-            chalkable ~material:Surfaces.brick "back-east" back_se back_ne;
-            chalkable "back-north" back_ne back_nw;
-            chalkable ~material:Surfaces.brick "back-jamb-north" back_nw back_p;
-            chalkable ~material:Surfaces.brick "back-jamb-south" back_q back_sw;
+            run ~height ~material:Surfaces.stone
+              [
+                chalk_leg ~material:Surfaces.brick "back-jamb-south" back_q;
+                chalk_leg "back-south" back_sw;
+                chalk_leg ~material:Surfaces.brick "back-east" back_se;
+                chalk_leg "back-north" back_ne;
+                chalk_leg ~material:Surfaces.brick "back-jamb-north" back_nw;
+                via back_p;
+              ];
             threshold ~name:"here" ~height:clearance ~lintel:this_demos_lintel
               back_p back_q;
             sprite ~key:"figure" ~size:1.7 ~image:Pictures.figure

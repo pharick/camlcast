@@ -167,6 +167,56 @@ let the_smallest_game =
 
    The trap this step exists to close. *)
 
+(* {!P.run} with nothing said at any leg has to be the two helpers it
+   generalizes, or it is a third way of building a boundary rather than one way
+   with more available. *)
+let runs =
+  let described children =
+    (Mount.build
+       (P.world ~atmosphere:Atmosphere.default ~spawn
+          [ P.room ~name:"room" ~floor ~ceiling children ]))
+      .Scene.world
+  in
+  let open_corners =
+    [ List.nth corners 0; List.nth corners 1; List.nth corners 2 ]
+  in
+  [
+    case "a run of bare corners is an outline" (fun () ->
+        same_world
+          (described [ P.outline ~height ~material:stone corners ])
+          (described
+             [
+               P.run ~closed:true ~height ~material:stone
+                 (List.map P.via corners);
+             ]));
+    case "and an open one is a path" (fun () ->
+        same_world
+          (described [ P.path ~height ~material:stone open_corners ])
+          (described
+             [ P.run ~height ~material:stone (List.map P.via open_corners) ]));
+    case "the last corner of an open run cannot carry anything" (fun () ->
+        (* It leaves no wall, so a handler there would never fire — the one
+           mistake the "describes the wall leaving it" shape invites. *)
+        Alcotest.check_raises "said plainly"
+          (Invalid_argument
+             "P.run: the last corner of an open run leaves no wall, so it can \
+              carry nothing") (fun () ->
+            ignore
+              (P.run ~height ~material:stone
+                 (match open_corners with
+                 | [ p; q; r ] -> [ P.via p; P.via q; P.via r ~key:"nowhere" ]
+                 | _ -> assert false)));
+        (* A closed run has no such corner, so the same list is fine shut. *)
+        ignore
+          (described
+             [
+               P.run ~closed:true ~height ~material:stone
+                 (match open_corners with
+                 | [ p; q; r ] -> [ P.via p; P.via q; P.via r ~key:"back" ]
+                 | _ -> assert false);
+             ]));
+  ]
+
 let winding =
   [
     case "corners in either order build the same room" (fun () ->
@@ -196,6 +246,56 @@ let winding =
                     [ P.outline ~height ~material:stone (List.rev corners) ];
                 ]))
             .Scene.world);
+    (* {!P.run} is the winding above with the whole of {!P.wall} at every leg,
+       so the question it has to answer is whether a leg stays on the wall its
+       corner named when the run comes out wound the other way. Written in both
+       orders, every wall must end up with the same material on it.
+
+       This is the case the implementation warns about: a leg describes the wall
+       it {e leaves}, so reversing the corners and letting each leg travel with
+       its own corner puts every leg one wall out. That version passes "the same
+       walls are there" and fails this. *)
+    case "a leg stays on its own wall through the winding" (fun () ->
+        let brick =
+          Material.make
+            ~pattern:(Texture.generate (checker ~color:(Color.rgb 190 90 70)))
+        in
+        (* One corner of the four is bricked, so the answer is asymmetric: a leg
+           shifted by one, or the whole run reflected, lands the brick somewhere
+           else and the walls below stop matching pairwise. *)
+        let legs cs =
+          match cs with
+          | [ p; q; r; s ] ->
+              [ P.via p; P.via q ~material:brick; P.via r; P.via s ]
+          | _ -> assert false
+        in
+        let describe cs =
+          (Mount.build
+             (P.world ~atmosphere:Atmosphere.default ~spawn
+                [
+                  P.room ~name:"room" ~floor ~ceiling
+                    [ P.run ~closed:true ~height ~material:stone (legs cs) ];
+                ]))
+            .Scene.world
+        in
+        let forwards = describe corners
+        and backwards = describe (List.rev corners) in
+        same_world forwards backwards;
+        (* And it is the brick that moved with its wall, not merely four walls
+           in the same places: find it by its endpoints in each. *)
+        let bricked world =
+          let room = World.room world 0 in
+          List.find_map
+            (fun i ->
+              let w = Room.wall_at room i in
+              if w.Room.material == brick then Some (w.Room.a, w.Room.b)
+              else None)
+            (List.init (Room.wall_count room) Fun.id)
+        in
+        let a, b = Option.get (bricked forwards) in
+        let c, d = Option.get (bricked backwards) in
+        Alcotest.check vec "the brick wall starts in the same place" a c;
+        Alcotest.check vec "and ends in the same place" b d);
     case "every normal faces into the room" (fun () ->
         (* The symptom of a reversed boundary is a room black from inside, and
            this is that stated as arithmetic: from the middle of the room, every
@@ -587,6 +687,7 @@ let () =
       ("the smallest game", the_smallest_game);
       ("the same picture", the_same_picture);
       ("winding", winding);
+      ("runs", runs);
       ("doorways", doorways);
       ("malformed", malformed);
       ("both readers", both_readers);
