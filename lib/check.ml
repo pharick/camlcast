@@ -552,8 +552,12 @@ let of_forest forest =
           if index < Array.length by_index then by_index.(index)
           else string_of_int index
         in
-        (* Both of the ways the engine has of refusing a description, so that a
-           check written to replace a crash cannot end in one. *)
+        (* Both of the ways the engine has of refusing a description, caught so
+           that a check written to replace {e these} crashes does not end in
+           one. Not a promise about every crash, which this used to read as: a
+           component of the game's own that raises during the render below
+           comes straight out of {!report}, and {!Check.report}'s own docstring
+           is where that is set out. What is bounded here is the engine's half. *)
         let refused message =
           [
             error "(root)" "the engine refused to build this world"
@@ -619,8 +623,8 @@ let report description =
       ]
   (* The one mistake that stops a description becoming a forest at all, and so
      the one that has to be caught here rather than read off one. Reported
-     rather than raised, for the same reason the two refusals above are: a check
-     written to replace a crash cannot end in one. *)
+     rather than raised, for the same reason the two refusals above are, and
+     bounded the same way: the engine's refusals, not a game's own exception. *)
   | exception Loom.Element.Duplicate_key { at; key } ->
       [
         error at

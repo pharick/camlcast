@@ -60,6 +60,19 @@ module Make (H : Host.HOST) = struct
 
   let dirty root = root.dirty
 
+  (* Asked before an event is built, and not only before it is delivered.
+     OCaml is strict, so [emit context (Trace.Updated (path, node))] allocates
+     both blocks whatever [emit] then decides — five words a node a frame, which
+     for a two-hundred-component tree measured at 2030 words against a
+     reconcile of 66987, or three percent, paid by every game whether it traces
+     or not. {!Trace} says it costs nothing untraced; this is what makes that
+     true.
+
+     A thunk would not: [fun () -> Trace.Updated (path, node)] captures the same
+     two values and comes to the same five words. Measured, and it came to the
+     same 66987 to the word. *)
+  let watched context = Option.is_some context.trace
+
   let emit context event =
     match context.trace with None -> () | Some f -> f event
 
@@ -80,11 +93,13 @@ module Make (H : Host.HOST) = struct
         List.iter (unmount ~context) children
     | Primitive { path; prim; children; _ } ->
         List.iter (unmount ~context) children;
-        emit context (Trace.Unmounted (path, Trace.Primitive prim))
+        if watched context then
+          emit context (Trace.Unmounted (path, Trace.Primitive prim))
     | Component { path; name; child; slots; _ } ->
         unmount ~context child;
         Hook.Runtime.on_unmount context.pending slots;
-        emit context (Trace.Unmounted (path, Trace.Component name))
+        if watched context then
+          emit context (Trace.Unmounted (path, Trace.Component name))
 
   let unmount_opt ~context = function
     | None -> ()
@@ -138,7 +153,8 @@ module Make (H : Host.HOST) = struct
           }
     | Some (Primitive previous), Element.Prim { prim; key; children }
       when same_key previous.key key ->
-        emit context (Trace.Updated (path, Trace.Primitive prim));
+        if watched context then
+          emit context (Trace.Updated (path, Trace.Primitive prim));
         Primitive
           {
             path;
@@ -150,7 +166,8 @@ module Make (H : Host.HOST) = struct
           }
     | _, Element.Prim { prim; key; children } ->
         unmount_opt ~context old;
-        emit context (Trace.Mounted (path, Trace.Primitive prim));
+        if watched context then
+          emit context (Trace.Mounted (path, Trace.Primitive prim));
         Primitive
           {
             path;
@@ -164,7 +181,8 @@ module Make (H : Host.HOST) = struct
        would be monomorphic and let it escape. *)
     | Some (Component previous), Element.Component { render; props; key; name }
       when previous.render_id == Obj.repr render && same_key previous.key key ->
-        emit context (Trace.Updated (path, Trace.Component name));
+        if watched context then
+          emit context (Trace.Updated (path, Trace.Component name));
         let slots = previous.slots in
         let described =
           render_with_hooks ~context ~env ~path ~slots render props
@@ -183,7 +201,8 @@ module Make (H : Host.HOST) = struct
           }
     | _, Element.Component { render; props; key; name } ->
         unmount_opt ~context old;
-        emit context (Trace.Mounted (path, Trace.Component name));
+        if watched context then
+          emit context (Trace.Mounted (path, Trace.Component name));
         let slots = Hook.Runtime.slots () in
         let described =
           render_with_hooks ~context ~env ~path ~slots render props
