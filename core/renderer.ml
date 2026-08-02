@@ -17,10 +17,10 @@ let clampi n v = Int.max 0 (Int.min (n - 1) v)
 
 (* Fill one column's background: the floor below, and either a ceiling or the
     open {!Sky} above, depending on whether the level is roofed. Each pixel
-    casts the relevant plane with {!Plane.view_distance} (one division), then
-    shows its texture in world space, tinted by its colour and traded away for
-    the haze as it recedes; sky pixels come from {!Sky} and depend only on the
-    direction looked in.
+    casts the relevant plane with {!Plane.cast} (one division), then shows its
+    texture in world space, tinted by its colour and traded away for the haze as
+    it recedes; sky pixels come from {!Sky} and depend only on the direction
+    looked in.
 
     [near] is the doorway this room is being drawn through, and a plane cast
     nearer than it is not this room's to show. The case that needs it is the
@@ -105,12 +105,22 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
            planes at most one of these is a positive distance. Two that converge
            along the ray can both be, and then the comparison below takes the
            nearer, which is what it would do anyway. *)
+        (* The guard is on the sign of the denominator and not its size, which
+           is what asks {!Plane.cast}'s question of one plane in one role: a
+           floor is what a row below the horizon can be showing and a ceiling is
+           what a row above it can. Cast itself takes either sign — it is the
+           plane the ray meets, whichever way the ray is going — so the split
+           here is not a second copy of the formula but the renderer's own
+           question put to it twice. It is also what declines to paint a
+           {e ceiling} the author has left below the eye. *)
         let cast_f =
-          let dn = r +. gf in
-          if dn > 1e-9 then (eye_z -. floor_base) /. dn else infinity
+          if r +. gf > 1e-9 then
+            Plane.cast ~eye_z ~base:floor_base ~gradient:gf ~row_factor:r
+          else infinity
         and cast_c =
-          let dn = r +. gc in
-          if dn < -1e-9 then (eye_z -. ceil_base) /. dn else infinity
+          if r +. gc < -1e-9 then
+            Plane.cast ~eye_z ~base:ceil_base ~gradient:gc ~row_factor:r
+          else infinity
         in
         let df = beyond cast_f and dc = beyond cast_c in
         if Float.is_finite df && df <= dc then surface y df floor_material
@@ -136,9 +146,10 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
       let azimuth = Float.atan2 dy dx in
       for y = Int.max 0 first to Int.min (height - 1) last do
         let r = row_factor viewport ~row:y in
-        let dn = r +. gf in
-        if dn > 1e-9 then begin
-          let d = (eye_z -. floor_base) /. dn in
+        if r +. gf > 1e-9 then begin
+          let d =
+            Plane.cast ~eye_z ~base:floor_base ~gradient:gf ~row_factor:r
+          in
           if d > near then surface y d floor_material
         end
         else

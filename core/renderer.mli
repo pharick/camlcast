@@ -14,10 +14,12 @@
     For each screen column we take the ray's horizontal direction and:
 
     - {b Cast the floor, and the ceiling or sky.} For every pixel below the
-      horizon, {!Plane.view_distance} gives the distance to the floor, its
-      {!Texture} sampled in world space and faded by fog. Above the horizon it
-      is the ceiling the same way, or — where the level has no roof — the
-      {!Sky}, whose colour depends only on the direction looked in.
+      horizon, {!Plane.cast} gives the distance to the floor, its {!Texture}
+      sampled in world space and faded by fog. Above the horizon it is the
+      ceiling the same way, or — where the level has no roof — the {!Sky}, whose
+      colour depends only on the direction looked in. {!Plane.view_distance} is
+      the same cast said whole, for a caller holding a plane and a pose instead
+      of running down a column; what happens here is that one, hoisted.
 
     - {b Paint the opaque walls.} {!Ray.cast} returns every wall the ray
       crosses, farthest first. Each solid wall is drawn from its foot on the

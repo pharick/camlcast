@@ -164,9 +164,8 @@ let first_pixel x = int_of_float (Float.round x)
 let last_pixel x = first_pixel x - 1
 
 (** The dimensionless [(row + ½ - horizon) / projection] the centre of a screen
-    row sits at, the quantity {!Plane.view_distance} needs to cast the floor and
-    ceiling. The half is the same one {!ray_direction} adds, in the other
-    direction. *)
+    row sits at, the quantity {!Plane.cast} needs to cast the floor and ceiling.
+    The half is the same one {!ray_direction} adds, in the other direction. *)
 let row_factor t ~row = (float_of_int row +. 0.5 -. t.horizon) /. t.projection
 
 (** Where a point of the world lands on the screen: [(column, row)] in pixels,

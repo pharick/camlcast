@@ -57,6 +57,31 @@ val through : Transform.t -> t -> t
                         = (R g) · q  -  (R g) · offset  +  c
     v} *)
 
+val cast :
+  eye_z:float -> base:float -> gradient:float -> row_factor:float -> float
+(** The cast itself, with everything that does not change down a column already
+    worked out: [base] is the plane's height under the eye
+    ([elevation plane eye_pos]) and [gradient] its rise per [dir]
+    ([gradient plane dir]). The answer is
+    [(eye_z - base) / (row_factor + gradient)], or [infinity] where that
+    denominator vanishes and the line of sight runs parallel to the plane.
+
+    A raw float and not an option, and no judgement about which side of the eye
+    the answer falls on. Both of those are the caller's, and the two callers
+    want different ones: {!view_distance} below wants the surface in front of
+    the eye and nothing else, and {!Renderer} wants a value it can compare a
+    floor's against a ceiling's with [<=], for which [infinity] is the useful
+    absence and an option is a box to open twice per pixel.
+
+    This shape — hoisted, unboxed, unjudged — is why it exists as well as what
+    it is. The renderer casts two planes for every pixel of every background,
+    and the arithmetic is small enough that a function call around it costs more
+    than the arithmetic does. It used to be written out at each of the three
+    places that needed it for exactly that reason, which made the engine's
+    central formula something you had to find four copies of to change. Marked
+    [[@inline always]], it is one copy and costs nothing; see the note in the
+    implementation for the measurements. *)
+
 val view_distance :
   t ->
   eye_z:float ->
@@ -85,4 +110,14 @@ val view_distance :
     One formula serves both surfaces. For the floor the eye is above it
     ([eye_z > base]) and the line of sight must slope down to reach it; for the
     ceiling the eye is below it and the line must slope up. Either way the real
-    surface is the one at a positive distance, so anything else is rejected. *)
+    surface is the one at a positive distance, so anything else is rejected.
+
+    This is {!cast} with the hoisting done for you and that last judgement
+    applied — the whole statement of the thing, for a caller holding a plane and
+    a pose rather than a loop. {!Renderer} is not that caller and uses {!cast};
+    what it adds instead is a test on the sign of the denominator, because it
+    asks the question of two planes at once and has to know which of them a row
+    could be showing. Answering role-blind, this returns whichever of the two
+    the ray really meets — including the plane a game has put on the wrong side
+    of the eye, where the renderer, having asked about a {e ceiling}, declines
+    to paint one below the horizon. *)

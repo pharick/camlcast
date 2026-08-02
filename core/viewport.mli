@@ -82,8 +82,8 @@ val last_pixel : float -> int
 
 val row_factor : t -> row:int -> float
 (** The dimensionless [(row + ½ - horizon) / projection] the centre of a screen
-    row sits at, the quantity {!Plane.view_distance} needs to cast the floor and
-    ceiling. *)
+    row sits at, the quantity {!Plane.cast} needs to cast the floor and ceiling.
+*)
 
 val project_point :
   t -> Player.t -> point:Vec.t -> z:float -> (float * float) option

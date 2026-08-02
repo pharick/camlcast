@@ -100,6 +100,115 @@ let looking_east ?(pos = Vec.make 0. 0.) () = Player.make ~room:0 ~pos ~angle:0.
 let viewport ~floor_z =
   Viewport.make ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
 
+(* A material whose colour changes from texel to texel. Everything else in this
+   file is drawn on flat [pale], and against a flat material a cast that lands
+   at the wrong world point shows the very same colour — the only thing left to
+   notice it by is the fog, which is gentle. Graded, a wrong distance is a wrong
+   colour. *)
+let graded blue =
+  Material.make
+    ~pattern:(Texture.generate (fun ~u ~v -> Color.rgb (u * 3) (v * 3) blue))
+
+(* The hall again, with its floor and roof graded, and given a sloped plane so
+   the gradient term of the cast is doing work rather than falling out of a
+   level one. *)
+let graded_hall floor =
+  Room.make
+    ~floor:{ Room.plane = floor; material = graded 40 }
+    ~ceiling:
+      (Room.Roof { Room.plane = Plane.above floor 3.; material = graded 200 })
+    [
+      Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-4.))
+        (Vec.make 12. (-4.));
+      Room.wall ~height:3. ~material:pale (Vec.make 12. (-4.)) (Vec.make 12. 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make 12. 4.) (Vec.make (-4.) 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make (-4.) 4.)
+        (Vec.make (-4.) (-4.));
+    ]
+
+(* {!Plane.view_distance} is the engine's written statement of the plane cast,
+   and a background pixel is {!Plane.cast} — the same arithmetic with the
+   hoisting left to the caller. They were two copies for a long time, with
+   renderer.mli claiming the renderer called [view_distance] while it quietly
+   ran its own; this is what makes the claim a thing that can fail rather than a
+   thing that is merely written down.
+
+   For every background pixel it reaches, the colour in the buffer must be what
+   the material shows at the world point [view_distance] puts under that pixel,
+   faded by the fog of that same distance — the blend {!Atmosphere.fog}
+   documents. That is sensitive to the whole formula rather than to its guard: a
+   cast that drifts moves the sample and the fade together, and the grading
+   above is there so the sample moving is visible.
+
+   Only pixels nearer than the first wall along their own ray are asked about,
+   since past that the background is painted over; the count at the end is so
+   that a fixture which quietly stopped reaching any of them would fail here
+   rather than pass silently. *)
+let the_background_is_the_cast_the_engine_exports () =
+  let floor_plane = Plane.make ~a:0.06 ~b:(-0.04) ~c:0. in
+  let room = graded_hall floor_plane in
+  let world =
+    World.make
+      ~rooms:[ ("hall", room) ]
+      ~links:[] ~atmosphere:air
+      ~spawn:("hall", Vec.make 0. 0.)
+  in
+  let player = looking_east () in
+  let fb = Framebuffer.offscreen ~width ~height in
+  Renderer.draw_frame fb world player;
+  let floor = Room.floor_plane room in
+  let roof = Option.get (Room.ceiling_surface room) in
+  let eye_z = Plane.elevation floor player.Player.pos +. Config.eye_height in
+  let view = Viewport.make ~pitch:0. ~eye_z ~width ~height in
+  let haze = air.Atmosphere.haze in
+  let checked = ref 0 in
+  for column = 0 to width - 1 do
+    let dir = Viewport.ray_direction view player ~column in
+    let wall =
+      match
+        Ray.nearest (Ray.cast room ~origin:player.Player.pos ~direction:dir)
+      with
+      | Some (h : Ray.hit) -> h.Ray.distance
+      | None -> infinity
+    in
+    for row = 0 to height - 1 do
+      let row_factor = Viewport.row_factor view ~row in
+      (* Which plane this row could be showing is the renderer's own question,
+         asked the renderer's own way — below the horizon a floor, above it a
+         roof. [view_distance] does not ask it, answering for whichever plane it
+         is handed. *)
+      let plane, material =
+        if row_factor > 0. then (floor, Room.floor_material room)
+        else (roof.Room.plane, roof.Room.material)
+      in
+      match
+        Plane.view_distance plane ~eye_z ~eye_pos:player.Player.pos ~dir
+          ~row_factor
+      with
+      | Some d when d < wall -. 0.05 ->
+          let p = Vec.add player.Player.pos (Vec.scale dir d) in
+          let c = Material.plane_texel material ~x:p.Vec.x ~y:p.Vec.y in
+          let f = Atmosphere.fog air d in
+          let veil = 1. -. f in
+          let mix v h =
+            int_of_float ((float_of_int v *. f) +. (float_of_int h *. veil))
+          in
+          incr checked;
+          Alcotest.check color
+            (Printf.sprintf "column %d, row %d" column row)
+            (Color.rgb
+               (mix c.Color.r haze.Color.r)
+               (mix c.Color.g haze.Color.g)
+               (mix c.Color.b haze.Color.b))
+            (Framebuffer.pixel fb ~x:column ~y:row)
+      | Some _ | None -> ()
+    done
+  done;
+  Alcotest.(check bool)
+    (Printf.sprintf "most of the frame was background (%d pixels)" !checked)
+    true
+    (!checked > width * height / 4)
+
 (* The drawing half of the cutoff {!Sight} reads. A billboard is scaled by one
    over its distance, so near enough there is nothing left worth placing and the
    renderer stops; nearer than {!Config.sprite_near_clip} it reaches no pixel at
@@ -1989,6 +2098,8 @@ let () =
             a_roof_below_the_eye_leaves_nothing_behind;
           case "every pixel of a frame is written"
             every_pixel_of_a_frame_is_written;
+          case "the background is the cast the engine exports"
+            the_background_is_the_cast_the_engine_exports;
         ] );
       ( "marks on walls",
         [

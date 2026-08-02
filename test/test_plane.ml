@@ -60,6 +60,44 @@ let the_ceiling_is_only_above_the_horizon () =
     "below the horizon the ceiling is not in view" true
     (args 0.5 = None)
 
+(* [view_distance] is [cast] plus a judgement, and the renderer wants the half
+   without it: a raw distance whose sign it reads itself, and [infinity] — not
+   an option — for the ray that never meets the plane. Both halves are load
+   bearing over there. The sign is how [draw_planes] tells a plane behind the
+   eye, which it leaves to the haze, from one a doorway clipped, which it leaves
+   alone; and [infinity] is what lets it compare a floor's cast against a
+   ceiling's with [<=] and take the nearer without opening two boxes a pixel. *)
+let cast_answers_before_it_judges () =
+  let floor = Plane.horizontal 0. in
+  let cast row_factor =
+    Plane.cast ~eye_z:1.
+      ~base:(Plane.elevation floor (Vec.make 0. 0.))
+      ~gradient:(Plane.gradient floor (Vec.make 1. 0.))
+      ~row_factor
+  in
+  Alcotest.check close "below the horizon, the distance itself" 2. (cast 0.5);
+  (* Where [view_distance] says None because the surface is behind the eye,
+     this says how far behind — finite, and negative. *)
+  Alcotest.(check bool)
+    "above the horizon, a negative distance and not an absence" true
+    (cast (-0.5) = -2.);
+  Alcotest.(check bool)
+    "and view_distance is the same call, judged" true
+    (Plane.view_distance floor ~eye_z:1. ~eye_pos:(Vec.make 0. 0.)
+       ~dir:(Vec.make 1. 0.) ~row_factor:(-0.5)
+    = None);
+  (* Parallel: infinity rather than the enormous finite number the division
+     would otherwise give, which is the whole reason for the epsilon. *)
+  Alcotest.(check bool)
+    "along the horizon, infinitely far" true
+    (cast 0. = infinity);
+  Alcotest.(check bool)
+    "and just inside the epsilon, still infinitely far" true
+    (cast 1e-12 = infinity);
+  Alcotest.(check bool)
+    "while just outside it the division is allowed to happen" true
+    (Float.is_finite (cast 1e-8))
+
 let () =
   Alcotest.run "Plane"
     [
@@ -71,5 +109,6 @@ let () =
             the_floor_is_only_below_the_horizon;
           case "the ceiling is only above the horizon"
             the_ceiling_is_only_above_the_horizon;
+          case "cast answers before it judges" cast_answers_before_it_judges;
         ] );
     ]
