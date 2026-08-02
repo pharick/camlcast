@@ -55,24 +55,43 @@ let step world player (motion : Input.motion) =
     [fullscreen_desktop] stretches the window over the desktop instead of
     changing the display mode: switching is instant, other windows keep their
     places, and nothing has to be restored if we crash. The renderer notices the
-    new size on the next frame by itself. *)
-let set_fullscreen window enabled =
-  let+ () =
+    new size on the next frame by itself.
+
+    Asked for and not required — the answer is what holds afterwards, not
+    whether the asking worked. A window manager is free to refuse this, and a
+    tiling one routinely does; a game that ended there would be a game that
+    quits when the player presses a key some desktops do not honour. Refused,
+    the window is the size it already was, [current] comes back, and the run
+    carries on in it. See {!with_window} for where the line is. *)
+let set_fullscreen window ~current enabled =
+  match
     Sdl.set_window_fullscreen window
       (if enabled then Sdl.Window.fullscreen_desktop else Sdl.Window.windowed)
-  in
-  enabled
+  with
+  | Ok () -> enabled
+  | Error _ -> current
 
 (* The same again for relative mouse mode, which pins the cursor out of sight
     and hands the camera bare deltas. Releasing it puts a real cursor back on
     the screen — what a game wants while the player is pointing at something it
     has drawn. Setting it to what it already is is not free (SDL warps the
-    cursor), so [current] is checked first. *)
+    cursor), so [current] is checked first.
+
+    Best-effort on the same terms, and the case for it is stronger: a compositor
+    that will not hand over the pointer leaves a game whose mouse look is worse
+    — {!Input.mouse_delta} still reports motion, now stopping at the edges of
+    the screen — and a game that never wanted the pointer in the first place
+    entirely unaffected. Neither is a reason not to play.
+
+    Refused, [current] comes back unchanged, so the next frame that still wants
+    the other state asks again: one SDL call a frame on a desktop that keeps
+    saying no, and a pointer that is taken the moment one stops. *)
 let set_relative_mouse ~current enabled =
-  if enabled = current then Ok current
+  if enabled = current then current
   else
-    let+ () = Sdl.set_relative_mouse_mode enabled in
-    enabled
+    match Sdl.set_relative_mouse_mode enabled with
+    | Ok () -> enabled
+    | Error _ -> current
 
 (* Whether the window is the one the keyboard is talking to. A window that has
     lost focus is behind another one or on another desktop, and nobody is at the
@@ -147,12 +166,10 @@ let rec loop window game ~state ~actions ~previous =
        default table and no key of its own. *)
     let bindings = game.bindings in
     let motion = Binding.motion bindings actions ~dt in
-    let* () =
-      if Binding.taken bindings.Binding.fullscreen actions then
-        let+ enabled = set_fullscreen window.handle (not window.fullscreen) in
-        window.fullscreen <- enabled
-      else Ok ()
-    in
+    if Binding.taken bindings.Binding.fullscreen actions then
+      window.fullscreen <-
+        set_fullscreen window.handle ~current:window.fullscreen
+          (not window.fullscreen);
     let state =
       simulate game state ~focused ~pointing:(game.pointing state) ~dt ~motion
         ~actions
@@ -161,17 +178,12 @@ let rec loop window game ~state ~actions ~previous =
        the controls, and this is where what they did is read. What the game says
        about its own ending is asked further down, after the drawing. *)
     if Binding.taken bindings.Binding.leave actions then Ok (state, Left)
-    else
+    else begin
       (* Which of the two things the mouse is for is the game's to say and the
          engine's to carry out, and the state it has just become is the one that
          says it — a screen opened this frame wants its cursor this frame. *)
-      let* () =
-        let+ enabled =
-          set_relative_mouse ~current:window.relative
-            (not (game.pointing state))
-        in
-        window.relative <- enabled
-      in
+      window.relative <-
+        set_relative_mouse ~current:window.relative (not (game.pointing state));
       let world, player = game.view state in
       let* () =
         Renderer.render window.renderer window.framebuffer
@@ -190,6 +202,7 @@ let rec loop window game ~state ~actions ~previous =
            the next one's length rather than falling outside every frame. *)
         loop window game ~state ~actions ~previous:now
       end
+    end
 
 let with_window ?(title = Config.window_title) ?(width = Config.initial_width)
     ?(height = Config.initial_height) use =
@@ -205,10 +218,19 @@ let with_window ?(title = Config.window_title) ?(width = Config.initial_width)
   with_resource (fun () -> Sdl.create_renderer handle) Sdl.destroy_renderer
   @@ fun renderer ->
   (* Relative mouse mode hides and pins the cursor and hands us bare motion
-     deltas — what a first person camera wants from the mouse. *)
-  with_resource
-    (fun () -> Sdl.set_relative_mouse_mode true)
-    (fun () -> ignore (Sdl.set_relative_mouse_mode false))
+     deltas — what a first person camera wants from the mouse. Asked for here
+     rather than acquired: it is what most games want and taking it now saves
+     the first frame a warp, but a window is not a thing that depends on it, and
+     as a resource it made a desktop that will not give up the pointer a desktop
+     with no window at all — including for a game that frees the cursor on its
+     first frame and never asks again. What we actually got is written down, and
+     {!run} settles it per run and the loop per frame from what the game says.
+
+     The release is unconditional and its failure ignored, as it was: giving
+     back a pointer we were never given is a no-op, and the one thing worse than
+     not having the cursor is leaving with it still captured. *)
+  let relative = set_relative_mouse ~current:false true in
+  Fun.protect ~finally:(fun () -> ignore (Sdl.set_relative_mouse_mode false))
   @@ fun () ->
   (* SDL switches text input on when video starts, which leaves the window an
      active text client. On macOS that is what makes press and hold open the
@@ -234,7 +256,7 @@ let with_window ?(title = Config.window_title) ?(width = Config.initial_width)
           event = Sdl.Event.create ();
           framebuffer;
           fullscreen = false;
-          relative = true;
+          relative;
         })
 
 let run window (game : 'a game) state =
@@ -249,12 +271,8 @@ let run window (game : 'a game) state =
   in
   (* The window arrives however the last run left it, and only the game about to
      be played knows what it wants the mouse for. *)
-  let* () =
-    let+ enabled =
-      set_relative_mouse ~current:window.relative (not (game.pointing state))
-    in
-    window.relative <- enabled
-  in
+  window.relative <-
+    set_relative_mouse ~current:window.relative (not (game.pointing state));
   (* SDL keeps adding up the relative delta until somebody reads it, and between
      two runs nobody was. Read it here and drop it, or every inch of desk
      crossed on the way in would swing the camera on the first frame. After the

@@ -1,6 +1,9 @@
 (** Window lifetime and the game loop. Every SDL call can fail, so the whole
     module is written inside the [Result] monad and the first error aborts the
-    frame — and with it the program.
+    frame — and with it the program. Which calls are held to that is a decision
+    and not a reflex: see "What ends a run and what does not" under
+    {!with_window}, where the two that are asked for on the player's behalf, and
+    refused without ending anything, are set out.
 
     {!with_window} opens a window. {!run} is the loop, played on one.
     {!run_world} is that loop over the only state the engine can hold on a
@@ -22,7 +25,12 @@ type window
     can be set but never asked about, so this is where what they are is written
     down — and because the window outlives the run, that is what carries them
     from one to the next. A player who goes fullscreen in a launcher's menu is
-    still fullscreen in the demo they pick. *)
+    still fullscreen in the demo they pick.
+
+    What they {e are}, and not what was last asked for. Either can be refused by
+    the desktop, and neither refusal ends a run — so what is written here is the
+    answer that came back, which is what keeps the next frame from acting on a
+    state the window is not in. See {!with_window}. *)
 
 (** How a run came to an end.
 
@@ -107,14 +115,34 @@ val with_window :
     anything a game can reach — and is not fixed here.
 
     Everything a frame needs is acquired here and released in reverse: SDL, the
-    window, the renderer, relative mouse mode, and the buffer frames are drawn
-    into. Nothing inside is exposed, because nothing outside has any business
-    freeing them; a caller holds the {!window} and plays runs on it.
+    window, the renderer, and the buffer frames are drawn into. Nothing inside
+    is exposed, because nothing outside has any business freeing them; a caller
+    holds the {!window} and plays runs on it.
 
     The result is the function's own, passed through untouched. The error is
     [`Msg] carrying SDL's own message, from whichever call failed first —
     starting SDL, opening the window, making the renderer, or making the buffer.
-*)
+
+    {2 What ends a run and what does not}
+
+    Those four are the list, and the rule behind it is worth stating because the
+    obvious rule is the wrong one.
+    {b A failure that stops a frame being drawn ends things; a failure of
+       something asked for on the player's behalf does not.} There is no window
+    without SDL, no frame without a renderer and a buffer, and nothing to play
+    on without the window: those are the run.
+
+    Relative mouse mode is not, and is asked for here rather than acquired. It
+    is what most games want and taking it now saves the first frame a warp, but
+    a compositor that will not hand over the pointer is a compositor where mouse
+    look stops at the edges of the screen — not one where the game cannot open.
+    Held as a resource it made that desktop a desktop with no window at all,
+    including for a game that frees the cursor on its first frame and never asks
+    for it again. The window records what was actually granted; {!run} settles
+    it per run and the loop per frame, from what the game says it wants.
+
+    The other one is the fullscreen key, which is {!run}'s. A window manager
+    refusing it leaves the window the size it already was and the run going. *)
 
 val run : window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
 (** [run window game state] runs a state through the loop on a window, returning
@@ -144,6 +172,16 @@ val run : window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
     Returns the state the game reached and how it got there; see {!ending}. The
     error is [`Msg] carrying SDL's own message, from whichever frame failed —
     the window's own making having been {!with_window}'s to report.
+
+    A frame fails by failing to be drawn: sizing the buffer to the window, or
+    the render and present at the end. The two things a frame asks for on the
+    player's behalf are not among them, on the rule {!with_window} sets out.
+    Pressing the fullscreen key on a desktop that refuses it leaves the window
+    as it was and the run going, rather than quitting the game over a key some
+    window managers do not honour; and taking or releasing the pointer as
+    [pointing] changes is attempted every frame it differs and never insisted
+    on, so it is also retried, and comes right of its own accord on a desktop
+    that stops saying no.
 
     Time passes only while the window has focus; see {!simulate}. *)
 
