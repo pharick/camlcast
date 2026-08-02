@@ -72,10 +72,15 @@ let doorway_ends_meet_a_wall ~locate world room =
                       [
                         Printf.sprintf "the corner at %s stands on its own."
                           (point corner);
-                        "A doorway is an opening in a boundary, so each of its \
-                         ends has to be the end of a wall. One that is not \
-                         leaves a gap beside the opening, and the room shows \
-                         its floor and sky to the horizon through it.";
+                        "An opening is a gap in a boundary and not a boundary \
+                         of its own, so each of its ends has to be the end of \
+                         a wall. One that is not leaves a hole beside the \
+                         opening, and the room shows its floor and sky to the \
+                         horizon through it.";
+                        "P.doorway cuts the gap and its jambs together and \
+                         cannot leave one of these. P.threshold makes the \
+                         opening alone and leaves the walls either side to the \
+                         description, which is where this is usually lost.";
                       ]))
            [ threshold.Room.a; threshold.Room.b ]))
 

@@ -30,7 +30,36 @@
     come out right. Wind a room the other way and every normal faces out: the
     symptom is a room that is {b black from the inside}. Reverse the walls.
     {!rectangle} and {!regular_polygon} cannot be wound wrong; {!path} and
-    hand-written walls can. *)
+    hand-written walls can.
+
+    {1 Threshold and doorway}
+
+    Two words that mostly mean one thing and once mean two, so this is the one
+    statement of when they do.
+
+    {b A {!type-threshold} is the opening by itself}: a segment across a gap in
+    a boundary, carrying a name, and the thing a {!World} link joins.
+    {b A doorway is that opening together with the jambs either side of it} —
+    which is why {!val-doorway} hands back a [wall list] as well as a threshold,
+    and why the {!Camlcast.P.doorway} built on it is three pieces rather than
+    one. {!Camlcast.P.threshold} is the opening on its own, for a description
+    drawing its own jambs.
+
+    The difference has one consequence and it is the reason to keep the words
+    apart at all:
+    {b a doorway cannot have an end that meets no wall, and a bare threshold
+       can}. The jambs are cut with the gap, so there is nothing to forget. That
+    is the mistake {!Camlcast.Check} reports as a corner meeting no wall, and it
+    can only ever be a threshold's.
+
+    {b Everywhere else, "doorway" is the ordinary word for an opening.} That is
+    the register the whole game-facing layer is written in and it is deliberate:
+    {!World.doorway_count} counts thresholds, {!Camlcast.Events.crossing} names
+    two of them [from_doorway] and [to_doorway], and every message a game
+    developer reads calls one a doorway. Nothing above this module says
+    "threshold" if it can avoid it. Read the strict sense only where the two
+    constructors are — here, and in {!Camlcast.P} — and the loose one everywhere
+    else. *)
 
 (** {1 Surfaces} *)
 

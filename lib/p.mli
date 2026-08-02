@@ -201,7 +201,14 @@ val threshold :
     back the jambs with it, so the two cannot drift apart. This is for the case
     that will not do — a lintel of a different material from the wall under it,
     or a boundary whose jambs are already drawn some other way. Whoever uses it
-    owns making the walls either side meet its ends. *)
+    owns making the walls either side meet its ends.
+
+    {b That ownership is the whole difference between the two names}, and it is
+    the one place in the engine where "threshold" and "doorway" are not the same
+    word — see {!Camlcast_core.Room} for the statement of it. A doorway is the
+    opening {e and} its jambs; this is the opening. Leave an end of it meeting
+    no wall and the room shows its floor and sky to the horizon through the gap,
+    which {!Check} reports and {!doorway} cannot produce. *)
 
 val wall :
   ?key:string ->

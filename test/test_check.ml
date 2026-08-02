@@ -22,6 +22,21 @@ let severities description =
 
 let lines = Alcotest.(list string)
 
+(* Details, for the one case below that is about the detail. The file otherwise
+   asserts summaries on purpose — see the header — and this does not change
+   that: it is here because a detail said something about the engine's own
+   vocabulary that was not true, and a sentence a game developer is taught the
+   words by is worth pinning once. *)
+let details description =
+  List.concat_map
+    (fun (d : Check.t) -> d.Check.detail)
+    (Check.report description)
+
+(* {!Support.mentions} takes the haystack first; this is it over a list of
+   lines, which is the shape a detail comes in. *)
+let said_anywhere lines needle =
+  List.exists (fun line -> mentions line needle) lines
+
 let stone =
   Material.make
     ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> Color.rgb 150 150 160))
@@ -556,6 +571,37 @@ let the_world_it_makes =
                     [ east_side; east_door ~width:8. () ];
                   P.link ("west", "east") ("east", "west");
                 ])));
+    case "and the reason it gives keeps the two words apart" (fun () ->
+        (* The detail used to open "A doorway is an opening in a boundary",
+           which is the one sentence in the engine that says so. A doorway is an
+           opening {e and its jambs} — see {!Camlcast_core.Room} — and being
+           made with its jambs is exactly why a doorway cannot be the thing this
+           complaint is about. Only a bare threshold can, so the explanation now
+           says which of the two makes one and which cannot. *)
+        let gap =
+          P.world ~atmosphere:Atmosphere.default
+            ~spawn:("west", Vec.make (-3.) 0.)
+            [
+              P.room ~name:"west" ~floor ~ceiling
+                [
+                  west_side ~corner:(Vec.make 0. (-3.)) ();
+                  west_door ~width:8. ();
+                ];
+              P.room ~name:"east" ~floor ~ceiling
+                [ east_side; east_door ~width:8. () ];
+              P.link ("west", "east") ("east", "west");
+            ]
+        in
+        let said = details gap in
+        Alcotest.(check bool)
+          "it names the form that cannot leave one" true
+          (said_anywhere said "P.doorway");
+        Alcotest.(check bool)
+          "and the form that can" true
+          (said_anywhere said "P.threshold");
+        Alcotest.(check bool)
+          "and does not define a doorway as an opening" false
+          (said_anywhere said "A doorway is an opening"));
     case "a step in the floor is a warning and not an error" (fun () ->
         let stepped =
           P.world ~atmosphere:Atmosphere.default

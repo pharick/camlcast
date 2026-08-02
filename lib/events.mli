@@ -31,7 +31,13 @@ type crossing = {
 
     By name and not by index for the reason everything else here is: a world is
     rebuilt every frame and an index is what assembling one happened to produce.
-*)
+
+    [from_doorway] and [to_doorway] are the {e opening}'s name, whichever form
+    made it — {!P.doorway} and {!P.threshold} both take one and both put it on
+    the same place. The core calls that field a threshold and this calls it a
+    doorway, which is the ordinary word for it everywhere a game can see; the
+    two are only distinct where those two constructors are, and
+    {!Camlcast_core.Room} is where that is written down. *)
 
 type t = {
   dt : float;  (** how long the last frame lasted, in seconds *)
