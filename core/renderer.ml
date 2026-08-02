@@ -113,11 +113,11 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
            question put to it twice. It is also what declines to paint a
            {e ceiling} the author has left below the eye. *)
         let cast_f =
-          if r +. gf > 1e-9 then
+          if r +. gf > Plane.parallel then
             Plane.cast ~eye_z ~base:floor_base ~gradient:gf ~row_factor:r
           else infinity
         and cast_c =
-          if r +. gc < -1e-9 then
+          if r +. gc < -.Plane.parallel then
             Plane.cast ~eye_z ~base:ceil_base ~gradient:gc ~row_factor:r
           else infinity
         in
@@ -145,7 +145,7 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
       let azimuth = Float.atan2 dy dx in
       for y = Int.max 0 first to Int.min (height - 1) last do
         let r = row_factor viewport ~row:y in
-        if r +. gf > 1e-9 then begin
+        if r +. gf > Plane.parallel then begin
           let d =
             Plane.cast ~eye_z ~base:floor_base ~gradient:gf ~row_factor:r
           in

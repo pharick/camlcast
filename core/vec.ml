@@ -7,6 +7,11 @@ let scale v k = { x = v.x *. k; y = v.y *. k }
 let length v = Float.hypot v.x v.y
 let dot a b = (a.x *. b.x) +. (a.y *. b.y)
 let cross a b = (a.x *. b.y) -. (a.y *. b.x)
+
+(* One figure, shared, because it was two: {!Ray.segment} and
+   {!Room.segments_cross} each held their own [1e-12] with a comment saying it
+   had to be the other's. *)
+let parallel = 1e-12
 let normalizable l = Float.is_finite l && l > 0. && Float.is_finite (1. /. l)
 
 let normalize v =

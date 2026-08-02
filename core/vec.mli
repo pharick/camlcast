@@ -37,6 +37,35 @@ val cross : t -> t -> float
     exactly when they are parallel — which is what ray-versus-wall intersection
     tests. *)
 
+val parallel : float
+(** The sine below which two directions count as parallel, for a caller that has
+    a {!cross} of them and both their lengths.
+
+    {b Use it as [Float.abs (cross a b) <= parallel *. length a *. length b],}
+    and not against the cross product bare. The cross product is [|a| |b| sin θ]
+    — an area, not an angle — so a fixed figure tested against it reads as a
+    parallel test and behaves as a length one: two directions at a perfectly
+    good angle fail it merely for being short. Divided through by both lengths
+    what is left is the sine, and the test says what it looks like it says.
+    Neither length costs anything to come by at either of the two places that
+    ask: {!Room.type-wall} works its edge's out once and keeps it, and a ray's
+    is one square root for a whole column rather than one per wall.
+
+    Both places is the reason this is here rather than in either of them.
+    {!Ray.cast} decides which walls a ray crosses and {!Room.segments_cross}
+    decides whether a step crosses one, and the two answering differently is a
+    doorway the renderer draws and the player cannot walk through, or a wall the
+    player walks into and cannot see. They each held their own copy of this
+    number with a comment saying it was the other's, so what kept them equal was
+    two comments. They still differ in the comparison — the ray's test is strict
+    and {!Room.segments_cross}'s inclusive, so that a segment of no length keeps
+    the branch it has always taken — and that difference is each function's own
+    business. The figure is not.
+
+    Not in {!Config}: this is not a number anything tunes. It is where the cross
+    product stops carrying an angle and starts carrying rounding, and a game
+    that moved it would get a room whose corners leak. *)
+
 val normalizable : float -> bool
 (** Whether a length is one {!normalize} can turn into a unit vector: finite,
     above zero, and — the part that is easy to miss — not so small that [1.]

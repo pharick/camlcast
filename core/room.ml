@@ -361,27 +361,24 @@ let blocked t (p : Vec.t) =
     (fun w -> distance_to_wall w p < Config.collision_padding)
     t.walls
 
-(* [parallel] is a sine, which is what is left of the cross product below once
-   both lengths are divided out of it. Tested against a fixed figure instead, it
-   would read as a parallel test and behave as a length one: the product is an
-   area, so any pair short enough would fail it at whatever angle the two met
-   at. The pair that gets short here is a step and a doorway — {!Player.slide}
-   clips a leg where it crosses one and asks again about the remainder, which
-   can be a whisker — and a remainder that came out parallel is a doorway
+(* {!Vec.parallel} scaled by both lengths, which is the same figure and the same
+   reasoning as {!Ray.segment} — see {!Vec.parallel} for both, and for why the
+   two share it rather than each keeping a copy with a comment about the other.
+   What is at stake on this side is a step rather than a ray: {!Player.slide}
+   clips a leg where it crosses a doorway and asks again about the remainder,
+   which can be a whisker, and a remainder that came out parallel is a doorway
    {!World.crossing} does not report, a room the player never enters, and a walk
-   on out through the wall it was cut into. The same reasoning and the same
-   figure as {!Ray.segment}, which is the half of this arithmetic that was
-   fixed first.
+   on out through the wall it was cut into.
 
    Inclusive where Ray's is strict, so that a [b1..b2] of no length keeps the
    branch it has always taken: its [denom] is zero and so is its scaled
    tolerance, and a strict test would send it to the crossing branch to divide
    by that zero and come back false through a nan.
 
-   [collinear] is not an area and is not scaled by both. Divided by [length],
-   the cross product it is tested against is the offset of [b1] from the line of
-   [a1..a2] — a distance in world units, which compares to one. *)
-let parallel = 1e-12
+   [collinear] is neither of those and stays here: it is not an area and is not
+   scaled by both. Divided by [length], the cross product it is tested against
+   is the offset of [b1] from the line of [a1..a2] — a distance in world units,
+   which compares to one, and which nothing else in the engine measures. *)
 let collinear = 1e-9
 
 let segments_cross ~a1 ~a2 ~b1 ~b2 =
@@ -389,7 +386,7 @@ let segments_cross ~a1 ~a2 ~b1 ~b2 =
   let denom = Vec.cross d1 d2 in
   let off = Vec.sub b1 a1 in
   let length = Vec.length d1 in
-  if Float.abs denom <= parallel *. length *. Vec.length d2 then
+  if Float.abs denom <= Vec.parallel *. length *. Vec.length d2 then
     (* Parallel, so only an overlap of collinear segments is left to find: the
        cross product below is the offset of [b1] from the line of [a1..a2],
        times that line's length. *)

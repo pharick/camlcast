@@ -10,6 +10,8 @@ let through m t =
   let g = Transform.direction m (Vec.make t.a t.b) in
   { a = g.Vec.x; b = g.Vec.y; c = t.c -. Vec.dot g m.Transform.offset }
 
+let parallel = 1e-9
+
 (* [@inline always] and not merely small. This is called once per pixel of every
    background, from another module, and the compiler here is not flambda: left
    to itself it emits a call, which boxes four floats on the way in and one on
@@ -19,7 +21,7 @@ let through m t =
    cast and nothing at all on the frame. *)
 let[@inline always] cast ~eye_z ~base ~gradient ~row_factor =
   let denom = row_factor +. gradient in
-  if Float.abs denom < 1e-9 then infinity else (eye_z -. base) /. denom
+  if Float.abs denom < parallel then infinity else (eye_z -. base) /. denom
 
 let view_distance t ~eye_z ~eye_pos ~dir ~row_factor =
   let d =

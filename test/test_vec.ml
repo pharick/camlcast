@@ -128,6 +128,42 @@ let perp_is_a_quarter_turn () =
     (Vec.rotate v (Float.pi /. 2.))
     (Vec.perp v)
 
+(* The figure itself, and not only the way callers scale it. Every test that
+   touches Vec.parallel today — Ray's wall far shorter than a pixel, Room's step
+   far shorter than a pixel — is about the scaling: that a short pair at a real
+   angle is not mistaken for a parallel one. All of them go on passing with this
+   number moved ten orders of magnitude in either direction, because a real
+   angle stays a real angle. So the value is pinned here, from both sides.
+
+   Below: the smallest angle the engine has to treat as a genuine crossing. A
+   tenth of a degree is far finer than anything a level is authored at and far
+   coarser than anything float arithmetic gets wrong, and a tolerance above its
+   sine would call a real grazing hit parallel — a wall a ray slides past
+   instead of meeting, or a doorway a step is not reported as crossing.
+
+   Above: the rounding it exists to swallow. Two unit vectors that are parallel
+   in exact arithmetic have a computed cross product of a few times the epsilon
+   of one, so a tolerance at or below that catches nothing and the parallel
+   branch becomes unreachable. *)
+let parallel_is_between_a_grazing_angle_and_rounding () =
+  let grazing = sin (0.1 *. Float.pi /. 180.) in
+  Alcotest.(check bool)
+    (Printf.sprintf "below the sine of a tenth of a degree (%g)" grazing)
+    true (Vec.parallel < grazing);
+  (* Measured rather than asserted: the worst computed cross product over a
+     sweep of exactly-parallel unit pairs is what the figure has to clear. *)
+  let worst = ref 0. in
+  for i = 0 to 720 do
+    let a = Vec.of_angle (float_of_int i *. Float.pi /. 360.) in
+    let b = Vec.scale a 3.7 in
+    let residue = Float.abs (Vec.cross a b) /. (Vec.length a *. Vec.length b) in
+    if residue > !worst then worst := residue
+  done;
+  Alcotest.(check bool)
+    (Printf.sprintf "and above what a parallel pair actually computes to (%g)"
+       !worst)
+    true (Vec.parallel > !worst)
+
 let () =
   Alcotest.run "Vec"
     [
@@ -141,6 +177,8 @@ let () =
           case "normalize" normalize;
           case "normalizable covers the reciprocal"
             normalizable_covers_the_reciprocal;
+          case "parallel is between a grazing angle and rounding"
+            parallel_is_between_a_grazing_angle_and_rounding;
         ] );
       ( "of_angle",
         [

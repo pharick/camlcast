@@ -58,20 +58,13 @@ type opening = { distance : float; along : float; index : int }
     the hit is turned into a wall height. *)
 let min_distance = 1e-4
 
-(* The cross product below is |direction| * |edge| * sin of the angle between
-   them — an area, not an angle — so testing it against a fixed figure would
-   read as a parallel test and behave as a length one: a wall short enough
-   would fail it whatever angle the ray met it at, and go unrendered while
-   Room.passable went on colliding with it. Scaled by both lengths, what is
-   left is the sine, and the test says what it looks like it says. Neither
-   length costs anything to come by: the caller has the edge's already, since
-   Room.wall works it out once and keeps it, and the direction's is one square
-   root for a whole ray rather than one per wall. *)
-let parallel = 1e-12
-
+(* {!Vec.parallel} scaled by both lengths, which is what turns the cross
+   product below from an area back into a sine — see there for why, and for why
+   the figure is shared with {!Room.segments_cross} rather than written out
+   here. Strict, so that a zero denominator falls out as no crossing at all. *)
 let segment ~origin ~direction ~scale ~a ~edge ~length =
   let denom = Vec.cross direction edge in
-  if Float.abs denom < parallel *. scale *. length then None
+  if Float.abs denom < Vec.parallel *. scale *. length then None
   else
     let ao = Vec.sub a origin in
     let t = Vec.cross ao edge /. denom in

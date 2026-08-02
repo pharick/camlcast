@@ -1,5 +1,32 @@
 (** Every tunable number of the engine, in one place, so that the rest of the
-    code reads as logic instead of magic constants. *)
+    code reads as logic instead of magic constants.
+
+    {b Tunable} is the word doing the work, and it is narrower than "numeric".
+    What is here is what a game or a player could reasonably want different and
+    still have a working engine: how fast the player walks, how wide the view
+    is, how many rooms deep a doorway looks, how long a frame is allowed to
+    take. Change any of them and you get a different game rather than a broken
+    one.
+
+    The engine's geometric tolerances are not that and are not here. They are
+    where float arithmetic stops carrying the quantity being measured and starts
+    carrying rounding, which is a fact about the arithmetic and about the
+    quantity — so each lives with the thing it is a tolerance for, named, with
+    the reasoning beside it: {!Vec.parallel} for the sine below which two
+    directions are one, shared by {!Ray.cast} and {!Room.segments_cross};
+    {!Plane.parallel} for the line of sight that runs along a plane instead of
+    meeting it, shared by {!Plane.cast} and {!Renderer}; {!Ray.min_distance} for
+    how near a wall may be and still be divided by; and {!World}'s [epsilon] for
+    what the two sides of a link may disagree about, which {!Camlcast.Check}
+    asks {!World} rather than keeping its own copy of.
+
+    Moving those here would put them under this page's promise, and this page's
+    promise is that changing something on it is a choice. Changing one of those
+    is a bug: a room whose corners leak, a band of pixels that is neither floor
+    nor ceiling, a doorway one of two readers thinks is shut. They are collected
+    in the sense that matters — each is defined once, and every caller reads
+    that one — and the place they are collected is the module that owns the
+    arithmetic. *)
 
 val window_title : string
 (** What the window is called. The engine ships no content and this is the one

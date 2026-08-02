@@ -57,6 +57,33 @@ val through : Transform.t -> t -> t
                         = (R g) · q  -  (R g) · offset  +  c
     v} *)
 
+val parallel : float
+(** The denominator below which a line of sight counts as running along a plane
+    rather than meeting it, and {!cast} answers [infinity].
+
+    Unscaled, unlike {!Vec.parallel}: [row_factor + gradient] is already
+    dimensionless, being a screen row's slope plus the plane's, so there is
+    nothing to divide out and the figure compares to it directly.
+
+    Public because {!Renderer} asks the same question. It calls {!cast} for two
+    planes per pixel and tests the sign of that same denominator itself, to know
+    which of the floor and the ceiling a row could be showing, and its three
+    guards used to write [1e-9] out — the number being right by inspection.
+
+    What that risked is worth stating exactly, because it is smaller than it
+    sounds. A guard {e narrower} than this costs nothing at all: the row reaches
+    {!cast}, comes back [infinity], and is left to the haze, which is where the
+    guard would have sent it. A guard {e wider} does change the picture — the
+    row is refused where {!cast} would have answered with an enormous finite
+    distance, and an enormous distance is a fogged floor texel rather than the
+    haze itself. One row, at most, and only where [row_factor + gradient] lands
+    between the two figures, which for an authored slope is the kind of
+    coincidence the corner tie is. So this is shared because it is one question
+    asked twice and a reader should not have to work out which way the
+    difference falls — not because a frame anyone has drawn was wrong. Widening
+    the guard to [1e-4] fails no test in this repository, which is the honest
+    measure of it. *)
+
 val cast :
   eye_z:float -> base:float -> gradient:float -> row_factor:float -> float
 (** The cast itself, with everything that does not change down a column already
