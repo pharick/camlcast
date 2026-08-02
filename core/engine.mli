@@ -59,7 +59,10 @@ type 'a game = {
       *)
   pointing : 'a -> bool;
       (** whether the player is working a cursor over something the game has
-          drawn, rather than looking around with the mouse *)
+          drawn, rather than looking around with the mouse. Asked every frame,
+          so a game turns it on and off as freely as it opens and closes a
+          screen; the cursor SDL warps on the way in and out of each is not
+          reported to the camera as a look. *)
   finished : 'a -> bool;
       (** asked once the frame this state describes has been drawn; [true] ends
           the run, so the frame a game ends on is one the player saw *)

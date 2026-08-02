@@ -90,7 +90,20 @@ let set_relative_mouse ~current enabled =
   if enabled = current then current
   else
     match Sdl.set_relative_mouse_mode enabled with
-    | Ok () -> enabled
+    | Ok () ->
+        (* Taking the pointer warps the cursor, and giving it back puts it where
+           it was: SDL counts either as motion and adds it to the delta nobody
+           has read yet, where the next frame finds it and turns it into a look.
+           Dropped here rather than at the call sites, because the rule belongs
+           to the thing that causes it — {!run} knew to do this after capturing
+           the mouse and the loop did not, so closing an in-game screen swung the
+           camera on the frame after, by however far the cursor had been left
+           from the middle of the window.
+
+           On the change and not on every call, since a mode set to what it
+           already is neither warps nor is asked for. *)
+        ignore (Input.mouse_delta ());
+        enabled
     | Error _ -> current
 
 (* Whether the window is the one the keyboard is talking to. A window that has
@@ -295,9 +308,11 @@ let run window (game : 'a game) state =
     set_relative_mouse ~current:window.relative (not (game.pointing state));
   (* SDL keeps adding up the relative delta until somebody reads it, and between
      two runs nobody was. Read it here and drop it, or every inch of desk
-     crossed on the way in would swing the camera on the first frame. After the
-     line above and not before it: taking the mouse warps the cursor, and that
-     warp is itself a delta waiting to be read. *)
+     crossed on the way in would swing the camera on the first frame.
+
+     Still here after the line above, which drops one of its own: that one only
+     happens if the mouse mode changed, and a run that inherits the window in
+     the state it wants is exactly a run where it did not. *)
   ignore (Input.mouse_delta ());
   loop window game ~state ~actions ~previous:(Clock.now ())
 
