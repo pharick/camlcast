@@ -359,6 +359,81 @@ let a_step_clipping_a_wall_end_is_refused () =
        ~from:(Vec.make (-2.) (1. -. (Config.collision_padding *. 2.)))
        ~dest:(Vec.make 2. (1. -. (Config.collision_padding *. 2.))))
 
+(* Getting out of the padding, which normal movement cannot put you in and two
+   engine calls can. World.set_door shuts a leaf without moving anybody and
+   replace_room can grow a wall beside a standing player, and under the swept
+   rule alone every step from there was refused — the step away sweeps the same
+   disc through the same place as the step in, so the player was held until the
+   game undid it.
+
+   What must not have loosened with it is everything the sweep is for. Both
+   halves are asserted here because the second is what the first could have
+   cost. *)
+let a_step_that_does_not_close_the_gap_is_allowed () =
+  let level =
+    Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+      [
+        Room.wall ~height:2. ~material:pale (Vec.make (-5.) 0.) (Vec.make 5. 0.);
+      ]
+  in
+  let step ~from ~dest = Room.passable level ~from ~dest in
+  let at x y = Vec.make x y in
+  let inside = Config.collision_padding /. 3. in
+  Alcotest.(check bool)
+    "straight out from a wall it is already too close to" true
+    (step ~from:(at 0. inside) ~dest:(at 0. (inside *. 2.)));
+  Alcotest.(check bool)
+    "sideways at the same distance, which is no worse" true
+    (step ~from:(at 0. inside) ~dest:(at 1. inside));
+  Alcotest.(check bool)
+    "but not further in" false
+    (step ~from:(at 0. (inside *. 2.)) ~dest:(at 0. inside));
+  (* The commonest way into this state, and so the one that has to have a way
+     out: a crossing leaves the player on the line of the doorway itself. *)
+  Alcotest.(check bool)
+    "off a wall it is standing exactly on" true
+    (step ~from:(at 0. 0.) ~dest:(at 0. inside));
+  (* Either way off it, which is the one place the through-test does not apply:
+     a point exactly on a wall is on neither side of it, so there is no side to
+     have left. It is also unreachable by walking — the padding keeps a step a
+     tenth of a cell clear of ever ending here — and reachable only by having a
+     wall arrive where you stand, where being able to move at all is the whole
+     of what matters. *)
+  Alcotest.(check bool)
+    "and the far way off it too, there being no near side to stay on" true
+    (step ~from:(at 0. 0.) ~dest:(at 0. (-.inside)));
+  Alcotest.(check bool)
+    "round the end of a wall, which is past it and not through it" true
+    (step ~from:(at 5.05 inside) ~dest:(at 5.2 (-.inside)))
+
+let being_close_does_not_let_a_step_through_a_wall () =
+  let level =
+    Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+      [
+        Room.wall ~height:2. ~material:pale (Vec.make (-5.) 0.) (Vec.make 5. 0.);
+      ]
+  in
+  let step ~from ~dest = Room.passable level ~from ~dest in
+  let at x y = Vec.make x y in
+  let inside = Config.collision_padding /. 3. in
+  Alcotest.(check bool)
+    "a long step straight through" false
+    (step ~from:(at 0. 5.) ~dest:(at 0. (-5.)));
+  Alcotest.(check bool)
+    "from inside the padding to the same depth the other side" false
+    (step ~from:(at 0. inside) ~dest:(at 0. (-.inside)));
+  Alcotest.(check bool)
+    "from inside the padding to further out the other side, which is not an \
+     escape"
+    false
+    (step ~from:(at 0. inside) ~dest:(at 0. (-.(inside *. 3.))));
+  Alcotest.(check bool)
+    "walking in from clear ground is still refused" false
+    (step ~from:(at 0. 1.) ~dest:(at 0. inside));
+  Alcotest.(check bool)
+    "and stopping on the boundary is still allowed" true
+    (step ~from:(at 0. 1.) ~dest:(at 0. Config.collision_padding))
+
 (* path and regular_polygon build the walls of the levels. *)
 let path_builds_runs_of_walls () =
   let points = [ Vec.make 0. 0.; Vec.make 1. 0.; Vec.make 1. 1. ] in
@@ -990,6 +1065,10 @@ let () =
           case "distance between two segments" distance_between_two_segments;
           case "a step clipping a wall end is refused"
             a_step_clipping_a_wall_end_is_refused;
+          case "a step that does not close the gap is allowed"
+            a_step_that_does_not_close_the_gap_is_allowed;
+          case "being close does not let a step through a wall"
+            being_close_does_not_let_a_step_through_a_wall;
         ] );
       ( "building",
         [

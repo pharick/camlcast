@@ -439,11 +439,23 @@ let passable t ~room:index ~from ~dest =
           ~from:(Transform.point portal.onto a)
           ~dest:(Transform.point portal.onto b)
   in
+  (* A doorway that stops a step is a wall as far as standing near one goes, so
+     it is asked the same question a wall is — the one with a way out of the
+     padding in it. That matters here more than it does for a wall: a leaf can
+     be shut on a player who is standing against it and nothing else in the
+     engine will move them, which is what {!set_door} says it does not do.
+
+     An open doorway keeps the plain nearness test. Being inside the padding of
+     one is not being stuck against anything: the step is the neighbour's
+     business and [beyond] hands it over, walls and all. *)
   let clear j (threshold : Room.threshold) =
-    if Room.shut threshold then not (near threshold)
+    let solid () =
+      Room.clears_segment ~from ~dest ~a:threshold.Room.a ~b:threshold.Room.b
+    in
+    if Room.shut threshold then solid ()
     else
       match t.portals.(index).(j) with
-      | None -> not (near threshold)
+      | None -> solid ()
       | Some portal -> (not (near threshold)) || beyond portal threshold
   in
   let rec every j =

@@ -340,12 +340,57 @@ let distance_between_segments ~a1 ~a2 ~b1 ~b2 =
     and to_a p = distance_to_segment p ~a:a1 ~b:a2 in
     Float.min (Float.min (to_b a1) (to_b a2)) (Float.min (to_a b1) (to_a b2))
 
+(* Which side of the line through [a..b] the point is on, as a sign. Unscaled,
+   because only the sign is read. *)
+let side ~a ~b p = Vec.cross (Vec.sub b a) (Vec.sub p a)
+
+(* May a step be taken with this segment — a wall, or a doorway that stops
+   one — as near as it is?
+
+   The ordinary rule is the swept disc, and the first line is the whole of it:
+   the player is a circle of {!Config.collision_padding}, so a step that brings
+   that circle against the segment anywhere along its length is refused. Testing
+   the sweep rather than the destination is what stops a long step tunnelling
+   through a thin wall.
+
+   The rest is the way out of a state that rule on its own has no exit from. A
+   player can be inside the padding without having walked there — {!World.set_door}
+   shuts a leaf and deliberately moves nobody, {!World.replace_room} can grow a
+   wall beside them, and a description that reshapes a room around a pose it
+   keeps does the same. Once there every step is refused, whichever way it
+   points, because the swept segment starts where the player is standing: the
+   step {e away} fails the same test as the step into it. The player is held
+   there until the game undoes what it did, and a game closing a door behind
+   someone who has just walked through it has no reason to think it did
+   anything.
+
+   So a step that does not decrease the separation is allowed. It cannot make
+   the state worse, and it is the only thing that ends it — one step out and the
+   ordinary rule has the player again.
+
+   Passing through is still refused, and that test reads the {e sign} of the
+   offset rather than whether the two segments touch. Touching is the case that
+   matters here: a crossing leaves the player on the threshold line itself, an
+   offset of exactly zero, and a test that refused a step from there would leave
+   the commonest way into this state as the one way it could not be left. Zero
+   is on neither side, so it passes, and only a step that starts one side and
+   ends the other through the segment is turned back. *)
+let clears_segment ~from ~dest ~a ~b =
+  distance_between_segments ~a1:from ~a2:dest ~b1:a ~b2:b
+  >= Config.collision_padding
+  ||
+  let d0 = distance_to_segment from ~a ~b
+  and d1 = distance_to_segment dest ~a ~b in
+  d0 < Config.collision_padding
+  && d1 >= d0
+  && not
+       (side ~a ~b from *. side ~a ~b dest < 0.
+       && segments_cross ~a1:from ~a2:dest ~b1:a ~b2:b)
+
 let passable t ~from ~dest =
   not
     (Array.exists
-       (fun (w : wall) ->
-         distance_between_segments ~a1:from ~a2:dest ~b1:w.a ~b2:w.b
-         < Config.collision_padding)
+       (fun (w : wall) -> not (clears_segment ~from ~dest ~a:w.a ~b:w.b))
        t.walls)
 
 let path ?(closed = false) ~height ~material points =

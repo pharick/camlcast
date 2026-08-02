@@ -170,7 +170,7 @@ val make :
 val has_length : Room.threshold -> bool
 (** Whether this threshold is long enough to be a doorway. A shorter one has a
     transform that collapses the world to a point. This is a length too small to
-    be a doorway rather than no length at all, which {!Room.threshold} has
+    be a doorway rather than no length at all, which {!Room.val-threshold} has
     already refused. *)
 
 val lengths_agree : Room.threshold -> Room.threshold -> bool
@@ -275,7 +275,15 @@ val replace_room : t -> room:int -> replacement:Room.t -> t
     {b A floor may open a seam.} Nothing measures whether a new floor plane
     still meets its neighbour's across a doorway, here or anywhere else;
     {!seam_gap} is what a generator's tests ask, and a floor that no longer
-    meets is a step you walk into rather than an error. *)
+    meets is a step you walk into rather than an error.
+
+    {b A wall may arrive where somebody is standing.} Nothing here moves the
+    player either, so a room that grows a wall beside one leaves them closer to
+    it than {!Config.collision_padding} — a place walking cannot reach. They can
+    walk out of it: {!Room.clears_segment} allows a step that does not close the
+    gap further, so the way out is always open even where the way in was not.
+    What they cannot do is stand there comfortably, and a room rebuilt around a
+    player is worth building so that it does not. *)
 
 val set_door : t -> room:int -> threshold:int -> Door.state -> t
 (** Open or close the door in a doorway — on both sides of it at once.
@@ -296,7 +304,18 @@ val set_door : t -> room:int -> threshold:int -> Door.state -> t
     What it does {e not} do is move anybody. A player standing in a doorway when
     it closes is left standing there, inside a leaf — the game decides whether
     that is possible, by deciding when a door may be shut. The engine's part is
-    that nothing here touches the player at all. *)
+    that nothing here touches the player at all.
+
+    {b And they can still walk away.} Shutting a door behind a player who has
+    just walked through it is the obvious thing to do with a crossing, and it
+    leaves them nearer the leaf than {!Config.collision_padding} — which walking
+    cannot otherwise do, the padding being what keeps a step clear of a wall. A
+    step is measured by sweeping that disc from where the player is, so while
+    the leaf was simply solid every step from there was refused, the one away
+    from the door with the rest, and the player was held until the game opened
+    it again. {!Room.clears_segment} is where that ends: a step that does not
+    close the gap is allowed, so the leaf is still shut and the player is still
+    free. *)
 
 val check : t -> unit
 (** Everything {!make} guarantees, asserted over a world that was grown instead:

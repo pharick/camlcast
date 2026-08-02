@@ -682,8 +682,31 @@ val nearest_threshold :
     at a door is usually working it, wherever the crosshair drifted; the index
     is the one {!World.set_door} takes. *)
 
+val clears_segment : from:Vec.t -> dest:Vec.t -> a:Vec.t -> b:Vec.t -> bool
+(** May a step from [from] to [dest] be taken with the segment [a..b] — a wall,
+    or a doorway that stops a step — where it is? What {!passable} asks of each
+    wall in turn, and what {!World.passable} asks of a shut doorway, so that the
+    two answer the question the same way.
+
+    The rule is the swept disc: the player is a circle of
+    {!Config.collision_padding} and a step that brings it against the segment
+    anywhere along the way is refused.
+
+    {b With one way out.} A player can be inside the padding without having
+    walked there, because {!World.set_door} shuts a leaf without moving anybody
+    and {!World.replace_room} can put a wall beside them. Under the swept rule
+    alone every step from there is refused — the step away from the wall sweeps
+    the same disc through the same place as the step into it — so a game that
+    shuts a door behind a player it has just watched walk through freezes them
+    until it opens it again. A step that does not {e decrease} the separation is
+    therefore allowed. It cannot make matters worse, and one of them is enough
+    to be clear.
+
+    Passing through is refused either way. *)
+
 val passable : t -> from:Vec.t -> dest:Vec.t -> bool
-(** May the player step from [from] to [dest]? The player is a disc of radius
+(** May the player step from [from] to [dest]? True when every wall
+    {!clears_segment} — the player is a disc of radius
     {!Config.collision_padding}, so the step sweeps that disc along the segment
     [from..dest] and is refused when the swept shape touches a wall — that is,
     when the step comes within the padding of a wall {e anywhere along the way}.
@@ -691,7 +714,11 @@ val passable : t -> from:Vec.t -> dest:Vec.t -> bool
     Testing the whole path and not just the destination is what makes a step
     longer than the padding safe: it can neither tunnel through a thin wall nor
     clip past the end of one, both of which land clear of every wall and would
-    pass a test taken at the destination alone. *)
+    pass a test taken at the destination alone.
+
+    A player already closer than the padding may step so long as it does not
+    take them closer still; see {!clears_segment} for how one comes to be there
+    and why leaving has to be possible. *)
 
 (** {1 Shortcuts for authoring}
 

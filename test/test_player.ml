@@ -504,6 +504,40 @@ let a_wall_beyond_the_second_doorway_stops_the_step () =
     "and never inside it" false
     (Room.blocked (World.room world ended.Player.room) ended.Player.pos)
 
+(* The door shut behind a player who has just walked through it, which is the
+   thing a game does with the crossing it was handed. World.set_door moves
+   nobody — deliberately, and it says so — so the player is left standing
+   against the leaf, closer to it than the padding. Under the swept rule alone
+   every step from there was refused, the one deeper into the room they had just
+   entered along with the rest, and the game had to open the door again to let
+   them go. *)
+let a_door_shut_behind_the_player_does_not_trap_them () =
+  (* Standing open, so there is a leaf to shut. A doorway with no door in it
+     cannot be given one by set_door, which is the world's shape and not a
+     state. *)
+  let world = corridor ~door:(Door.make ~state:Door.Open dim) () in
+  let start = at world ~room:1 ~pos:(Vec.make 0.2 2.) in
+  let moved = Player.slide world start (Vec.make 0.2 0.) in
+  let ended = moved.Player.player in
+  Alcotest.(check int) "carried through into the last room" 2 ended.Player.room;
+  Alcotest.(check bool)
+    "and standing nearer the doorway than the padding, which is the trap" true
+    (Vec.length
+       (Vec.sub ended.Player.pos
+          (Room.threshold_at (World.room world 2) 0).Room.a)
+     < Config.collision_padding
+    || ended.Player.pos.x < Config.collision_padding);
+  let shut =
+    World.set_door world ~room:ended.Player.room ~threshold:0 Door.Closed
+  in
+  let away = Player.slide shut ended (Vec.make 0.1 0.) in
+  Alcotest.(check bool)
+    "with the door shut behind them they can still walk on" true
+    (away.Player.player.Player.pos.x > ended.Player.pos.x);
+  let back = Player.slide shut ended (Vec.make (-0.1) 0.) in
+  Alcotest.check vec "but not back through the leaf" ended.Player.pos
+    back.Player.player.Player.pos
+
 (* The same again for a shut leaf, which nothing in the first room can see:
    collision looks one room ahead, and one room ahead of the first is the
    middle. Only resolving the rest of the leg while standing in the middle room
@@ -580,5 +614,7 @@ let () =
             a_wall_beyond_the_second_doorway_stops_the_step;
           case "a shut door beyond the first doorway stops the step"
             a_shut_door_beyond_the_first_doorway_stops_the_step;
+          case "a door shut behind the player does not trap them"
+            a_door_shut_behind_the_player_does_not_trap_them;
         ] );
     ]
