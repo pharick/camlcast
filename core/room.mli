@@ -854,6 +854,40 @@ val path :
       finite number, on the same terms and for the same reason as the points:
       {!val-wall} would refuse it under a name the caller never wrote. *)
 
+val cut_points : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
+(** The two points an opening [width] cells wide is cut at, in the wall from [a]
+    to [b]: centred on it, with a jamb of the same length left at either end.
+
+    {b Measured in from the ends and not out from the middle}, and the
+    difference is only ever in the last bits — which is the whole of it. The
+    inset is the fraction of the wall each jamb takes, so at [width = span] it
+    is a plain zero, which scales the edge to nothing and gives back the very
+    floats [a] and [b] arrived as.
+
+    Out from the middle they do not come back.
+    [(a + b) / 2 ± edge * width / (2 span)] is the same number on paper and a
+    different one in binary, and at [width = span] — a whole side that is one
+    opening, which {!doorway} allows and documents as leaving no jamb — the two
+    disagree by a few times [1e-17]. Whether they happen to cancel depends on
+    the coordinates: [(0,0)-(4,0)] leaves nothing either way, and
+    [(0.1,0.2)-(0.7,1.3)] leaves a wall [6.21e-17] long.
+
+    Such a wall is the invisible blocker. It is far too short for a ray to hit,
+    so nothing draws it and nothing shows it is there, and it is long enough
+    that {!val-wall} builds it rather than refusing it — while {!blocked}
+    measures to the nearest point of a segment, making it a
+    {!Config.collision_padding} disc of solid nothing at the corner of an
+    opening the player is meant to walk through. It also takes a wall index, and
+    those are what {!Sight} reports and what {!add_decal} counts.
+
+    Public because {!doorway} is not the only thing that has to know where an
+    opening lands: a description naming the same doorway from both of its rooms
+    needs the two ends without cutting anything, which is what
+    {!Camlcast.P.opening} is, and it used to be the midpoint form written out
+    again. Guarded by neither — the degenerate cases are refused by whichever
+    function the caller actually named, in its own words, and this is what is
+    left once they have passed. [span] must be positive. *)
+
 val doorway :
   name:string ->
   ?door:Door.t ->

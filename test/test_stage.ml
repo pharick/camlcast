@@ -259,6 +259,17 @@ let two_room_world ~door =
       P.link ("west", "east") ("east", "west");
     ]
 
+(* {!Support.vec} allows 1e-9, which is the right slack for anything that has
+   been through a [cos] or a division and is eight orders too much for the case
+   below: the two forms of the cut agreed to 6.21e-17 the whole time they
+   disagreed. Nothing here goes through anything inexact — the claim is that two
+   expressions produce the same floats — so the comparison is [=], and the
+   printer shows enough digits for a failure to be legible. *)
+let exactly =
+  Alcotest.testable
+    (fun ppf (v : Vec.t) -> Format.fprintf ppf "(%.17g, %.17g)" v.Vec.x v.Vec.y)
+    (fun (a : Vec.t) (b : Vec.t) -> a.Vec.x = b.Vec.x && a.Vec.y = b.Vec.y)
+
 let doorways =
   (* P.opening does the same arithmetic P.doorway does, so it has to refuse what
      P.doorway refuses. Unrefused, each of these is a pair of nans that comes
@@ -270,6 +281,52 @@ let doorways =
           (Invalid_argument refused) (fun () -> ignore (P.opening ~width a b)))
   in
   [
+    (* And refusing the same things is the cheap half of "the same arithmetic".
+       The expensive half is landing in the same place, which nothing asked
+       about — so P.opening restated the formula, restated the superseded form
+       of it, and went on refusing everything it was supposed to.
+
+       Bit-for-bit and not [close], because approximately-equal is exactly what
+       was true while it was wrong: the two agreed to 6.21e-17, which is a
+       cancellation away from an invisible wall a player walks into. Read off
+       the threshold P.doorway actually built rather than recomputed here, so
+       the fixture cannot drift into agreeing with the wrong one. *)
+    case "P.opening lands where P.doorway cuts" (fun () ->
+        let stone =
+          Material.make
+            ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> Color.rgb 150 150 150))
+        in
+        let ends ~width a b =
+          let _, t =
+            Room.doorway ~name:"d" ~width ~opening:2. ~height:3. ~material:stone
+              a b
+          in
+          (t.Room.a, t.Room.b)
+        in
+        let same ~width a b =
+          let ra, rb = ends ~width a b and pa, pb = P.opening ~width a b in
+          Alcotest.check exactly
+            (Printf.sprintf "near end at width %g" width)
+            ra pa;
+          Alcotest.check exactly
+            (Printf.sprintf "far end at width %g" width)
+            rb pb
+        in
+        (* Axis-aligned, where the coordinates cancel and both forms agreed all
+           along; then oblique, where they did not. *)
+        same ~width:2. (Vec.make 0. 0.) (Vec.make 4. 0.);
+        same ~width:4. (Vec.make 0. 0.) (Vec.make 4. 0.);
+        let a = Vec.make 0.1 0.2 and b = Vec.make 0.7 1.3 in
+        let span = Vec.length (Vec.sub b a) in
+        same ~width:(span /. 3.) a b;
+        same ~width:(span /. 2.) a b;
+        (* The case that bit: a whole side that is one opening. Both ends have
+           to come back as the very floats they went in as, or the jamb that is
+           supposed to vanish is a wall instead. *)
+        same ~width:span a b;
+        let pa, pb = P.opening ~width:span a b in
+        Alcotest.check exactly "and the near end is the corner itself" a pa;
+        Alcotest.check exactly "as is the far one" b pb);
     case "a doorway cuts jambs and an opening out of one wall" (fun () ->
         let world = (Mount.build (two_room_world ~door:None)).Scene.world in
         let west = World.room world 0 in

@@ -150,6 +150,22 @@ val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
     of both sides, and this is how it gets them without doing the arithmetic
     twice. Feed the pair to {!through}.
 
+    Literally the same arithmetic: this is {!Camlcast_core.Room.cut_points},
+    which is what {!doorway} cuts at, so the two cannot land a doorway in two
+    places. Worth saying because for a while they could — this restated the
+    formula rather than calling it, and restated the older of the two forms, so
+    on an oblique wall a full-width opening came out [6.21e-17] from where
+    {!doorway} puts it.
+
+    At [width] equal to the wall's own length the two ends come back as [a] and
+    [b] exactly, which is the point of measuring in from the ends. A description
+    building its own jambs from these — [wall a p] and [wall q b], the way
+    {!doorway} would — then has two walls of no length, and
+    {!Camlcast_core.Room.val-wall} refuses those. That is the intended failure
+    and not a trap: a full-width opening has no jambs, {!doorway} drops them,
+    and a description that wants one should not be asking for the two walls that
+    are not there.
+
     @raise Invalid_argument
       on the geometry {!doorway} refuses, and for the same reasons: two points
       in the same place, a width that is not positive and finite, or one wider

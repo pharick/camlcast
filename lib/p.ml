@@ -73,10 +73,15 @@ let polygon ~center ~radius ~sides ~rotation ~height ~material =
     (List.map of_wall
        (Room.regular_polygon ~center ~radius ~sides ~rotation ~height ~material))
 
-(* The same arithmetic Room.doorway does to place its opening: half the width
-   either side of the wall's middle, along the wall. Written once there and
-   read back here rather than restated, so the two cannot disagree about where
-   a doorway is. *)
+(* The same arithmetic Room.doorway does to place its opening. Written once
+   there and read back here rather than restated, so the two cannot disagree
+   about where a doorway is.
+
+   Which this said before it was true. It restated the arithmetic, and restated
+   the version Room.doorway had already stopped using — out from the middle
+   rather than in from the ends — so on an oblique wall the two put a full-width
+   opening 6.21e-17 apart, and a description building its own jambs from these
+   points got back the invisible blocker Room.cut_points exists to avoid. *)
 let opening ~width a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
@@ -91,9 +96,7 @@ let opening ~width a b =
     invalid_arg "P.opening: an opening has to have a width";
   if not (width <= span) then
     invalid_arg "P.opening: wider than the wall it is cut into";
-  let half = Vec.scale edge (width /. (2. *. span)) in
-  let middle = Vec.scale (Vec.add a b) 0.5 in
-  (Vec.sub middle half, Vec.add middle half)
+  Room.cut_points ~width a b
 
 let through ~from:(a1, a2) ~into:(b1, b2) plane =
   Plane.through (Transform.between ~a1 ~a2 ~b1 ~b2) plane

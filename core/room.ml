@@ -484,6 +484,15 @@ let path ?(closed = false) ~height ~material points =
     (Int.max 0 (last + 1))
     (fun i -> wall ~height ~material arr.(i) arr.((i + 1) mod n))
 
+(* Guarded by the caller, not here: {!doorway} and {!P.opening} each refuse the
+   degenerate cases in their own words, and this is the arithmetic they share
+   once those have passed. Same shape as {!Extent.fits}. *)
+let cut_points ~width a b =
+  let edge = Vec.sub b a in
+  let span = Vec.length edge in
+  let inset = Vec.scale edge ((span -. width) /. (2. *. span)) in
+  (Vec.add a inset, Vec.sub b inset)
+
 let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
@@ -503,28 +512,7 @@ let doorway ~name ?door ~width ~opening ~height ~material a b =
      [height] is finite by the line above. *)
   if not (opening > 0. && opening <= height) then
     invalid_arg ("Room.doorway: the opening has to fit under the wall: " ^ name);
-  (* The cut points are measured {e in from the ends} rather than out from the
-     middle, and the difference is only ever in the last bits — which is the
-     whole of it. [inset] is the fraction of the wall each jamb takes, so at
-     [width = span] it is a plain zero, scaling the edge to nothing and leaving
-     [p] and [q] as the very floats [a] and [b] arrived as.
-
-     Out from the middle they do not come back. [(a + b) / 2 - edge * (width /
-     2 span)] is the same number on paper and a different one in binary, and at
-     [width = span] — a whole side that is one opening, allowed above and
-     documented to leave no jamb — the two disagreed by a few times [1e-17].
-     That survives the test below, so the ends were dropped only when the
-     coordinates happened to cancel exactly: [(0,0)-(4,0)] left nothing, and
-     [(0.1,0.2)-(0.7,1.3)] left a wall [6.2e-17] long.
-
-     Such a wall is the invisible blocker {!wall} exists to refuse. It is too
-     short for a ray to hit, so nothing draws it and nothing shows it is there,
-     and {!blocked} measures to the nearest point of a segment — so it is a
-     {!Config.collision_padding} disc of solid nothing at the corner of an
-     opening the player is meant to walk through. It also takes a wall index,
-     and those are what {!Sight} reports and what {!add_decal} counts. *)
-  let inset = Vec.scale edge ((span -. width) /. (2. *. span)) in
-  let p = Vec.add a inset and q = Vec.sub b inset in
+  let p, q = cut_points ~width a b in
   (* A doorway exactly as wide as its wall is allowed above, and leaves no jamb
      at either end. Those ends are dropped rather than built, because a wall of
      no length is the one thing {!wall} refuses. *)
