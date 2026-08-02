@@ -230,6 +230,7 @@ type sprite = private {
   base : float;
   size : float;
   image : Image.t;
+  glow : float;
 }
 (** An object or character standing in the world, drawn as a billboard — a flat
     {!Image} that always faces the player. It stands at [pos] and is [size]
@@ -244,27 +245,60 @@ type sprite = private {
     Its width is not [size]. A sprite is as wide as its picture says it is — see
     {!sprite_half_width} — so a wide, short mote is drawn wide and short.
 
+    [glow] is how much of its own light it makes, from [0.] to [1.], exactly as
+    a {!type-decal}'s is: at [0.] the room lights it, at [1.] it is drawn in its
+    own colours however dark the room and however far off. See {!sprite_light}.
+
     Private for the same reason a {!type-decal} is: [size] is a divisor in
     {!sprite_row} and in {!Viewport.sprite_box}, so {!val-sprite} is the only
-    way to arrive at one and what it refuses stays refused. *)
+    way to arrive at one and what it refuses stays refused. [glow] is here for
+    the reason it is there — out of range it carries {!sprite_light} past the
+    colours the picture was drawn in. *)
 
-val sprite : ?base:float -> size:float -> image:Image.t -> Vec.t -> sprite
+val sprite :
+  ?base:float -> ?glow:float -> size:float -> image:Image.t -> Vec.t -> sprite
 (** A sprite at [pos], [size] cells tall, made of [image]; [base] cells above
-    the floor if you say so, and standing on it if you do not.
+    the floor if you say so, and standing on it if you do not, making [glow] of
+    its own light, which is none unless said otherwise.
 
     A constructor rather than a bare record so that a floating sprite is the
     only kind anyone has to write down, exactly as {!val-wall} lets a wall
     without decals stay silent about them.
 
     @raise Invalid_argument
-      if [pos] or [base] is not a real number, or if [size] is not finite and
-      positive. Negated, so a [nan] is refused with the rest.
+      if [pos] or [base] is not a real number, if [size] is not finite and
+      positive, or if [glow] is outside [0. .. 1.]. Negated, so a [nan] is
+      refused with the rest.
 
     [base] for the same reason {!val-decal} holds its placement to it, and by
     the same road: it is added to the floor to find the foot, and {!sprite_row}
     answers for a height unless it falls outside the picture, so an unreal one
     puts every row of the sprite at every height. [pos] because every distance
     to this sprite is measured from it. *)
+
+val sprite_light : sprite -> light:float -> float
+(** The light a sprite is drawn in, given the light the room gives it.
+
+    {!decal_light} for billboards, in every respect: the same interpolation, the
+    same promise that it only ever brightens and never past the colours the
+    picture holds, and the same asking twice — once of the light and once of the
+    fog, since a fog factor is a fraction of a surface's own colour too, and
+    lifting only the light would leave a glowing sprite at full brightness under
+    a coat of haze.
+
+    What differs is where the [light] comes from, and it is worth saying because
+    a billboard is not a surface. A wall's light is {!Atmosphere.face_shading}
+    of its normal, and a billboard has no normal to take: it turns to face the
+    player, so any orientation read off it would be the player's and a barrel
+    would brighten as you walked around it. What it gets instead is
+    {!Atmosphere.t.ambient}, which is that model's name for the light a surface
+    has facing away from the light — the one number in it that asks nothing
+    about which way a thing is turned. Fog is over the top of that, as it is for
+    everything.
+
+    A sprite that ought not to be in shadow says so with [glow] rather than by
+    being exempt: a lamp, a torch, a mote catching the light. That is the same
+    control a decal has and the reason both have it. *)
 
 val sprite_half_width : sprite -> float
 (** Half a sprite's width, in cells.

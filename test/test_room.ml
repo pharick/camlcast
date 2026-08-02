@@ -761,7 +761,20 @@ let a_decal_or_sprite_of_no_size_is_refused () =
       raises (Printf.sprintf "a sprite of size %f" size)
         "Room.sprite: a sprite has to have a size" (fun () ->
           ignore (Room.sprite ~size ~image:poster (Vec.make 0. 0.))))
-    [ 0.; -1.; Float.nan; Float.infinity ]
+    [ 0.; -1.; Float.nan; Float.infinity ];
+  (* A sprite's glow is a decal's, held to the same range and for the same
+     reason: out of it, {!Room.sprite_light} carries the billboard past the
+     colours its picture holds. *)
+  let mote ?glow () =
+   fun () -> ignore (Room.sprite ?glow ~size:1. ~image:poster (Vec.make 0. 0.))
+  in
+  raises "a sprite glowing over one"
+    "Room.sprite: glow is a fraction from 0 to 1" (mote ~glow:1.5 ());
+  raises "a sprite glowing under zero"
+    "Room.sprite: glow is a fraction from 0 to 1" (mote ~glow:(-0.5) ());
+  raises "a sprite glowing nan" "Room.sprite: glow is a fraction from 0 to 1"
+    (mote ~glow:Float.nan ());
+  List.iter (fun glow -> mote ~glow () ()) [ 0.; 1. ]
 
 (* Where a decal is, and not only how big it is.
 

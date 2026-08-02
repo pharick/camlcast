@@ -50,6 +50,14 @@
     nothing useful left to draw — and {!Sight} reads the same constant, so what
     the crosshair can pick stays what the frame actually shows.
 
+    A sprite is lit the way everything else is, by the room and the air between:
+    {!Atmosphere.t.ambient} where a wall would take {!Atmosphere.face_shading} —
+    a billboard turns to face the player and has no facing of its own to take a
+    cosine against — and then the same fade towards the {!Atmosphere.haze}.
+    {!Room.sprite_light} is the way out for a thing that makes its own light,
+    and is a {!Room.type-decal}'s [glow] in every respect including that it
+    lifts the fog with the light.
+
     {1 Portals}
 
     What makes a doorway fit the painter's algorithm above is that

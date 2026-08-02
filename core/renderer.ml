@@ -357,11 +357,27 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let span = rightx -. left and vspan = y_base -. y_top in
   let img = s.Room.image in
   let nu = img.Image.width and nv = img.Image.height in
-  let f = Atmosphere.fog air depth_s in
-  (* A billboard stands at one distance, so the air in front of it is one colour
-     for the whole picture: the haze's share of it, worked out here and added to
-     what is left of each texel below. *)
-  let veil = Color.shade air.Atmosphere.haze (1. -. f) in
+  let fog = Atmosphere.fog air depth_s in
+  (* The room's light and the air in front of it, in the shape {!draw_wall} uses
+     and for the same reasons — a multiply for the light, since a thing in
+     shadow goes dark, and a blend towards the haze for the distance, since a
+     thing far off goes the colour of the air.
+
+     What stands where a wall's {!Atmosphere.face_shading} would is
+     {!Atmosphere.t.ambient} alone, and {!Room.sprite_light} says why: a
+     billboard turns to face the player and has no orientation of its own to
+     take a cosine against. Fog is folded in the same way, so the factor on a
+     texel is exactly [light] and the haze is one colour for the whole picture —
+     a billboard stands at one distance, so it is one addition per channel here
+     rather than per pixel.
+
+     [glow] lifts both, as a decal's does: the light out of the dark, and its
+     own fog out of the haze. At [1.] a sprite is drawn in the colours it holds
+     wherever it stands, which is what a lamp needs and what nothing else
+     should ask for. *)
+  let light = Room.sprite_light s ~light:(air.Atmosphere.ambient *. fog) in
+  let own_fog = Room.sprite_light s ~light:fog in
+  let veil = Color.shade air.Atmosphere.haze (1. -. own_fog) in
   (* Half-open on the right and at the foot, the same as a wall's strip: a
      pixel whose centre falls outside the billboard is not the billboard's,
      however much of it the picture overlaps. What that costs is a sprite whose
@@ -412,13 +428,13 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
           Framebuffer.blend fb ~x:col ~y
             ~r:
               (clamp8
-                 (int_of_float (float_of_int c.Color.r *. f) + veil.Color.r))
+                 (int_of_float (float_of_int c.Color.r *. light) + veil.Color.r))
             ~g:
               (clamp8
-                 (int_of_float (float_of_int c.Color.g *. f) + veil.Color.g))
+                 (int_of_float (float_of_int c.Color.g *. light) + veil.Color.g))
             ~b:
               (clamp8
-                 (int_of_float (float_of_int c.Color.b *. f) + veil.Color.b))
+                 (int_of_float (float_of_int c.Color.b *. light) + veil.Color.b))
             ~alpha:a
       end
     done

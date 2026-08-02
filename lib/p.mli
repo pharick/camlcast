@@ -249,12 +249,20 @@ val sprite :
   ?on_gaze:(bool -> unit) ->
   ?on_use:(Aim.spot -> unit) ->
   ?base:float ->
+  ?glow:float ->
   size:float ->
   image:Image.t ->
   Vec.t ->
   t
 (** A billboard standing at a point, [size] cells tall, turning to face the
     player. [base] floats it above the floor; without it, it stands on it.
+
+    [glow] is how much light it makes of its own, which is none — the same
+    control {!decal} has and the same range. A sprite with none is lit by the
+    room like everything else in it, which for a billboard means
+    {!Camlcast_core.Atmosphere.t.ambient}, there being no facing to take: see
+    {!Camlcast_core.Room.sprite_light}. A lamp, a torch or a will-o'-the-wisp is
+    what [glow] is for, and turning a game's light down is when it shows.
 
     Key anything that can be rearranged. A list of sprites that sorts itself is
     exactly the case keys exist for. *)

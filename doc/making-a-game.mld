@@ -211,7 +211,12 @@ reverse. [~glow] lifts it clear of the light the rest of the wall is under — a
 sign that is its own light source.
 
 A {b sprite} stands in the room and turns to face you. It is sized by its height
-and takes its width from the picture; [~base] floats it clear of the floor.
+and takes its width from the picture; [~base] floats it clear of the floor, and
+[~glow] is the same control a decal has, for the same reason. A sprite without
+one is lit by the room like everything else standing in it — which for a
+billboard means the atmosphere's [ambient], there being no face to turn to the
+light — so turning a game's light down turns the sprites down with it. A lamp, a
+torch or a mote catching the sun is what [~glow] is for.
 
 {[
   P.sprite ~key:"barrel" ~size:0.9 ~image:barrel (Vec.make 2. (-1.))

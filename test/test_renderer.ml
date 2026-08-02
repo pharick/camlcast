@@ -673,6 +673,138 @@ let a_distant_sprite_fades_into_the_haze () =
     true
     (far.Color.b > near.Color.b)
 
+(* And the other thing that darkens a surface, which for a long time reached
+   every wall and no sprite: the room's light. A billboard has no normal, so
+   what lights it is {!Atmosphere.t.ambient} — the model's own name for what a
+   surface facing away from the light gets — and nothing about which way it is
+   turned.
+
+   Two rooms differing in nothing but their ambient, with a wall read in the
+   same frame to compare the sprite against. The wall is what makes this about
+   the room rather than about the picture: both have to come down, and by the
+   same factor, or a sprite is once again the one thing in the world the light
+   does not reach. [directional] is nothing, so every wall reads [ambient] too
+   and the two are directly comparable; the air barely fades over this distance,
+   so what moves is the light and not the fog. *)
+let a_sprite_is_lit_by_the_room_it_stands_in () =
+  let grey =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255))
+  in
+  let read ~ambient =
+    let world =
+      World.with_atmosphere
+        (fst (alone [ Room.sprite ~size:1.6 ~image:grey (Vec.make 4. 0.) ]))
+        (Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:400.
+           ~min_brightness:0.05 ~light:(Vec.make (-0.4) (-0.9)) ~ambient
+           ~directional:0. ())
+    in
+    let fb = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame fb world (looking_east ());
+    (* The sprite through the middle, and the east wall down a column the
+       billboard is nowhere near. *)
+    ( (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r,
+      (Framebuffer.pixel fb ~x:4 ~y:(height / 2)).Color.r )
+  in
+  let bright_sprite, bright_wall = read ~ambient:1. in
+  let dim_sprite, dim_wall = read ~ambient:0.2 in
+  Alcotest.(check bool)
+    (Printf.sprintf "the wall went dark with the room: %d to %d" bright_wall
+       dim_wall)
+    true
+    (dim_wall < bright_wall / 2);
+  Alcotest.(check bool)
+    (Printf.sprintf "and so did the sprite: %d to %d" bright_sprite dim_sprite)
+    true
+    (dim_sprite < bright_sprite / 2);
+  (* By the same factor, which is the whole claim: one light over the room and
+     not a dimming of the billboard's own. A ratio, the two surfaces being
+     different colours, and a twentieth of slack, the readings being bytes. *)
+  let ratio a b = float_of_int a /. float_of_int b in
+  Alcotest.(check bool)
+    (Printf.sprintf "by the room's factor and not one of its own: %.3f to %.3f"
+       (ratio dim_sprite bright_sprite)
+       (ratio dim_wall bright_wall))
+    true
+    (Float.abs (ratio dim_sprite bright_sprite -. ratio dim_wall bright_wall)
+    < 0.05)
+
+(* {!Room.sprite_light} is {!Room.decal_light} for billboards, so a sprite has
+   the way out of the dark a mark on a wall has, and these two are the sprite
+   spelling of the pair under "marks on walls". A lamp is what wants it:
+   something the room's light does not account for, drawn in the colours it
+   holds however dark the room has become. *)
+let a_glowing_sprite_keeps_its_own_light () =
+  let white =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
+  let lit ~glow ~ambient =
+    let world =
+      World.with_atmosphere
+        (fst
+           (alone [ Room.sprite ~glow ~size:1.6 ~image:white (Vec.make 4. 0.) ]))
+        (Atmosphere.make ~haze:(Color.rgb 20 20 28) ~fog_distance:400.
+           ~min_brightness:0.05 ~light:(Vec.make (-0.4) (-0.9)) ~ambient
+           ~directional:0. ())
+    in
+    let fb = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame fb world (looking_east ());
+    (Framebuffer.pixel fb ~x:(width / 2) ~y:(height / 2)).Color.r
+  in
+  let plain_lit = lit ~glow:0. ~ambient:1.
+  and plain_dark = lit ~glow:0. ~ambient:0.2 in
+  Alcotest.(check bool)
+    (Printf.sprintf "an ordinary one goes down with the room: %d to %d"
+       plain_lit plain_dark)
+    true
+    (plain_dark < plain_lit / 2);
+  let glowing_lit = lit ~glow:1. ~ambient:1.
+  and glowing_dark = lit ~glow:1. ~ambient:0.2 in
+  Alcotest.(check int)
+    "a fully glowing one does not move at all" glowing_lit glowing_dark;
+  Alcotest.(check bool)
+    (Printf.sprintf "and is the picture's own white: %d" glowing_lit)
+    true (glowing_lit > 250);
+  let half = lit ~glow:0.5 ~ambient:0.2 in
+  Alcotest.(check bool)
+    (Printf.sprintf "half glow sits between: %d < %d < %d" plain_dark half
+       glowing_dark)
+    true
+    (plain_dark < half && half < glowing_dark)
+
+(* And out of the haze with it, for the reason a decal is: a sprite making all
+   of its own light and still wearing the air's colour would not be its own
+   colour at all, and at the far end of a long room it would be the haze. *)
+let a_glowing_sprite_takes_none_of_the_haze () =
+  let white =
+    Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+  in
+  let at ~glow away =
+    let s = Room.sprite ~glow ~size:1.6 ~image:white (Vec.make away 0.) in
+    Framebuffer.pixel
+      (shot (hazy [ s ]) (looking_east ()))
+      ~x:(width / 2) ~y:(height / 2)
+  in
+  (* [vivid]'s haze is a bright cyan, so paint drifting into it moves a long way
+     and in a direction no amount of dimming could produce. *)
+  let paint_near = at ~glow:0. 2. and paint_far = at ~glow:0. 11. in
+  Alcotest.(check bool)
+    (Printf.sprintf "paint takes the air: %d then %d" (from_the_haze paint_near)
+       (from_the_haze paint_far))
+    true
+    (from_the_haze paint_far < from_the_haze paint_near);
+  let glowing_near = at ~glow:1. 2. and glowing_far = at ~glow:1. 11. in
+  Alcotest.(check bool)
+    (Printf.sprintf "a glowing one does not: %d then %d"
+       (from_the_haze glowing_near)
+       (from_the_haze glowing_far))
+    true
+    (glowing_near = glowing_far);
+  Alcotest.(check bool)
+    (Printf.sprintf "and is still the white it was painted: #%02x%02x%02x"
+       glowing_far.Color.r glowing_far.Color.g glowing_far.Color.b)
+    true
+    (glowing_far.Color.r > 250 && glowing_far.Color.b > 250)
+
 (* The other half of the rule, and the half a fade towards the haze makes it
    easy to get wrong: orientation is a multiply and distance is a blend, and the
    two have to stay apart. A wall turned away from the light has to go
@@ -1684,6 +1816,12 @@ let () =
             the_floor_fades_into_the_haze_towards_the_horizon;
           case "a distant sprite fades into the haze"
             a_distant_sprite_fades_into_the_haze;
+          case "a sprite is lit by the room it stands in"
+            a_sprite_is_lit_by_the_room_it_stands_in;
+          case "a glowing sprite keeps its own light"
+            a_glowing_sprite_keeps_its_own_light;
+          case "a glowing sprite takes none of the haze"
+            a_glowing_sprite_takes_none_of_the_haze;
           case "orientation dims a wall rather than fogging it"
             orientation_dims_a_wall_rather_than_fogging_it;
         ] );

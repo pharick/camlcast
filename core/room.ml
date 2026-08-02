@@ -111,9 +111,15 @@ type wall = {
 let side_of (w : wall) point =
   if Vec.dot (Vec.sub point w.a) w.normal >= 0. then Front else Back
 
-type sprite = { pos : Vec.t; base : float; size : float; image : Image.t }
+type sprite = {
+  pos : Vec.t;
+  base : float;
+  size : float;
+  image : Image.t;
+  glow : float;
+}
 
-let sprite ?(base = 0.) ~size ~image pos =
+let sprite ?(base = 0.) ?(glow = 0.) ~size ~image pos =
   (* Negated and finite, on the same terms as {!decal} above and for the same
      reasons. size divides in sprite_row and in Viewport.sprite_box, and a
      sprite of no height would be a billboard of no width as well; base is
@@ -126,7 +132,11 @@ let sprite ?(base = 0.) ~size ~image pos =
     invalid_arg "Room.sprite: a sprite has to stand at some height";
   if not (Float.is_finite size && size > 0.) then
     invalid_arg "Room.sprite: a sprite has to have a size";
-  { pos; base; size; image }
+  if not (glow >= 0. && glow <= 1.) then
+    invalid_arg "Room.sprite: glow is a fraction from 0 to 1";
+  { pos; base; size; image; glow }
+
+let sprite_light s ~light = light +. (s.glow *. (1. -. light))
 
 let sprite_half_width s =
   s.size

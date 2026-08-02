@@ -26,9 +26,10 @@ let decal ?key ?facing ?glow ~along ~z ~half_width ~half_height image =
     (Prim.Decal
        (Room.decal ?facing ?glow ~along ~z ~half_width ~half_height image))
 
-let sprite ?key ?on_gaze ?on_use ?base ~size ~image pos =
+let sprite ?key ?on_gaze ?on_use ?base ?glow ~size ~image pos =
   E.prim ?key
-    (Prim.Sprite (Room.sprite ?base ~size ~image pos, reacts ?on_gaze ?on_use ()))
+    (Prim.Sprite
+       (Room.sprite ?base ?glow ~size ~image pos, reacts ?on_gaze ?on_use ()))
 
 let camera ?(pitch = 0.) ~room ~pos ~angle () =
   E.prim (Prim.Camera { room; pos; angle; pitch })
