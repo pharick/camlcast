@@ -51,15 +51,25 @@ let to_string t =
   | [] -> "(root)"
   | shown -> String.concat " / " shown
 
-(* The index is only worth printing where nothing better identifies the step:
-   a key already says which of its siblings this is, and says it in the terms
-   the matching actually uses. *)
+(* A key is dropped-index enough on its own: it says which of its siblings this
+   is, and says it in the terms the matching actually uses, so two steps under
+   one parent cannot share one. Without a key the index is the only thing that
+   tells siblings apart, and it is printed whether or not the step is named.
+
+   The name alone is not enough, which is what this used to print. Two unkeyed
+   siblings of one component — [torch (); torch ()], the ordinary way to write
+   two of a thing — are two different places with one name between them, and
+   printing them alike broke the one promise this spelling makes over
+   {!to_string}. It is the promise the whole second spelling exists for: a trace
+   that says [mount torch] twice has told you nothing about which, and
+   {!Hook_order_changed} naming [torch] sends a reader to look at both. *)
 let debug_step step =
+  let index = "#" ^ string_of_int step.index in
   match (step.name, step.key) with
   | Some name, Some key -> name ^ "[" ^ key ^ "]"
-  | Some name, None -> name
+  | Some name, None -> name ^ index
   | None, Some key -> "[" ^ key ^ "]"
-  | None, None -> "#" ^ string_of_int step.index
+  | None, None -> index
 
 let to_debug_string t =
   match steps t with

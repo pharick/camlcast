@@ -123,17 +123,17 @@ let keeping =
         let root = R.create () in
         ignore (run root (torch ()));
         Alcotest.check log "the component and its flame both survive"
-          [ "update   torch"; "update   torch/#0 : flame" ]
+          [ "update   torch#0"; "update   torch#0/#0 : flame" ]
           (log_of root (torch ())));
     case "a different component in the same place is a replacement" (fun () ->
         let root = R.create () in
         ignore (run root (torch ()));
         Alcotest.check log "the old goes deepest-first, then the new arrives"
           [
-            "unmount  torch/#0 : flame";
-            "unmount  torch";
-            "mount    lamp";
-            "mount    lamp/#0 : glow";
+            "unmount  torch#0/#0 : flame";
+            "unmount  torch#0";
+            "mount    lamp#0";
+            "mount    lamp#0/#0 : glow";
           ]
           (log_of root (lamp ())));
   ]
@@ -592,8 +592,8 @@ let destroying =
         ignore (run root (room [ beacon "a" ]));
         Alcotest.check log "the same order an unmount is reported in"
           [
-            "unmount  #0/beacon/#0 : a";
-            "unmount  #0/beacon";
+            "unmount  #0/beacon#0/#0 : a";
+            "unmount  #0/beacon#0";
             "unmount  #0 : room";
           ]
           (taking_down root));
@@ -695,7 +695,7 @@ let refusing =
         in
         Alcotest.check scene "the state is where the setter put it" "n=4" built;
         Alcotest.check log "and the component was kept, not mounted again"
-          [ "update   lantern"; "update   lantern/#0 : n=4" ]
+          [ "update   lantern#0"; "update   lantern#0/#0 : n=4" ]
           (List.rev !kept));
     case "a frame asked for before a refusal is still asked for" (fun () ->
         let root = F.create () and latch = ref ignore in
@@ -734,7 +734,7 @@ let hook_order =
         ignore (run root (swapper false));
         Alcotest.check_raises "the slot remembers what made it"
           (Hook.Hook_order_changed
-             { at = "swapper"; expected = "use_state"; found = "use_ref" })
+             { at = "swapper#0"; expected = "use_state"; found = "use_ref" })
           (fun () -> ignore (run root (swapper true))));
     case "asking for more hooks than last time is caught" (fun () ->
         let root = R.create () in
@@ -747,7 +747,7 @@ let hook_order =
         ignore (run root (grower false));
         Alcotest.check_raises "there was no second slot to claim"
           (Hook.Hook_order_changed
-             { at = "grower"; expected = "nothing"; found = "use_state" })
+             { at = "grower#0"; expected = "nothing"; found = "use_state" })
           (fun () -> ignore (run root (grower true))));
     case "stopping early and asking for fewer is caught" (fun () ->
         let root = R.create () in
@@ -760,7 +760,7 @@ let hook_order =
         ignore (run root (shrinker true));
         Alcotest.check_raises "a slot was left unclaimed"
           (Hook.Hook_order_changed
-             { at = "shrinker"; expected = "use_ref"; found = "nothing" })
+             { at = "shrinker#0"; expected = "use_ref"; found = "nothing" })
           (fun () -> ignore (run root (shrinker false))));
     case "a hook outside a render says so" (fun () ->
         Alcotest.check_raises "nothing is handling the effect"
@@ -1010,6 +1010,64 @@ let store =
            "and the arithmetic is the reducer's" 6 (Store.state game).score));
   ]
 
+(* {1 Debug paths tell places apart}
+
+   to_debug_string exists so that a trace, a Hook_order_changed and a
+   Duplicate_key can each name one place and mean one place. That is a promise
+   about every pair of paths, and it was false for the commonest pair there is:
+   a named step printed as its bare name, so [torch (); torch ()] — two of a
+   thing, written the ordinary way — printed alike. A trace saying [mount torch]
+   twice says nothing about which. *)
+let a_debug_path_names_one_place () =
+  let named i = Path.child ~name:"torch" Path.root i
+  and bare i = Path.child Path.root i
+  and keyed k = Path.child ~name:"torch" ~key:k Path.root 0 in
+  let differs what a b =
+    Alcotest.(check bool)
+      what true
+      (not (String.equal (Path.to_debug_string a) (Path.to_debug_string b)))
+  in
+  differs "two named unkeyed siblings" (named 0) (named 1);
+  differs "two unnamed unkeyed siblings" (bare 0) (bare 1);
+  differs "two keyed siblings" (keyed "north") (keyed "south");
+  differs "a named step and an unnamed one at the same index" (named 0) (bare 0);
+  differs "a keyed step and an unkeyed one" (keyed "north") (named 0);
+  (* Nested, so the separator is doing its job as well as the steps. *)
+  differs "siblings one level down"
+    (Path.child ~name:"flame" (named 0) 0)
+    (Path.child ~name:"flame" (named 1) 0);
+  (* And the shapes, which are what a reader actually has to recognise. *)
+  Alcotest.(check string)
+    "a named unkeyed step carries its index" "torch#1"
+    (Path.to_debug_string (named 1));
+  Alcotest.(check string)
+    "a keyed one needs none, being unique among its siblings" "torch[north]"
+    (Path.to_debug_string (keyed "north"));
+  Alcotest.(check string)
+    "root is still root" "(root)"
+    (Path.to_debug_string Path.root)
+
+(* The same claim over generated paths rather than chosen ones: any two paths
+   that Path.equal calls different print differently. *)
+let debug_paths_are_injective =
+  let step =
+    QCheck2.Gen.(
+      triple (int_bound 3)
+        (option (oneof_list [ "a"; "b" ]))
+        (option (oneof_list [ "torch"; "lamp" ])))
+  in
+  let path =
+    QCheck2.Gen.map
+      (List.fold_left
+         (fun acc (index, key, name) -> Path.child ?key ?name acc index)
+         Path.root)
+      QCheck2.Gen.(list_size (int_bound 4) step)
+  in
+  QCheck2.Test.make ~count:2000 ~name:"different places print differently"
+    (QCheck2.Gen.pair path path) (fun (a, b) ->
+      Path.equal a b
+      || not (String.equal (Path.to_debug_string a) (Path.to_debug_string b)))
+
 let () =
   Alcotest.run "Loom"
     [
@@ -1024,8 +1082,12 @@ let () =
       ("destroying", destroying);
       ("refusing", refusing);
       ("hook order", hook_order);
+      ( "paths",
+        [ case "a debug path names one place" a_debug_path_names_one_place ] );
       ( "properties",
         [
           QCheck_alcotest.to_alcotest ~speed_level:`Quick history_does_not_show;
+          QCheck_alcotest.to_alcotest ~speed_level:`Quick
+            debug_paths_are_injective;
         ] );
     ]

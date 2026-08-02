@@ -318,7 +318,7 @@ let agrees_with_the_engine =
           [ "this part of the description was refused" ]
           (List.map (fun (d : Check.t) -> d.Check.summary) report);
         Alcotest.check lines "and named by the component it came out of"
-          [ "#0/BadRoom" ]
+          [ "#0/BadRoom#0" ]
           (List.map (fun (d : Check.t) -> d.Check.where) report));
   ]
 

@@ -95,11 +95,21 @@ val to_string : t -> string
     {!to_debug_string} for one that is not. *)
 
 val to_debug_string : t -> string
-(** Every step, joined by ["/"], keeping the ones {!to_string} drops: a named
-    step by its name, an unnamed keyed one by its key, and an unnamed unkeyed
-    one by its index behind a ["#"].
+(** Every step, joined by ["/"], keeping the ones {!to_string} drops: a keyed
+    step by its name and key, and an unkeyed one by its name and its index
+    behind a ["#"] — either of which may be missing its name.
 
-    {v plaza/#3/torch[north]/#0 v}
+    {v plaza#0/#3/torch[north]/#0 v}
 
     Two different places never print the same way here, which is what a trace of
-    a frame needs and what makes it worth having a second spelling at all. *)
+    a frame needs and what makes it worth having a second spelling at all. The
+    index is on every unkeyed step for exactly that reason, including the named
+    ones: [torch (); torch ()] is two places with one name between them, and
+    [torch#0] and [torch#1] are what tell them apart. A key needs no index
+    beside it, being unique among its siblings by the rule {!Element} enforces.
+
+    It holds for any two paths, given component names with no ["/"] or ["#"] in
+    them — the two characters the spelling is made of. Nothing enforces that,
+    and nothing needs to while names are written the way {!Element.declare}'s
+    examples write them; it is said because the promise above is otherwise not
+    quite true. *)
