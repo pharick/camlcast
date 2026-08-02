@@ -207,6 +207,13 @@ val noise : size:int -> seed:int -> cell:int -> u:int -> v:int -> int
     exists to remove — silently, and only every other 64 texels. Naming it at
     both ends costs a few characters and makes that unwritable.
 
+    Nothing in the engine calls this, and nothing is going to: the engine holds
+    no content, so every pattern there is belongs to a game. It is here rather
+    than in each of them because value noise is the one generator that is more
+    arithmetic than taste — two games wanting a mottled wall want the same
+    function, and the wrapping above is the part that is easy to leave out and
+    slow to see the absence of.
+
     @raise Invalid_argument
       if [size] is not positive, or if [cell] does not divide it — the lattice
       would not close on itself, which is the same seam by another route. *)

@@ -40,8 +40,6 @@ type room = {
 
 type t = room array
 
-let none = [||]
-
 let of_rooms rooms =
   Array.of_list
     (List.map

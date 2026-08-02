@@ -13,7 +13,10 @@ let root = { rev = []; depth = 0 }
 let child parent ?key ?name index =
   { rev = { index; key; name } :: parent.rev; depth = parent.depth + 1 }
 
-let depth t = t.depth
+(* Outermost first, which is the order a person reads a path in and the reverse
+   of the order it is built in. Not exported: the two spellings below are the
+   only things that want the chain, and handing a copy out invites a caller to
+   walk it rather than to ask {!equal}. *)
 let steps t = List.rev t.rev
 
 (* A keyed step is its key and an unkeyed one is its index; a keyed step and an
@@ -25,19 +28,6 @@ let same_step a b =
   | Some _, None | None, Some _ -> false
 
 let equal a b = a.depth = b.depth && List.equal same_step a.rev b.rev
-
-let compare_step a b =
-  match (a.key, b.key) with
-  | Some ka, Some kb -> String.compare ka kb
-  | None, None -> Int.compare a.index b.index
-  (* Unkeyed before keyed, arbitrarily but consistently. *)
-  | None, Some _ -> -1
-  | Some _, None -> 1
-
-let compare a b =
-  match Int.compare a.depth b.depth with
-  | 0 -> List.compare compare_step a.rev b.rev
-  | order -> order
 
 let show_step step =
   match (step.name, step.key) with

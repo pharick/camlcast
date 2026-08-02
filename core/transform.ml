@@ -11,13 +11,6 @@ let inverse t =
   let rotation = { cos = t.cos; sin = -.t.sin; offset = Vec.make 0. 0. } in
   { rotation with offset = direction rotation (Vec.scale t.offset (-1.)) }
 
-let compose outer inner =
-  {
-    cos = (outer.cos *. inner.cos) -. (outer.sin *. inner.sin);
-    sin = (outer.sin *. inner.cos) +. (outer.cos *. inner.sin);
-    offset = point outer inner.offset;
-  }
-
 (* Measured before either is normalised, because normalising is what loses the
    evidence: {!Vec.normalize} hands a zero vector back unchanged, and the
    [cos = 0., sin = 0.] that follows is the one way past this type's invariant.

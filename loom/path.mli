@@ -34,52 +34,39 @@
     change the reconciler decides by looking at the elements, not at the path.
 *)
 
-type step = {
-  index : int;  (** position among its parent's children *)
-  key : string option;
-      (** what the game called this one, if it called it anything. Present, it
-          replaces [index] as the step's identity. *)
-  name : string option;
-      (** the component's own name, for {!to_string}. Cosmetic: it takes no part
-          in {!equal} or {!compare}. *)
-}
-(** One hop from a parent to one of its children.
-
-    Concrete and open, because everything about it is read and nothing about it
-    is an invariant — unlike {!t}, whose representation is its own business. *)
-
 type t
 (** A place in the tree, as the chain of steps that reaches it from the root.
 
-    Abstract, for one reason: it is built by {!child} on the hot path — once per
-    node per frame — and the representation exists so that adding a step is O(1)
-    and shares everything above it with the path it was grown from. A caller
-    handed the chain itself would find that sharing very easy to break. Ask
-    {!steps} for a copy when a copy is what is wanted. *)
+    Abstract, and the chain itself is not handed out. It is built by {!child} on
+    the hot path — once per node per frame — and the representation exists so
+    that adding a step is O(1) and shares everything above it with the path it
+    was grown from, which a caller holding the chain would find very easy to
+    break. The other half is that there is nothing to do with the steps that is
+    not one of the four questions below, and a fifth export would mostly be an
+    invitation to re-implement {!equal} by matching on them — which is how the
+    keyed-versus-unkeyed rule ends up written down twice and then only fixed
+    once. *)
 
 val root : t
 (** The empty path: the tree's own root, above every component a game writes. *)
 
 val child : t -> ?key:string -> ?name:string -> int -> t
-(** [child parent ?key ?name index] is the path of [parent]'s [index]th child.
+(** [child parent ?key ?name index] is the path of [parent]'s [index]th child:
+    where it stands among its siblings, the [key] the game gave it if it gave it
+    one, and the component's own [name] for the two spellings below.
 
     O(1), and shares [parent] rather than copying it. *)
 
-val depth : t -> int
-(** How many steps from {!root}, which is [0] for {!root} itself. *)
-
-val steps : t -> step list
-(** The chain, outermost first — the order a person reads it in, and the reverse
-    of the order it is built in. Freshly allocated, so it is the caller's. *)
-
 val equal : t -> t -> bool
 (** Whether two paths name the same place, by the rule at the top of this page:
-    keyed steps by key, unkeyed steps by index, names ignored throughout. *)
+    keyed steps by key, unkeyed steps by index, names ignored throughout.
 
-val compare : t -> t -> int
-(** A total order agreeing with {!equal}, so paths can key a [Map] or be sorted
-    into a stable order for a report. The order itself means nothing — it is
-    neither tree order nor draw order — and nothing should be read into it. *)
+    The only question about identity there is, and there is deliberately no
+    ordering beside it. A total order would have to decide whether a keyed step
+    sorts before an unkeyed one — a choice with nothing behind it, since the two
+    are never the same place and no traversal visits them in that order — and
+    then something would key a [Map] by it and inherit the arbitrary part. Paths
+    are compared to each other and printed; nothing has needed them sorted. *)
 
 val to_string : t -> string
 (** The path as a person should see it: named steps joined by [" / "], outermost

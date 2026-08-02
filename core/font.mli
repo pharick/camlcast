@@ -87,6 +87,18 @@ val make :
       draws nothing at all. Both look like a bug in the text rather than in the
       font it was asked for. *)
 
+(** The three below are what a font can be asked, as against what it can be told
+    to do. They are the arithmetic {!draw} already runs — it reaches a glyph
+    through {!glyph}, which asks {!cell}, which asks {!capacity} — so nothing
+    outside this module needs them to put text on a screen, and nothing outside
+    it calls them.
+
+    They are exported for the game checking its own typeface: that the atlas
+    reaches every character a journal can come to hold, or that a fallback is
+    catching the ones it does not. That is a question worth being able to ask
+    before shipping a picture, and it is not one {!draw} will answer — a
+    character with no cell and no fallback draws nothing and says nothing. *)
+
 val capacity : t -> int
 (** How many cells the atlas actually holds. *)
 

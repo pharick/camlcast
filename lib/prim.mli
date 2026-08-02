@@ -80,9 +80,6 @@ type t =
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)
 
-val deaf : reacts
-(** Asking for nothing, which is what most of a world does. *)
-
 val describe : t -> string
 (** A short phrase naming this primitive, for a {!Camlcast_loom.Trace}. *)
 

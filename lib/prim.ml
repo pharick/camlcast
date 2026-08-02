@@ -7,8 +7,6 @@ type reacts = {
   on_use : (Aim.spot -> unit) option;
 }
 
-let deaf = { on_gaze = None; on_use = None }
-
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 
 type t =

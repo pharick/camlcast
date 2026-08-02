@@ -538,8 +538,16 @@ val floor_material : t -> Material.t
 val ceiling : t -> ceiling
 (** What is overhead, roof or sky, for the caller that has to tell them apart —
     {!Renderer} does, once per column, because a roof is cast and a sky is
-    looked up. The three below answer the commoner questions without the
-    [match]. *)
+    looked up, and so does {!Sight}. The three below take one side of that
+    answer without the [match].
+
+    Unlike the floor's three, that is not a thing anything in this repository
+    wants. Everything here needs to know {e which} of the two it has, so
+    everything here matches; the engine calls none of the three below. They are
+    for a game — a tool asking whether this is the outdoor room, a check that
+    every roofed room's ceiling clears its walls — where the question really
+    does have one side to it and [Option.map (fun s -> s.plane)] over a [match]
+    is longhand for a one-word answer. *)
 
 val ceiling_surface : t -> surface option
 (** The roof overhead — [None] under the open sky. *)

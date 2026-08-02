@@ -17,15 +17,24 @@
     form is two multiplies and an add per coordinate. Storing an angle would put
     a [cos] and a [sin] in front of each of those, and deriving the angle in the
     first place would put an [atan2] in front of {!between}, all to hold the
-    same two numbers. Composition and inversion are just as direct: the angle
-    sum and difference formulae are exactly the products in the implementation.
+    same two numbers. Inversion is just as direct: the difference formula is
+    negating [sin], which is the implementation.
+
+    There is no composition here, and the reason is that nothing composes. A
+    chain of doorways is walked one at a time — {!Renderer} and {!Sight} both
+    recurse by carrying the {!Player} through the next link's motion, and
+    {!Player.through} applies it there and then — so the transform for two
+    doorways in a row is never a value anything holds. Writing one would be an
+    export with nothing on the other end of it.
 
     Nothing here ever normalises, so a transform stays exactly as accurate as
     the two doorways it came from. That matters because {!Player.through} is
     applied to [dir] and [right] every time the player crosses a threshold: a
     rotation whose [cos] and [sin] satisfy [cos² + sin² = 1] keeps a unit vector
     unit and a perpendicular pair perpendicular, so the camera basis cannot
-    drift no matter how many doorways are walked through. *)
+    drift no matter how many doorways are walked through. Applying one motion
+    per crossing is what makes that argument hold for a chain as well as for a
+    single link. *)
 
 type t = private {
   cos : float;  (** cosine of the rotation *)
@@ -60,14 +69,6 @@ val inverse : t -> t
     back, and [R⁻¹ (p - offset) = R⁻¹ p + R⁻¹ (-offset)] — so the inverse is the
     opposite rotation, which negates [sin] alone, carrying that same opposite
     rotation of the negated offset. *)
-
-val compose : t -> t -> t
-(** [compose outer inner] applies [inner] first and then [outer], so that
-    [point (compose outer inner) p = point outer (point inner p)] — the motion
-    that crosses two doorways in a row. Expanding that composition,
-    [R_o (R_i p + o_i) + o_o = (R_o R_i) p + (R_o o_i + o_o)], gives the
-    rotation as the product of the two (the angle-sum formulae) and the offset
-    as the inner one carried through the outer motion. *)
 
 val between : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> t
 (** The rigid motion that lays the segment [a1..a2] of one room onto the segment

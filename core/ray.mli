@@ -66,4 +66,13 @@ val merge : hit list -> opening list -> step list
 
 val nearest : hit list -> hit option
 (** The closest wall along the ray, if it met one — the wall a solid-height
-    caster would have stopped at. *)
+    caster would have stopped at.
+
+    Which is the one thing this engine never asks. {!Renderer} paints the whole
+    list and {!Sight} reads it from the near end, and both of them need what
+    stands behind the first wall: that is what walls of differing heights over a
+    sloped floor cost, and it is the reason {!cast} returns a list at all. This
+    is for a caller doing the older and simpler thing — a line of sight between
+    two points, a minimap ray, a tool asking what a direction runs into — where
+    one wall is the whole answer and the rest of the list is work already done.
+*)

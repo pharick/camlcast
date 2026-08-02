@@ -60,9 +60,6 @@ type t
 (** Every reaction in a world, laid out to be found from a
     {!Camlcast_core.Sight.t}. *)
 
-val none : t
-(** A world that asked for nothing. *)
-
 val of_rooms :
   (reaction option array * reaction option array * reaction option array) list ->
   t
