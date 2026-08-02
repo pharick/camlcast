@@ -334,6 +334,100 @@ let malformed =
          [ P.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ]);
   ]
 
+(* {1 One nesting rule, read the same way twice}
+
+   Prim.may_contain is the rule and both readers have always shared it. What
+   they did not share was the walk, and that is where they came apart: Host
+   looked only under the four primitives that hold anything, so a child hung on
+   a camera or a doorway went unlooked-at and ran; and its hud walk asked about
+   every descendant as though the hud were its parent, so a bar inside a
+   rectangle drew at runtime and failed in Check. Neither is reachable through P
+   — its hud pieces take no children and only P.hud nests — but Element and Prim
+   are public, so neither was unreachable either.
+
+   What is asserted is agreement rather than either answer on its own. A checker
+   that says a description is wrong is only worth reading if the thing it models
+   refuses the same description. *)
+let both_readers =
+  let module E = Camlcast_loom.Element in
+  let only_room =
+    P.room ~name:"room" ~floor ~ceiling
+      [ P.outline ~height ~material:stone corners ]
+  in
+  let world_with extra =
+    E.prim
+      (Prim.World { atmosphere = Atmosphere.default; spawn })
+      ~children:(only_room :: extra)
+  in
+  let bar =
+    Prim.Bar
+      {
+        x = 4;
+        y = 4;
+        w = 4;
+        h = 2;
+        fraction = 0.5;
+        color = Color.rgb 255 255 255;
+      }
+  in
+  let rect =
+    Prim.Rect
+      { x = 0; y = 0; w = 8; h = 8; color = Color.rgb 0 0 0; alpha = 200 }
+  in
+  let agree what ~misplaced description =
+    case what (fun () ->
+        let reported =
+          List.filter
+            (fun (d : Check.t) ->
+              String.length d.Check.summary > 1
+              && String.ends_with ~suffix:"cannot go there" d.Check.summary)
+            (Check.report description)
+        in
+        Alcotest.(check int)
+          "Check says so"
+          (if misplaced then 1 else 0)
+          (List.length reported);
+        match Mount.build description with
+        | _ when misplaced ->
+            Alcotest.failf "%s: Check refused it and Host did not" what
+        | _ -> ()
+        | exception Host.Malformed _ when misplaced -> ()
+        | exception Host.Malformed m ->
+            Alcotest.failf "%s: Host refused it and Check did not: %s" what m)
+  in
+  [
+    agree "a bar inside a rectangle on the hud" ~misplaced:true
+      (world_with
+         [ E.prim Prim.Hud ~children:[ E.prim rect ~children:[ E.prim bar ] ] ]);
+    agree "a room hung under a camera" ~misplaced:true
+      (world_with
+         [
+           E.prim
+             (Prim.Camera
+                { room = "room"; pos = Vec.make 0. 0.; angle = 0.; pitch = 0. })
+             ~children:[ P.room ~name:"stowaway" ~floor ~ceiling [] ];
+         ]);
+    agree "a wall hung under a cursor" ~misplaced:true
+      (world_with
+         [
+           E.prim Prim.Cursor
+             ~children:
+               [
+                 P.wall ~height ~material:stone (Vec.make 0. 0.)
+                   (Vec.make 1. 0.);
+               ];
+         ]);
+    agree "a hud grouped inside a hud, which is the way to group one"
+      ~misplaced:false
+      (world_with
+         [
+           E.prim Prim.Hud
+             ~children:[ E.prim Prim.Hud ~children:[ E.prim bar ] ];
+         ]);
+    agree "a bar directly on the hud" ~misplaced:false
+      (world_with [ E.prim Prim.Hud ~children:[ E.prim bar ] ]);
+  ]
+
 (* {1 What goes in a room} *)
 
 let furnishing =
@@ -438,5 +532,6 @@ let () =
       ("winding", winding);
       ("doorways", doorways);
       ("malformed", malformed);
+      ("both readers", both_readers);
       ("furnishing", furnishing);
     ]

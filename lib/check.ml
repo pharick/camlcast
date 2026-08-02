@@ -198,25 +198,15 @@ let belongs_here = function
   | Prim.Hud -> "A hud holds what is drawn over the finished frame."
   | _ -> "Nothing goes inside that."
 
-let strangers ~parent (node : Prim.t Loom.Host.node) =
-  List.filter_map
-    (fun (child : Prim.t Loom.Host.node) ->
-      if Prim.may_contain ~parent ~child:child.Loom.Host.prim then None
-      else
-        Some
-          (error (path_of child)
-             (Printf.sprintf "a %s cannot go %s"
-                (Prim.describe child.Loom.Host.prim)
-                (Prim.inside parent))
-             ~detail:[ belongs_here parent ]))
-    node.Loom.Host.children
-
-let rec walk ~parent (node : Prim.t Loom.Host.node) =
-  strangers ~parent node
-  @ List.concat_map
-      (fun (child : Prim.t Loom.Host.node) ->
-        walk ~parent:child.Loom.Host.prim child)
-      node.Loom.Host.children
+let walk ~parent (node : Prim.t Loom.Host.node) =
+  List.map
+    (fun ((child : Prim.t Loom.Host.node), parent) ->
+      error (path_of child)
+        (Printf.sprintf "a %s cannot go %s"
+           (Prim.describe child.Loom.Host.prim)
+           (Prim.inside parent))
+        ~detail:[ belongs_here parent ])
+    (Nesting.misplaced ~parent node)
 
 let structure forest =
   let rooms = ref [] and links = ref [] and spawn = ref None in

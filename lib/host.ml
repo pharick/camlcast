@@ -17,20 +17,21 @@ let unexpected ~parent (node : prim Camlcast_loom.Host.node) =
           (Prim.describe node.Camlcast_loom.Host.prim)
           (Prim.inside parent)))
 
-(* Both readers of the nesting rule ask Prim for it rather than each carrying a
-   copy: this one to refuse the first thing out of place, Check to collect every
-   one of them with the component that wrote it. *)
+(* Both readers of the nesting rule ask {!Nesting} for it rather than each
+   walking the tree their own way: this one to refuse the first thing out of
+   place, Check to collect every one of them with the component that wrote it.
+   One pass over the whole description, before any of it is built, because a
+   rule applied in the places assembly happens to visit is a rule with holes in
+   it — which is what this was. *)
 let refuse_strangers ~parent (node : prim Camlcast_loom.Host.node) =
-  List.iter
-    (fun (child : prim Camlcast_loom.Host.node) ->
-      if not (Prim.may_contain ~parent ~child:child.Camlcast_loom.Host.prim)
-      then unexpected ~parent child)
-    node.Camlcast_loom.Host.children
+  match Nesting.misplaced ~parent node with
+  | [] -> ()
+  | (child, parent) :: _ -> unexpected ~parent child
 
 (* A wall's decals are its children, because they are the one thing that has to
-   be in hand before {!Room.wall} can be called at all. *)
-let decals_of ~parent (node : prim Camlcast_loom.Host.node) =
-  refuse_strangers ~parent node;
+   be in hand before {!Room.wall} can be called at all. Their placing was
+   settled by the pass above. *)
+let decals_of (node : prim Camlcast_loom.Host.node) =
   List.filter_map
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
@@ -43,7 +44,6 @@ let decals_of ~parent (node : prim Camlcast_loom.Host.node) =
    but grouping: a component that returns three labels as one thing should not
    have to say where each of them goes relative to the others twice. *)
 let rec collect_hud (node : prim Camlcast_loom.Host.node) =
-  refuse_strangers ~parent:Prim.Hud node;
   List.concat_map
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
@@ -69,14 +69,12 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
   let wall_reacts = ref []
   and threshold_reacts = ref []
   and sprite_reacts = ref [] in
-  refuse_strangers ~parent:node.Camlcast_loom.Host.prim node;
   List.iter
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
-      | Prim.Wall { a; b; height; material; reacts } as parent ->
+      | Prim.Wall { a; b; height; material; reacts } ->
           walls :=
-            Room.wall ~height ~material ~decals:(decals_of ~parent child) a b
-            :: !walls;
+            Room.wall ~height ~material ~decals:(decals_of child) a b :: !walls;
           wall_reacts := reaction_of child reacts :: !wall_reacts
       | Prim.Threshold (threshold, reacts) ->
           thresholds := threshold :: !thresholds;

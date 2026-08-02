@@ -97,4 +97,12 @@ val may_contain : parent:t -> child:t -> bool
     One statement of it, because there are two readers and they must not drift:
     {!Host.assemble} raises on the first thing that is out of place, and
     {!Check.report} collects every one of them with the component that wrote it.
-    Those are two different jobs and one rule, and the rule is here. *)
+    Those are two different jobs and one rule, and the rule is here.
+
+    {b Sharing the rule is not enough on its own.} Both readers also have to ask
+    it about the same nodes, with the same parent for each — and once they did
+    not, which is how they came to disagree about descriptions that only
+    [Element] and this module can build. They now walk a description through one
+    traversal, which is internal and answers to this. Asking [may_contain] while
+    doing something else, at whichever nodes that something else happens to
+    reach, is what produced the drift; it is not the way to read this rule. *)
