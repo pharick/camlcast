@@ -328,6 +328,21 @@ let counter =
   latch := set;
   Element.prim ("n=" ^ string_of_int count)
 
+(* A component that keeps a child while its own state says so, and a child that
+   calls whatever it was handed on its way out. Between them: a cleanup reaching
+   a setter that belongs to somebody else, which is the case a liveness flag
+   kept on the root rather than on the component would get wrong. *)
+let farewell =
+  Element.declare ~name:"farewell" @@ fun (tell : unit -> unit) ->
+  Hook.use_effect ~deps:() (fun () -> Some tell);
+  Element.prim "child"
+
+let nest =
+  Element.declare ~name:"nest" @@ fun (latch : (bool -> unit) ref) ->
+  let keeping, set_keeping = Hook.use_state true in
+  latch := set_keeping;
+  room (if keeping then [ farewell (fun () -> set_keeping true) ] else [])
+
 let state =
   [
     case "a value survives a re-render" (fun () ->
@@ -354,6 +369,53 @@ let state =
         Alcotest.(check bool) "and dirty once set" true (R.dirty root);
         ignore (run root (counter latch));
         Alcotest.(check bool) "clean again" false (R.dirty root));
+    case "a setter kept past its component asks for nothing" (fun () ->
+        (* A setter is a value, and a game may hand one to a timer or a
+           subscription that lets go of it late or never. Called then, it writes
+           a slot nothing will read again — and must not ask for a frame on its
+           way, because a loop driven by {!R.dirty} would render one for a
+           component that is not there. *)
+        let root = R.create () and latch = ref ignore in
+        ignore (run root (room [ counter latch ]));
+        ignore (run root (room []));
+        Alcotest.(check bool)
+          "settled once the counter has gone" false (R.dirty root);
+        !latch 1;
+        Alcotest.(check bool)
+          "and the stale setter did not stir it" false (R.dirty root));
+    case "nor does one kept past the root itself" (fun () ->
+        (* The same fact where it has teeth. A root that has been destroyed
+           renders no more frames on its own, so a setter that marked it would
+           mark it for good: {!R.dirty} answering yes for ever, and a loop
+           polling it rebuilding a description it had just let go of. *)
+        let root = R.create () and latch = ref ignore in
+        ignore (run root (counter latch));
+        R.destroy root;
+        !latch 1;
+        !latch 2;
+        Alcotest.(check bool)
+          "a destroyed root stays clean" false (R.dirty root);
+        (* And it is empty rather than spent, so the setter the fresh mount
+           hands out is a live one again. *)
+        ignore (run root (counter latch));
+        Alcotest.(check bool) "clean after the remount" false (R.dirty root);
+        !latch 3;
+        Alcotest.(check bool) "and this one is heard" true (R.dirty root));
+    case "a parent's setter still wakes it, called on a child's way out"
+      (fun () ->
+        (* Which is why liveness is the component's and not the root's. A child
+           leaving may hand something back to a parent that is staying, and the
+           frame that asks for is a frame the parent will be in. *)
+        let root = R.create () and latch = ref ignore in
+        ignore (run root (nest latch));
+        Alcotest.(check bool) "settled" false (R.dirty root);
+        !latch false;
+        (* The render that removes the child, which clears the flag on its way
+           in and runs the child's cleanup on its way out. *)
+        ignore (run root (nest latch));
+        Alcotest.(check bool)
+          "the cleanup reached a setter whose component is still here" true
+          (R.dirty root));
     case "state follows the key, not the position" (fun () ->
         let root = R.create () in
         let first = ref ignore and second = ref ignore in

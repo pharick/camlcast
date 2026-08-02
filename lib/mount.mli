@@ -26,7 +26,17 @@ val render :
 
 val dirty : t -> bool
 (** Whether a setter or a store has asked for a frame since the last {!render}.
-*)
+
+    {!Run.on} never asks — a game draws every frame, so it renders every frame —
+    and this is here for the loop that would rather not: a menu, an editor, a
+    tool that redraws when something changed and idles otherwise. Such a loop
+    leans on the answer in a way a loop that renders anyway does not, so what it
+    can rely on is worth saying. Only a component still in the description can
+    ask for a frame; a setter kept past its component's life, in a timer or a
+    subscription that was slow to be dropped, does nothing. After {!destroy}
+    that goes for every setter the description ever handed out, so a mount that
+    has been torn down stays clean and a loop polling one is not told to rebuild
+    what it has just let go of. *)
 
 val destroy : ?trace:(Prim.t Camlcast_loom.Trace.event -> unit) -> t -> unit
 (** Unmount everything this mount holds and run every cleanup it owes.

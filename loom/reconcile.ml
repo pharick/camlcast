@@ -358,6 +358,10 @@ module Make (H : Host.HOST) = struct
        without clearing it, and a row walked twice would owe it twice. *)
     root.tree <- None;
     Hook.flush root.pending;
-    (* A cleanup that called a setter wrote a slot nothing will read again. *)
+    (* A frame asked for before this, by a tree that is now gone. Nothing can
+       ask for one after it: the flush above put every row out of the tree, and
+       a setter on a row that has left says nothing to the root — which is what
+       keeps this [false] from being set back to [true] by a timer that outlived
+       the mount and left {!dirty} answering yes with nothing left to render. *)
     root.dirty <- false
 end

@@ -55,7 +55,19 @@
     This is deliberately simpler than React, which re-renders until the tree
     settles. A game renders every frame anyway, so "next frame" is a wait of
     milliseconds, and in exchange there is no possibility of a render loop that
-    does not converge. *)
+    does not converge.
+
+    A setter is a value, and a game may keep one — in a timer, a subscription, a
+    callback handed to something the runtime knows nothing about — for longer
+    than the component that made it lasts. Called after that component has left
+    the tree, it does nothing: the slot it would write is one nothing will read
+    again, and it asks for no frame. That last part is the one worth stating,
+    because the alternative is a frame nobody wants, and on a root that
+    {!Reconcile.Make} has destroyed a frame nobody will ever render — leaving
+    that root's [dirty] answering yes for good, with nothing able to clear it.
+    Liveness is per component and not per root, so a departing component's
+    cleanup calling a {e parent's} setter still asks for the frame it means to.
+*)
 
 exception Hook_outside_render
 (** A hook was called with no render around it — at the top level of a module,
@@ -75,7 +87,11 @@ val use_state : 'a -> 'a * ('a -> unit)
     [initial] is used the first time this component renders and ignored every
     time after, so it costs nothing to write an expression there — but it is
     evaluated each render regardless, so an expensive one belongs in
-    {!use_memo}. *)
+    {!use_memo}.
+
+    The setter outlives nothing: kept past the component's own life and called
+    then, it writes what will not be read and asks for no frame — see "Setting
+    state" above. *)
 
 val use_ref : 'a -> 'a ref
 (** A box made once and handed back unchanged ever after.
@@ -139,6 +155,12 @@ val use_invalidate : unit -> unit -> unit
     callback, drop the subscription in the cleanup, and the outside world can
     reach a frame without knowing what a frame is. {!Store} is exactly that and
     nothing more.
+
+    Dropping the subscription in the cleanup is how it is meant to be written,
+    and not what makes it safe: this goes quiet on its own once the component
+    has left the tree, so a source that is slow to let go — or never asked to —
+    cannot wake a root that has stopped listening, or a root that no longer
+    exists. A {!use_state} setter is the same seam and behaves the same way.
 
     Claims no slot, for the same reason {!use_context} does not. *)
 

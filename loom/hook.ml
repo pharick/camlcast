@@ -62,9 +62,19 @@ type slots = {
      discovered and every hook is new; after it, a hook that was never asked
      for before is the rule broken rather than the row still filling up. *)
   mutable settled : bool;
+  (* Whether this component is still in the tree. Cleared when the row is
+     unmounted, and read by the setters below — which are values a game may keep
+     for as long as it likes, in a timer or a subscription or a callback handed
+     to something outside the runtime, and may therefore call after the
+     component that made them has gone. Such a call writes a cell nothing will
+     read again, which is nothing; asking for a frame on its way would be a
+     frame nobody wants, and on a root that has been destroyed a frame nobody
+     will ever render, leaving {!Reconcile.S.dirty} answering true for good. *)
+  mutable live : bool;
 }
 
-let slots () = { cells = [||]; count = 0; cursor = 0; settled = false }
+let slots () =
+  { cells = [||]; count = 0; cursor = 0; settled = false; live = true }
 
 let append slots cell =
   if slots.count = Array.length slots.cells then begin
@@ -138,6 +148,18 @@ let discard pending =
    compared, by the equality that came with them — so reading the pair back at
    [Obj.t] for the first component is sound whatever it really is. *)
 let on_unmount pending slots =
+  (* Queued rather than done here, so that liveness rides the same transaction
+     the cleanups do: a render that is refused throws this away with {!discard}
+     and leaves a row that is still standing still able to ask for a frame,
+     while a render that commits runs it and the row is gone for good.
+
+     First, so that it comes out before this row's own cleanups: a cleanup that
+     calls its component's own setter is a departing component asking for a
+     frame it will not be in. A setter belonging to some other component — a
+     parent's, handed down as a prop — is on that component's row and unaffected
+     unless it is leaving too, which is the distinction a flag on the root could
+     not have drawn. *)
+  pending.cleanups <- (fun () -> slots.live <- false) :: pending.cleanups;
   (* Pushed front-first onto a list that {!flush} reverses, so they come out in
      the order the effects were declared. *)
   for index = 0 to slots.count - 1 do
@@ -151,6 +173,12 @@ let on_unmount pending slots =
 
 let run ~slots ~pending ~at ~env ~invalidate render =
   slots.cursor <- 0;
+  (* Every way out of a component and into the root goes through here, so this
+     is the one place the row's liveness has to be checked. A setter and
+     {!use_invalidate} are the same seam under two names: a value the component
+     hands to whatever it likes, which may hold it longer than the component
+     lasts. *)
+  let invalidate () = if slots.live then invalidate () in
   let result =
     Effect.Deep.match_with render ()
       {

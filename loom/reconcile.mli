@@ -98,7 +98,14 @@ module Make (H : Host.HOST) : sig
       Cleared at the start of every {!render} and set by {!Hook.use_state}'s
       setter, wherever it was called from — an effect, an event handler, a
       timer. A game that renders every frame regardless can ignore it; a menu
-      that would rather not rebuild a scene nothing has changed can ask. *)
+      that would rather not rebuild a scene nothing has changed can ask.
+
+      By a setter belonging to a component that is {e in} the tree, which is the
+      part that matters to a loop driven by this rather than by the clock. One
+      whose component has left says nothing, and after {!destroy} every setter
+      there ever was has left — so this cannot be stuck true by a timer that
+      outlived the mount, which would be a loop rendering forever for a
+      component that is not there, or reviving a root that was torn down. *)
 
   val destroy : ?trace:(H.prim Trace.event -> unit) -> t -> unit
   (** Unmount everything this root holds and run what that owes.
