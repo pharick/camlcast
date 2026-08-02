@@ -173,8 +173,12 @@ val load : string -> (t, [ `Msg of string ]) result
     any size, since nothing in sampling one cares which.
 
     A result and not an exception, because a file is a run-time failure: it may
-    be missing, or not be a picture, or be the wrong shape, or — the one
-    {!generate} would raise on — decode to no texels at all. *)
+    be missing, or not be a picture, or be the wrong shape, or — the two sizes
+    {!generate} would raise on — decode to no texels at all, or to more of them
+    than an array can hold. The twin of {!Image.load} in this, and see there:
+    the second was answered for later than the first, and for a file the
+    difference between a condition and an exception is the difference between a
+    game that reports and a game that stops. *)
 
 val of_asset : string -> (t, [ `Msg of string ]) result
 (** {!load}, given an asset's name instead of a path: {!Asset.path} finds where

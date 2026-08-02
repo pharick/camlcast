@@ -81,6 +81,14 @@ let load path =
             path w h))
   else if w <= 0 then
     Error (`Msg (Printf.sprintf "%s: a pattern must have a positive size" path))
+  else if not (fits w) then
+    (* The same reason the size above is an [Error]: a file is a condition, so
+       every size this cannot take is answered for in the type, and none of them
+       reaches the [Array.make] below as an exception out of a [result]. *)
+    Error
+      (`Msg
+         (Printf.sprintf "%s: a pattern of %dx%d does not fit in an array" path
+            w w))
   else begin
     let n = w * w in
     let texels = Array.make n (Color.rgb 0 0 0) and alpha = Array.make n 0 in

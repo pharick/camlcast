@@ -189,7 +189,30 @@ val run : window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
     on, so it is also retried, and comes right of its own accord on a desktop
     that stops saying no.
 
-    Time passes only while the window has focus; see {!simulate}. *)
+    Time passes only while the window has focus; see {!simulate}.
+
+    {2 What the result does not cover}
+
+    The game's own six callbacks. An exception out of [update], [view],
+    [overlay], [pointing], [finished] or [bindings] passes straight through this
+    and out of the run, and is not turned into an [Error].
+
+    That is the rule and not a gap in it. The [`Msg] is for what the world
+    outside would not do — SDL refusing a texture, a window that will not resize
+    — and a game's own callback raising is the other kind of mistake entirely:
+    an [Invalid_argument] from a wall of no length, a [Not_found] from a lookup
+    that should not have missed, a game's own exception meaning its own thing.
+    Wrapping those in [`Msg] would flatten a bug in the game into a condition
+    the game is expected to handle, at the cost of the backtrace that says where
+    it happened. The engine is not the place that knows better.
+
+    What the loop does guarantee across one is that it does not leave the
+    machine wedged: unwinding passes back out through {!with_window}, whose
+    pointer release, renderer and buffer teardown are all [Fun.protect]ed rather
+    than done on the way out. A game that wants a raise reported rather than
+    propagated catches it in its own callback, where it still knows what it was
+    doing; the demos do exactly that, one exception of their own, and
+    [demo/reading.ml] is that seam written down. *)
 
 val run_world :
   window ->

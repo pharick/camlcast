@@ -101,8 +101,17 @@ val load : string -> (t, [ `Msg of string ]) result
     demo does. This is for the ones that were drawn rather than derived.
 
     A result and not an exception, because a file is a run-time failure: it may
-    be missing, or not be a picture, or — the one {!make} would otherwise raise
-    on — decode to no pixels at all. *)
+    be missing, or not be a picture, or — the two {!make} would otherwise raise
+    on — decode to no pixels at all, or to more of them than an array can hold.
+
+    {b Both of {!make}'s refusals and not just the first}, which is worth saying
+    because for a while it was only the first. A size {!make} will not take,
+    reached from here, is an [Invalid_argument] coming out of a function whose
+    type says a bad file is a condition — the promise broken from the inside,
+    and by the one input a caller has least control over. The second is out of
+    reach of any file a 64-bit build can decode and is an ordinary texture at 32
+    bits, where an array holds 2^22 entries and a 2048 by 2048 picture is one
+    past it; see {!Extent.fits} on why that difference is real. *)
 
 val of_asset : string -> (t, [ `Msg of string ]) result
 (** {!load}, given an asset's name instead of a path: {!Asset.path} finds where

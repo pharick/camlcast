@@ -40,14 +40,23 @@ let sample t ~u ~v =
 let load path =
   let* s = Bitmap.load path in
   let w = s.Bitmap.width and h = s.Bitmap.height in
-  (* A file is a run-time failure and not an authoring mistake, so an empty one
-     comes back as an [Error] rather than as [make]'s [Invalid_argument]. *)
+  (* A file is a run-time failure and not an authoring mistake, so both of the
+     sizes [make] refuses are asked about here and come back as an [Error]
+     rather than as its [Invalid_argument]. Both, and not only the empty one:
+     [load]'s type says a file is a condition, and a [make] reached with a size
+     it will not take is that promise broken from inside — an exception out of a
+     function whose whole signature says there is not going to be one. *)
   if w <= 0 || h <= 0 then
     Error
       (`Msg
          (Printf.sprintf
             "%s: a picture must have a positive size, and this one is %dx%d"
             path w h))
+  else if not (fits ~width:w ~height:h) then
+    Error
+      (`Msg
+         (Printf.sprintf "%s: a picture of %dx%d does not fit in an array" path
+            w h))
   else Ok (make ~height:h ~width:w (fun ~u ~v -> Bitmap.sample s ~u ~v))
 
 let of_asset = Asset.read load
