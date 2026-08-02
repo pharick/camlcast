@@ -88,6 +88,11 @@ exception Render_refused of { at : string; message : string }
     raises to refuse what it was handed. Anything else a component raises is the
     component's own business and goes out untouched.
 
+    A {!Hook.use_memo}'s [compute] is describing the component as much as the
+    body around it is, and a refusal out of one reads the same as a refusal out
+    of the other — see "When a hook fails" in {!Hook}, which is what makes the
+    two alike rather than the accident of where the code sits.
+
     Printed as [path: message], so a game that meets one uncaught reads the two
     things it needs off the line that stopped it. {!Camlcast.Check} is the way
     to be told before that happens. *)

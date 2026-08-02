@@ -474,6 +474,61 @@ let memo =
         Alcotest.check scene "five doubled" "10" (scene_of root (doubler 5));
         Alcotest.check scene "six doubled" "12" (scene_of root (doubler 6));
         Alcotest.(check int) "once per distinct dep" 2 !computed);
+    (* A hook's work is done in the effect handler, which runs outside the fiber
+       the component is suspended in — so a raise from there is not, without
+       care, a raise from the component. These three are that care: the failure
+       is walked back to the point the hook was written, and everything that
+       follows from being an ordinary expression follows from that. *)
+    case "a compute that raises raises where it was called" (fun () ->
+        let guarded =
+          Element.declare ~name:"guarded" @@ fun () ->
+          let value =
+            try Hook.use_memo ~deps:0 (fun () -> raise Balked)
+            with Balked -> "caught"
+          in
+          Element.prim value
+        in
+        Alcotest.check scene "the component's own try took it" "caught"
+          (scene_of (R.create ()) (guarded ())));
+    case "and a finaliser in the render body still runs" (fun () ->
+        (* The one a raise past the fiber cannot do anything about: an abandoned
+           fiber is not an unwound one, so a component holding something while
+           it describes itself would never give it back. *)
+        let released = ref false in
+        let protecting =
+          Element.declare ~name:"protecting" @@ fun () ->
+          Fun.protect ~finally:(fun () -> released := true) @@ fun () ->
+          Element.prim (Hook.use_memo ~deps:0 (fun () -> raise Balked))
+        in
+        Alcotest.check_raises "the failure still comes out" Balked (fun () ->
+            ignore (scene_of (R.create ()) (protecting ())));
+        Alcotest.(check bool)
+          "and what it was holding was given back" true !released);
+    case "and a refusal from inside one names its component" (fun () ->
+        (* {!Element.Render_refused} is put on by a [try] around the component's
+           own call, which is inside the fiber — so a refusal arriving past it
+           would be an [Invalid_argument] with nothing to attach it to. The two
+           spellings below are the same mistake written in two places and have
+           to read alike. *)
+        let named describe =
+          match scene_of (R.create ()) (describe ()) with
+          | scene -> "built " ^ scene
+          | exception Element.Render_refused { at; message } ->
+              at ^ ": " ^ message
+        in
+        let in_a_memo =
+          Element.declare ~name:"choosy" @@ fun () ->
+          Element.prim (Hook.use_memo ~deps:0 (fun () -> invalid_arg "no"))
+        in
+        let in_the_body =
+          Element.declare ~name:"choosy" @@ fun () ->
+          Element.prim (invalid_arg "no")
+        in
+        Alcotest.(check string)
+          "the memo names it" "choosy#0: no" (named in_a_memo);
+        Alcotest.(check string)
+          "and so does the body, the same way" "choosy#0: no"
+          (named in_the_body));
   ]
 
 (* Effects are the seam where a component may reach outside itself, and the

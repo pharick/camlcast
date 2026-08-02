@@ -179,6 +179,30 @@ let run ~slots ~pending ~at ~env ~invalidate render =
      hands to whatever it likes, which may hold it longer than the component
      lasts. *)
   let invalidate () = if slots.live then invalidate () in
+  (* Work out the hook's answer, then hand it back into the component — and hand
+     back a failure the same way, at the point the hook was called.
+
+     A handler runs {e outside} the fiber the component is suspended in, so a
+     raise from one of these is not a raise from the component: it comes out of
+     [match_with] below, past the [try] the component wrote around its own call,
+     past the one {!Reconcile} wraps every render in to name what refused, and
+     past any {!Fun.protect} in between — whose finaliser therefore never runs,
+     the fiber having been abandoned rather than unwound. That is the difference
+     between a hook that fails and every other expression in a render, and there
+     is no reason for a hook to be the exception. So the failure is walked back
+     into the fiber instead, with the backtrace it arrived with, and a hook
+     raises where it was written.
+
+     Only the work before the hand-back is under this. Continuing runs the rest
+     of the component, and a raise from {e there} is the component's own — caught
+     here it would be pushed into a continuation already used up. *)
+  let answer k work =
+    match work () with
+    | value -> Effect.Deep.continue k value
+    | exception failed ->
+        Effect.Deep.discontinue_with_backtrace k failed
+          (Printexc.get_raw_backtrace ())
+  in
   let result =
     Effect.Deep.match_with render ()
       {
@@ -190,6 +214,7 @@ let run ~slots ~pending ~at ~env ~invalidate render =
             | Use_state initial ->
                 Some
                   (fun (k : (a, _) Effect.Deep.continuation) ->
+                    answer k @@ fun () ->
                     let cell, _ =
                       claim slots ~at ~tag:tag_state ~initial:(fun () ->
                           Obj.repr initial)
@@ -198,18 +223,20 @@ let run ~slots ~pending ~at ~env ~invalidate render =
                       cell.value <- Obj.repr value;
                       invalidate ()
                     in
-                    Effect.Deep.continue k (Obj.obj cell.value, set))
+                    (Obj.obj cell.value, set))
             | Use_ref initial ->
                 Some
                   (fun (k : (a, _) Effect.Deep.continuation) ->
+                    answer k @@ fun () ->
                     let cell, _ =
                       claim slots ~at ~tag:tag_ref ~initial:(fun () ->
                           Obj.repr (ref initial))
                     in
-                    Effect.Deep.continue k (Obj.obj cell.value))
+                    Obj.obj cell.value)
             | Use_memo { compute; deps; equal } ->
                 Some
                   (fun (k : (a, _) Effect.Deep.continuation) ->
+                    answer k @@ fun () ->
                     let cell, fresh =
                       claim slots ~at ~tag:tag_memo ~initial:(fun () ->
                           Obj.repr (deps, compute ()))
@@ -221,12 +248,15 @@ let run ~slots ~pending ~at ~env ~invalidate render =
                       else ignore remembered
                     end;
                     let _, value = Obj.obj cell.value in
-                    Effect.Deep.continue k value)
+                    value)
             | Use_effect { start; deps; equal } ->
                 Some
                   (fun (k : (a, _) Effect.Deep.continuation) ->
+                    answer k @@ fun () ->
                     (* Queued rather than run: an effect belongs after the scene
-                       is assembled, and a render must stay pure. *)
+                       is assembled, and a render must stay pure. [equal] is not
+                       queued and runs here, which is why this branch wants the
+                       same treatment the memo above does. *)
                     let schedule cell =
                       pending.setups <-
                         (fun () ->
@@ -259,20 +289,17 @@ let run ~slots ~pending ~at ~env ~invalidate render =
                         | None -> ());
                         schedule cell
                       end
-                    end;
-                    Effect.Deep.continue k ())
+                    end)
             (* Neither of these claims a slot. Both answer the same thing every
                render of a given component, so there is nothing to remember and
                nothing a changed hook order could misalign. *)
             | Use_context context ->
                 Some
                   (fun (k : (a, _) Effect.Deep.continuation) ->
-                    let value =
-                      match Context.find env context with
-                      | Some bound -> bound
-                      | None -> Context.default context
-                    in
-                    Effect.Deep.continue k value)
+                    answer k @@ fun () ->
+                    match Context.find env context with
+                    | Some bound -> bound
+                    | None -> Context.default context)
             | Use_invalidate ->
                 Some
                   (fun (k : (a, _) Effect.Deep.continuation) ->

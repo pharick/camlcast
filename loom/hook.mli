@@ -67,7 +67,25 @@
     that root's [dirty] answering yes for good, with nothing able to clear it.
     Liveness is per component and not per root, so a departing component's
     cleanup calling a {e parent's} setter still asks for the frame it means to.
-*)
+
+    {1 When a hook fails}
+
+    A hook raises where it was written, and is in that respect an ordinary
+    expression: a [try] around it in the render body catches, a {!Fun.protect}
+    it is nested inside gives back what it was holding, and an
+    [Invalid_argument] out of it is translated by {!Reconcile} into an
+    {!Element.Render_refused} naming the component, exactly as one raised
+    straight from the body is.
+
+    That is worth stating because it is not what the machinery does by itself. A
+    hook is an effect, and the code that answers one runs {e outside} the fiber
+    the component is suspended in — so a raise from there would come out past
+    every one of those and abandon the fiber rather than unwind it, leaving
+    finalisers unrun. The runtime walks the failure back to the point the hook
+    was called instead. It matters most for the two hooks that run a game's own
+    code while answering, {!use_memo}'s [compute] and either's [equal], and it
+    is the same for {!Hook_order_changed}, which is a hook failing like any
+    other. *)
 
 exception Hook_outside_render
 (** A hook was called with no render around it — at the top level of a module,
@@ -112,7 +130,13 @@ val use_memo : ?equal:('d -> 'd -> bool) -> deps:'d -> (unit -> 'a) -> 'a
 
     [equal] decides what changing means, and defaults to structural equality.
     That default raises on functional values, as [( = )] always does, so deps
-    containing a closure need an [equal] of their own. *)
+    containing a closure need an [equal] of their own.
+
+    Both of them run during the render, and neither is the place to reach
+    outside the component — that is {!use_effect}. What either raises arrives at
+    this call, as "When a hook fails" above sets out; the default [equal] on
+    deps that hold a closure is the way a game reaches that without having
+    written a raise at all. *)
 
 val use_effect :
   ?equal:('d -> 'd -> bool) ->
@@ -224,4 +248,11 @@ val run :
     [at] names the component in an exception, [env] is the context bindings in
     force here — innermost first — and [invalidate] is what a setter calls to
     say the tree has work to do. Raises {!Hook_order_changed} if this render's
-    hooks do not line up with the row as it stands. *)
+    hooks do not line up with the row as it stands.
+
+    Whatever a hook raises — that, or a game's own [compute] or [equal] — is
+    raised {e into} the component at the point the hook was called, and not out
+    of this call over its head. So it reaches a caller through the render
+    closure, having run whatever that closure had arranged to run on its way
+    out. See "When a hook fails" above; the alternative is what an effect
+    handler does if left to itself. *)
