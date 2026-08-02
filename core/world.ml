@@ -10,6 +10,7 @@ type portal = {
 }
 
 type location = { room : int; pos : Vec.t }
+type crossing = { index : int; portal : portal; at : float }
 
 type t = {
   rooms : Room.t array;
@@ -487,8 +488,8 @@ let crossing t ~room ~from ~dest =
             else
               let here = entering /. (entering -. leaving) in
               match best with
-              | Some (_, _, there) when there <= here -> best
-              | _ -> Some (slot, portal, here))
+              | Some { at = there; _ } when there <= here -> best
+              | _ -> Some { index = slot; portal; at = here })
         | _ -> best
       in
       nearest (slot + 1) best

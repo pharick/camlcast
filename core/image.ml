@@ -13,7 +13,7 @@ type t = {
    does not check and [sample] reads on its word is the product below. *)
 let fits = Extent.fits ~limit:Sys.max_array_length
 
-let make ?height ~width f =
+let make ~width ?height f =
   let height = Option.value height ~default:width in
   if width <= 0 || height <= 0 then
     invalid_arg "Image.make: an image must have a positive size";

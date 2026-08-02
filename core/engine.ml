@@ -28,12 +28,23 @@ type window = {
   mutable relative : bool;
 }
 (* The things a frame needs that do not change during one, and that no longer
-    change between runs either. SDL only offers "set" for fullscreen and
-    relative mouse mode — never "toggle", and never an answer — so what they are
-    is written down here, beside the window they are true of. Mutable, because
-    they outlive the loop that changes them: a run started on this window has to
-    be told what the last one left, or it would turn the cursor loose and never
-    notice.
+    change between runs either. SDL offers no {e toggle} for fullscreen or
+    relative mouse mode, only a set, so flipping one means having the current
+    value in hand — and what is written here is the value that came back from
+    the last set rather than the one asked for, which is the part that matters
+    when a desktop refuses. Mutable, because they outlive the loop that changes
+    them: a run started on this window has to be told what the last one left, or
+    it would turn the cursor loose and never notice.
+
+    {b SDL would answer both questions if asked}, and this used to claim
+    otherwise. [Sdl.get_relative_mouse_mode] returns a bool, and fullscreen is a
+    flag in [Sdl.get_window_flags] — which [has_focus] below already calls, so
+    the claim was contradicted twenty lines further down this file. These fields
+    are a cache of an answer SDL has, kept because the alternative is two
+    queries per frame on the path that runs every frame, and because the
+    fullscreen flag is really two ([fullscreen] and [fullscreen_desktop]) and
+    only one of them is the mode this engine ever sets. A maintainer who reads
+    the old reason and goes looking for the missing getter will find it.
 
     Two things are deliberately not in here. The window size can change at any
     moment, so {!Renderer} asks for it per frame and resizes the framebuffer to

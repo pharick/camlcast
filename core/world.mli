@@ -422,14 +422,29 @@ val passable : t -> room:int -> from:Vec.t -> dest:Vec.t -> bool
     draws nor blocks — so opening a door never moves the player, which is a rule
     the game wants and gets for free from doing nothing here. *)
 
-val crossing :
-  t -> room:int -> from:Vec.t -> dest:Vec.t -> (int * portal * float) option
+type crossing = {
+  index : int;
+      (** which of this room's thresholds the step went through, numbered as
+          {!Ray.opening} numbers one *)
+  portal : portal;
+      (** what is behind it — whose {!Player.through} the caller then applies *)
+  at : float;
+      (** how far along the step the opening was met, as a fraction of it.
+          [from] plus this much of the step is the point on the opening, which
+          is where a caller meaning to walk a step doorway by doorway has to cut
+          it. *)
+}
+(** What {!val-crossing} found.
+
+    A record because it is two numbers and a value, and the two numbers are an
+    index and a fraction — which is to say the reader of a tuple would be
+    keeping their order straight themselves, in the same module where
+    {!type-portal}, {!type-location} and {!Player.type-crossing} all say what
+    each of their parts is. It was a bare [(int * portal * float)]. *)
+
+val crossing : t -> room:int -> from:Vec.t -> dest:Vec.t -> crossing option
 (** The doorway a step from [from] to [dest] goes through, if it goes through
-    one: which of this room's thresholds it was, the portal behind it — whose
-    {!Player.through} the caller should then apply — and how far along the step
-    the opening was met, as a fraction of it. [from] plus that fraction of the
-    step is the point on the opening, which is where a caller meaning to walk a
-    step doorway by doorway has to cut it.
+    one.
 
     {1 What counts as going through}
 

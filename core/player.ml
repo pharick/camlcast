@@ -186,7 +186,7 @@ let slide world player (delta : Vec.t) =
       not (World.passable world ~room:player.room ~from ~dest)
     in
     match World.crossing world ~room:player.room ~from ~dest with
-    | Some (slot, (portal : World.portal), at) when budget > 0 ->
+    | Some { World.index = slot; portal; at } when budget > 0 ->
         (* Only as far as the opening: past it this room cannot answer. *)
         let stop = Vec.add from (Vec.scale leg at) in
         if refuse ~dest:stop then (player, pending, trace)

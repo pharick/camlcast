@@ -21,16 +21,20 @@ type window
     a frame is drawn into. Made by {!with_window} and passed to every run played
     on it.
 
-    It holds what SDL will not answer for. Fullscreen and relative mouse mode
-    can be set but never asked about, so this is where what they are is written
-    down — and because the window outlives the run, that is what carries them
-    from one to the next. A player who goes fullscreen in a launcher's menu is
-    still fullscreen in the demo they pick.
+    It holds fullscreen and relative mouse mode, because the window outlives the
+    run and that is what carries them from one to the next. A player who goes
+    fullscreen in a launcher's menu is still fullscreen in the demo they pick.
 
     What they {e are}, and not what was last asked for. Either can be refused by
     the desktop, and neither refusal ends a run — so what is written here is the
     answer that came back, which is what keeps the next frame from acting on a
-    state the window is not in. See {!with_window}. *)
+    state the window is not in. See {!with_window}.
+
+    Not because SDL is silent about them: it has a getter for each, and the loop
+    below already calls one of the two for focus. They are held because SDL
+    offers no toggle — flipping one needs the current value — and because
+    reading them back is two calls on the path that runs every frame. Held
+    values, not the only copy. *)
 
 (** How a run came to an end.
 

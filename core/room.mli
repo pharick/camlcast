@@ -709,6 +709,12 @@ val make :
 val with_sprites : t -> sprite list -> t
 (** The same room with other sprites in it.
 
+    A list, as {!make}'s [?sprites] and [?thresholds] both are, and as
+    {!with_thresholds} is {e not} — which is the odd one of the four and says
+    why where it is defined. A game holding a list of sprites and handing it
+    back is the whole of the case here; the array is an engine seam with an
+    array already in hand.
+
     This is how something animates. A room is immutable, so a room that changes
     is a room that is built again — but a mote of dust drifting across it has
     not moved a wall, and rebuilding the walls to move the mote costs a

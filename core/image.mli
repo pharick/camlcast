@@ -60,11 +60,17 @@ type t = private {
     shared with every world grown from it. Both are abstract for that reason,
     and neither is read per pixel. *)
 
-val make : ?height:int -> width:int -> (u:int -> v:int -> Color.t * int) -> t
+val make : width:int -> ?height:int -> (u:int -> v:int -> Color.t * int) -> t
 (** Build a [width] x [height] image from a function of the pixel coordinates,
     returning the colour and alpha at each. [height] defaults to [width], since
     a generated picture is usually square and saying so twice reads worse than
     not saying it.
+
+    [width] first, as it is in {!Framebuffer.offscreen}, {!Viewport.make} and
+    {!Extent.fits}. It used to come second, behind the optional [height], which
+    is the one order an extent is never written in and was not forced by
+    anything: an optional argument only has to be followed by something, and the
+    generator is something.
 
     Both are clamped into 0 .. 255 rather than trusted, the same way
     {!Texture.generate_masked} clamps what a pattern hands it: a picture is

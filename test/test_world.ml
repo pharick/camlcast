@@ -26,7 +26,7 @@ let links_resolve () =
    0..4 square, so a crossing is only meaningful once the transform has carried
    the point into the neighbour's frame. *)
 let crossing_changes_frame () =
-  let slot, portal, at =
+  let { World.index = slot; portal; at } =
     Option.get
       (World.crossing two_rooms ~room:0 ~from:(Vec.make 3.8 2.)
          ~dest:(Vec.make 4.2 2.))
@@ -68,7 +68,7 @@ let crossing_changes_frame () =
 let a_crossing_is_reported_however_short_the_step_is () =
   let whisker = Float.ldexp 1. (-44) in
   let dest = Vec.make (4. +. whisker) 2. in
-  let slot, portal, at =
+  let { World.index = slot; portal; at } =
     Option.get
       (World.crossing two_rooms ~room:0
          ~from:(Vec.make (4. -. whisker) 2.)
