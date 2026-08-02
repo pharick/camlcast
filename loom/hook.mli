@@ -24,11 +24,26 @@
 
     The tag on each slot makes most violations of the rule loud: a {!use_state}
     where a {!use_ref} used to be, a render that asks for more hooks than last
-    time or fewer, all raise. What it cannot catch is a conditional that swaps
-    one {!use_state} for another {!use_state} of a different type at the same
-    index — same kind, same slot, different type. That is a violation of the
-    rule, it is the only one that gets through, and it is unsound rather than
-    merely wrong. Do not write conditional hooks.
+    time or fewer, all raise. What a tag cannot catch is a slot that keeps its
+    kind and changes its type — same kind, same index, different type. That is
+    unsound rather than merely wrong: the cast back reads an [int] as a
+    [string], and nothing downstream is checking. There are two ways to write
+    it, and they are not variations of one thing.
+
+    The first is a conditional that swaps one {!use_state} for another of a
+    different type at the same index. That is a violation of the rule above, and
+    the rule is the whole of the answer: do not write conditional hooks.
+
+    The second breaks no rule stated anywhere else, which is why it is stated
+    here: a render closure that is {b polymorphic in its props}. A component is
+    its closure and nothing else, so one explicitly typed ['a. 'a -> _] is a
+    single component at every type it is ever applied at — and a single
+    component has one slot row. A frame that renders it at [int] and a frame
+    that renders it at [string] share that row, so a state stored on the first
+    is read back at the wrong type on the second. Hooks are ordered correctly
+    and called unconditionally throughout; there is nothing here for a tag to
+    notice. See {!Element} for the rule and for why {!Element.declare} happens
+    to make it hard to break.
 
     {1 Setting state}
 

@@ -27,6 +27,24 @@
     the right thing the easy thing: the closure it captures is made once, when
     the module is initialised.
 
+    There is a second consequence, and it runs the other way — not a component
+    that is accidentally two, but two that are accidentally one.
+    {b A render function has to be monomorphic in its props.} One written
+    explicitly polymorphic — typed ['a. 'a -> _ t] rather than [props -> _ t] —
+    is a single closure, so it is a single component however many prop types it
+    is applied at, and a single component has one row of hook slots. Render it
+    at [int] on one frame and at [string] on the next and both frames share that
+    row: what {!Hook.use_state} stored as one is read back as the other, through
+    a cast that assumes the rule held. That is unsound, and unlike the ordering
+    rules nothing raises, because nothing is out of order.
+
+    Nothing enforces this. {!declare} happens to, and by accident rather than
+    design: [declare ~name render] is a partial application and not a value, so
+    its type variable is weak and fixes to the first type it is used at — a
+    second use at another type is a compile error. {!component}, applied
+    outright, has no such variable to weaken. It is one more reason to write
+    components with {!declare}.
+
     {1 Keys}
 
     Anything that can be rearranged should carry a [key]. Among a parent's
@@ -131,7 +149,11 @@ val component :
 
     Note it is not called here. A description of a subtree is built lazily, one
     level at a time, as the reconciler walks into it — which is what lets it
-    stop walking when it reaches something that cannot have changed. *)
+    stop walking when it reaches something that cannot have changed.
+
+    [render] must be monomorphic in ['props] — see the identity rule at the top
+    of this page. Applied outright, this is the form that will let a polymorphic
+    one through; {!declare} will not. *)
 
 val declare :
   name:string -> ('props -> 'prim t) -> ?key:string -> 'props -> 'prim t
