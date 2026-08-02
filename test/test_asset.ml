@@ -148,6 +148,26 @@ let roots_are_ordered_and_distinct () =
     "and an override replaces the lot" [ "/scratch" ]
     (Asset.roots ~exe:"/opt/game/bin/demo" ~override:(Some "/scratch"))
 
+(* {!Asset.read} is {!Asset.path} and then a loader, and what it promises is
+   that the first error wins. Texture.of_asset and Image.of_asset are this and
+   nothing else, so a missing file has to come back saying where it was looked
+   for rather than whatever a loader would have made of a path that is not
+   there — which means the loader must not run at all. This is the only claim
+   about it that can be made without a disk, and it is the one that matters. *)
+let read_does_not_reach_the_loader_without_a_file () =
+  let ran = ref false in
+  let loader _ =
+    ran := true;
+    Ok "loaded"
+  in
+  match Asset.read loader "camlcast/no/such/asset.png" with
+  | Ok _ -> Alcotest.fail "a missing asset came back as a success"
+  | Error (`Msg message) ->
+      Alcotest.(check bool) "the loader was never called" false !ran;
+      Alcotest.(check bool)
+        "and the error is the lookup's, naming the roots it tried" true
+        (mentions message "no such asset")
+
 let () =
   Alcotest.run "Asset"
     [
@@ -169,5 +189,7 @@ let () =
         [
           case "the override is used alone" the_override_is_used_alone;
           case "nothing found names every root" nothing_found_names_every_root;
+          case "read does not reach the loader without a file"
+            read_does_not_reach_the_loader_without_a_file;
         ] );
     ]

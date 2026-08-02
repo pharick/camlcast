@@ -57,10 +57,24 @@ let clamping_a_colour () =
   Alcotest.check color "one already in range is untouched" base
     (Color.clamp base)
 
+(* The engine's one byte clamp, now that Texture, Image and Renderer have given
+   up their own. Both ends and both sides of both ends, because three of the
+   four copies it replaced wrote the pair of comparisons in a different order
+   and the whole claim is that the order never mattered. *)
+let clamping_a_byte () =
+  Alcotest.(check int) "well below" 0 (Color.clamp_channel (-1000));
+  Alcotest.(check int) "just below" 0 (Color.clamp_channel (-1));
+  Alcotest.(check int) "the bottom itself" 0 (Color.clamp_channel 0);
+  Alcotest.(check int) "in between, untouched" 128 (Color.clamp_channel 128);
+  Alcotest.(check int) "the top itself" 255 (Color.clamp_channel 255);
+  Alcotest.(check int) "just above" 255 (Color.clamp_channel 256);
+  Alcotest.(check int) "well above" 255 (Color.clamp_channel 1000)
+
 let () =
   Alcotest.run "Color"
     [
       ("rgb", [ case "construction" construction ]);
+      ("clamp_channel", [ case "holds a byte to its ends" clamping_a_byte ]);
       ("shade", [ case "scales channels" shading; case "clamps" clamping ]);
       ( "level",
         [

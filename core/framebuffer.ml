@@ -16,17 +16,13 @@ type t = {
   height : int;
 }
 
-(* Whether [width * height] is a length an array can have. Divided rather than
-   multiplied, so the check itself cannot overflow the thing it is checking for:
-   for positive extents this is false exactly when the product would exceed the
-   bound. The bound is the [float array] one, the tighter of the two the record
-   holds — [depth] is one float per pixel, while [pixels] is a bigarray, outside
-   the heap, where only memory limits it — and four times it is nowhere near
-   [max_int] at either word size, so a product that fits here cannot wrap when
-   the byte count multiplies it by four either. Past the bound it would, and the
-   record would claim extents its two buffers cannot answer for, which is the
-   one piece of arithmetic [set] and [blend] trust without checking. *)
-let fits ~width ~height = height <= Sys.max_floatarray_length / width
+(* The [float array] bound and not the ordinary one: it is the tighter of the
+   two this record has to satisfy — [depth] is one float per pixel, while
+   [pixels] is a bigarray, outside the heap, where only memory limits it. Four
+   times it is nowhere near [max_int] at either word size, so a product that
+   fits here cannot wrap when the byte count multiplies it by four either. What
+   [set] and [blend] trust without checking is the product this bounds. *)
+let fits = Extent.fits ~limit:Sys.max_floatarray_length
 
 (* Shared by the two ways in, so that each refusal names the function the caller
    wrote rather than the private allocator underneath. Positive first, because

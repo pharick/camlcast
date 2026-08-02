@@ -44,3 +44,5 @@ let resolve ~exists ~exe ~override name =
 let path name =
   resolve ~exists:Sys.file_exists ~exe:Sys.executable_name
     ~override:(Sys.getenv_opt variable) name
+
+let read load name = Result.bind (path name) load

@@ -50,6 +50,7 @@
  (names
   test_vec
   test_result_ext
+  test_extent
   test_asset
   test_bitmap
   test_paint

@@ -1,7 +1,12 @@
 type t = { r : int; g : int; b : int }
 
 let rgb r g b = { r; g; b }
-let clamp_channel v = Int.max 0 (Int.min 255 v)
+
+(* [@inline always] because the renderer's per-pixel writes go through this — a
+   handful of times per pixel of a wall — and this compiler is not flambda, so
+   a cross-module call would box the int and cost more than the two comparisons
+   do. Same reason as {!Plane.cast}. *)
+let[@inline always] clamp_channel v = Int.max 0 (Int.min 255 v)
 
 let shade c factor =
   let apply v = clamp_channel (int_of_float (float_of_int v *. factor)) in

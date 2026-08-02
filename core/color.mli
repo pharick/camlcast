@@ -22,10 +22,26 @@ val shade : t -> float -> t
     distance fog: that fades a surface towards the colour of the air rather than
     towards black, which is a {!lerp} — see {!Atmosphere.fog}. *)
 
+val clamp_channel : int -> int
+(** One channel's worth of the same: an integer brought back into 0 .. 255.
+
+    The engine's only byte clamp, and it is here because a colour channel is
+    what a byte usually is around here. Alpha is the exception and uses it too —
+    {!Image.make} and {!Texture.generate_masked} both clamp what their function
+    hands back for alpha exactly as they clamp it for colour, and a second
+    function differing only in the word would be a second thing to keep right.
+
+    It was four copies before it was one: this, and a private spelling each in
+    {!Texture}, {!Image} and {!Renderer}, two of them with the [min] and the
+    [max] the other way round and one written as a pair of [if]s. All four
+    agreed, which is the point — nothing had gone wrong yet, and there was no
+    reason to expect to hear about it if it did. *)
+
 val clamp : t -> t
-(** Every channel clamped back into 0 .. 255. A colour arrived at by arithmetic
-    can leave the range at either end — {!Texture.generate} clamps what a
-    pattern function hands it for exactly that reason. *)
+(** Every channel clamped back into 0 .. 255, by {!clamp_channel}. A colour
+    arrived at by arithmetic can leave the range at either end —
+    {!Texture.generate} clamps what a pattern function hands it for exactly that
+    reason. *)
 
 val level : t -> int -> t
 (** [level colour amount] is [colour] shown at [amount] out of 255: the integer

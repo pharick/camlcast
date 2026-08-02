@@ -182,6 +182,9 @@ Each depends only on the ones above it.
   rather than a letter, so a binding survives a change of layout
 - {!Camlcast_core.Result_ext} — [let*] and [let+], for chaining fallible SDL calls,
   and the acquire/use/release that frees a window however a frame ends
+- {!Camlcast_core.Extent} — whether a rectangle of pixels is a length an array can
+  have, divided rather than multiplied so the check cannot overflow the thing it
+  is checking for
 - {!Camlcast_core.Vec} — immutable 2-D vectors, with the dot and cross products the
   geometry needs
 - {!Camlcast_core.Transform} — rigid motions between room-local coordinate frames

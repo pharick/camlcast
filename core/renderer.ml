@@ -10,8 +10,6 @@ let internal_size ~width ~height =
   in
   (Int.max 1 (width / scale), Int.max 1 (height / scale))
 
-let clamp8 v = if v < 0 then 0 else if v > 255 then 255 else v
-
 (* Clamp a sample index into a [0 .. n-1] range. *)
 let clampi n v = Int.max 0 (Int.min (n - 1) v)
 
@@ -80,7 +78,8 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
     let f = Atmosphere.fog air d in
     let veil = 1. -. f in
     let mix v h =
-      clamp8 (int_of_float ((float_of_int v *. f) +. (float_of_int h *. veil)))
+      Color.clamp_channel
+        (int_of_float ((float_of_int v *. f) +. (float_of_int h *. veil)))
     in
     Framebuffer.set fb ~x:column ~y
       ~r:(mix c.Color.r haze.Color.r)
@@ -223,7 +222,7 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
        colour that holds all the way down the column. Which is what keeps this
        loop in integers: the conversion out of floating point still belongs out
        here, and the whole of the haze is one addition per channel. *)
-    let level = clamp8 (int_of_float (light *. 255.)) in
+    let level = Color.clamp_channel (int_of_float (light *. 255.)) in
     let veil = Color.shade air.Atmosphere.haze (1. -. fog) in
     let pattern = w.Room.material.Material.pattern in
     let u =
@@ -291,9 +290,13 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
            texel are both at most 255, so their product was too. An atmosphere
            whose [ambient] and [directional] add to more than one can saturate
            that and still have haze to lay over it. *)
-        let cr = clamp8 ((texel.Color.r * level / 255) + veil.Color.r)
-        and cg = clamp8 ((texel.Color.g * level / 255) + veil.Color.g)
-        and cb = clamp8 ((texel.Color.b * level / 255) + veil.Color.b) in
+        let cr =
+          Color.clamp_channel ((texel.Color.r * level / 255) + veil.Color.r)
+        and cg =
+          Color.clamp_channel ((texel.Color.g * level / 255) + veil.Color.g)
+        and cb =
+          Color.clamp_channel ((texel.Color.b * level / 255) + veil.Color.b)
+        in
         if a = 255 then begin
           Framebuffer.set fb ~x:column ~y ~r:cr ~g:cg ~b:cb;
           if occlude then depth.(index) <- d
@@ -316,15 +319,15 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
                   let c = img.Image.pixels.(idx) in
                   Framebuffer.blend fb ~x:column ~y
                     ~r:
-                      (clamp8
+                      (Color.clamp_channel
                          (int_of_float (float_of_int c.Color.r *. lit)
                          + veil.Color.r))
                     ~g:
-                      (clamp8
+                      (Color.clamp_channel
                          (int_of_float (float_of_int c.Color.g *. lit)
                          + veil.Color.g))
                     ~b:
-                      (clamp8
+                      (Color.clamp_channel
                          (int_of_float (float_of_int c.Color.b *. lit)
                          + veil.Color.b))
                     ~alpha:da)
@@ -438,13 +441,13 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
           let c = img.Image.pixels.(idx) in
           Framebuffer.blend fb ~x:col ~y
             ~r:
-              (clamp8
+              (Color.clamp_channel
                  (int_of_float (float_of_int c.Color.r *. light) + veil.Color.r))
             ~g:
-              (clamp8
+              (Color.clamp_channel
                  (int_of_float (float_of_int c.Color.g *. light) + veil.Color.g))
             ~b:
-              (clamp8
+              (Color.clamp_channel
                  (int_of_float (float_of_int c.Color.b *. light) + veil.Color.b))
             ~alpha:a
       end

@@ -9,15 +9,9 @@ type t = {
   alpha : int array;
 }
 
-let clamp v = Int.min 255 (Int.max 0 v)
-
-(* Whether [width * height] is a length an array can have, the same division as
-   {!Texture.fits} and for the same reason: multiplied out, the check would
-   overflow exactly where the thing it is checking for does. Past the bound the
-   product wraps rather than growing, and the record would keep the size it was
-   asked for while its two arrays came out shorter — which [index] does not
-   check and [sample] reads on its word. *)
-let fits ~width ~height = height <= Sys.max_array_length / width
+(* The ordinary array bound: [pixels] and [alpha] both hold words. What [index]
+   does not check and [sample] reads on its word is the product below. *)
+let fits = Extent.fits ~limit:Sys.max_array_length
 
 let make ?height ~width f =
   let height = Option.value height ~default:width in
@@ -32,7 +26,7 @@ let make ?height ~width f =
       let color, a = f ~u ~v in
       let i = (v * width) + u in
       pixels.(i) <- Color.clamp color;
-      alpha.(i) <- clamp a
+      alpha.(i) <- Color.clamp_channel a
     done
   done;
   { width; height; pixels; alpha }
@@ -56,9 +50,7 @@ let load path =
             path w h))
   else Ok (make ~height:h ~width:w (fun ~u ~v -> Bitmap.sample s ~u ~v))
 
-let of_asset name =
-  let* path = Asset.path name in
-  load path
+let of_asset = Asset.read load
 
 let disc ~cx ~cy ~r ~u ~v =
   let du = float_of_int u -. cx and dv = float_of_int v -. cy in

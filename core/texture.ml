@@ -32,15 +32,10 @@ let row_of_height t height =
   Int.min (t.size - 1)
     (Int.max 0 (int_of_float ((1. -. tile) *. float_of_int t.size)))
 
-let clamp v = Int.min 255 (Int.max 0 v)
-
-(* Whether [size * size] is a length an array can have. Divided rather than
-   multiplied, so the check itself cannot overflow the thing it is checking for:
-   for a positive [size], this is false exactly when the product would exceed
-   [Sys.max_array_length]. Past that the product wraps — [max_int] squared is
-   [1] — and the record would claim a size its two arrays cannot answer for,
-   which is the one arithmetic [sample] trusts without checking. *)
-let fits size = size <= Sys.max_array_length / size
+(* A pattern is square, so both extents are [size]; the bound is the ordinary
+   array one, both of the arrays here holding words. See {!Extent.fits} for why
+   it divides. *)
+let fits size = Extent.fits ~limit:Sys.max_array_length ~width:size ~height:size
 
 let generate ?(size = default_size) f =
   if size <= 0 then
@@ -68,7 +63,7 @@ let generate_masked ?(size = default_size) f =
   for i = 0 to n - 1 do
     let color, a = f ~u:(i mod size) ~v:(i / size) in
     texels.(i) <- Color.clamp color;
-    alpha.(i) <- clamp a;
+    alpha.(i) <- Color.clamp_channel a;
     if a < 255 then opaque := false
   done;
   { size; texels; alpha; opaque = !opaque }
@@ -102,9 +97,7 @@ let load path =
     Ok { size = w; texels; alpha; opaque = !opaque }
   end
 
-let of_asset name =
-  let* path = Asset.path name in
-  load path
+let of_asset = Asset.read load
 
 let hash a b =
   let h = a * 73856093 lxor (b * 19349663) in

@@ -65,3 +65,17 @@ val path : string -> (string, [ `Msg of string ]) result
     it is and the environment whether it disagrees — [Sys.executable_name],
     {!variable} and the real disk, supplied for you. This is the one a game
     calls; the error is the same list of roots. *)
+
+val read :
+  (string -> ('a, [ `Msg of string ]) result) ->
+  string ->
+  ('a, [ `Msg of string ]) result
+(** [read load name] is {!path} and then [load] on what it found, the first
+    error winning — so a missing asset says where it was looked for and a
+    corrupt one says what was wrong with it, and the caller tells them apart by
+    reading the message rather than by which call failed.
+
+    {!Texture.of_asset} and {!Image.of_asset} are this and nothing else. They
+    were the same two lines written twice, which is a thing worth naming once
+    given that the whole reason either exists is that composing those two lines
+    was worth doing for a game. *)
