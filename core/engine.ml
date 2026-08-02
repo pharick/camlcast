@@ -150,9 +150,15 @@ let rec loop window game ~state ~actions ~previous =
     let* () = Renderer.fit window.renderer window.framebuffer in
     (* Read as state while the window has focus, and frozen while it has not:
        the hold timer runs on this [dt] and not on the one {!simulate} zeroes,
-       so a frame nobody was there for has to be kept out of it here. The cursor
-       is rescaled inside the same branch because {!Input.freeze} carries the
-       previous frame's forward, and that one has been scaled already. *)
+       so a frame nobody was there for has to be kept out of it here.
+
+       The cursor is converted inside the same branch, and only there, on the
+       invariant that {e every} pointer in an [actions] is already in the
+       buffer's coordinates: SDL reports it in the window's, so the frame that
+       reads it is the frame that converts it, and {!Input.freeze} has nothing
+       to do but carry along one that was converted when it was read. {!run}
+       converts the frame it seeds the loop with for that reason and no other —
+       it is the one pointer here that does not come from the branch below. *)
     let actions =
       if focused then
         let sampled = Input.sample actions queue ~mouse ~dt in
@@ -268,6 +274,20 @@ let run window (game : 'a game) state =
   let actions =
     Input.freeze
       (Input.sample Input.untouched Input.quiet ~mouse:(0., 0.) ~dt:0.)
+  in
+  (* And into the buffer's coordinates, which is where {!Input.pointer} says a
+     cursor is and where the loop puts every one it reads. Not a formality: the
+     loop only converts on the frames it samples, because {!Input.freeze} hands
+     the previous frame's along and that one was converted when it was read. A
+     seed left in the window's would be the exception that makes untrue — and it
+     would last as long as the window went unfocused for, since every frame
+     nobody is looking at freezes it forward again. A run that starts behind
+     another window and is clicked into is the ordinary way to see it, and what
+     it sees is a cursor reported some whole multiple too far out. *)
+  let actions =
+    Input.with_pointer actions
+      (in_framebuffer window.handle !(window.framebuffer)
+         (Input.pointer actions))
   in
   (* The window arrives however the last run left it, and only the game about to
      be played knows what it wants the mouse for. *)

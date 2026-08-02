@@ -165,9 +165,12 @@ val run : window -> 'a game -> 'a -> ('a * ending, [ `Msg of string ]) result
     movement that piled up while no run was reading it, which would otherwise
     swing the camera on the first frame; and it starts from the controls as they
     physically are, so a key the player is still holding from whatever chose
-    this game is held rather than newly pressed. What it does {e not} do is
-    empty the event queue: a window shut during the handover still ends the
-    program.
+    this game is held rather than newly pressed. That first frame's cursor is
+    put into the buffer's coordinates, where {!Input.pointer} says a cursor
+    always is — the loop converts each one as it reads it and an unfocused frame
+    carries the last along, so a frame nobody converted would be one every
+    unfocused frame after it repeated. What it does {e not} do is empty the
+    event queue: a window shut during the handover still ends the program.
 
     Returns the state the game reached and how it got there; see {!ending}. The
     error is [`Msg] carrying SDL's own message, from whichever frame failed —
