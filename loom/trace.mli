@@ -28,6 +28,20 @@ type 'prim event =
       (** it is gone, and its state went with it. Reported children first, so a
           reader — and, once there are effects to run, a cleanup — sees the
           deepest thing go first. *)
+  | Refused
+      (** the host would not build what this render described, so none of what
+          was reported above it in the same render happened: the tree is the one
+          from the frame before, with every component it held still standing and
+          still holding its state.
+
+          Last, and once. Everything before it in that render is what the
+          reconciler was doing when it walked into the refusal, which is the
+          thing worth having a trace of — but read as tree history it is not
+          only incomplete, it contradicts what comes next: a component reported
+          [Unmounted] by a refused render is reported [Updated] by the one
+          after, and {!Updated} means the state carried over. Both are true of
+          the reconciler and only the second is true of the tree. This is the
+          line that says which is which. *)
 
 val to_string : ('prim -> string) -> 'prim event -> string
 (** [to_string describe event] is one line, meant to be read in a column:

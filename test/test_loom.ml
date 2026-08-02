@@ -814,6 +814,48 @@ let refusing =
         Alcotest.check log "and the component was kept, not mounted again"
           [ "update   lantern#0"; "update   lantern#0/#0 : n=4" ]
           (List.rev !kept));
+    case "and says so, so its own trace can be read" (fun () ->
+        (* The events of a refused render are what the reconciler was doing when
+           it walked into the refusal, which is worth having. What they are not
+           is tree history, and read as tree history they contradict the frame
+           after: below, [torch] is unmounted by the refused render and updated
+           by the next, and an update is the reconciler's promise that the state
+           carried over. Both are true of the walk. The last line is what tells
+           a reader — and the suite above — which of the two it is reading. *)
+        let root = F.create () in
+        let seen = ref [] in
+        let watch event = seen := Trace.to_string Fun.id event :: !seen in
+        ignore (F.render root (room [ torch () ]));
+        Alcotest.check_raises "refused" Refused (fun () ->
+            ignore (F.render ~trace:watch root (room [ Element.prim "bad" ])));
+        Alcotest.check log "everything it did, and then that none of it stood"
+          [
+            "update   #0 : room";
+            "unmount  #0/torch#0/#0 : flame";
+            "unmount  #0/torch#0";
+            "mount    #0/#0 : bad";
+            "refused";
+          ]
+          (List.rev !seen);
+        seen := [];
+        ignore (F.render ~trace:watch root (room [ torch () ]));
+        Alcotest.check log "and the torch it said it unmounted is still there"
+          [
+            "update   #0 : room";
+            "update   #0/torch#0";
+            "update   #0/torch#0/#0 : flame";
+          ]
+          (List.rev !seen));
+    case "a render that is built says nothing of the sort" (fun () ->
+        let root = F.create () in
+        let seen = ref [] in
+        ignore
+          (F.render
+             ~trace:(fun event -> seen := Trace.to_string Fun.id event :: !seen)
+             root
+             (room [ torch () ]));
+        Alcotest.(check bool)
+          "no refusal on a frame that stood" false (List.mem "refused" !seen));
     case "a frame asked for before a refusal is still asked for" (fun () ->
         let root = F.create () and latch = ref ignore in
         ignore (F.render root (lantern (latch, false)));

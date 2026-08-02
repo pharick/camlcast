@@ -88,6 +88,13 @@ module Make (H : Host.HOST) : sig
       did, not what survived. The tree and the effects are the transaction; a
       component's own mutations are its own.
 
+      What a refused render does say is {!Trace.Refused}, last and once, so that
+      the events before it can be read for what they are. Without it a trace is
+      not merely partial: a component reported unmounted by the refused frame is
+      reported {e updated} by the next one, and those two lines cannot both be
+      true of a tree. They are both true of the walk, which is what a trace is
+      of, and this is the line that says so.
+
       [trace], if given, is called with every mount, update and unmount as they
       happen, in the order they happen. Left out, nothing is recorded and
       nothing is spent recording it. *)

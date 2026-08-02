@@ -346,6 +346,14 @@ module Make (H : Host.HOST) = struct
         Hook.discard root.pending;
         (* And a frame that was asked for before this one is still asked for. *)
         root.dirty <- owed || root.dirty;
+        (* Said, because the mounts and unmounts already reported cannot be. A
+           reader left without this has a trace that does not merely stop short:
+           a component this render said it unmounted is one the next render says
+           it updated, and updating something that was unmounted is the one
+           thing the reconciler promises never to do. Both lines are honest
+           about the walk and only the second is honest about the tree, and this
+           is where that parts. *)
+        emit context Trace.Refused;
         Printexc.raise_with_backtrace refused backtrace
 
   let destroy ?trace root =
