@@ -246,7 +246,13 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
   in
   first candidates
 
-let look ?(through = 1) world (player : Player.t) =
+(* The renderer's own budget by default, read from where the renderer reads it,
+   for the reason {!Config.sprite_near_clip} is read from there above: a cutoff
+   the picture and the crosshair both have is one number and not two. A ray
+   given any less stops short of things the frame plainly shows, and stopping on
+   a doorway the player is looking straight through is the one way this module
+   can be wrong without being wrong about anything it looked at. *)
+let look ?(through = Config.max_portal_depth) world (player : Player.t) =
   let here = World.room world player.Player.room in
   let eye_z =
     Plane.elevation (Room.floor_plane here) player.Player.pos

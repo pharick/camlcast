@@ -104,6 +104,10 @@ val max_portal_depth : int
     world's {!Atmosphere.haze}, the colour its distance fog already fades into,
     so running out reads as depth rather than as a hole.
 
+    {!Sight} reads it too, as the default reach of the crosshair's ray, so that
+    what can be picked stays what can be seen at every depth — including the
+    last, where both give up on the same opening.
+
     A world that grows as the player walks reads this too: the generator has to
     keep every room within this many doorways of the player built, or the player
     would watch a blank wall turn into a doorway as they approached it. *)

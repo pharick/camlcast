@@ -1,11 +1,13 @@
 (** {b Looking through a doorway.} What the crosshair is on, named — including
     when it is in the room next door.
 
-    {!Camlcast_core.Sight.look} traces the middle of the view through one open
-    doorway, carries it into the next room's frame, and reports what it meets
-    first: which room, and which wall, sprite or threshold of it. Everything
-    that stops the eye stops it — a nearer sprite, an opaque wall, a shut door,
-    the lintel over an opening — so what can be picked is what can be seen.
+    {!Camlcast_core.Sight.look} traces the middle of the view through every open
+    doorway the frame was drawn through, carrying it into each next room's
+    frame, and reports what it meets first: which room, and which wall, sprite
+    or threshold of it. Everything that stops the eye stops it — a nearer
+    sprite, an opaque wall, a shut door, the lintel over an opening — so what
+    can be picked is what can be seen. There is one doorway to look through
+    here; the rule holds however many there are in a line.
 
     Stand in this room and look through the opening at the three barrels beyond
     it. The crosshair tells you what it has found:

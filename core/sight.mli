@@ -64,7 +64,9 @@
       not what can be walked through. An opening with {b no lintel} has no wall
       standing over it, and is no way through either — above its head is this
       room's own ceiling — so a ray up there meets nothing at all.
-    - Running out of {b doorways to look through}.
+    - Running out of {b doorways to look through} — which by default is the
+      renderer running out of them too, and the opening the ray stops at is the
+      one the frame filled with haze.
 
     A doorway is bounded above the same way a wall is, and for the same reason.
     A lintel reaches its own [top] and no further, the ceiling may cut it or the
@@ -75,9 +77,22 @@
 
     {1 Depth and distance}
 
-    [through] is how many doorways the ray may pass, and it defaults to one: the
-    room directly beyond a threshold and no further, and a game that wants "not
-    the room I am standing in" reads {!t.crossed}.
+    [through] is how many doorways the ray may pass, and it defaults to
+    {!Config.max_portal_depth} — the renderer's own budget, read from where the
+    renderer reads it. That is the depth at which the two agree: at any less the
+    crosshair reports the doorway while the picture shows what is beyond it, and
+    there is no more to ask for, since past that budget the frame has stopped
+    drawing rooms and filled the opening with haze. It is the same arrangement
+    {!Config.sprite_near_clip} is under, and for the same reason — a cutoff both
+    the picture and the crosshair have is one number and not two.
+
+    A game wanting the ray to stop sooner says so. Zero confines it to the room
+    the player is standing in; one is the room beyond the doorway in front of
+    you and no further. But "how far away may a thing be worked from" is usually
+    a question about {!t.distance} or {!t.crossed} rather than about the cast —
+    those describe what was found, and refusing it is the game's to do, while a
+    shortened ray refuses by not looking and cannot tell you what it declined to
+    see.
 
     Distances need no adding up across rooms, and are not added up. A link is a
     rigid motion, so the pose carried into the next room sits exactly as far
@@ -145,9 +160,9 @@ val look : ?through:int -> World.t -> Player.t -> t option
     ray met nothing — aimed at the sky, or below every wall it passed, or out of
     doorways to look through.
 
-    [through] is how many doorways the ray may pass; one by default, which is
-    the room beyond the doorway in front of you and no further. Zero confines it
-    to the room the player is standing in.
+    [through] is how many doorways the ray may pass; {!Config.max_portal_depth}
+    by default, which is as far through them as the frame was drawn. Zero
+    confines it to the room the player is standing in.
 
     The crosshair is the middle of the view, so this reads the player's [dir]
     and [pitch] and nothing about the window: the answer is the same whatever

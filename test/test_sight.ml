@@ -548,11 +548,15 @@ let the_roof_caps_what_an_opening_shows () =
   is "nothing" (Sight.look (rooms ~ceiling:low ~door:glazed ()) looking);
   is "nothing" (Sight.look (rooms ~ceiling:low ()) looking)
 
-(* One doorway by default, because that is what the design asks for. Asking for
-   none is asking about the room you are standing in. *)
+(* As far as the frame was drawn, by default — {!Config.max_portal_depth}, which
+   is pinned against the picture itself over a chain of rooms in test_renderer.
+   Here it is the other end of [through] that is under test: a game may ask for
+   a shorter ray than that, and none at all is asking about the room you are
+   standing in. *)
 let it_looks_as_far_as_it_is_told_to () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
   is "sprite 0 of room 1" (Sight.look world (looking_east ()));
+  is "sprite 0 of room 1" (Sight.look ~through:1 world (looking_east ()));
   is "doorway 0 of room 0" (Sight.look ~through:0 world (looking_east ()))
 
 (* Asked twice, it answers the same. Nothing here consumes anything: collecting

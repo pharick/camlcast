@@ -951,6 +951,107 @@ let a_grille_is_picked_where_it_is_drawn () =
         (picked y0))
     [ -2.; -2.1 ]
 
+(* A line of [n] rooms, each the same 4 x 4 square in its own coordinates,
+   joined by bare openings a cell wide in the middle of the wall they share, and
+   [sprites] standing in the last of them. Standing in the first at (2, 2)
+   looking due east puts every opening — and everything beyond them — on one
+   line.
+
+   Not {!Support.joined_rooms}, which is a pair: the whole of what this is for is
+   a chain longer than the renderer will follow to the end of. *)
+let chain n sprites =
+  let room i =
+    let east_jambs, east =
+      Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
+        (Vec.make 4. 0.) (Vec.make 4. 4.)
+    and west_jambs, west =
+      Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
+        (Vec.make 0. 4.) (Vec.make 0. 0.)
+    in
+    let first = i = 0 and last = i = n - 1 in
+    Room.make
+      ~thresholds:
+        ((if last then [] else [ east ]) @ if first then [] else [ west ])
+      ~floor:flat_floor ~ceiling:flat_ceiling
+      ~sprites:(if last then sprites else [])
+      ((if last then
+          [
+            Room.wall ~height:3. ~material:pale (Vec.make 4. 0.)
+              (Vec.make 4. 4.);
+          ]
+        else east_jambs)
+      @ (if first then
+           [
+             Room.wall ~height:3. ~material:dim (Vec.make 0. 4.)
+               (Vec.make 0. 0.);
+           ]
+         else west_jambs)
+      @ [
+          Room.wall ~height:3. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.);
+          Room.wall ~height:3. ~material:pale (Vec.make 4. 4.) (Vec.make 0. 4.);
+        ])
+  in
+  World.make
+    ~rooms:(List.init n (fun i -> (string_of_int i, room i)))
+    ~links:
+      (List.init (n - 1) (fun i ->
+           ((string_of_int i, "east"), (string_of_int (i + 1), "west"))))
+    ~atmosphere:air
+    ~spawn:("0", Vec.make 2. 2.)
+
+(* The third of these round trips, and the one a line of doorways can fail:
+   {!Sight} may not stop looking before the picture does. The renderer follows
+   {!Config.max_portal_depth} doorways in a row, so a ray given any fewer names
+   the doorway the player is looking straight {e through} while a sprite two
+   rooms on fills the middle of their screen.
+
+   Neither side is told that number. The picture is asked whether the sprite
+   reached the crosshair — the with-it-and-without measurement the rest of this
+   file is built on, taken at the one pixel — and {!Sight} is asked what it found
+   there, and the two have to give the same answer at every length of chain. The
+   sweep runs past the budget on purpose: out there the opening is filled with
+   haze, and the answer they have to agree on is that neither can see that far.
+
+   An odd buffer, for the reason the grille above wants one: there the middle
+   pixel's own ray is exactly [player.dir], the ray Sight traces. *)
+let a_room_is_picked_as_far_in_as_it_is_drawn () =
+  let odd = 161 and tall = 101 in
+  let looking = Player.make ~room:0 ~pos:(Vec.make 2. 2.) ~angle:0. in
+  let sprite = [ Room.sprite ~size:1.6 ~image:square (Vec.make 2. 2.) ] in
+  let answers =
+    List.map
+      (fun n ->
+        let with_it = chain n sprite and without = chain n [] in
+        let at world =
+          let fb = Framebuffer.offscreen ~width:odd ~height:tall in
+          Renderer.draw_frame fb world looking;
+          Framebuffer.pixel fb ~x:(odd / 2) ~y:(tall / 2)
+        in
+        let drawn = at with_it <> at without
+        and picked =
+          match Sight.look with_it looking with
+          | Some { Sight.kind = Sight.Sprite _; room; _ } -> room = n - 1
+          | _ -> false
+        in
+        (n, drawn, picked))
+      (List.init 5 (fun i -> i + 2))
+  in
+  (* The sweep has to cross the budget, or every case below agrees by never
+     reaching the far room at all. *)
+  Alcotest.(check bool)
+    "the far room is reached at some lengths of chain and not others" true
+    (List.exists (fun (_, drawn, _) -> drawn) answers
+    && List.exists (fun (_, drawn, _) -> not drawn) answers);
+  List.iter
+    (fun (n, drawn, picked) ->
+      Alcotest.(check bool)
+        (Printf.sprintf
+           "%d rooms: the sprite %s under the crosshair, so Sight %s name it" n
+           (if drawn then "is drawn" else "is not drawn")
+           (if drawn then "has to" else "cannot"))
+        drawn picked)
+    answers
+
 (* The wall's own share of the light, which nothing else here pins. A pattern's
    texel is what the surface {e is}, and the air is the only thing between that
    and the screen — so if the light stopped arriving, every wall in the game
@@ -1614,6 +1715,8 @@ let () =
             a_mark_lands_under_the_crosshair;
           case "a grille is picked where it is drawn"
             a_grille_is_picked_where_it_is_drawn;
+          case "a room is picked as far in as it is drawn"
+            a_room_is_picked_as_far_in_as_it_is_drawn;
           case "a decal is fogged like the wall it is on"
             a_decal_is_fogged_like_the_wall_it_is_on;
           case "a decal ignores what the wall is made of"

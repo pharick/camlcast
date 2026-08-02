@@ -381,6 +381,14 @@ handed an {!Camlcast.Aim.spot}: how far away, how many doorways through, and for
 a wall how far along it and how high up. That last part is what [demo/chalk.ml]
 marks a wall with.
 
+The first two are there because the crosshair reaches as far as the picture
+does — through as many doorways as the frame was drawn through, which is
+{!Camlcast_core.Config.max_portal_depth} of them. Anything can be looked at that
+can be seen. Whether it can be {e worked} from where you are standing is a rule
+of your own, and [distance] and [crossed] are what you write it with:
+[demo/targets.ml] refuses a barrel in the room you are already in with
+[crossed >= 1], and a door across a courtyard is refused with [distance].
+
 {!Camlcast.Events.use_aim} is the same question from the other side, for a
 description that wants to say something about whatever is being looked at
 without the thing itself having to say so.

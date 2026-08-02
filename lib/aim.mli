@@ -1,10 +1,12 @@
 (** What the crosshair is on, and who asked to be told.
 
     {!Camlcast_core.Sight} already answers the hard half: it casts the middle of
-    the screen through up to three doorways, stops on exactly what stops the eye
-    — per-texel alpha included — and reports the room and the index of the wall,
-    sprite or doorway it landed on. What it cannot do is say which part of a
-    game wrote that wall, because by then a wall is a number in an array.
+    the screen as deep through doorways as the frame was drawn — the two read
+    {!Camlcast_core.Config.max_portal_depth} from the same place — stops on
+    exactly what stops the eye, per-texel alpha included, and reports the room
+    and the index of the wall, sprite or doorway it landed on. What it cannot do
+    is say which part of a game wrote that wall, because by then a wall is a
+    number in an array.
 
     This is the other half. {!Host.assemble} keeps, beside every room it builds,
     the handlers the description hung on each thing in it, and a
