@@ -79,15 +79,28 @@ val turn : t -> radians:float -> t
       nans and leave nothing unit about it. Negated, so a [nan] is refused with
       it. *)
 
-val pitch_by : t -> radians:float -> t
-(** Tip the view up or down, clamped to {!Config.max_pitch} so it never tips
-    past where the sheared image stops looking right.
+val pitch_by : t -> fraction:float -> t
+(** Tip the view up or down by that fraction of the window height, clamped to
+    {!Config.max_pitch} so it never tips past where the sheared image stops
+    looking right.
+
+    {b Not radians, which is what this argument was called.} There is no
+    vertical rotation to measure: {!Viewport.make} takes the pitch straight into
+    [horizon = height/2 + pitch*height], so [0.1] slides the horizon a tenth of
+    the window and means nothing in particular in degrees. Everything else that
+    handles the number says so — {!Config.pitch_speed} and
+    {!Config.pitch_sensitivity} are quoted in window heights, {!Binding.motion}
+    hands one back in them, and {!type-t}'s own [pitch] field is documented as
+    one — so the label here was the single dissenter, sitting directly under
+    {!turn}, which really is radians and really is a rotation. The two look like
+    one kind of thing and are not, and mistaking which is which is how the walls
+    come to lean as you look up.
 
     @raise Invalid_argument
-      if [radians] is not finite. The clamp is why this one matters: [Float.min]
-      and [Float.max] propagate a nan rather than pinning it, so the pitch this
-      type says lies inside the limit would be a number that compares false with
-      both ends of it. Negated, so a [nan] is refused with it. *)
+      if [fraction] is not finite. The clamp is why this one matters:
+      [Float.min] and [Float.max] propagate a nan rather than pinning it, so the
+      pitch this type says lies inside the limit would be a number that compares
+      false with both ends of it. Negated, so a [nan] is refused with it. *)
 
 type crossing = {
   from_room : int;

@@ -43,14 +43,37 @@ let pitch_tips_within_a_limit () =
   let p = facing_east () in
   Alcotest.check close "starts level" 0. p.Player.pitch;
   Alcotest.check close "a small tip is kept" 0.1
-    (Player.pitch_by p ~radians:0.1).Player.pitch;
+    (Player.pitch_by p ~fraction:0.1).Player.pitch;
   Alcotest.(check bool)
     "looking too far up is capped" true
-    ((Player.pitch_by p ~radians:100.).Player.pitch <= Config.max_pitch +. 1e-9);
+    ((Player.pitch_by p ~fraction:100.).Player.pitch <= Config.max_pitch +. 1e-9);
   Alcotest.(check bool)
     "and too far down" true
-    ((Player.pitch_by p ~radians:(-100.)).Player.pitch
+    ((Player.pitch_by p ~fraction:(-100.)).Player.pitch
    >= -.Config.max_pitch -. 1e-9)
+
+(* What [~fraction] is a fraction {e of}. The label used to say [~radians], and
+   nothing here disagreed with it: the test above only checks that the number
+   comes back out again, and {!Viewport}'s own pitch test only checks which way
+   the horizon moved. So the whole suite passed with a [tan] in the middle of
+   this, which is what believing the old label would put there.
+
+   The claim is that the number is measured in window heights, and the one place
+   that is cashed out is the horizon, two modules away. Hence the reach across:
+   asking {!Player} alone can only ever get the number back that was put in. *)
+let a_tip_is_a_fraction_of_the_window () =
+  let height = 600 in
+  let horizon_at pitch =
+    (Viewport.make ~pitch ~eye_z:0.5 ~width:800 ~height).Viewport.horizon
+  in
+  List.iter
+    (fun fraction ->
+      let tipped = Player.pitch_by (facing_east ()) ~fraction in
+      Alcotest.check close
+        (Printf.sprintf "%g of the window height" fraction)
+        (horizon_at 0. +. (fraction *. float_of_int height))
+        (horizon_at tipped.Player.pitch))
+    [ 0.1; -0.25; Config.max_pitch ]
 
 (* The private record promises a unit basis and a pitch inside the limit, and a
    non-finite number keeps neither promise while breaking no type: [Vec.of_angle
@@ -87,10 +110,10 @@ let turning_by_nothing_real_is_refused () =
    compare false with either end of it. *)
 let tipping_by_nothing_real_is_refused () =
   List.iter
-    (fun radians ->
-      refused (Printf.sprintf "tipping by %f" radians)
-        "Player.pitch_by: the angle has to be finite" (fun () ->
-          Player.pitch_by (facing_east ()) ~radians))
+    (fun fraction ->
+      refused (Printf.sprintf "tipping by %f" fraction)
+        "Player.pitch_by: the pitch has to be finite" (fun () ->
+          Player.pitch_by (facing_east ()) ~fraction))
     unreal
 
 let turning_does_not_move_the_player () =
@@ -563,6 +586,8 @@ let () =
           case "right is actually to the right" right_is_actually_to_the_right;
           case "turning preserves the basis" turning_preserves_the_basis;
           case "pitch tips within a limit" pitch_tips_within_a_limit;
+          case "a tip is a fraction of the window"
+            a_tip_is_a_fraction_of_the_window;
           case "turning does not move the player"
             turning_does_not_move_the_player;
           case "spawn uses the world" spawn_uses_the_world;

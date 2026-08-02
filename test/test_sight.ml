@@ -73,7 +73,7 @@ let rooms ?door ?lintel ?lintel_top ?(ceiling = flat_ceiling) ?(bare = false)
    (2, 2) in it is two cells beyond the threshold. *)
 let looking_east ?(pitch = 0.) ?(from = centre) () =
   let p = Player.make ~room:0 ~pos:from ~angle:0. in
-  Player.pitch_by p ~radians:pitch
+  Player.pitch_by p ~fraction:pitch
 
 let describe = function
   | None -> "nothing"
@@ -419,7 +419,7 @@ let a_wall_is_not_picked_over_the_ceiling () =
       ~links:[] ~atmosphere:air ~spawn:("only", centre)
   in
   let looking ?(angle = 0.) pitch =
-    Player.pitch_by (Player.make ~room:0 ~pos:centre ~angle) ~radians:pitch
+    Player.pitch_by (Player.make ~room:0 ~pos:centre ~angle) ~fraction:pitch
   in
   Alcotest.(check bool)
     "the eye is under the roof and the crosshair over it" true

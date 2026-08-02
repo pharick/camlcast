@@ -192,7 +192,7 @@ let () =
               let player =
                 Player.pitch_by
                   (Player.make ~room:0 ~pos:(Vec.make 1. 1.) ~angle:0.9)
-                  ~radians:0.2
+                  ~fraction:0.2
               in
               let moved =
                 Mount.build

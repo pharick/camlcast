@@ -455,7 +455,7 @@ let chalking () =
 
 let aiming ?(from = Vec.make 0.5 (-0.5)) ?(angle = Float.pi /. 2.) ?(pitch = 0.)
     () =
-  Player.pitch_by (Player.make ~room:0 ~pos:from ~angle) ~radians:pitch
+  Player.pitch_by (Player.make ~room:0 ~pos:from ~angle) ~fraction:pitch
 
 let use render player =
   let scene = render () in

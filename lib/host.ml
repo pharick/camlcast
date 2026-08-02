@@ -133,7 +133,7 @@ let assemble nodes =
             | Some room ->
                 Player.pitch_by
                   (Player.make ~room ~pos:c.pos ~angle:c.angle)
-                  ~radians:c.pitch)
+                  ~fraction:c.pitch)
           !eye
       in
       {

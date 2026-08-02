@@ -33,13 +33,17 @@ type t = {
 (* Negated, so a nan fails rather than slipping through. {!Vec} refuses nothing,
    by design — the refusing belongs where a direction is first promised to be
    one, and for the camera basis that is here. [Vec.of_angle nan] is a pair of
-   nans, which is not a unit vector, and nothing downstream would ever say so. *)
-let finite_angle who angle =
-  if not (Float.is_finite angle) then
-    invalid_arg (who ^ ": the angle has to be finite")
+   nans, which is not a unit vector, and nothing downstream would ever say so.
+
+   The quantity is named by the caller rather than fixed here, because the two
+   look axes are not measured in the same thing and a message that called them
+   both an angle would be the same slip {!pitch_by}'s label used to be. *)
+let finite who what value =
+  if not (Float.is_finite value) then
+    invalid_arg (Printf.sprintf "%s: the %s has to be finite" who what)
 
 let make ~room ~pos ~angle =
-  finite_angle "Player.make" angle;
+  finite "Player.make" "angle" angle;
   let dir = Vec.of_angle angle in
   { room; pos; dir; right = Vec.perp dir; pitch = 0. }
 
@@ -67,27 +71,28 @@ let through transform ~room player =
   }
 
 let turn player ~radians =
-  finite_angle "Player.turn" radians;
+  finite "Player.turn" "angle" radians;
   {
     player with
     dir = Vec.rotate player.dir radians;
     right = Vec.rotate player.right radians;
   }
 
-(** Tip the view up or down by [radians], clamped to {!Config.max_pitch} so it
-    never tips past where the sheared image stops looking right.
+(** Tip the view up or down by [fraction] of the window height, clamped to
+    {!Config.max_pitch} so it never tips past where the sheared image stops
+    looking right.
 
     The clamp is what makes the finiteness check load-bearing rather than
     decorative: {!Float.min} and {!Float.max} both {e propagate} a nan, so a nan
     delta would come out the far side of the clamp as a nan pitch, and the
     interface's promise that the pitch lies within the limit would be a promise
     about a number that compares false with everything. *)
-let pitch_by player ~radians =
-  finite_angle "Player.pitch_by" radians;
+let pitch_by player ~fraction =
+  finite "Player.pitch_by" "pitch" fraction;
   let limit = Config.max_pitch in
   {
     player with
-    pitch = Float.max (-.limit) (Float.min limit (player.pitch +. radians));
+    pitch = Float.max (-.limit) (Float.min limit (player.pitch +. fraction));
   }
 
 type crossing = {

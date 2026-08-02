@@ -43,7 +43,7 @@ type window = {
 let move world player (motion : Input.motion) =
   player
   |> Player.turn ~radians:motion.turn
-  |> Player.pitch_by ~radians:motion.pitch
+  |> Player.pitch_by ~fraction:motion.pitch
   |> Player.traverse world ~forward:motion.forward ~strafe:motion.strafe
 
 let step world player (motion : Input.motion) =

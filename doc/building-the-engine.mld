@@ -1044,11 +1044,16 @@ pitch·height]. Everything (the plane casts, every wall) is measured from
 [horizon], so moving it looks up or down for free. Clamp pitch to
 [Config.max_pitch].
 
+Because there is no rotation, the delta is not an angle either: it is the
+fraction of the window height the horizon slides by. Name it so — the label is
+the only place a reader is told, and calling it [radians] beside a [turn] that
+really is radians is how the mistake at the end of this phase gets made.
+
 {@ocaml[
 (* Player *)
-let pitch_by p ~radians =
+let pitch_by p ~fraction =
   let l = Config.max_pitch in
-  { p with pitch = Float.max (-.l) (Float.min l (p.pitch +. radians)) }
+  { p with pitch = Float.max (-.l) (Float.min l (p.pitch +. fraction)) }
 ]}
 
 Input ([lib/input.ml]) reads held keys as a snapshot and blends in {b relative
@@ -1091,7 +1096,7 @@ applies the deltas in order — turn, pitch, then walk:
 
 {@ocaml[
 let step world player (m : Input.motion) =
-  player |> Player.turn ~radians:m.turn |> Player.pitch_by ~radians:m.pitch
+  player |> Player.turn ~radians:m.turn |> Player.pitch_by ~fraction:m.pitch
          |> Player.walk world ~forward:m.forward ~strafe:m.strafe
 ]}
 

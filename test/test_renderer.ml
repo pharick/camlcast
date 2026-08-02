@@ -529,7 +529,7 @@ let a_see_through_lintel_shows_the_room_behind () =
   let looking =
     Player.pitch_by
       (Player.make ~room:0 ~pos:centre ~angle:0.)
-      ~radians:Config.max_pitch
+      ~fraction:Config.max_pitch
   in
   let reaches world =
     drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
@@ -552,7 +552,7 @@ let a_bare_opening_does_not_show_the_room_above_it () =
   let looking =
     Player.pitch_by
       (Player.make ~room:0 ~pos:centre ~angle:0.)
-      ~radians:Config.max_pitch
+      ~fraction:Config.max_pitch
   in
   let reaches world =
     drawn ~with_it:(roofed world pale) ~without:(roofed world dim) looking
@@ -576,7 +576,7 @@ let the_roof_caps_what_an_opening_shows () =
   let looking =
     Player.pitch_by
       (Player.make ~room:0 ~pos:centre ~angle:0.)
-      ~radians:Config.max_pitch
+      ~fraction:Config.max_pitch
   in
   (* The near room under a roof that hangs below the head of its own two-cell
      opening, and clear over the eye. Only room 0 is touched; [roofed] varies
@@ -624,7 +624,7 @@ let the_far_rooms_ceiling_begins_where_the_doorway_does () =
   let looking =
     Player.pitch_by
       (Player.make ~room:0 ~pos:(Vec.make 0.3 2.) ~angle:0.)
-      ~radians:Config.max_pitch
+      ~fraction:Config.max_pitch
   in
   let world = joined_rooms ~door:(Door.make dim) ~lintel:mesh () in
   let _, top, _, _ =
@@ -1833,7 +1833,7 @@ let a_roof_below_the_eye_leaves_nothing_behind () =
       Alcotest.(check int)
         (name ^ ": nothing is left of the frame before")
         0
-        (unwritten world (Player.pitch_by (looking_east ()) ~radians:pitch)))
+        (unwritten world (Player.pitch_by (looking_east ()) ~fraction:pitch)))
     [
       ("level", 0.);
       ("looking up", Config.max_pitch);
@@ -1844,7 +1844,7 @@ let a_roof_below_the_eye_leaves_nothing_behind () =
    open to the sky, and a frame drawn through a doorway into both. *)
 let every_pixel_of_a_frame_is_written () =
   let tipped pitch world =
-    (world, Player.pitch_by (Player.spawn world) ~radians:pitch)
+    (world, Player.pitch_by (Player.spawn world) ~fraction:pitch)
   in
   List.iter
     (fun (name, (world, player)) ->
