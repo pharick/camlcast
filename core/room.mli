@@ -109,9 +109,20 @@ val decal :
     light, which is none unless said otherwise.
 
     @raise Invalid_argument
-      if either half extent is not positive, or if [glow] is outside [0. .. 1.].
-      Each test is the negation of the passing condition, so a [nan] fails it
-      rather than slipping through to be divided by a frame later. *)
+      if [along] or [z] is not a real number, if either half extent is not
+      finite and positive, or if [glow] is outside [0. .. 1.]. Each test is the
+      negation of the passing condition, so a [nan] fails it rather than
+      slipping through to be divided by a frame later.
+
+    {b Where it is, and not only how big it is.} {!decal_column} and
+    {!decal_row} answer for a point unless it falls outside this decal, and a
+    [nan] falls outside nothing — so one placed at [nan] is not invisible and is
+    not somewhere odd. It answers for {e every} point of its wall, at texel
+    column zero, which the renderer draws as a smear over the whole wall and
+    {!Sight} picks in front of whatever is really there. An infinite half extent
+    arrives at the same place from the other side, swallowing the wall and
+    dividing to a [nan]. Both are refused here, which is the only place they can
+    be. *)
 
 val decal_light : decal -> light:float -> float
 (** The light a decal is drawn in, given the light its wall is drawn in.
@@ -236,7 +247,14 @@ val sprite : ?base:float -> size:float -> image:Image.t -> Vec.t -> sprite
     without decals stay silent about them.
 
     @raise Invalid_argument
-      if [size] is not positive — negated, so a [nan] is refused with it. *)
+      if [pos] or [base] is not a real number, or if [size] is not finite and
+      positive. Negated, so a [nan] is refused with the rest.
+
+    [base] for the same reason {!val-decal} holds its placement to it, and by
+    the same road: it is added to the floor to find the foot, and {!sprite_row}
+    answers for a height unless it falls outside the picture, so an unreal one
+    puts every row of the sprite at every height. [pos] because every distance
+    to this sprite is measured from it. *)
 
 val sprite_half_width : sprite -> float
 (** Half a sprite's width, in cells.

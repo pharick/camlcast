@@ -584,7 +584,84 @@ let a_decal_or_sprite_of_no_size_is_refused () =
       raises (Printf.sprintf "a sprite of size %f" size)
         "Room.sprite: a sprite has to have a size" (fun () ->
           ignore (Room.sprite ~size ~image:poster (Vec.make 0. 0.))))
-    [ 0.; -1.; Float.nan ]
+    [ 0.; -1.; Float.nan; Float.infinity ]
+
+(* Where a decal is, and not only how big it is.
+
+   An unreal placement is worse than an unreal extent, and worse than it looks.
+   decal_column and decal_row answer for a point unless it falls outside, and a
+   nan falls outside nothing — so a decal placed at nan does not vanish and does
+   not land somewhere odd: it answers for every point of its wall, at texel
+   column zero, and is drawn as a smear across the whole of it and picked by
+   Sight in front of what is really there. An infinite half-width reaches the
+   same place, the extent swallowing the wall and the division coming back nan.
+   Both were accepted, in the module that states the rule they break. *)
+let a_placement_has_to_be_a_real_number () =
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let poster =
+    Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255))
+  in
+  let placed ?(along = 1.) ?(z = 1.) ?(half_width = 0.5) ?(half_height = 0.5) ()
+      =
+   fun () -> ignore (Room.decal ~along ~z ~half_width ~half_height poster)
+  in
+  List.iter
+    (fun bad ->
+      raises
+        (Printf.sprintf "a decal placed along %f" bad)
+        "Room.decal: a decal has to be somewhere along its wall"
+        (placed ~along:bad ());
+      raises
+        (Printf.sprintf "a decal placed at height %f" bad)
+        "Room.decal: a decal has to be at some height" (placed ~z:bad ()))
+    [ Float.nan; Float.infinity; Float.neg_infinity ];
+  (* The extents were nan-safe and not infinity-safe, which is the same hole
+     reached by the other road. *)
+  raises "a decal infinitely wide" "Room.decal: a decal has to have a width"
+    (placed ~half_width:Float.infinity ());
+  raises "a decal infinitely tall" "Room.decal: a decal has to have a height"
+    (placed ~half_height:Float.infinity ());
+  List.iter
+    (fun bad ->
+      raises (Printf.sprintf "a sprite standing at height %f" bad)
+        "Room.sprite: a sprite has to stand at some height" (fun () ->
+          ignore (Room.sprite ~base:bad ~size:1. ~image:poster (Vec.make 0. 0.)));
+      raises (Printf.sprintf "a sprite standing at x = %f" bad)
+        "Room.sprite: a sprite has to stand somewhere" (fun () ->
+          ignore (Room.sprite ~size:1. ~image:poster (Vec.make bad 0.))))
+    [ Float.nan; Float.infinity ]
+
+(* The other half of the same guard. The fields are real by the time a decal
+   exists, but the point being asked about comes from the renderer and from
+   Sight, which work it out from a ray — so the bound tests have to be the kind
+   a nan fails rather than the kind it slips through. *)
+let an_unreal_point_is_on_no_decal () =
+  let poster =
+    Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255))
+  in
+  let d = Room.decal ~along:2. ~z:1. ~half_width:0.5 ~half_height:0.5 poster in
+  let s = Room.sprite ~size:1. ~image:poster (Vec.make 0. 0.) in
+  Alcotest.(check (option int))
+    "no column for a nan point" None
+    (Room.decal_column d ~seen_from:Room.Front ~along:Float.nan);
+  Alcotest.(check (option int))
+    "no row for a nan height" None
+    (Room.decal_row d ~above:Float.nan);
+  Alcotest.(check (option int))
+    "nor for a sprite, across" None
+    (Room.sprite_column s ~lateral:Float.nan);
+  Alcotest.(check (option int))
+    "nor down" None
+    (Room.sprite_row s ~floor_z:0. ~z:Float.nan);
+  (* And a real point is answered exactly as before. *)
+  Alcotest.(check (option int))
+    "the middle of the decal is still the middle" (Some 2)
+    (Room.decal_column d ~seen_from:Room.Front ~along:2.);
+  Alcotest.(check (option int))
+    "and a point off it is still off it" None
+    (Room.decal_column d ~seen_from:Room.Front ~along:9.)
 
 let opening ?door () =
   snd
@@ -1054,6 +1131,9 @@ let () =
             replacing_the_sprites_keeps_the_rest;
           case "a decal or sprite of no size is refused"
             a_decal_or_sprite_of_no_size_is_refused;
+          case "a placement has to be a real number"
+            a_placement_has_to_be_a_real_number;
+          case "an unreal point is on no decal" an_unreal_point_is_on_no_decal;
         ] );
       ( "collision",
         [

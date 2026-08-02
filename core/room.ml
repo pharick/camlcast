@@ -18,11 +18,33 @@ type decal = {
 
 let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height
     image =
-  (* Negated, so a nan is refused with the zeroes and the negatives. Both
-     halves are divisors in decal_column and decal_row. *)
-  if not (half_width > 0.) then
+  (* Negated, so a nan is refused with the zeroes and the negatives, and finite
+     with it, so an infinity goes the same way — the terms {!wall} and
+     {!threshold} are already held to.
+
+     All four numbers, and not only the two that divide. A decal is read by
+     subtracting where it is from the point being asked about and seeing whether
+     what is left falls inside its extent, and the two readers below are written
+     to answer {e unless} it falls outside. A nan falls outside nothing: it is
+     less than no bound and greater than none, so the test that should have
+     rejected the point passes it, [int_of_float] takes the nan that follows to
+     zero, and the decal answers for every point on its wall at texel column
+     zero. That is not an invisible decal or a misplaced one. It is a smear
+     across the whole wall, which the renderer draws and {!Sight} picks in front
+     of whatever is really there.
+
+     An infinite half-width arrives at the same place by a different road: the
+     extent swallows the wall, and the offset divided by it is a nan again. An
+     infinite [along] is the one unreal number the readers do refuse on their
+     own, the offset coming out infinite rather than nan and failing the bound
+     honestly — which is not a reason to let it in. *)
+  if not (Float.is_finite along) then
+    invalid_arg "Room.decal: a decal has to be somewhere along its wall";
+  if not (Float.is_finite z) then
+    invalid_arg "Room.decal: a decal has to be at some height";
+  if not (Float.is_finite half_width && half_width > 0.) then
     invalid_arg "Room.decal: a decal has to have a width";
-  if not (half_height > 0.) then
+  if not (Float.is_finite half_height && half_height > 0.) then
     invalid_arg "Room.decal: a decal has to have a height";
   if not (glow >= 0. && glow <= 1.) then
     invalid_arg "Room.decal: glow is a fraction from 0 to 1";
@@ -30,12 +52,19 @@ let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height
 
 let decal_light d ~light = light +. (d.glow *. (1. -. light))
 
+(* The bound tests below are negated for the reason the constructor's are, and
+   they are the second half of the same guard rather than a repeat of it: the
+   fields are finite by the time one is built, but the point being asked about
+   arrives from the renderer and from {!Sight}, which work it out from a ray.
+   Written the other way round — refuse when outside — a nan point is outside
+   nothing and is answered for. Written this way it has to be shown inside, and
+   a nan never is. *)
 let decal_column d ~seen_from ~along =
   if d.facing <> seen_from then None
   else
     let width = 2. *. d.half_width in
     let off = along -. (d.along -. d.half_width) in
-    if off < 0. || off > width then None
+    if not (off >= 0. && off <= width) then None
     else
       let n = d.image.Image.width in
       Some
@@ -45,7 +74,7 @@ let decal_column d ~seen_from ~along =
 let decal_row d ~above =
   let height = 2. *. d.half_height in
   let off = d.z +. d.half_height -. above in
-  if off < 0. || off > height then None
+  if not (off >= 0. && off <= height) then None
   else
     let n = d.image.Image.height in
     Some
@@ -69,10 +98,18 @@ let side_of (w : wall) point =
 type sprite = { pos : Vec.t; base : float; size : float; image : Image.t }
 
 let sprite ?(base = 0.) ~size ~image pos =
-  (* Negated, so a nan is refused with it. size divides in sprite_row and in
-     Viewport.sprite_box, and a sprite of no height would be a billboard of no
-     width as well. *)
-  if not (size > 0.) then invalid_arg "Room.sprite: a sprite has to have a size";
+  (* Negated and finite, on the same terms as {!decal} above and for the same
+     reasons. size divides in sprite_row and in Viewport.sprite_box, and a
+     sprite of no height would be a billboard of no width as well; base is
+     added to the floor to find the foot, so an unreal one makes every row of
+     the picture answer for every height. The position is held to it too — it is
+     what every distance to this sprite is measured from. *)
+  if not (Float.is_finite pos.Vec.x && Float.is_finite pos.Vec.y) then
+    invalid_arg "Room.sprite: a sprite has to stand somewhere";
+  if not (Float.is_finite base) then
+    invalid_arg "Room.sprite: a sprite has to stand at some height";
+  if not (Float.is_finite size && size > 0.) then
+    invalid_arg "Room.sprite: a sprite has to have a size";
   { pos; base; size; image }
 
 let sprite_half_width s =
@@ -86,7 +123,7 @@ let sprite_head s ~floor_z = sprite_foot s ~floor_z +. s.size
 
 let sprite_column s ~lateral =
   let half = sprite_half_width s in
-  if Float.abs lateral > half then None
+  if not (Float.abs lateral <= half) then None
   else
     let n = s.image.Image.width in
     Some
@@ -97,7 +134,7 @@ let sprite_column s ~lateral =
 let sprite_row s ~floor_z ~z =
   let head = sprite_head s ~floor_z in
   let off = head -. z in
-  if off < 0. || off > s.size then None
+  if not (off >= 0. && off <= s.size) then None
   else
     let n = s.image.Image.height in
     Some
