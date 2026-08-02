@@ -623,6 +623,76 @@ let the_world_it_makes =
           [ "warning"; "warning" ] (severities stepped));
   ]
 
+(* {!Check.assembled} and {!Camlcast_core.World.check} are the same two words the
+   other way round, and running one is not running the other. They overlap in
+   nothing: World.check asserts what World.make guarantees, over a world grown
+   by add_room and link instead of made in one go, and raises on the first
+   break. Check.assembled reads a world that is already sound for the four ways it
+   can still be wrong to play, and hands them back.
+
+   Both directions below, because a reader who knows only one of them is a
+   reader who thinks their world is checked. *)
+let the_other_check =
+  let world_of description = (Mount.build description).Scene.world in
+  [
+    case "a structural break is World.check's alone" (fun () ->
+        (* A second doorway cut into the first room and left unlinked. The room
+           is still reached through the doorway that is linked, its corners
+           still meet walls, the floors still agree and the spawn is still
+           clear — so all four of Check.assembled's questions answer well. *)
+        let first = World.room two_rooms 0 in
+        let jambs, extra =
+          Room.doorway ~name:"unfinished" ~width:1. ~opening:2. ~height:3.
+            ~material:stone (Vec.make 0. 0.) (Vec.make 4. 0.)
+        in
+        let grown =
+          World.open_doorway two_rooms ~room:0
+            ~opened:
+              (Room.make
+                 ~thresholds:
+                   (List.init
+                      (Room.threshold_count first)
+                      (Room.threshold_at first)
+                   @ [ extra ])
+                 ~floor:(Room.floor_surface first) ~ceiling:(Room.ceiling first)
+                 (List.init (Room.wall_count first) (Room.wall_at first) @ jambs))
+        in
+        Alcotest.check lines "Check.assembled has nothing to say" []
+          (List.map
+             (fun (d : Check.t) -> d.Check.summary)
+             (Check.assembled grown));
+        Alcotest.check_raises "and World.check will not have it"
+          (Invalid_argument
+             "World.check: nothing links threshold first.unfinished") (fun () ->
+            World.check grown));
+    case "and a step in the floor is Check.assembled's alone" (fun () ->
+        let stepped =
+          world_of
+            (P.world ~atmosphere:Atmosphere.default
+               ~spawn:("west", Vec.make (-3.) 0.)
+               [
+                 P.room ~name:"west" ~floor ~ceiling
+                   [ west_side (); west_door () ];
+                 P.room ~name:"east" ~floor:(floor_at 0.5) ~ceiling
+                   [ east_side; east_door () ];
+                 P.link ("west", "east") ("east", "west");
+               ])
+        in
+        Alcotest.check lines "Check.assembled measures it"
+          [
+            {|the floor steps by 0.5 through the doorway "east"|};
+            {|the floor steps by 0.5 through the doorway "west"|};
+          ]
+          (List.sort compare
+             (List.map
+                (fun (d : Check.t) -> d.Check.summary)
+                (Check.assembled stepped)));
+        (* And World.check is satisfied, which is the half that matters: every
+           invariant it knows about holds in a world nobody can walk through
+           without the camera jolting. *)
+        World.check stepped);
+  ]
+
 (* A diagnostic names the component that wrote the offending part, which is the
    whole difference from the message the engine raised before. *)
 let where_it_says =
@@ -677,5 +747,6 @@ let () =
       ("links", links);
       ("agrees with the engine", agrees_with_the_engine);
       ("the world it makes", the_world_it_makes);
+      ("the other check", the_other_check);
       ("where it says", where_it_says);
     ]

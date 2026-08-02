@@ -96,12 +96,26 @@ val report : P.t -> t list
     that checks twenty levels does not finish holding twenty worlds' worth of
     subscriptions. *)
 
-val world : World.t -> t list
+val assembled : World.t -> t list
 (** Everything wrong with an assembled world.
 
     The part of {!report} that needs no description, so it can be pointed at a
     world built any other way — which is how the checker is tested against the
-    twenty-odd worlds in [demo/] that are known to be right. *)
+    twenty-odd worlds in [demo/] that are known to be right.
+
+    {b This was called [world], and was renamed to get away from
+       {!Camlcast_core.World.check}} — the same two words the other way round,
+    and the other half of the job rather than another spelling of it. That one
+    asserts what {!Camlcast_core.World.make} guarantees over a world grown
+    instead of made, and {e raises} on the first break. This assumes those
+    guarantees hold and asks the four questions they leave open: a spawn inside
+    a wall, a room nothing leads to, a doorway corner meeting no wall, a step in
+    the floor at a doorway. The two overlap in nothing, so a suite that wants a
+    world both sound and playable runs both.
+
+    Being a list and not a raise, this one has to be {e looked at}. A call whose
+    result is dropped is a check that did not happen, which is the failure the
+    old name invited. *)
 
 val to_string : t -> string
 (** One diagnostic, as several lines: the place, the summary, then the detail

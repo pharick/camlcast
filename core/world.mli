@@ -365,7 +365,17 @@ val check : t -> unit
     already linked and the two can differ — and it is the room the renderer and
     {!passable} read that has to be right.
 
-    A generator's tests run this; nothing at run time needs to. *)
+    A generator's tests run this; nothing at run time needs to.
+
+    {b And it is only half of what a generator wants asked.} Everything here is
+    an invariant {!make} would have refused, so a world that passes is one the
+    engine can hold — not one anybody can play. It says nothing about a spawn
+    inside a wall, a room nothing leads to, a doorway whose corner meets no
+    wall, or a step in the floor where two rooms meet: all four leave every
+    invariant above intact. {!Camlcast.Check.assembled} is where those are
+    asked, and it hands them back as a list rather than raising, because a world
+    can be wrong that way and still worth walking through while you fix it. The
+    two check nothing in common. Run both. *)
 
 val passable : t -> room:int -> from:Vec.t -> dest:Vec.t -> bool
 (** May the player step from [from] to [dest], both in [room]'s frame?

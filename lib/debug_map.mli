@@ -31,8 +31,8 @@ val panel : Framebuffer.t -> int * int * int * int
 val draw : Framebuffer.t -> World.t -> Player.t -> Check.t list -> unit
 (** Draw the map over a finished frame.
 
-    The diagnostics are {!Check.world}'s. Those with a {!Check.spot} in the room
-    being drawn are marked where they are, in red for an error and amber for a
-    warning; the rest are not shown at all, since a map is no place to read a
-    sentence and there is nowhere on it to put one that is about no particular
-    place. {!Check.format} is where those are meant to be read. *)
+    The diagnostics are {!Check.assembled}'s. Those with a {!Check.spot} in the
+    room being drawn are marked where they are, in red for an error and amber
+    for a warning; the rest are not shown at all, since a map is no place to
+    read a sentence and there is nowhere on it to put one that is about no
+    particular place. {!Check.format} is where those are meant to be read. *)

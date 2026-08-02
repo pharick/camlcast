@@ -161,7 +161,7 @@ let on window ?(controls = Controls.default) description =
       (* Only while the map is up. Walking every wall of every room is nothing
          beside drawing one, but it is also nothing anybody asked for when the
          map is down. *)
-      found = (if map then Check.world scene.Scene.world else []);
+      found = (if map then Check.assembled scene.Scene.world else []);
       player;
       room = World.name scene.Scene.world player.Player.room;
       crossings;

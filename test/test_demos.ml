@@ -627,7 +627,7 @@ let the_controls_demo_binds_a_second_set_of_walking_keys () =
    added to this too. *)
 let passes_the_checker (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
-  match Check.world world with
+  match Check.assembled world with
   | [] -> ()
   | found -> Alcotest.failf "%s" (Check.format found)
 

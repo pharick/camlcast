@@ -165,7 +165,7 @@ let inspect ~locate world =
          (doorway_ends_meet_a_wall ~locate world))
   @ floors_meet_at_doorways ~locate world
 
-let world w = inspect ~locate:(World.name w) w
+let assembled w = inspect ~locate:(World.name w) w
 
 (* {1 Reading a description}
 
