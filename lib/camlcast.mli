@@ -55,8 +55,17 @@
 (** {1 Describing a world} *)
 
 module P = P
+
 module Element = Camlcast_loom.Element
-module Hook = Camlcast_loom.Hook
+(** The hooks a component may call, {e without} the
+    {!Camlcast_loom.Hook.Runtime} half {!Camlcast_loom.Reconcile} drives them
+    with. Out of reach on the same terms as {!Input}'s, and for the milder
+    version of the same reason. *)
+
+module Hook :
+  module type of Camlcast_loom.Hook
+    with module Runtime := Camlcast_loom.Hook.Runtime
+
 module Context = Camlcast_loom.Context
 module Store = Camlcast_loom.Store
 module Events = Events
@@ -109,7 +118,24 @@ module Asset = Camlcast_core.Asset
     them by itself is {!Controls}, above. *)
 
 module Key = Camlcast_core.Key
-module Input = Camlcast_core.Input
+(** A frame of what the player is doing, {e without} its
+    {!Camlcast_core.Input.Runtime} half.
+
+    That half is the loop's — draining SDL's event queue, reading and clearing
+    its accumulated mouse motion — and two of the six do damage from a game:
+    reading the motion leaves the loop's own read empty and the camera still,
+    and draining the queue swallows the quit event. Both used to sit in this
+    namespace beside {!Input.pressed}, with a docstring asking politely.
+
+    Removed here rather than renamed there, so it is out of reach on the same
+    terms as {!Camlcast_core.Engine} and {!Camlcast_core.World}: nothing stops a
+    game adding [camlcast.core] and naming it, and that is a line in a dune file
+    rather than something autocomplete offers. *)
+
+module Input :
+  module type of Camlcast_core.Input
+    with module Runtime := Camlcast_core.Input.Runtime
+
 module Binding = Camlcast_core.Binding
 module Config = Camlcast_core.Config
 

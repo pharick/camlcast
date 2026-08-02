@@ -63,19 +63,20 @@
     the tree, it does nothing: the slot it would write is one nothing will read
     again, and it asks for no frame. That last part is the one worth stating,
     because the alternative is a frame nobody wants, and on a root that
-    {!Reconcile.Make} has destroyed a frame nobody will ever render — leaving
-    that root's [dirty] answering yes for good, with nothing able to clear it.
-    Liveness is per component and not per root, so a departing component's
-    cleanup calling a {e parent's} setter still asks for the frame it means to.
+    {!Camlcast_loom.Reconcile.Make} has destroyed a frame nobody will ever
+    render — leaving that root's [dirty] answering yes for good, with nothing
+    able to clear it. Liveness is per component and not per root, so a departing
+    component's cleanup calling a {e parent's} setter still asks for the frame
+    it means to.
 
     {1 When a hook fails}
 
     A hook raises where it was written, and is in that respect an ordinary
     expression: a [try] around it in the render body catches, a {!Fun.protect}
     it is nested inside gives back what it was holding, and an
-    [Invalid_argument] out of it is translated by {!Reconcile} into an
-    {!Element.Render_refused} naming the component, exactly as one raised
-    straight from the body is.
+    [Invalid_argument] out of it is translated by {!Camlcast_loom.Reconcile}
+    into an {!Element.Render_refused} naming the component, exactly as one
+    raised straight from the body is.
 
     That is worth stating because it is not what the machinery does by itself. A
     hook is an effect, and the code that answers one runs {e outside} the fiber
@@ -122,7 +123,7 @@ val use_ref : 'a -> 'a ref
     Being the same box is also why a write to it survives a frame the host
     refuses. What a refused frame rolls back is the tree and the effects, and a
     ref is neither: it is the component's own, and it was written before there
-    was any refusing. See {!Reconcile}. *)
+    was any refusing. See {!Camlcast_loom.Reconcile}. *)
 
 val use_memo : ?equal:('d -> 'd -> bool) -> deps:'d -> (unit -> 'a) -> 'a
 (** [use_memo ~deps compute] is [compute ()], recomputed only when [deps]
@@ -188,71 +189,79 @@ val use_invalidate : unit -> unit -> unit
 
     Claims no slot, for the same reason {!use_context} does not. *)
 
-(** {1 The runtime side}
+module Runtime : sig
+  (** What {!Camlcast_loom.Reconcile} needs to drive the hooks above, and
+      nothing a game should ever call.
 
-    Below is what {!Reconcile} needs to drive the above, and nothing a game
-    should ever call. *)
+      A submodule rather than a heading, which is what this was. Nothing here
+      damages a game that calls it the way {!Camlcast_core.Input.Runtime} does —
+      the worst is a row of slots nobody drives — but the same argument applies
+      to both: a boundary a reader has to be told about is one a reader can
+      miss, and {!Camlcast.Hook} does not re-export this, so reaching it means
+      naming [camlcast.loom] in a dune file. *)
 
-type slots
-(** One component's row of slots. *)
+  type slots
+  (** One component's row of slots. *)
 
-val slots : unit -> slots
-(** A fresh, empty row, for a component being mounted. *)
+  val slots : unit -> slots
+  (** A fresh, empty row, for a component being mounted. *)
 
-type pending
-(** Work a frame has accumulated but not yet done: cleanups to run and effects
-    to start, both of which have to wait until the scene has been assembled. *)
+  type pending
+  (** Work a frame has accumulated but not yet done: cleanups to run and effects
+      to start, both of which have to wait until the scene has been assembled.
+  *)
 
-val pending : unit -> pending
+  val pending : unit -> pending
 
-val on_unmount : pending -> slots -> unit
-(** Queue every cleanup still outstanding in [slots], in the order the effects
-    were declared. What unmounting a component owes the world.
+  val on_unmount : pending -> slots -> unit
+  (** Queue every cleanup still outstanding in [slots], in the order the effects
+      were declared. What unmounting a component owes the world.
 
-    Queued rather than run, so that a component going away and a component
-    arriving in the same frame still see cleanup-before-setup — the ordering
-    {!flush} exists to keep. *)
+      Queued rather than run, so that a component going away and a component
+      arriving in the same frame still see cleanup-before-setup — the ordering
+      {!flush} exists to keep. *)
 
-val flush : pending -> unit
-(** Run everything accumulated, cleanups before setups, and empty the queue.
+  val flush : pending -> unit
+  (** Run everything accumulated, cleanups before setups, and empty the queue.
 
-    Cleanups first and all of them first: an effect that takes a resource its
-    predecessor is still holding must not see the two overlap.
+      Cleanups first and all of them first: an effect that takes a resource its
+      predecessor is still holding must not see the two overlap.
 
-    {b Everything queued runs, whatever any of it raises.} The queue is emptied
-    before the first of them is called, so stopping at a raise would leave the
-    rest owed with nothing left holding them and no second flush coming — and
-    the tree that owes them is already committed. A raise is therefore caught
-    and held, and the first one is re-raised, with its own backtrace, once
-    nothing is left owing. Later ones are lost: a frame has one thing to report,
-    and this is the thing that went wrong first. *)
+      {b Everything queued runs, whatever any of it raises.} The queue is
+      emptied before the first of them is called, so stopping at a raise would
+      leave the rest owed with nothing left holding them and no second flush
+      coming — and the tree that owes them is already committed. A raise is
+      therefore caught and held, and the first one is re-raised, with its own
+      backtrace, once nothing is left owing. Later ones are lost: a frame has
+      one thing to report, and this is the thing that went wrong first. *)
 
-val discard : pending -> unit
-(** Throw everything accumulated away without running any of it.
+  val discard : pending -> unit
+  (** Throw everything accumulated away without running any of it.
 
-    What a render that did not finish does with the work it queued. A setup
-    belongs to a tree that was never committed, and a cleanup to a component
-    that is therefore still standing: neither is owed, and the render that tries
-    again decides both again from the tree as it really is. *)
+      What a render that did not finish does with the work it queued. A setup
+      belongs to a tree that was never committed, and a cleanup to a component
+      that is therefore still standing: neither is owed, and the render that
+      tries again decides both again from the tree as it really is. *)
 
-val run :
-  slots:slots ->
-  pending:pending ->
-  at:string ->
-  env:Context.binding list ->
-  invalidate:(unit -> unit) ->
-  (unit -> 'a) ->
-  'a
-(** Call a component's render with the hook effects handled against [slots].
+  val run :
+    slots:slots ->
+    pending:pending ->
+    at:string ->
+    env:Context.binding list ->
+    invalidate:(unit -> unit) ->
+    (unit -> 'a) ->
+    'a
+  (** Call a component's render with the hook effects handled against [slots].
 
-    [at] names the component in an exception, [env] is the context bindings in
-    force here — innermost first — and [invalidate] is what a setter calls to
-    say the tree has work to do. Raises {!Hook_order_changed} if this render's
-    hooks do not line up with the row as it stands.
+      [at] names the component in an exception, [env] is the context bindings in
+      force here — innermost first — and [invalidate] is what a setter calls to
+      say the tree has work to do. Raises {!Hook_order_changed} if this render's
+      hooks do not line up with the row as it stands.
 
-    Whatever a hook raises — that, or a game's own [compute] or [equal] — is
-    raised {e into} the component at the point the hook was called, and not out
-    of this call over its head. So it reaches a caller through the render
-    closure, having run whatever that closure had arranged to run on its way
-    out. See "When a hook fails" above; the alternative is what an effect
-    handler does if left to itself. *)
+      Whatever a hook raises — that, or a game's own [compute] or [equal] — is
+      raised {e into} the component at the point the hook was called, and not
+      out of this call over its head. So it reaches a caller through the render
+      closure, having run whatever that closure had arranged to run on its way
+      out. See "When a hook fails" above; the alternative is what an effect
+      handler does if left to itself. *)
+end

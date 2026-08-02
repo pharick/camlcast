@@ -70,7 +70,7 @@ module Make (H : Host.HOST) : sig
       component leaving and a component arriving in the same frame never overlap
       on whatever they both hold. One of them raising does not cancel the rest:
       everything owed runs, and the first exception comes back out once nothing
-      is left owing. See {!Hook.flush}.
+      is left owing. See {!Hook.Runtime.flush}.
 
       A render that raises commits nothing. The description is assembled before
       anything is committed, so a host that refuses one — {!Host.HOST.assemble}

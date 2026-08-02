@@ -90,7 +90,7 @@ let set_fullscreen window ~current enabled =
 
     Best-effort on the same terms, and the case for it is stronger: a compositor
     that will not hand over the pointer leaves a game whose mouse look is worse
-    — {!Input.mouse_delta} still reports motion, now stopping at the edges of
+    — {!Input.Runtime.mouse_delta} still reports motion, now stopping at the edges of
     the screen — and a game that never wanted the pointer in the first place
     entirely unaffected. Neither is a reason not to play.
 
@@ -113,7 +113,7 @@ let set_relative_mouse ~current enabled =
 
            On the change and not on every call, since a mode set to what it
            already is neither warps nor is asked for. *)
-        ignore (Input.mouse_delta ());
+        ignore (Input.Runtime.mouse_delta ());
         enabled
     | Error _ -> current
 
@@ -148,16 +148,16 @@ let rec loop window game ~state ~actions ~previous =
      because a queue nobody pumps stops the window responding and because what
      went past in it is half of the frame's input: a control tapped between two
      frames is only in here. *)
-  let queue = Input.drain window.event in
-  if Input.closed queue then Ok (state, Closed)
+  let queue = Input.Runtime.drain window.event in
+  if Input.Runtime.closed queue then Ok (state, Closed)
   else
     let now = Clock.now () in
     let dt = Clock.frame_time ~previous ~now in
     (* Drained every frame, focused or not: the delta accumulates until somebody
        reads it, so a paused frame that skipped the read would hand the whole
        idle spell to the frame that resumes. An unfocused frame reads it and
-       throws it away, which is what {!Input.freeze} does with it. *)
-    let mouse = Input.mouse_delta () in
+       throws it away, which is what {!Input.Runtime.freeze} does with it. *)
+    let mouse = Input.Runtime.mouse_delta () in
     let focused = has_focus window.handle in
     (* The window can have changed shape since the last frame, so the buffer is
        fitted to it here and not left to {!Renderer.render} at the end. The
@@ -179,17 +179,17 @@ let rec loop window game ~state ~actions ~previous =
        The cursor is converted inside the same branch, and only there, on the
        invariant that {e every} pointer in an [actions] is already in the
        buffer's coordinates: SDL reports it in the window's, so the frame that
-       reads it is the frame that converts it, and {!Input.freeze} has nothing
+       reads it is the frame that converts it, and {!Input.Runtime.freeze} has nothing
        to do but carry along one that was converted when it was read. {!run}
        converts the frame it seeds the loop with for that reason and no other —
        it is the one pointer here that does not come from the branch below. *)
     let actions =
       if focused then
-        let sampled = Input.sample actions queue ~mouse ~dt in
+        let sampled = Input.Runtime.sample actions queue ~mouse ~dt in
         Input.with_pointer sampled
           (in_framebuffer window.handle !(window.framebuffer)
              (Input.pointer sampled))
-      else Input.freeze actions
+      else Input.Runtime.freeze actions
     in
     (* Walking and looking are read out of the same frame of controls as
        everything else, through the game's table. The engine's part in it is a
@@ -293,15 +293,16 @@ let run window (game : 'a game) state =
   (* What was held when the last run ended is not a press in this one. Starting
      from {!Input.untouched} would state every key as newly down, so a player
      still holding the one that chose this game would have it read as pressed on
-     its first frame; {!Input.freeze} states [down] and [was_down] alike, and no
+     its first frame; {!Input.Runtime.freeze} states [down] and [was_down] alike, and no
      edge fires. *)
   let actions =
-    Input.freeze
-      (Input.sample Input.untouched Input.quiet ~mouse:(0., 0.) ~dt:0.)
+    Input.Runtime.freeze
+      (Input.Runtime.sample Input.untouched Input.Runtime.quiet ~mouse:(0., 0.)
+         ~dt:0.)
   in
   (* And into the buffer's coordinates, which is where {!Input.pointer} says a
      cursor is and where the loop puts every one it reads. Not a formality: the
-     loop only converts on the frames it samples, because {!Input.freeze} hands
+     loop only converts on the frames it samples, because {!Input.Runtime.freeze} hands
      the previous frame's along and that one was converted when it was read. A
      seed left in the window's would be the exception that makes untrue — and it
      would last as long as the window went unfocused for, since every frame
@@ -324,7 +325,7 @@ let run window (game : 'a game) state =
      Still here after the line above, which drops one of its own: that one only
      happens if the mouse mode changed, and a run that inherits the window in
      the state it wants is exactly a run where it did not. *)
-  ignore (Input.mouse_delta ());
+  ignore (Input.Runtime.mouse_delta ());
   loop window game ~state ~actions ~previous:(Clock.now ())
 
 let grow ?(extend = fun world _ -> world) world player motion =

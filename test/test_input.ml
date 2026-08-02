@@ -12,7 +12,7 @@ let click = Input.Button Input.Left
 let tick = 1. /. 60.
 
 (* One frame, in which [held] is everything the player is holding down and
-   [tapped] everything they pressed and let go of inside it — what [Input.drain]
+   [tapped] everything they pressed and let go of inside it — what [Input.Runtime.drain]
    picks out of the event queue and the device state cannot say. The mouse is
    still: what it read is [Binding]'s business, not the edges'. *)
 let frame ?(dt = tick) ?(tapped = []) held actions =
@@ -33,7 +33,7 @@ let frames ?dt held count actions =
    does with one instead of sampling it. *)
 let frames_frozen count actions =
   List.fold_left
-    (fun actions () -> Input.freeze actions)
+    (fun actions () -> Input.Runtime.freeze actions)
     actions
     (List.init count (fun _ -> ()))
 
@@ -228,7 +228,7 @@ let a_frozen_frame_keeps_the_cursor_it_had () =
   let placed = Input.with_pointer (frame [ e ] Input.untouched) (13, 21) in
   Alcotest.(check (pair int int))
     "frozen, the cursor stays put" (13, 21)
-    (Input.pointer (Input.freeze placed));
+    (Input.pointer (Input.Runtime.freeze placed));
   Alcotest.(check (pair int int))
     "and stays put over a long absence" (13, 21)
     (Input.pointer (frames_frozen 600 placed))

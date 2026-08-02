@@ -36,7 +36,7 @@ module Make (H : Host.HOST) = struct
         render_id : Obj.t;
         key : string option;
         name : string;
-        slots : Hook.slots;
+        slots : Hook.Runtime.slots;
         child : instance;
       }
 
@@ -45,17 +45,19 @@ module Make (H : Host.HOST) = struct
      to say that a setter has been called. *)
   type context = {
     trace : (H.prim Trace.event -> unit) option;
-    pending : Hook.pending;
+    pending : Hook.Runtime.pending;
     invalidate : unit -> unit;
   }
 
   type t = {
     mutable tree : instance option;
-    pending : Hook.pending;
+    pending : Hook.Runtime.pending;
     mutable dirty : bool;
   }
 
-  let create () = { tree = None; pending = Hook.pending (); dirty = false }
+  let create () =
+    { tree = None; pending = Hook.Runtime.pending (); dirty = false }
+
   let dirty root = root.dirty
 
   let emit context event =
@@ -81,7 +83,7 @@ module Make (H : Host.HOST) = struct
         emit context (Trace.Unmounted (path, Trace.Primitive prim))
     | Component { path; name; child; slots; _ } ->
         unmount ~context child;
-        Hook.on_unmount context.pending slots;
+        Hook.Runtime.on_unmount context.pending slots;
         emit context (Trace.Unmounted (path, Trace.Component name))
 
   let unmount_opt ~context = function
@@ -182,7 +184,7 @@ module Make (H : Host.HOST) = struct
     | _, Element.Component { render; props; key; name } ->
         unmount_opt ~context old;
         emit context (Trace.Mounted (path, Trace.Component name));
-        let slots = Hook.slots () in
+        let slots = Hook.Runtime.slots () in
         let described =
           render_with_hooks ~context ~env ~path ~slots render props
         in
@@ -206,13 +208,13 @@ module Make (H : Host.HOST) = struct
       context:context ->
       env:Context.binding list ->
       path:Path.t ->
-      slots:Hook.slots ->
+      slots:Hook.Runtime.slots ->
       ('props -> element) ->
       'props ->
       element =
    fun ~context ~env ~path ~slots render props ->
     let at = Path.to_debug_string path in
-    Hook.run ~slots ~pending:context.pending ~at ~env
+    Hook.Runtime.run ~slots ~pending:context.pending ~at ~env
       ~invalidate:context.invalidate (fun () ->
         (* Where a refusal picks up the name of what was refused. A primitive
            says invalid_arg when it will not take what it was handed, and it
@@ -334,7 +336,7 @@ module Make (H : Host.HOST) = struct
         root.tree <- Some tree;
         (* After the scene, never during a render: this is the seam where a
            component is allowed to reach outside itself. *)
-        Hook.flush root.pending;
+        Hook.Runtime.flush root.pending;
         scene
     | exception refused ->
         (* Caught to tidy up and not to handle, so it goes back out with the
@@ -343,7 +345,7 @@ module Make (H : Host.HOST) = struct
         (* Nothing here happened. The tree that queued this work was never
            committed, so its setups are owed to no one, and the cleanups are
            owed by components still standing in the tree that was kept. *)
-        Hook.discard root.pending;
+        Hook.Runtime.discard root.pending;
         (* And a frame that was asked for before this one is still asked for. *)
         root.dirty <- owed || root.dirty;
         (* Said, because the mounts and unmounts already reported cannot be. A
@@ -362,10 +364,10 @@ module Make (H : Host.HOST) = struct
     in
     unmount_opt ~context root.tree;
     (* Emptied before the flush rather than after it, so that a second destroy
-       has nothing to walk: {!Hook.on_unmount} reads a cleanup out of its cell
+       has nothing to walk: {!Hook.Runtime.on_unmount} reads a cleanup out of its cell
        without clearing it, and a row walked twice would owe it twice. *)
     root.tree <- None;
-    Hook.flush root.pending;
+    Hook.Runtime.flush root.pending;
     (* A frame asked for before this, by a tree that is now gone. Nothing can
        ask for one after it: the flush above put every row out of the tree, and
        a setter on a row that has left says nothing to the root — which is what

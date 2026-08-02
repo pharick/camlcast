@@ -16,22 +16,13 @@ type motion = {
   pitch : float;  (** change in view pitch this frame, + looks up *)
 }
 (** What the player is asking for over one frame, as finished per-frame deltas,
-    so {!Engine} can apply it straight to the {!Player}. {!Binding.motion} is
-    what produces one; the type lives here because it is what a frame of input
-    amounts to. *)
+    so {!Camlcast_core.Engine} can apply it straight to the
+    {!Camlcast_core.Player}. {!Binding.motion} is what produces one; the type
+    lives here because it is what a frame of input amounts to. *)
 
 val still : motion
 (** Asking for nothing: all four zero. What an unfocused frame is worth, and the
     base a game builds its own motion on top of. *)
-
-val mouse_delta : unit -> float * float
-(** How far the mouse moved since the last call. Relative mouse mode (enabled by
-    {!Engine}) reports these deltas and keeps the cursor pinned, so it never
-    runs into a screen edge.
-
-    SDL accumulates the delta until somebody reads it, so this has to be called
-    every frame whether the answer is wanted or not, focused or not. The loop
-    does; a game has no reason to. *)
 
 type button =
   | Left
@@ -140,13 +131,13 @@ val with_pointer : actions -> int * int -> actions
     what is held, what has just been pressed and how long it has been held is
     the frame's own and comes through untouched.
 
-    {!Engine} is what this is for, and its one use of it. {!sample} reports the
-    cursor where SDL does, in the window's coordinates; the framebuffer is a
-    fraction of that size, so the loop puts the cursor into the buffer's
-    coordinates before a game is handed the frame — which is the one thing about
-    a frame of input that somebody other than this module knows better. The only
-    function here that builds an [actions] out of another one without rolling a
-    frame forward. *)
+    {!Camlcast_core.Engine} is what this is for, and its one use of it.
+    {!Camlcast_core.Input.Runtime.sample} reports the cursor where SDL does, in
+    the window's coordinates; the framebuffer is a fraction of that size, so the
+    loop puts the cursor into the buffer's coordinates before a game is handed
+    the frame — which is the one thing about a frame of input that somebody
+    other than this module knows better. The only function here that builds an
+    [actions] out of another one without rolling a frame forward. *)
 
 val advance :
   ?tapped:(control -> bool) ->
@@ -166,90 +157,126 @@ val advance :
     frame, so {!pressed} is true now and {!released} is true on the frame after,
     and the hold reads the [0.] a tap is worth. A control that is both held and
     tapped is just held, and nothing says it twice. Say nothing and nothing was
-    tapped, which is what {!freeze} wants.
+    tapped, which is what {!Camlcast_core.Input.Runtime.freeze} wants.
 
     This is the whole of the edge detection and the hold timer, and none of it
     touches SDL — hand it a [down] of your own and a frame of input is a value
     you can write down, which is how everything here is tested and how a game
-    can test its own controls without a window. {!sample} is this with the real
-    keyboard supplied. *)
+    can test its own controls without a window.
+    {!Camlcast_core.Input.Runtime.sample} is this with the real keyboard
+    supplied. *)
 
-val freeze : actions -> actions
-(** The same frame again, with nothing having changed and no time having passed:
-    what a frame the window spent out of focus is worth.
+module Runtime : sig
+  (** The loop's half of this module: what {!Camlcast_core.Engine} calls once a
+      frame, and what a game has no use for.
 
-    It is {!advance} handed back what was already held, over a frame of zero
-    seconds, so the edges and the hold timer stay stated in exactly one place.
-    [down] and [was_down] come out equal, so neither {!pressed} nor {!released}
-    fires; a control held across the pause keeps the total it had rather than
-    growing; and a control let go of while nobody was looking arrives as an
-    ordinary {!released} on the first frame the window is back, which is the
-    frame a game could have done anything about it.
+      {b Here to be hard to reach rather than merely documented as such.} Every
+      one of these was beside {!pressed} and {!held_for} in one flat namespace,
+      three of them saying in prose that a game had no reason to call them —
+      which is a sentence, not a boundary. Two do more than nothing if a game
+      does: {!Runtime.mouse_delta} reads SDL's accumulated motion
+      {e and clears it}, so a game that calls it leaves the loop's own call
+      reading zero and the camera dead for that frame; {!Runtime.drain} empties
+      the event queue, including the quit event the loop is watching for.
 
-    The mouse is set back to nothing rather than carried, because unlike the
-    controls it is a movement and not a state: keeping the previous frame's
-    would report the same inch of desk twice.
+      Neither is prevented by a submodule, and this does not pretend otherwise.
+      What it does is take them out of the namespace a game completes against
+      and out of {!Camlcast.Input}, which does not re-export this — so reaching
+      one means naming [Camlcast_core] and this module, which is the boundary
+      [lib/dune] describes: a decision with a diff. *)
 
-    {!Engine.simulate} already stops the clock and drops the motion of an
-    unfocused frame. This is the third of the three, and it has to happen where
-    the sampling does: by the time [simulate] has the actions the seconds have
-    been counted, and no amount of suppression downstream can un-count them. *)
+  val mouse_delta : unit -> float * float
+  (** How far the mouse moved since the last call. Relative mouse mode (enabled
+      by {!Camlcast_core.Engine}) reports these deltas and keeps the cursor
+      pinned, so it never runs into a screen edge.
 
-type queue
-(** What went past in the event queue during one frame: whether the window
-    system asked the program to stop, and which controls were seen going down.
-    Abstract for the same reason {!actions} is — the second of those is an
-    array, and it is nobody's to write into. *)
+      SDL accumulates the delta until somebody reads it, so this has to be
+      called every frame whether the answer is wanted or not, focused or not.
+      The loop does; a game has no reason to. *)
 
-val drain : Tsdl.Sdl.event -> queue
-(** Drain the event queue into one of those, reading into the caller's event
-    record rather than allocating one per event.
+  val freeze : actions -> actions
+  (** The same frame again, with nothing having changed and no time having
+      passed: what a frame the window spent out of focus is worth.
 
-    Draining is the part that has to happen: the queue must be pumped every
-    frame even when nothing in it interests us, or the window stops responding.
-    What the caller gets for it is what went past.
+      It is {!advance} handed back what was already held, over a frame of zero
+      seconds, so the edges and the hold timer stay stated in exactly one place.
+      [down] and [was_down] come out equal, so neither {!pressed} nor
+      {!released} fires; a control held across the pause keeps the total it had
+      rather than growing; and a control let go of while nobody was looking
+      arrives as an ordinary {!released} on the first frame the window is back,
+      which is the frame a game could have done anything about it.
 
-    Two kinds of thing are kept. The window asking to close — the close button,
-    or Cmd-Q, which reaches SDL by the same road — comes back out of {!closed}.
-    And every key and mouse button seen going {e down} is remembered for
-    {!sample}, because a control the player taps inside a single frame is up
-    again by the time the keyboard is read, and reading state alone loses it
-    entirely: no press, no release, nothing at all. Coming {e up} is not
-    remembered, having no need to be — the device already reports a control that
-    is up as up. Nor is auto-repeat filtered out, because a repeat means the key
-    is held, and the mark it leaves is one the state was going to make anyway.
+      The mouse is set back to nothing rather than carried, because unlike the
+      controls it is a movement and not a state: keeping the previous frame's
+      would report the same inch of desk twice.
 
-    What is still lost is the control released {e and} pressed again inside one
-    frame: it is down at both ends of this frame and was down at both ends of
-    the last, so there is no edge to be had without keeping the whole queue in
-    order — a great deal of machinery for a sixteen millisecond double tap
-    nobody can perform.
+      {!Camlcast_core.Engine.simulate} already stops the clock and drops the
+      motion of an unfocused frame. This is the third of the three, and it has
+      to happen where the sampling does: by the time [simulate] has the actions
+      the seconds have been counted, and no amount of suppression downstream can
+      un-count them. *)
 
-    No key is read here as a {e binding}, not even the two the engine acts on
-    itself. Fullscreen and leaving the run are ordinary state from {!Binding},
-    like anything a game binds: {!pressed} is already true for exactly one frame
-    per press, which is the whole of what watching for the event used to buy.
-    What a {e player} means by a control is {!sample}'s business; what the
-    {e window} meant is this one's. *)
+  type queue
+  (** What went past in the event queue during one frame: whether the window
+      system asked the program to stop, and which controls were seen going down.
+      Abstract for the same reason {!actions} is — the second of those is an
+      array, and it is nobody's to write into. *)
 
-val closed : queue -> bool
-(** Whether the window system asked the program to stop while the queue was
-    being read. {!Engine}'s loop asks this first, and leaves if it is true. *)
+  val drain : Tsdl.Sdl.event -> queue
+  (** Drain the event queue into one of those, reading into the caller's event
+      record rather than allocating one per event.
 
-val quiet : queue
-(** A frame in which nothing whatever went past. What the first sample of a run
-    starts from, there being no queue to drain before the run has begun. *)
+      Draining is the part that has to happen: the queue must be pumped every
+      frame even when nothing in it interests us, or the window stops
+      responding. What the caller gets for it is what went past.
 
-val sample : actions -> queue -> mouse:float * float -> dt:float -> actions
-(** Read the keyboard and the mouse buttons as they are now, add what the
-    frame's [queue] saw going down, and roll a frame forward onto the pair.
-    [mouse] comes in from {!mouse_delta}, which {!Engine} calls whether this is
-    reached or not.
+      Two kinds of thing are kept. The window asking to close — the close
+      button, or Cmd-Q, which reaches SDL by the same road — comes back out of
+      {!closed}. And every key and mouse button seen going {e down} is
+      remembered for {!sample}, because a control the player taps inside a
+      single frame is up again by the time the keyboard is read, and reading
+      state alone loses it entirely: no press, no release, nothing at all.
+      Coming {e up} is not remembered, having no need to be — the device already
+      reports a control that is up as up. Nor is auto-repeat filtered out,
+      because a repeat means the key is held, and the mark it leaves is one the
+      state was going to make anyway.
 
-    The keyboard array SDL hands back is its own and it changes underneath us,
-    so {!advance} copies out of it rather than keeping it. The cursor comes out
-    in window coordinates; {!Engine} scales it into the framebuffer's with
-    {!with_pointer}, being the one that knows how the two compare.
+      What is still lost is the control released {e and} pressed again inside
+      one frame: it is down at both ends of this frame and was down at both ends
+      of the last, so there is no edge to be had without keeping the whole queue
+      in order — a great deal of machinery for a sixteen millisecond double tap
+      nobody can perform.
 
-    The loop's seam, and the one thing here that needs SDL running. What it
-    makes of the two is {!advance}'s [down] and [tapped], which need nothing. *)
+      No key is read here as a {e binding}, not even the two the engine acts on
+      itself. Fullscreen and leaving the run are ordinary state from {!Binding},
+      like anything a game binds: {!pressed} is already true for exactly one
+      frame per press, which is the whole of what watching for the event used to
+      buy. What a {e player} means by a control is {!sample}'s business; what
+      the {e window} meant is this one's. *)
+
+  val closed : queue -> bool
+  (** Whether the window system asked the program to stop while the queue was
+      being read. {!Camlcast_core.Engine}'s loop asks this first, and leaves if
+      it is true. *)
+
+  val quiet : queue
+  (** A frame in which nothing whatever went past. What the first sample of a
+      run starts from, there being no queue to drain before the run has begun.
+  *)
+
+  val sample : actions -> queue -> mouse:float * float -> dt:float -> actions
+  (** Read the keyboard and the mouse buttons as they are now, add what the
+      frame's [queue] saw going down, and roll a frame forward onto the pair.
+      [mouse] comes in from {!mouse_delta}, which {!Camlcast_core.Engine} calls
+      whether this is reached or not.
+
+      The keyboard array SDL hands back is its own and it changes underneath us,
+      so {!advance} copies out of it rather than keeping it. The cursor comes
+      out in window coordinates; {!Camlcast_core.Engine} scales it into the
+      framebuffer's with {!with_pointer}, being the one that knows how the two
+      compare.
+
+      The loop's seam, and the one thing here that needs SDL running. What it
+      makes of the two is {!advance}'s [down] and [tapped], which need nothing.
+  *)
+end

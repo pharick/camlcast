@@ -342,8 +342,8 @@ val simulate :
     whether time stops for it is a question only the game can answer.
 
     The actions are not suppressed here, and want no suppression: an unfocused
-    frame's have already been frozen by the loop, through {!Input.freeze}, which
-    is the only place they still could be. Their hold timer is fed the real
-    length of the frame at the moment they are sampled, so by the time they
-    arrive here the seconds are counted and nothing done to them would give
-    those back. *)
+    frame's have already been frozen by the loop, through
+    {!Input.Runtime.freeze}, which is the only place they still could be. Their
+    hold timer is fed the real length of the frame at the moment they are
+    sampled, so by the time they arrive here the seconds are counted and nothing
+    done to them would give those back. *)
