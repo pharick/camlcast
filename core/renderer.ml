@@ -343,7 +343,6 @@ type mask =
     one divide per column instead of a dot product per pixel. *)
 let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
     ~depth_s ~mask =
-  let open Viewport in
   let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
   let depth = fb.Framebuffer.depth in
   let floor_z = Plane.elevation (Room.floor_plane room) s.Room.pos in

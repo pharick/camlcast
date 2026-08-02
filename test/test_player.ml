@@ -219,7 +219,10 @@ let rounding_a_jamb_is_not_a_crossing () =
    it has seen, and keeping a route home it can walk backwards — so the order
    and the identities have to be exact, not merely the count. *)
 
-let at world ~room ~pos = Player.make ~room ~pos ~angle:0.
+(* The world is named at each call site because that is what makes the helper
+   read as "a player at this spot in that world", and is not needed to build
+   one: [Player.make] takes the room index and the position and nothing else. *)
+let at _world ~room ~pos = Player.make ~room ~pos ~angle:0.
 
 (* Most frames go through no doorway at all, and the list has to be empty rather
    than approximately empty. *)

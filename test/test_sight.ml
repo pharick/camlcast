@@ -289,7 +289,7 @@ let a_wall_occludes_and_names_itself () =
       (rooms ~far:[ figure (Vec.make 2. 2.) ] ())
   in
   match Sight.look blocked (looking_east ()) with
-  | Some { Sight.kind = Sight.Wall w; room; distance; crossed } ->
+  | Some { Sight.kind = Sight.Wall w; room; distance; crossed; _ } ->
       Alcotest.(check int) "the room the player is in" 0 room;
       Alcotest.(check int) "no doorway crossed" 0 crossed;
       Alcotest.(check int) "the wall just added, last in the array" 5 w.index;

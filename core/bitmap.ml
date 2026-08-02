@@ -79,10 +79,6 @@ let load path =
 let offset t ~x ~y = ((y * t.width) + x) * 4
 let channel t i = Char.code (Bytes.unsafe_get t.rgba i)
 
-(* How solid pixel [(x, y)] is. A file with no alpha channel of its own has
-    been converted to one that has, and arrives fully solid throughout. *)
-let alpha t ~x ~y = channel t (offset t ~x ~y + 3)
-
 let sample t ~u ~v =
   let i = offset t ~x:u ~y:v in
   ( Color.rgb (channel t i) (channel t (i + 1)) (channel t (i + 2)),

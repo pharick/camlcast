@@ -2,6 +2,20 @@
 
 (name camlcast)
 
+; A stanza may only use what it names. Left implicit, a library's dependencies
+; are visible to everything that depends on it, so a module can come to lean on
+; something no dune file in its directory mentions — and the dependency is then
+; real but invisible, removable only by accident. This repo cares about that
+; more than most: loom/dune's empty (libraries) is the rule that keeps the
+; reconciler from knowing what a pixel is, and test/dune keeps three suites
+; apart on the same principle. A boundary the build enforces one directory at a
+; time should not be porous the moment it is crossed transitively.
+;
+; It cost one line to turn on: test_loom reaches QCheck2 through qcheck-alcotest
+; and now says qcheck-core out loud.
+
+(implicit_transitive_deps false)
+
 (generate_opam_files true)
 
 (source
@@ -36,6 +50,11 @@
   ; in — and those are worth checking against generated input rather than
   ; against the handful of cases anyone thinks to write down.
   (qcheck-alcotest :with-test)
+  ; QCheck2, where the generators and shrinkers themselves live. qcheck-alcotest
+  ; brings it either way; it is named because (implicit_transitive_deps false)
+  ; means test/dune has to name it, and a library a dune file names is one the
+  ; package should ask for rather than inherit.
+  (qcheck-core :with-test)
   ; The declarative layer assembles a World every frame where the old API built
   ; one and kept it, so "is that too slow?" becomes a question this repo has to
   ; be able to answer. It could not before: there is no benchmark here at all,

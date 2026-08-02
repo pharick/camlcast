@@ -7,7 +7,16 @@
 ; genuinely needs World or Renderer adds camlcast.core to its own dune and says
 ; so out loud, which is the boundary being a decision rather than a drift.
 
+; -w +70 is "every module in here has an .mli", which all twenty-nine already
+; did: the flag costs nothing today and is here to keep it that way. A module
+; without an interface exports every binding in it, which is the state
+; 9d84dbe went through the tree to end — so the invariant is worth a check
+; rather than a habit. It is set per library rather than at the root because
+; demo/ is twenty-nine deliberately .mli-less files, one showcase each.
+
 (library
+ (flags
+  (:standard -w +70))
  (name camlcast_core)
  (public_name camlcast.core)
  (libraries tsdl tsdl-image))

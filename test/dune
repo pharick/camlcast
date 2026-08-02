@@ -110,7 +110,7 @@
  (names test_loom)
  (modules test_loom)
  (package camlcast)
- (libraries camlcast_loom alcotest qcheck-alcotest))
+ (libraries camlcast_loom alcotest qcheck-alcotest qcheck-core))
 
 ; The binding's own. This one does link camlcast, because that is the whole of
 ; what it is testing: that a description assembles into the same world the old

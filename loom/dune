@@ -17,6 +17,11 @@
 ; Adding camlcast to this line would compile. It would also silently delete all
 ; three, so it is a rule and not a preference.
 
+; -w +70 for the same reason it is in core/dune: all eight modules here already
+; carry an .mli, and the flag is what keeps the ninth from arriving without one.
+
 (library
+ (flags
+  (:standard -w +70))
  (name camlcast_loom)
  (public_name camlcast.loom))
