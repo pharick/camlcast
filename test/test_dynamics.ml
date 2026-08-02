@@ -76,9 +76,64 @@ let joined =
         link ("west", "east") ("east", "west");
       ])
 
+(* Whether the crosshair is the player's, which decides whether anything in the
+   world is told about it.
+
+   The loop used to cast and dispatch every frame whatever the description said,
+   so a pause menu — P.cursor, the mouse loose over a corridor — left the use
+   control working the door behind it, and a cutscene camera dragged on_gaze
+   enter and leave across everything it panned over. Neither is the player
+   aiming at anything. Run.aiming is exposed for the same reason carry and
+   crossings_of are: it is the loop's decision as a function of values, so this
+   asks the loop's own question rather than one written to look like it. *)
+let interacting =
+  let plain contents =
+    Mount.build
+      (world_of
+         ~spawn:("hall", Vec.make 0. 0.)
+         (box ~name:"hall" ~at:0. [] :: contents))
+  in
+  [
+    case "ordinary play aims" (fun () ->
+        Alcotest.(check bool)
+          "nothing has taken the view" true
+          (Run.aiming (plain [])));
+    case "a description asking for the pointer does not" (fun () ->
+        Alcotest.(check bool)
+          "a pause menu is up" false
+          (Run.aiming (plain [ P.cursor ])));
+    case "nor does one placing the camera" (fun () ->
+        Alcotest.(check bool)
+          "a cutscene has the eye" false
+          (Run.aiming
+             (plain
+                [ P.camera ~room:"hall" ~pos:(Vec.make 0. 0.) ~angle:0. () ])));
+    case "nor both at once" (fun () ->
+        Alcotest.(check bool)
+          "neither of them is the player" false
+          (Run.aiming
+             (plain
+                [
+                  P.cursor;
+                  P.camera ~room:"hall" ~pos:(Vec.make 0. 0.) ~angle:0. ();
+                ])));
+    case "and a placed camera reports no crossings" (fun () ->
+        (* Putting the eye somewhere is a jump and not a walk, so there is no
+           path along which a doorway was gone through. Documented on
+           Events.crossings; asserted here because it is the sort of thing that
+           gets quietly changed. *)
+        let scene =
+          plain [ P.camera ~room:"hall" ~pos:(Vec.make 0. 0.) ~angle:0. () ]
+        in
+        Alcotest.(check bool)
+          "the camera is the description's" true
+          (Option.is_some scene.Scene.camera));
+  ]
+
 let () =
   Alcotest.run "Dynamics"
     [
+      ("interacting", interacting);
       ( "a world that changes shape",
         [
           case "the player stays in the room, not in the index" (fun () ->

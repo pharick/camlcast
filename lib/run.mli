@@ -97,6 +97,28 @@ val crossings_of : Scene.t -> Player.movement -> Events.crossing list
     player about should be able to ask it the same question the loop does rather
     than a similar one it wrote itself. *)
 
+val aiming : Scene.t -> bool
+(** Whether the crosshair is the player's this frame, and so whether the things
+    it lands on are told about it.
+
+    Gaze and use are not "something is under the middle of the screen". They are
+    the player looking at a thing and working it, and there are two states a
+    description can put a frame in where the middle of the screen is not that.
+    Under {!P.cursor} the mouse is loose and does not turn the camera, so the
+    crosshair sits wherever the view was left — a pause menu over a corridor,
+    and the use control working the door behind it. Under a placed {!P.camera}
+    the view is the description's rather than the player's, so a cutscene
+    panning across a room would drag [on_gaze] enter and leave over everything
+    it swept past.
+
+    False in either. What is suppressed is the {e telling}: {!Events.aim} still
+    reports what the crosshair is on, because a description that took the camera
+    may well want to know what is in front of it. And whatever held the
+    crosshair when the menu went up is told it has lost it, so nothing is left
+    highlighted behind a description that has taken the screen.
+
+    Exposed for the same reason {!carry} and {!crossings_of} are. *)
+
 val carry : Scene.t -> was:string -> Player.t -> Player.t
 (** The same pose, in the room this scene calls [was].
 

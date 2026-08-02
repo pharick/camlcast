@@ -245,6 +245,14 @@ val camera :
     [angle] is in radians and [pitch] is the fraction of the window height the
     horizon is shifted by, the same as the mouse gives.
 
+    {b Nor is the world worked through this eye.} The view is the description's,
+    so [on_gaze] and [on_use] are silent for as long as one of these is placed:
+    a pan across a room does not drag an enter and a leave over everything it
+    sweeps past, and the use control does not work whatever the camera happens
+    to be facing. See {!Run.aiming}. {!Events.crossings} is empty for the same
+    reason on the other axis — putting the eye somewhere is a jump and not a
+    walk, so there is no path along which a doorway was gone through.
+
     {b One to a world.} A description that places the camera twice is saying two
     things, and what it is answered with is the last one written — a rule worth
     knowing rather than discovering, since two components can each be sure they
@@ -331,6 +339,14 @@ val cursor : t
     screen drawn over a world wants, and what the world underneath must not also
     want at the same time. Take it out again and the mouse goes back to looking
     around.
+
+    {b Nothing in the world is worked while this is up.} The crosshair is not
+    the player's — the mouse is loose, so it sits wherever the view was left —
+    and the runtime stops telling things they are under it. [on_gaze] and
+    [on_use] are both silent, so the use control does not work the door behind a
+    pause menu, and whatever was lit when this appeared is told it has been let
+    go. See {!Run.aiming}. What still answers is {!Events.aim}, which is asked
+    rather than told.
 
     Declared rather than called, because everything else here is. *)
 

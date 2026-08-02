@@ -50,7 +50,15 @@ type t = {
 
           Last frame's, because a description is rendered before the player is
           moved through the world it describes. One frame late, like
-          {!type-t.viewport}, and for the same reason. *)
+          {!type-t.viewport}, and for the same reason.
+
+          {b Empty while a description is placing the camera.} A placed
+          {!P.camera} is put where the description says each frame, which is a
+          jump and not a walk — there is no path for it to have crossed anything
+          along, and any doorway between one frame's position and the next is a
+          guess rather than a thing that happened. A cutscene that wants to
+          announce where it has reached knows where it put the camera and can
+          say so directly. *)
   aim : Aim.spot option;
       (** what the crosshair was on when the {e last} frame was drawn, and where
           on it.

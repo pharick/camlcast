@@ -37,6 +37,10 @@ let carry (scene : Scene.t) ~was player =
       Player.through Transform.identity ~room player
   | None -> Player.spawn scene.Scene.world
 
+(* Whether the crosshair is the player's this frame. See where it is used. *)
+let aiming (scene : Scene.t) =
+  (not scene.Scene.pointing) && Option.is_none scene.Scene.camera
+
 type frame = {
   player : Player.t;
   (* The room by name rather than by index, because a description is rebuilt
@@ -121,11 +125,31 @@ let on window ?(controls = Controls.default) description =
        is what makes those two the same answer rather than two answers taken a
        few lines apart. *)
     let sight = Sight.look scene.Scene.world player in
+    (* Whether the player is aiming this, which is what gaze and use are about.
+       They are not "something is under the middle of the screen"; they are the
+       player looking at a thing and working it, and there are two states where
+       the middle of the screen is not that.
+
+       Under {!P.cursor} the mouse is loose and does not turn the camera, so the
+       crosshair is wherever the view was left rather than anywhere the player
+       is pointing — a pause menu over a corridor, and the use key working the
+       door behind it. Under a placed camera the view is the description's: a
+       cutscene panning across a room would otherwise drag gaze enter and leave
+       over everything it swept past, and the use key would work whatever the
+       camera happened to be facing.
+
+       Suppressed by handing on no cast rather than by skipping the call. The
+       difference is the leave: whatever held the crosshair when the menu went up
+       is told it has lost it, and a highlight is not left burning behind a
+       description that has taken the screen. *)
+    let aiming = aiming scene in
     (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
        no logic of its own that could only be tested through a window. *)
     let looking =
-      Aim.crosshair scene.Scene.targets ~sight ~was:state.gazed
-        ~used:(Binding.taken controls.Controls.use actions)
+      Aim.crosshair scene.Scene.targets
+        ~sight:(if aiming then sight else None)
+        ~was:state.gazed
+        ~used:(aiming && Binding.taken controls.Controls.use actions)
     in
     (* And the same cast as a value, for a description that shows something
        about whatever is being looked at without the thing itself having to say
