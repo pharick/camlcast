@@ -90,30 +90,42 @@ let is what got = Alcotest.(check string) "" what (describe got)
    the image and not only on the box around it — and the horizontal half of that
    comes from the image's {e width}. The picture here is 16 across and 12 down,
    so the two extents are different numbers and reading across by the wrong one
-   lands somewhere else: its left half is clear and its right half solid, and a
-   version indexing columns by the height would put the middle of the box at
-   column 6 rather than 8, which is on the clear side.
+   lands somewhere else: a version indexing columns by the height would put the
+   middle of the box at column 6 rather than 8.
+
+   The split is at 7 and not at the middle, which matters for a reason worth
+   writing down. Dead ahead the crosshair falls on the box's exact centre, and
+   for a 16-wide picture that is exactly the boundary between columns 7 and 8 —
+   a real number the renderer reaches through the projection and this reaches
+   through [sprite_half_width], agreeing to about [5e-16] and therefore
+   disagreeing about which side of the boundary it is on. Split anywhere else
+   and the two land on the same side of the split whichever way that ulp falls.
+   Split there, as this fixture used to, and the case being asserted is the
+   rounding of a tie rather than the thing the test is named for.
 
    The renderer maps a sprite's screen box onto the image exactly this way, so
-   this is also what keeps what can be picked the same as what is drawn. *)
+   this is also what keeps what can be picked the same as what is drawn. That is
+   what the off-axis case below is really pinning: it was written the other way
+   round, against a {!Sight} that read the sprite mirrored, and it passed. *)
 let a_sprite_is_read_across_by_its_width () =
   let split =
     Image.make ~height:12 ~width:16 (fun ~u ~v:_ ->
-        if u < 8 then Image.clear else (Color.rgb 200 60 60, 255))
+        if u < 7 then Image.clear else (Color.rgb 200 60 60, 255))
   in
   let world =
     rooms ~near:[ Room.sprite ~size:1.4 ~image:split (Vec.make 3.5 2.) ] ()
   in
-  (* Dead ahead: the middle of the sprite's width, which is the first solid
-     column. *)
+  (* Dead ahead: the middle of the sprite's width, which is solid. Indexed by
+     the height instead it would be column 6, which is not. *)
   is "sprite 0 of room 0"
     (Sight.look world (looking_east ~from:(Vec.make 2. 2.) ()));
-  (* A quarter of the way across it, which is on the side that was cut away. The
-     crosshair passes through and carries on into the room beyond, so what it
-     finds there is the far room's business — all this case is asserting is that
-     the sprite is not it. *)
+  (* A quarter of the way across it, which is on the side that was cut away —
+     and to the sprite's {e left} as the frame shows it, which is the half of
+     this a mirrored reading gets wrong. The crosshair passes through and
+     carries on into the room beyond, so what it finds there is the far room's
+     business; all this case asserts is that the sprite is not it. *)
   let past =
-    describe (Sight.look world (looking_east ~from:(Vec.make 2. 2.35) ()))
+    describe (Sight.look world (looking_east ~from:(Vec.make 2. 1.65) ()))
   in
   Alcotest.(check bool)
     (Printf.sprintf "the cut-away side is seen through (found %s)" past)

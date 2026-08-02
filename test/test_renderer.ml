@@ -100,6 +100,80 @@ let looking_east ?(pos = Vec.make 0. 0.) () = Player.make ~room:0 ~pos ~angle:0.
 let viewport ~floor_z =
   Viewport.make ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
 
+(* Everything else in the family above — a grille, a room through a doorway, the
+   corner of one, a mark on a wall — is picked where it is drawn because both
+   sides read one function. A sprite is the exception, and it is the exception on
+   purpose: {!Sight} asks {!Room.sprite_column} and {!Room.sprite_row} in world
+   coordinates, while {!Renderer} inverts them once into a screen rectangle and
+   interpolates across it, one divide per column instead of a dot product per
+   pixel. The two are the same map read from opposite ends, and nothing but care
+   was holding them equal.
+
+   Care was not enough. {!Sight} passed the sprite's offset from the eye where
+   {!Room.sprite_column} wanted the crosshair's offset from the sprite, so the
+   picking was the mirror image of the drawing — a sprite pickable exactly where
+   it is transparent. Nothing caught it: the width test is on an absolute value,
+   the row is a separate calculation that was always right, and every sprite in
+   the suite was symmetric or solid to its edges.
+
+   So this is the case that could not have been written as a claim about
+   coordinates. It sweeps a lopsided sprite across the view and asks the two
+   questions that must have one answer — did the frame put this sprite under the
+   crosshair, and does the crosshair say it is on it — reading the first from the
+   picture, by rendering the same world with and without it and looking at the
+   one pixel in the middle.
+
+   The picture is cut at column 5 of 16 rather than at its middle, which is not
+   fussiness. Dead ahead the crosshair falls on the box's exact centre, and for
+   an even-width picture that is exactly a texel boundary: the renderer reaches
+   that real number through the projection and {!Sight} through
+   {!Room.sprite_half_width}, they agree to about [5e-16], and a [floor] turns
+   that into two different columns. Off the middle, the ulp changes nothing. *)
+let a_sprite_is_picked_where_it_is_drawn () =
+  let lopsided =
+    Image.make ~width:16 ~height:16 (fun ~u ~v:_ ->
+        if u < 5 then Image.clear else (Color.rgb 255 0 255, 255))
+  in
+  (* Odd extents, so there is an exact middle pixel and the crosshair has one
+     pixel to be under. *)
+  let width = 201 and height = 101 in
+  let world sprites =
+    World.make
+      ~rooms:[ ("hall", hall ~extra:[] sprites) ]
+      ~links:[] ~atmosphere:air
+      ~spawn:("hall", Vec.make 0. 0.)
+  in
+  let seen = ref 0 and unseen = ref 0 in
+  List.iter
+    (fun offset ->
+      let s = Room.sprite ~size:1.5 ~image:lopsided (Vec.make 6. offset) in
+      let player = looking_east () in
+      let with_it = world [ s ] and without = world [] in
+      let a = Framebuffer.offscreen ~width ~height
+      and b = Framebuffer.offscreen ~width ~height in
+      Renderer.draw_frame a with_it player;
+      Renderer.draw_frame b without player;
+      let x = width / 2 and y = height / 2 in
+      let drawn = Framebuffer.pixel a ~x ~y <> Framebuffer.pixel b ~x ~y in
+      let picked =
+        match Sight.look with_it player with
+        | Some { Sight.kind = Sight.Sprite _; _ } -> true
+        | _ -> false
+      in
+      if drawn then incr seen else incr unseen;
+      Alcotest.(check bool)
+        (Printf.sprintf
+           "at %+.2f across, the crosshair agrees with the frame (drawn %b)"
+           offset drawn)
+        drawn picked)
+    [ -0.6; -0.5; -0.4; -0.3; -0.2; -0.1; 0.1; 0.2; 0.3; 0.4; 0.5; 0.6 ];
+  (* Both answers have to occur, or a sweep that missed the sprite entirely
+     would agree about nothing and pass. *)
+  Alcotest.(check bool)
+    (Printf.sprintf "the sweep crossed the cut (%d on, %d off)" !seen !unseen)
+    true
+    (!seen > 0 && !unseen > 0)
+
 (* A material whose colour changes from texel to texel. Everything else in this
    file is drawn on flat [pale], and against a flat material a cast that lands
    at the wrong world point shows the very same colour — the only thing left to
@@ -2086,6 +2160,8 @@ let () =
             a_doorway_onto_nothing_stops_where_the_floor_starts;
           case "a billboard covers the pixels its box holds"
             a_billboard_covers_the_pixels_its_box_holds;
+          case "a sprite is picked where it is drawn"
+            a_sprite_is_picked_where_it_is_drawn;
         ] );
       ( "the size a frame is drawn at",
         [

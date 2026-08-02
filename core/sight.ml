@@ -28,10 +28,20 @@ type t = {
     {!Room.sprite_column} and {!Room.sprite_row} the drawn rectangle is built
     from — so this agrees with the picture by construction rather than by care,
     the way {!decal_at} does below. That includes a sprite floating above the
-    floor: the crosshair passing under its foot finds whatever is behind it. *)
+    floor: the crosshair passing under its foot finds whatever is behind it.
+
+    {!Room.sprite_column} wants the {e point's} offset from the sprite's centre,
+    and the point here is the crosshair, which sits at zero along [right] by
+    definition of being the centre ray. So the offset is the sprite's own,
+    negated — which is [pos - sprite.pos] and not the other way round. Written
+    the other way round it was, and being a mirror it never showed: the width
+    test is on the absolute value, the row is a separate calculation, and every
+    sprite anyone had pointed at was symmetric or solid to its edges. What it
+    cost was a sprite with a lopsided cut-out being pickable exactly where it is
+    transparent. See [a_sprite_is_picked_where_it_is_drawn]. *)
 let touches (pose : Player.t) (sprite : Room.sprite) ~floor ~z =
   let lateral =
-    Vec.dot (Vec.sub sprite.Room.pos pose.Player.pos) pose.Player.right
+    Vec.dot (Vec.sub pose.Player.pos sprite.Room.pos) pose.Player.right
   in
   match
     ( Room.sprite_column sprite ~lateral,

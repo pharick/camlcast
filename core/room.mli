@@ -332,7 +332,32 @@ val sprite_column : sprite -> lateral:float -> int option
     picture", so what can be picked stays exactly what is drawn. {!Sight} asks
     both at once; {!Renderer} inverts them once per sprite into a screen
     rectangle and interpolates across it, which is the same rule read from the
-    other end. *)
+    other end.
+
+    {b And that is the one place in the engine where the two ends are not the
+       same code.} A wall's are: {!Sight} and {!Renderer} both reach
+    {!Texture.column_of_offset} and {!Texture.row_of_height}, so there is
+    nothing to keep in step. A sprite's cannot be, because the renderer's end is
+    per pixel of every billboard and this end is a dot product — the screen
+    rectangle exists to turn that into one divide per column. What holds them
+    equal is care, and care is worth exactly the test under it: care had them
+    mirrored, {!Sight} passing the sprite's offset from the eye where this wants
+    the point's offset from the sprite, and a sprite with a lopsided cut-out was
+    pickable precisely where it is transparent. Nothing in this repository could
+    see it — every sprite drawn here is symmetric or solid to its edges — so
+    what says otherwise now is [a_sprite_is_picked_where_it_is_drawn], which
+    sweeps a deliberately lopsided one and compares the answer against the
+    frame.
+
+    One caveat that survives, and is not worth removing. Dead ahead the
+    crosshair falls on the box's exact centre, which for an even-width picture
+    is exactly a texel boundary. The renderer arrives at that number through the
+    projection and this arrives through {!sprite_half_width}; they agree to
+    about [5e-16] and so may land either side of the boundary, which is a
+    disagreement of one texel column in the one aiming position where a sprite
+    is likeliest to be symmetric anyway. Two routes to one real number cannot be
+    made to round alike, and the alternative is the renderer asking this per
+    pixel. *)
 
 val sprite_row : sprite -> floor_z:float -> z:float -> int option
 (** Where down a sprite's height an elevation [z] falls, as a row of its image,
