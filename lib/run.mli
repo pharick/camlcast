@@ -150,6 +150,16 @@ val play :
     can be spawned where its world says. After that it is rendered once per
     frame, and the components in it keep whatever they have accumulated.
 
+    That first render runs effects, because every render does — so
+    {!Events.use_frame} is called once with [dt = 0.] before anything is drawn,
+    and the scene it belonged to is never drawn either: the loop asks for the
+    next state before it draws, so what reaches the screen first is the second
+    render. It costs nothing to a handler that scales its work by [dt], which is
+    how one belongs written; {!Events.use_frame} says what it costs to one that
+    does not. The alternative is a loop that starts without knowing where the
+    player stands, and where a game's world says they start is a thing only the
+    game can answer, by being asked.
+
     A description that is not a world fails on that first render, before the
     window has drawn anything, and it fails by raising {!Host.Malformed} rather
     than by returning an error — a malformed description is a mistake in the

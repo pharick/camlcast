@@ -134,7 +134,27 @@ val use_frame : (dt:float -> unit) -> unit
     before it is drawn, which is where every effect runs and the only moment a
     component may reach outside itself. And [dt] is the last frame's because
     that is the last one whose length anyone knows — this one is still being
-    built. *)
+    built.
+
+    {b Once a render, strictly, and a render is not always a frame.} This is an
+    effect, so it runs whenever the description is rendered, and one render
+    happens before the loop does: {!Run.on} has to build the world once to find
+    out where its spawn is, and that build runs what it owes like any other. So
+    a handler is called once with [dt = 0.] before the first frame is drawn, and
+    the scene that pass belonged to is never shown — the loop asks a game for
+    its next state before it draws, so the first thing on the screen is already
+    the second render. The same goes for a render outside a run altogether:
+    {!Check.report}, {!Mount.build}, or a test that renders once, each fire this
+    once.
+
+    Which costs nothing if the work is scaled by [dt], since none passed, and
+    that is how the work belongs written anyway — a frame's length is not a
+    constant and a game that ignores it runs at the speed of the machine. A
+    handler that ticks by a fixed amount instead gets one tick before the player
+    exists. Nothing here will stop it: an effect that runs when the description
+    is built is the whole of what an effect is, and a runtime picking which
+    renders count would have to be right about {!Check.report} and about every
+    test as well. *)
 
 val use_pressed : Input.control -> (unit -> unit) -> unit
 (** Run this on the frame a control goes down, and not while it is held.

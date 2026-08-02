@@ -100,6 +100,30 @@ let () =
               in
               ignore (Mount.build (ticker ()));
               Alcotest.(check (float 1e-9)) "still" 0. !seen);
+          case "and runs the frame's work anyway, once, on no time at all"
+            (fun () ->
+              (* Because it is an effect, and a render runs what it owes. This
+                 is the pass {!Run.on} makes before the loop starts, to ask the
+                 description where its world says the player spawns: one call,
+                 [dt = 0.], and a scene that is never drawn — the loop asks a
+                 game for its next state before drawing, so the first thing on
+                 the screen is the render after this one. Check.report and every
+                 test that renders once do the same.
+
+                 Written down because a handler that scales its work by [dt]
+                 does nothing here and one that ticks by a fixed amount ticks
+                 early, and which of those a game wrote is the whole difference.
+                 A change that stops this happening is welcome and has two
+                 comments to bring with it. *)
+              let seen = ref [] in
+              let ticker =
+                Element.declare ~name:"ticker" @@ fun () ->
+                Events.use_frame (fun ~dt -> seen := dt :: !seen);
+                around [ box "room" 4. ]
+              in
+              ignore (Mount.build (ticker ()));
+              Alcotest.(check (list (float 1e-9)))
+                "one call, and no time in it" [ 0. ] !seen);
         ] );
       ( "controls",
         [
