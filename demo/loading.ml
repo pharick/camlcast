@@ -126,11 +126,7 @@ let build () =
     [camlcast-demo --list] from listing the demos, and is why the failure below
     can afford to name the file. *)
 let level =
-  lazy
-    (match build () with
-    | Ok level -> level
-    | Error (`Msg m) ->
-        failwith ("the loading demo could not read its art: " ^ m))
+  lazy (Reading.or_raise "the loading demo could not read its art" (build ()))
 
 let world = lazy (Mount.build (Lazy.force level)).Scene.world
 let run window = Run.on window (Lazy.force level)

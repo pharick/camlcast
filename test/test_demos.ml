@@ -172,14 +172,30 @@ let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
     (refused = Error (`Msg "no window"));
   let broken : (Engine.ending, [ `Msg of string ]) result =
     Catalogue.attempt (fun () ->
-        failwith "the loading demo could not read its art: assets/tiles.png")
+        Reading.or_raise "the loading demo could not read its art"
+          (Error (`Msg "assets/tiles.png")))
   in
-  match broken with
+  (match broken with
   | Ok _ -> Alcotest.fail "a demo that could not read its art came back Ok"
   | Error (`Msg message) ->
       Alcotest.(check bool)
         "a raised failure arrives as a message that still names the file" true
-        (mentions message "assets/tiles.png")
+        (mentions message "assets/tiles.png"));
+  (* And nothing else. The seam catches one exception and it is the demos' own,
+     so a mistake inside a frame — the [List.nth] that is one past the end, the
+     [Option.get] of nothing — goes out as itself rather than arriving here
+     dressed as a demo whose art could not be read. Reported that way it would
+     be reported calmly, under a message about a file that was never the
+     trouble, and the real mistake would appear nowhere in it. *)
+  Alcotest.check_raises "a Failure from anywhere else is not ours"
+    (Failure "index out of bounds") (fun () ->
+      ignore (Catalogue.attempt (fun () -> failwith "index out of bounds")));
+  Alcotest.check_raises "and neither is a refusal"
+    (Invalid_argument "Room.doorway: the opening has to fit under the wall")
+    (fun () ->
+      ignore
+        (Catalogue.attempt (fun () ->
+             invalid_arg "Room.doorway: the opening has to fit under the wall")))
 
 (* Growing is where a world was most easily broken, and the shape of the risk
    has changed. The old corridor grew by surgery — open_doorway to give a dead

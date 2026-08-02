@@ -22,9 +22,4 @@ let load () =
 
 (** The same font, read once and shared, for a demo already deep in a frame
     where there is nothing useful to do about a failure. *)
-let font =
-  lazy
-    (match load () with
-    | Ok font -> font
-    | Error (`Msg message) ->
-        failwith ("could not read assets/font.png: " ^ message))
+let font = lazy (Reading.or_raise "could not read assets/font.png" (load ()))

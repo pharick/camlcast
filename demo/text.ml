@@ -47,12 +47,9 @@ let nw = Vec.make (-7.) 7.
     character the grid does not reach. *)
 let font =
   lazy
-    (match
-       let+ atlas = Image.of_asset "assets/font.png" in
-       Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
-     with
-    | Ok font -> font
-    | Error (`Msg m) -> failwith ("the text demo could not read its font: " ^ m))
+    (Reading.or_raise "the text demo could not read its font"
+       (let+ atlas = Image.of_asset "assets/font.png" in
+        Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()))
 
 let paragraph =
   "The engine holds no content: not one colour, pattern, picture or room. What \
