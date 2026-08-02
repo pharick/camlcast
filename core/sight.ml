@@ -99,13 +99,25 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
   (* Everything in this room the ray could meet, nearest first. The walls and
      thresholds come merged by {!Ray.merge}; the sprites are not on that path at
      all — nothing casts against them — so they are placed by their own distance
-     and the whole lot sorted once. *)
+     and the whole lot sorted once.
+
+     Reversed rather than sorted round, and the difference is the whole of what
+     this module has to get right about a tie. {!Ray.merge} hands back the
+     renderer's order, far to near, and the renderer paints along it — so of two
+     things at one distance the picture shows the {e last}. Reversing puts that
+     one first here, and the stable sort below leaves it there. Sorting the
+     merged list ascending instead would have kept the tie in the order it was
+     painted and taken the one that was painted over: at the corner a jamb
+     shares with its threshold, the crosshair naming the jamb while the frame
+     showed the room beyond it, and a sprite standing plainly in that column
+     unpickable. *)
   let met =
     List.map
       (fun step -> (Ray.step_distance step, Met step))
-      (Ray.merge
-         (Ray.cast here ~origin ~direction)
-         (Ray.openings here ~origin ~direction))
+      (List.rev
+         (Ray.merge
+            (Ray.cast here ~origin ~direction)
+            (Ray.openings here ~origin ~direction)))
   and billboards =
     List.filter_map
       (fun i ->
@@ -123,8 +135,11 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
      on this side of it, in space the player is really in, and those are what
      this takes out. One filter for all three kinds — walls, doorways and
      sprites alike — which is the reason it belongs here and not in {!Ray}. *)
+  (* Stable, and named so rather than relied on: the list above is already in
+     the order this wants and the sort is here to fold the billboards into it,
+     so what it must not do is disturb a tie it was handed. *)
   let candidates =
-    List.sort
+    List.stable_sort
       (fun (a, _) (b, _) -> Float.compare a b)
       (List.filter (fun (d, _) -> d > near) (met @ billboards))
   in

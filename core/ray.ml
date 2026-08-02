@@ -125,7 +125,24 @@ let step_distance = function Wall h -> h.distance | Opening o -> o.distance
 
     Far-to-near is the renderer's order — it paints back to front — and the
     reverse of it is what anything asking "what is the first thing out there"
-    wants. Both read this. *)
+    wants. Both read this.
+
+    {b At equal distance the wall goes first, so the opening is painted over
+       it.} Not a detail: a ray through the corner a jamb shares with its
+    threshold meets both, at one distance, and [s] is inclusive at both ends
+    because it has to be — a room's corners are shared between two walls, and
+    the pair does not come out as an exact [1.] and [0.] but as [1.] and a hair
+    below zero, so anything half-open lets a ray out through the corner of a
+    closed room. The overlap is what makes a boundary watertight, and the tie is
+    what it costs.
+
+    Which leaves the tie to be settled once, here, rather than by each reader.
+    The opening winning is the same answer the half-open convention gives
+    everywhere else in the engine — an extent owns its near end and not its far
+    one — and it is what the paint order was already doing. A reader that wants
+    the winner has to take this list from the {e far} end of a tied run, which
+    is to say to reverse it; {!Sight} does. Taking the near end would name the
+    jamb while the frame showed the room through the opening. *)
 let rec merge (walls : hit list) (openings : opening list) =
   match (walls, openings) with
   | [], rest -> List.map (fun o -> Opening o) rest

@@ -1083,6 +1083,97 @@ let a_grille_is_picked_where_it_is_drawn () =
         (picked y0))
     [ -2.; -2.1 ]
 
+(* The corner a jamb shares with the threshold beside it, aimed at squarely.
+   {!Ray.segment} takes [s] in a closed interval at both ends and has to: a
+   room's corners are shared between two walls, and the pair does not come out
+   as an exact one and zero but as one and a hair below zero, so a half-open
+   test lets a ray out through the corner of a closed room. What the overlap
+   costs is that a ray through such a corner meets both segments at one
+   distance, and the tie then has to be settled the same way by both readers of
+   that list — the renderer, which paints along it and shows the last, and
+   {!Sight}, which scans it and reports one.
+
+   Constructible rather than a matter of luck: the wall runs from (4, -3) to
+   (4, 4), so {!Room.doorway} centres a one-cell opening over [0, 1] and the
+   lower jamb ends at exactly (4, 0). At an odd width the middle column's ray is
+   exactly [player.dir], so a player at the origin looking east aims down the
+   axis and straight through that corner.
+
+   The picture is the oracle, as it is for the grille above: what the frame
+   shows in that column is read off the frame, by drawing it with the sprite and
+   without and comparing the one pixel, and {!Sight} has to name what was
+   shown. *)
+let the_corner_of_a_doorway_is_picked_where_it_is_drawn () =
+  let odd = 161 and tall = 101 in
+  let looking = Player.make ~room:0 ~pos:(Vec.make 0. 0.) ~angle:0. in
+  let world ~beyond =
+    let jambs, threshold =
+      Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
+        (Vec.make 4. (-3.)) (Vec.make 4. 4.)
+    in
+    let here =
+      Room.make ~thresholds:[ threshold ] ~floor:flat_floor
+        ~ceiling:flat_ceiling
+        (jambs
+        @ [
+            Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-3.))
+              (Vec.make 4. (-3.));
+            Room.wall ~height:3. ~material:pale (Vec.make 4. 4.)
+              (Vec.make (-4.) 4.);
+            Room.wall ~height:3. ~material:pale (Vec.make (-4.) 4.)
+              (Vec.make (-4.) (-3.));
+          ])
+    in
+    let next =
+      let jambs, threshold =
+        Room.doorway ~name:"west" ~width:1. ~opening:2. ~height:3. ~material:dim
+          (Vec.make 0. 4.) (Vec.make 0. (-3.))
+      in
+      Room.make ~thresholds:[ threshold ] ~floor:flat_floor
+        ~ceiling:flat_ceiling ~sprites:beyond
+        (jambs
+        @ [
+            Room.wall ~height:3. ~material:dim (Vec.make 0. (-3.))
+              (Vec.make 8. (-3.));
+            Room.wall ~height:3. ~material:dim (Vec.make 8. (-3.))
+              (Vec.make 8. 4.);
+            Room.wall ~height:3. ~material:dim (Vec.make 8. 4.) (Vec.make 0. 4.);
+          ])
+    in
+    World.make
+      ~rooms:[ ("here", here); ("beyond", next) ]
+      ~links:[ (("here", "east"), ("beyond", "west")) ]
+      ~atmosphere:air
+      ~spawn:("here", Vec.make 0. 0.)
+  in
+  let sprite = [ Room.sprite ~size:1.6 ~image:square (Vec.make 4. 0.5) ] in
+  let with_it = world ~beyond:sprite and without = world ~beyond:[] in
+  let at w =
+    let fb = Framebuffer.offscreen ~width:odd ~height:tall in
+    Renderer.draw_frame fb w looking;
+    Framebuffer.pixel fb ~x:(odd / 2) ~y:(tall / 2)
+  in
+  (* The fixture is aimed at what this is about, or everything below agrees by
+     the column showing the jamb and there being no tie to settle. *)
+  Alcotest.(check bool)
+    "the middle column shows the room through the opening" true
+    (at with_it <> at without);
+  match Sight.look with_it looking with
+  | Some { Sight.kind = Sight.Sprite _; room; _ } ->
+      Alcotest.(check int)
+        "and the crosshair is on it, in the room beyond" 1 room
+  | other ->
+      Alcotest.failf
+        "the frame shows the sprite through the corner and the crosshair says \
+         %s"
+        (match other with
+        | None -> "nothing"
+        | Some { Sight.kind = Sight.Wall w; room; _ } ->
+            Printf.sprintf "wall %d of room %d" w.index room
+        | Some { Sight.kind = Sight.Doorway d; room; _ } ->
+            Printf.sprintf "doorway %d of room %d" d.index room
+        | Some _ -> "a sprite somewhere else")
+
 (* A line of [n] rooms, each the same 4 x 4 square in its own coordinates,
    joined by bare openings a cell wide in the middle of the wall they share, and
    [sprites] standing in the last of them. Standing in the first at (2, 2)
@@ -1855,6 +1946,8 @@ let () =
             a_grille_is_picked_where_it_is_drawn;
           case "a room is picked as far in as it is drawn"
             a_room_is_picked_as_far_in_as_it_is_drawn;
+          case "the corner of a doorway is picked where it is drawn"
+            the_corner_of_a_doorway_is_picked_where_it_is_drawn;
           case "a decal is fogged like the wall it is on"
             a_decal_is_fogged_like_the_wall_it_is_on;
           case "a decal ignores what the wall is made of"
