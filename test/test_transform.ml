@@ -108,7 +108,43 @@ let a_segment_with_no_length_is_refused () =
      length not being finite. *)
   refused "a coordinate that is infinite"
     "Transform.between: b1 and b2 are the same point" here there here
-    (Vec.make Float.infinity 2.)
+    (Vec.make Float.infinity 2.);
+  (* And the case neither of those two covers, which the guard used to let
+     through: a length that is finite and above zero and still too small to take
+     a reciprocal of. Below about 5.6e-309 the reciprocal is infinity, so
+     normalising gives (infinity, nan) and both cos and sin come out nan — a
+     rotation that is not one, in the type whose privacy is there to promise it
+     cannot be. See Vec.normalizable. *)
+  let hair = Vec.make 1e-320 0. in
+  refused "the first segment subnormally short"
+    "Transform.between: a1 and a2 are the same point" (Vec.make 0. 0.) hair here
+    there;
+  refused "the second segment subnormally short"
+    "Transform.between: b1 and b2 are the same point" here there
+    (Vec.make 0. 0.) hair
+
+(* The invariant the private type is for, over everything that can build one. *)
+let a_rotation_is_always_a_rotation () =
+  List.iter
+    (fun (a1, a2, b1, b2) ->
+      match Transform.between ~a1 ~a2 ~b1 ~b2 with
+      | t ->
+          Alcotest.check close "cos^2 + sin^2 is one" 1.
+            ((t.Transform.cos *. t.Transform.cos)
+            +. (t.Transform.sin *. t.Transform.sin))
+      | exception Invalid_argument _ -> ())
+    [
+      (Vec.make 0. 0., Vec.make 1. 0., Vec.make 0. 0., Vec.make 0. 1.);
+      (Vec.make 2. 2., Vec.make 2. 5., Vec.make 7. 1., Vec.make 4. 1.);
+      (* Short but real, either side of the reciprocal boundary. Whichever of
+         these is built has to be a rotation; the rest are refused. *)
+      (Vec.make 0. 0., Vec.make 1e-300 0., Vec.make 0. 0., Vec.make 0. 1e-300);
+      ( Vec.make 0. 0.,
+        Vec.make (1. /. Float.max_float) 0.,
+        Vec.make 0. 0.,
+        Vec.make 0. (1. /. Float.max_float) );
+      (Vec.make 0. 0., Vec.make 1e-320 0., Vec.make 0. 0., Vec.make 0. 1e-320);
+    ]
 
 let () =
   Alcotest.run "Transform"
@@ -122,5 +158,6 @@ let () =
           case "between preserves lengths" between_preserves_lengths;
           case "a segment with no length is refused"
             a_segment_with_no_length_is_refused;
+          case "a rotation is always a rotation" a_rotation_is_always_a_rotation;
         ] );
     ]

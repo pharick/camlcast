@@ -7,6 +7,7 @@ let scale v k = { x = v.x *. k; y = v.y *. k }
 let length v = Float.hypot v.x v.y
 let dot a b = (a.x *. b.x) +. (a.y *. b.y)
 let cross a b = (a.x *. b.y) -. (a.y *. b.x)
+let normalizable l = Float.is_finite l && l > 0. && Float.is_finite (1. /. l)
 
 let normalize v =
   let l = length v in

@@ -31,6 +31,59 @@ let normalize () =
   Alcotest.check vec "a zero vector is left alone" (Vec.make 0. 0.)
     (Vec.normalize (Vec.make 0. 0.))
 
+(* The gap [is_finite l && l > 0.] leaves, and the reason normalizable exists.
+
+   A length can be finite, and above zero, and still too small to take a
+   reciprocal of: below [1. /. Float.max_float] — about [5.6e-309], which is
+   subnormal — the reciprocal overflows to infinity and normalize scales by it,
+   handing back an infinity on one axis and a nan on the other. That was enough
+   to put a nan cos and sin into Transform.t, whose private type exists to say
+   it cannot hold one, through Room.across; and a nan normal onto a Room.wall,
+   which side_of and the shading read as they stand. *)
+let normalizable_covers_the_reciprocal () =
+  let yes l =
+    Alcotest.(check bool)
+      (Printf.sprintf "%g is a length" l)
+      true (Vec.normalizable l)
+  and no l =
+    Alcotest.(check bool)
+      (Printf.sprintf "%g is not" l)
+      false (Vec.normalizable l)
+  in
+  List.iter yes [ 1.; 1e-6; 1e-300; 1e-308; Float.min_float ];
+  List.iter no
+    [ 0.; -1.; Float.nan; Float.infinity; Float.neg_infinity; 1e-320; 1e-310 ];
+  (* Where the boundary falls exactly is not worth asserting and not worth
+     knowing: [1. /. Float.max_float] is not itself a length this admits,
+     because a subnormal has too few bits to invert back and its reciprocal
+     rounds past [Float.max_float] again. Which is the argument for testing the
+     reciprocal rather than comparing against a constant.
+
+     What is worth asserting is that the predicate and the function agree,
+     wherever the boundary is: everything normalizable admits comes back a unit
+     vector, and everything it refuses does not. Swept across the region where
+     the reciprocal gives out. *)
+  List.iter
+    (fun l ->
+      let n = Vec.normalize (Vec.make l 0.) in
+      let is_unit = Float.abs (Vec.length n -. 1.) <= 1e-9 in
+      Alcotest.(check bool)
+        (Printf.sprintf "%g: normalizable says %b and normalize agrees" l
+           (Vec.normalizable l))
+        (Vec.normalizable l) is_unit)
+    [
+      1.;
+      1e-6;
+      1e-300;
+      1e-308;
+      Float.min_float;
+      1. /. Float.max_float;
+      5.6e-309;
+      5.5e-309;
+      1e-310;
+      1e-320;
+    ]
+
 let of_angle_axes () =
   Alcotest.check vec "angle 0 points along +x" (Vec.make 1. 0.)
     (Vec.of_angle 0.);
@@ -86,6 +139,8 @@ let () =
           case "length" length;
           case "dot and cross" dot_and_cross;
           case "normalize" normalize;
+          case "normalizable covers the reciprocal"
+            normalizable_covers_the_reciprocal;
         ] );
       ( "of_angle",
         [

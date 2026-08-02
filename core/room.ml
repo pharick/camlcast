@@ -234,11 +234,18 @@ let threshold_wall (t : threshold) ~height ~material : wall =
    all unless it clears the floor, while blocked and passable never read the
    height in the first place — so a wall that does not rise is the same
    invisible blocker by another route, and a nan one is too, that comparison
-   being false as well. *)
+   being false as well.
+
+   Vec.normalizable rather than is_finite && > 0., because those two are not the
+   whole of what normalising needs: a length below about 5.6e-309 is both, and
+   its reciprocal is still infinity. The normal then comes back (infinity, nan)
+   — not a unit vector, not perpendicular, and read as it stands by the three
+   things named above. side_of answers Back for every point, the dot product
+   being a nan that fails the comparison. *)
 let wall ~height ~material ?(decals = []) a b =
   let edge = Vec.sub b a in
   let length = Vec.length edge in
-  if not (Float.is_finite length && length > 0.) then
+  if not (Vec.normalizable length) then
     invalid_arg "Room.wall: the two ends have to be apart";
   if not (Float.is_finite height && height > 0.) then
     invalid_arg "Room.wall: the wall has to rise above the floor";
@@ -263,7 +270,7 @@ let wall ~height ~material ?(decals = []) a b =
 let threshold ~name ~height ?door ?lintel a b =
   let edge = Vec.sub b a in
   let length = Vec.length edge in
-  if not (Float.is_finite length && length > 0.) then
+  if not (Vec.normalizable length) then
     invalid_arg ("Room.threshold: the two ends have to be apart: " ^ name);
   if not (Float.is_finite height && height > 0.) then
     invalid_arg
@@ -444,7 +451,7 @@ let path ?(closed = false) ~height ~material points =
      called. Negated, so a nan point is refused with the repeated ones. *)
   for i = 0 to last do
     let step = Vec.length (Vec.sub arr.((i + 1) mod n) arr.(i)) in
-    if not (Float.is_finite step && step > 0.) then
+    if not (Vec.normalizable step) then
       invalid_arg "Room.path: two points in a row are the same"
   done;
   List.init
@@ -454,7 +461,7 @@ let path ?(closed = false) ~height ~material points =
 let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
-  if not (Float.is_finite span && span > 0.) then
+  if not (Vec.normalizable span) then
     invalid_arg ("Room.doorway: no wall to cut a doorway into: " ^ name);
   if not (Float.is_finite width && width > 0.) then
     invalid_arg ("Room.doorway: a doorway has to have a width: " ^ name);

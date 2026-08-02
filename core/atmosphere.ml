@@ -18,12 +18,14 @@ type t = {
    {!Vec.normalize} would scale by zero and hand back [nan]s that way instead.
    Both are refused here — the finiteness explicitly, the [nan] by the guard
    being written as the negation of what would pass rather than as an assertion
-   of what would fail. *)
+   of what would fail. So is the third case that reasoning misses, a length too
+   small to take a reciprocal of, which {!Vec.normalizable} is where the engine
+   states. *)
 let make ?(haze = Color.rgb 24 24 32) ?(fog_distance = 12.)
     ?(min_brightness = 0.25) ?(light = Vec.make (-0.4) (-0.9)) ?(ambient = 0.6)
     ?(directional = 0.4) () =
   let l = Vec.length light in
-  if not (Float.is_finite l && l > 0.) then
+  if not (Vec.normalizable l) then
     invalid_arg "Atmosphere.make: the light has no direction";
   (* Each range below is the negation of what would pass, so a nan fails it
      rather than slipping through to be divided by or lerped with later.

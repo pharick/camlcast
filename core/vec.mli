@@ -37,17 +37,42 @@ val cross : t -> t -> float
     exactly when they are parallel — which is what ray-versus-wall intersection
     tests. *)
 
+val normalizable : float -> bool
+(** Whether a length is one {!normalize} can turn into a unit vector: finite,
+    above zero, and — the part that is easy to miss — not so small that [1.]
+    divided by it overflows.
+
+    That last is a real gap and not a pedantic one. Somewhere around [5.6e-309]
+    the reciprocal stops being finite, and below it scaling a vector by that
+    [infinity] gives an [infinity] on the long axis and a [nan] on the zero one.
+    So a length like [1e-320] is finite and positive and passes any test written
+    as [Float.is_finite l && l > 0.] — and then {!normalize} hands back
+    [(infinity, nan)] anyway.
+
+    The reciprocal is taken rather than compared against a constant because
+    there is no tidy constant to compare against. [1. /. Float.max_float] is the
+    obvious candidate and is wrong: it is subnormal, so it carries too few bits
+    to invert back, and its own reciprocal rounds past [Float.max_float] and
+    overflows. Asking the question that is actually being asked costs one
+    division and cannot be off by one.
+
+    This is the question every caller that promises a direction has to ask, so
+    it is asked in one place. Written as what {e passes}, like the rest of the
+    engine's guards, so a caller says [not (Vec.normalizable l)] to refuse and a
+    [nan] length is refused along with everything else. *)
+
 val normalize : t -> t
 (** The same vector scaled to unit length; a zero vector is returned unchanged
     rather than turned into [nan]s.
 
     That guard is for the zero vector and nothing else. A coordinate that is
     [nan] or infinite still comes back as [nan]s — the infinite one because its
-    length is infinite too, and scaling by that reciprocal is [x *. 0.]. This
-    module is plain arithmetic with no constructor to check anything in, so the
-    refusing is done where a direction is first promised to be one:
-    {!Atmosphere.make} and {!Transform.between} both reject a length that is not
-    finite and positive before it reaches here. *)
+    length is infinite too, and scaling by that reciprocal is [x *. 0.] — and so
+    does a length too small to take a reciprocal, for which see {!normalizable}.
+    This module is plain arithmetic with no constructor to check anything in, so
+    the refusing is done where a direction is first promised to be one:
+    {!Atmosphere.make}, {!Transform.between} and the {!Room} constructors all
+    put their length through {!normalizable} before it reaches here. *)
 
 val of_angle : float -> t
 (** [of_angle radians] is the unit vector pointing that way: [0.] is the +x

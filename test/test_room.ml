@@ -543,6 +543,56 @@ let a_doorway_as_wide_as_its_wall_leaves_no_jamb () =
   Alcotest.check vec "from one end of it" (Vec.make 0. 0.) t.Room.a;
   Alcotest.check vec "to the other" (Vec.make 4. 0.) t.Room.b
 
+(* A wall or an opening too short to have a direction.
+
+   [Float.is_finite l && l > 0.] admits a length like 1e-320, whose reciprocal
+   overflows — so Vec.normalize scaled by an infinity and handed back a normal
+   of (nan, infinity). That is not a unit vector and is perpendicular to
+   nothing, and side_of, the face shading and every decal placed along the wall
+   read it as it stands: side_of answers Back for every point in the world,
+   the dot product being a nan that fails its comparison. Through
+   Room.threshold and Room.across it reached Transform.between and put a nan
+   cos and sin into the one type whose privacy promises it cannot hold them.
+
+   Refused now by Vec.normalizable, which is that question asked in one place.
+   The controls matter as much as the refusals: a length just above the
+   boundary is a perfectly good wall and has to stay one. *)
+let a_segment_too_short_to_have_a_direction_is_refused () =
+  let raises what message body =
+    Alcotest.check_raises what (Invalid_argument message) body
+  in
+  let o = Vec.make 0. 0. in
+  List.iter
+    (fun bad ->
+      let far = Vec.make bad 0. in
+      raises (Printf.sprintf "a wall %g long" bad)
+        "Room.wall: the two ends have to be apart" (fun () ->
+          ignore (Room.wall ~height:2. ~material:pale o far));
+      raises (Printf.sprintf "an opening %g long" bad)
+        "Room.threshold: the two ends have to be apart: hair" (fun () ->
+          ignore (Room.threshold ~name:"hair" ~height:2. o far));
+      raises (Printf.sprintf "a path stepping %g" bad)
+        "Room.path: two points in a row are the same" (fun () ->
+          ignore (Room.path ~height:2. ~material:pale [ o; far ]));
+      raises (Printf.sprintf "a doorway cut into a wall %g long" bad)
+        "Room.doorway: no wall to cut a doorway into: hair" (fun () ->
+          ignore
+            (Room.doorway ~name:"hair" ~width:bad ~opening:1. ~height:2.
+               ~material:pale o far)))
+    [ 1e-320; 1e-310; 5.5e-309 ];
+  (* Above the boundary is still a wall, and its normal is still a unit vector —
+     the whole point of drawing the line where normalising stops working rather
+     than somewhere rounder. A wall 1e-300 across is absurd and is not the
+     engine's business to have an opinion about; one whose normal is a nan
+     is. *)
+  List.iter
+    (fun good ->
+      let w = Room.wall ~height:2. ~material:pale o (Vec.make good 0.) in
+      Alcotest.check close
+        (Printf.sprintf "a wall %g long has a unit normal" good)
+        1. (Vec.length w.Room.normal))
+    [ 1.; 1e-6; 1e-300; 1e-308; Float.min_float ]
+
 (* The same claim, on coordinates whose arithmetic does not cancel by luck.
    [(0,0)-(4,0)] above is exact in binary, so it left nothing standing however
    the cut points were worked out; the pairs below do not, and they did.
@@ -1259,6 +1309,8 @@ let () =
             a_doorway_splits_the_wall_it_is_cut_into;
           case "a doorway that could not be cut is refused"
             a_doorway_that_could_not_be_cut_is_refused;
+          case "a segment too short to have a direction is refused"
+            a_segment_too_short_to_have_a_direction_is_refused;
           case "a full width doorway cancels exactly"
             a_full_width_doorway_cancels_exactly;
           case "a partial doorway still splits evenly"

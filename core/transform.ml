@@ -27,13 +27,22 @@ let compose outer inner =
    The length is enough to check on its own, because [Float.hypot] folds every
    bad coordinate into it: a [nan] one gives a [nan] length, and an infinite one
    gives an infinite length whose reciprocal is [0.] — so {!Vec.normalize} would
-   scale by zero and reach the same broken value from the other side. *)
+   scale by zero and reach the same broken value from the other side.
+
+   {!Vec.normalizable} and not [is_finite && > 0.], which is what this asked
+   before and which let the invariant through by the one door the reasoning
+   above does not cover: a length can be finite and positive and still be too
+   small to take a reciprocal of. Below about [5.6e-309] the reciprocal is
+   [infinity], normalising gives [(infinity, nan)], and the [cos] and [sin]
+   built from it are both [nan] — a rotation that is no rotation, in the type
+   whose whole point is that it cannot be one. Two segments [1e-320] long did
+   exactly that, and reached here through {!Room.across}. *)
 let between ~a1 ~a2 ~b1 ~b2 =
   let u = Vec.sub a2 a1 and w = Vec.sub b1 b2 in
   let lu = Vec.length u and lw = Vec.length w in
-  if not (Float.is_finite lu && lu > 0.) then
+  if not (Vec.normalizable lu) then
     invalid_arg "Transform.between: a1 and a2 are the same point";
-  if not (Float.is_finite lw && lw > 0.) then
+  if not (Vec.normalizable lw) then
     invalid_arg "Transform.between: b1 and b2 are the same point";
   let u = Vec.normalize u and w = Vec.normalize w in
   let rotation =
