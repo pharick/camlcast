@@ -754,7 +754,29 @@ val segments_cross : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> bool
     That solution does not exist for parallel segments, but two of them can
     still lie on the same line and overlap — a step taken straight along a wall
     — which counts as a crossing just as much. Those are settled separately, by
-    projecting [b1..b2] onto [a1..a2] and asking whether the two spans meet. *)
+    projecting [b1..b2] onto [a1..a2] and asking whether the two spans meet.
+
+    {b The same cross product means the same, bit for bit.} The denominator, the
+    offset and the two quotients here and in the ray's are one expression, over
+    half a million random configurations. Everything around them differs on
+    purpose: a ray runs forever and has only to be ahead, a step stops and is
+    bounded at both ends; the overlap branch above has no counterpart there,
+    because a ray sliding along a wall meets nothing worth drawing while a step
+    sliding along one still has to be stopped; and the parallel test is
+    inclusive here and strict there, so a segment of no length keeps the branch
+    it has always taken.
+
+    A shared core would be the way to stop the middle drifting, and it was
+    measured rather than assumed. Pinning what is worth pinning — which endpoint
+    the offset runs from, and which segment's direction goes with which
+    parameter — means handing back both parameters, and on this compiler a
+    returned pair allocates however hard it is inlined: 327 words per cast
+    against 163, and 33.9 ms against 30.1 for the same work, which is thirteen
+    per cent of {!Ray.cast}. Handing back one at a time is free and shares only
+    the division, leaving both of those facts written out twice as before. So
+    the middle is held by a test instead —
+    [a_cast_agrees_with_a_step_about_where_a_wall_is] puts what a cast reports
+    to a step and fails if either side's offset or pairing moves. *)
 
 val distance_between_segments :
   a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> float
