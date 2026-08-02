@@ -514,7 +514,18 @@ type t
     allocate once per screen column. A count and an index apiece, exactly as
     {!World.room_count} and {!World.val-room} do it — the [_at] on each is only
     because {!val-wall}, {!val-threshold} and {!val-sprite} already name the
-    constructors. *)
+    constructors.
+
+    The index is bare and last on all three, which is load-bearing rather than
+    an oversight beside {!add_decal}'s [~wall]: it is what makes
+
+    {[
+    List.init (wall_count room) (wall_at room)
+    ]}
+
+    the way a whole row is asked for, here and in the suites and in a game built
+    on this. See {!World} for the rule the two modules share and for which
+    functions sit on the other side of it. *)
 
 val wall_count : t -> int
 (** How many walls the boundary is made of. *)

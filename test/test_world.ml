@@ -834,6 +834,47 @@ let changing_the_air_changes_nothing_else () =
   Alcotest.check close "and the world it came from keeps its own air" 12.
     (World.atmosphere two_rooms).Atmosphere.fog_distance
 
+(* The five readers that take their index bare and last, each partly applied,
+   which is the whole of what being bare and last buys — see {!World}'s prose on
+   which index arguments are labelled.
+
+   This is a compile-time guard wearing a test's clothes: the assertions are
+   near-trivial and the point is the five expressions above them, which stop
+   being well typed the moment anyone labels one of these indices.
+
+   {b It is not what would catch that, and it is worth being exact about why.}
+   Labelling {!Room.wall_at} was tried here: it breaks twelve files, and the
+   first error inside this one is at a point-free read three hundred lines above
+   — same message, no explanation. Thirty-odd incidental sites already fail
+   loudly and none of them says what the rule is. So this case adds no
+   detection. What it adds is the one place the constraint is written as code
+   and named for itself, next to the reason, for whoever reaches the suite after
+   the compiler has stopped being helpful. *)
+let a_row_reads_point_free () =
+  let rooms = List.init (World.room_count two_rooms) (World.room two_rooms) in
+  let names = List.init (World.room_count two_rooms) (World.name two_rooms) in
+  let first = World.room two_rooms 0 in
+  let walls = List.init (Room.wall_count first) (Room.wall_at first) in
+  let doors =
+    List.init (Room.threshold_count first) (Room.threshold_at first)
+  in
+  let sprites = List.init (Room.sprite_count first) (Room.sprite_at first) in
+  Alcotest.(check int)
+    "every room"
+    (World.room_count two_rooms)
+    (List.length rooms);
+  Alcotest.(check bool)
+    "and they are the rooms themselves, not copies" true
+    (List.hd rooms == first);
+  Alcotest.(check (list string)) "every name" [ "first"; "second" ] names;
+  Alcotest.(check int) "every wall" (Room.wall_count first) (List.length walls);
+  Alcotest.(check int)
+    "every threshold"
+    (Room.threshold_count first)
+    (List.length doors);
+  Alcotest.(check int)
+    "every sprite" (Room.sprite_count first) (List.length sprites)
+
 let () =
   Alcotest.run "World"
     [
@@ -883,4 +924,5 @@ let () =
           case "a door takes two replacements" a_door_takes_two_replacements;
           case "invalid replacement is refused" invalid_replacement_is_refused;
         ] );
+      ("reading", [ case "a row reads point-free" a_row_reads_point_free ]);
     ]

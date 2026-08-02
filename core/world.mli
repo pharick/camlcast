@@ -79,6 +79,36 @@ type t
     {!Room.threshold_at}. A world is {e asked}: three lookups per column and one
     per doorway, and every one of them is named below.
 
+    {2 Which index arguments are labelled}
+
+    Not all of them, and the split is a rule rather than drift. Five functions
+    across the two modules hand back one part of a row — {!val-room} and
+    {!val-name} here, {!Room.wall_at}, {!Room.threshold_at} and
+    {!Room.sprite_at} there — and those five take the index {e bare and last},
+    so that partly applying one is a function from index to part and a whole row
+    reads as
+
+    {[
+    List.init (World.room_count world) (World.room world)
+    ]}
+
+    That is how a row is asked for in thirty-odd places between this repository
+    and a game built on it, {!replace_room}'s own check among them. A label
+    would cost every one of them a lambda, and buy nothing: there is one index
+    and nothing to confuse it with.
+
+    Everything else is labelled, because everything else takes something
+    alongside the index — and where what it takes alongside is a {e second}
+    index of the same type, as {!val-portal}'s and {!set_door}'s [~threshold]
+    is, the label is the only thing standing between a caller and a silent
+    transposition. That is the case the habit exists for; the rest follow it so
+    that the five that cannot are the ones that stand out.
+
+    {!link} is neither, and takes two positional [(room, name)] pairs. They are
+    a symmetric pair — joining a to b builds the same world as joining b to a —
+    so a label would have to invent a distinction between them that the function
+    does not have.
+
     Build one with {!make} and change it with the functions below. *)
 
 val room : t -> int -> Room.t
@@ -103,8 +133,13 @@ val named : t -> string -> int option
 
 val doorway_count : t -> room:int -> int
 (** How many doorways that room has — the same count as its own thresholds,
-    which is the invariant — and so the range to read {!val-portal} over. The
-    index is labelled as {!val-portal}'s and {!set_door}'s is. *)
+    which is the invariant — and so the range to read {!val-portal} over.
+
+    Labelled, and by the rule above rather than against it: a count is not one
+    of the five readers, nothing partly applies it, so there is nothing here
+    that wants the bare last argument {!val-room} and {!val-name} keep. What it
+    is read beside is the {!val-portal} it bounds, and those two saying [~room]
+    alike is the whole of what the label is for. *)
 
 val portal : t -> room:int -> threshold:int -> portal option
 (** The link behind one doorway, by the threshold index a ray reports. [None] is
