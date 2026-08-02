@@ -135,7 +135,15 @@ let step_distance = function Wall h -> h.distance | Opening o -> o.distance
     one — and it is what the paint order was already doing. A reader that wants
     the winner has to take this list from the {e far} end of a tied run, which
     is to say to reverse it; {!Sight} does. Taking the near end would name the
-    jamb while the frame showed the room through the opening. *)
+    jamb while the frame showed the room through the opening.
+
+    And a reader that sorts afterwards has to sort {e stably}, because by then
+    the tie is the only thing left of this list that the sort cannot work out
+    for itself — the order is recoverable from the distances and the tie is not.
+    {!Sight} does that too, folding its sprites in. Which is also why it merges
+    at all rather than concatenating the two lists: concatenation gives the same
+    answer in one of its two orders and the wrong one in the other, and knowing
+    which is knowing this rule, in a second place. *)
 let rec merge (walls : hit list) (openings : opening list) =
   match (walls, openings) with
   | [], rest -> List.map (fun o -> Opening o) rest

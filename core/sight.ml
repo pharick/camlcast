@@ -120,7 +120,25 @@ let rec trace world ~room ~pose ~rise ~eye_z ~near ~crossed ~budget ~entered =
      painted and taken the one that was painted over: at the corner a jamb
      shares with its threshold, the crosshair naming the jamb while the frame
      showed the room beyond it, and a sprite standing plainly in that column
-     unpickable. *)
+     unpickable.
+
+     {b So the merge is not here for the order, and reads as though it were.}
+     The sort below re-establishes the order by itself; what it cannot
+     re-establish is which of two equal distances comes first, and that is the
+     one thing being carried from {!Ray.merge} through the reverse and into a
+     sort chosen to be stable. Interleaving two already-sorted lists to produce
+     an order that is then produced again is genuinely redundant work — one
+     traversal of a handful of steps, once a frame, this being one ray and not
+     one per column.
+
+     What it buys is that the tie is {!Ray.merge}'s to state. Concatenating the
+     two lists instead would work, in exactly one of the two possible orders:
+     openings before walls passes every test in this repository and walls before
+     openings fails the corner the renderer draws. Picking the right one is
+     restating {!Ray.merge}'s rule here, in a call site, where the other reader
+     of it cannot see it — and the two readers of that rule disagreeing about a
+     corner is the bug this paragraph is made of. It is cheaper to keep paying
+     the traversal. *)
   let met =
     List.map
       (fun step -> (Ray.step_distance step, Met step))
