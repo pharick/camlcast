@@ -180,14 +180,17 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
   if top_z > floor_z then begin
     let y_foot = project_height viewport ~z:floor_z ~distance:d in
     let y_top = project_height viewport ~z:top_z ~distance:d in
-    let first =
-      Int.max clip_first (Int.max 0 (int_of_float (Float.round y_top)))
-    in
+    (* The rows whose centres fall on the wall, which is not the rows it
+       touches: the strip is half-open at the foot, where the floor takes over,
+       so it stops one row before the one the foot lands in. Rounding both ends
+       alike would draw that row too — and the sampler below, which works from
+       the row's centre rather than from these bounds, would then be asked for a
+       height {e under} the wall's own foot and get the top of the pattern back,
+       so every wall foot on screen would carry a line of the tile's top band. *)
+    let first = Int.max clip_first (Int.max 0 (first_pixel y_top)) in
     let last =
       Int.min clip_last
-        (Int.min
-           (fb.Framebuffer.height - 1)
-           (int_of_float (Float.round y_foot)))
+        (Int.min (fb.Framebuffer.height - 1) (last_pixel y_foot))
     in
     (* One light factor — orientation and fog — dims both the wall and its
        decals, so a decal sits in the same light as the wall it is on unless it
@@ -261,7 +264,9 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
            is wanted once per pixel of the strip rather than once per row. The
            half is that function's, not a rounding: it is what makes this the
            row's centre, and dropping it would sample the floor and this wall
-           half a pixel apart. *)
+           half a pixel apart. It is also why the strip's bounds are half-open —
+           every row this loop is given has its centre on the wall, so
+           [above_foot] is never negative and the tiling above never wraps. *)
         let z =
           viewport.eye_z
           -. (float_of_int y +. 0.5 -. viewport.horizon)
@@ -357,10 +362,16 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
      for the whole picture: the haze's share of it, worked out here and added to
      what is left of each texel below. *)
   let veil = Color.shade air.Atmosphere.haze (1. -. f) in
-  let col0 = Int.max 0 (int_of_float (Float.round left)) in
-  let col1 = Int.min (width - 1) (int_of_float (Float.round rightx)) in
-  let row0 = Int.max 0 (int_of_float (Float.round y_top)) in
-  let row1 = Int.min (height - 1) (int_of_float (Float.round y_base)) in
+  (* Half-open on the right and at the foot, the same as a wall's strip: a
+     pixel whose centre falls outside the billboard is not the billboard's,
+     however much of it the picture overlaps. What that costs is a sprite whose
+     box has shrunk under a pixel, which now misses as often as it lands — and
+     what it buys is that missing being the same answer {!Sight} gives, since
+     {!Room.sprite_column} refuses a centre ray that falls outside the width. *)
+  let col0 = Int.max 0 (Viewport.first_pixel left) in
+  let col1 = Int.min (width - 1) (Viewport.last_pixel rightx) in
+  let row0 = Int.max 0 (Viewport.first_pixel y_top) in
+  let row1 = Int.min (height - 1) (Viewport.last_pixel y_base) in
   (* A masked sprite reaches at most one column, so narrowing the span before
      the loop rather than discarding rows inside it is the difference between
      visiting the sprite's whole width and visiting the one column that can
@@ -377,8 +388,11 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   for col = col0 to col1 do
     (* How far across the picture this column's centre falls. [left] and
        [y_top] are continuous edges, the columns and rows above are what
-       [Float.round] made of them, and the half is what puts the two on the same
-       footing — the same one every ray and every wall texel is sampled at. *)
+       {!Viewport.first_pixel} and {!Viewport.last_pixel} made of them, and the
+       half is what puts the two on the same footing — the same one every ray
+       and every wall texel is sampled at. Every centre the loops reach is
+       inside the box now, so the clamps below are defensive rather than the
+       thing that keeps the far edge in range. *)
     let ui =
       clampi nu
         (int_of_float
@@ -538,12 +552,16 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
           let distance = opening.Ray.distance in
           let hit_point = Vec.add pose.Player.pos (Vec.scale dir distance) in
           let floor_z = Plane.elevation (Room.floor_plane current) hit_point in
-          let row z =
-            int_of_float
-              (Float.round (Viewport.project_height viewport ~z ~distance))
-          in
+          let at z = Viewport.project_height viewport ~z ~distance in
+          let row z = Viewport.first_pixel (at z) in
+          (* [foot] is the far end of a half-open strip, exactly as a wall's is
+             and for the same reason: below the opening's foot is this room's
+             own floor, and the room beyond has no more claim on that row than a
+             wall has. Everything the opening hands on is bounded by it — the
+             neighbour, the haze that stands in for one, and the leaf composited
+             over either — so the three cannot drift a row apart. *)
           let head = Int.max top (row (floor_z +. threshold.height))
-          and foot = Int.min bottom (row floor_z) in
+          and foot = Int.min bottom (Viewport.last_pixel (at floor_z)) in
           (* A height capped at the roof over this point, the same way
              [draw_wall] caps a wall. What an opening shows is bounded by it as
              much as what stands beside one is: above the ceiling are rows

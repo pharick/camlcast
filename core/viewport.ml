@@ -26,14 +26,23 @@
     A pixel is its centre. Column [c] covers everything from [c] up to but not
     including [c + 1], and is sampled at [c + 0.5]; row [r] likewise.
 
-    Two kinds of function here, and the rule is what joins them.
+    Three kinds of function here, and the rule is what joins them.
     {!ray_direction} and {!row_factor} take a pixel {e index} and answer for
     that pixel's centre. {!project_height}, {!project_point} and {!sprite_box}
     answer in the {e continuous} coordinates the same numbers live on, and are
-    deliberately not shifted: [Float.round] of one of their answers is exactly
-    "the pixel whose centre that covers", which is how {!Renderer} turns an
-    extent into rows and columns. The two are inverse — {!project_point} of
+    deliberately not shifted, so that the two are inverse — {!project_point} of
     {!ray_direction} at column [c] is [c + 0.5], the centre of that very column.
+    {!first_pixel} and {!last_pixel} come back the other way, and are how
+    {!Renderer} turns an extent into rows and columns.
+
+    Those two are not the same rounding, and that is the part worth stating
+    plainly, because getting it wrong costs a row rather than a rounding error.
+    An extent is half-open: a wall runs from its top down to its foot, where the
+    floor takes over. So the pixels it covers run from {!first_pixel} of where
+    it starts to {!last_pixel} of where it stops, and those two are one apart.
+    Round both ends alike and the extent claims a pixel whose centre falls past
+    its far edge — a row of wall drawn over the floor and sampled below the
+    wall's own foot, which is somewhere the wall never was.
 
     Say it the other way, that a pixel is its top-left corner, and half of this
     module means one thing and half the other: the rays would sample the left
@@ -140,6 +149,19 @@ let ray_direction t (player : Player.t) ~column =
     names the pixel, by the rule above. *)
 let project_height t ~z ~distance =
   t.horizon -. (t.projection *. (z -. t.eye_z) /. distance)
+
+(** The first pixel an extent starting at the continuous coordinate [x] covers:
+    the first whose centre lies at or past it. A centre sits half a pixel in, so
+    that is [Float.round] — bar an [x] exactly on one, where it names the pixel
+    after and the extent gives up a boundary it would only have won on an
+    equality between two projected floats. *)
+let first_pixel x = int_of_float (Float.round x)
+
+(** The last pixel an extent stopping at the continuous coordinate [x] covers,
+    which is {!first_pixel} of it less one and not that pixel itself. An extent
+    is half-open — [x] is where the next thing begins — so the pixel whose
+    centre [x] falls inside is the next thing's. *)
+let last_pixel x = first_pixel x - 1
 
 (** The dimensionless [(row + ½ - horizon) / projection] the centre of a screen
     row sits at, the quantity {!Plane.view_distance} needs to cast the floor and

@@ -1232,6 +1232,229 @@ let every_pixel_of_a_frame_is_written () =
         tipped 0. (hazy ~floor:(Plane.make ~a:0.1 ~b:0. ~c:0.) []) );
     ]
 
+(* {1 Where a surface stops}
+
+   One claim, in the three places the renderer turns a projected extent into
+   pixels. A pixel belongs to a surface when its {e centre} falls on it, and an
+   extent is half-open at the far end: a wall runs down to its foot, where the
+   floor takes over, so the pixel the foot lands in is the floor's.
+
+   For a wall this is not a rounding error. The per-pixel sampler works from the
+   row's centre rather than from the loop's bounds, so an extra row asks
+   [Texture.row_of_height] for a height {e below} the wall's own foot — and that
+   tiles rather than clamps, so what comes back is the top row of the pattern. A
+   one-pixel line of the tile's top band along the foot of every wall, leaf and
+   lintel strip on screen, over a row of floor, with a row of the wall's depth
+   written into it. *)
+
+(* The pixels an extent covers, worked out from the definition rather than
+   asked of {!Viewport}: a pixel is covered when its own centre falls in
+   [\[a, b)], and one whose centre does not is not, however much of it the
+   extent overlaps. The range is clipped to the [n] pixels there are, which is
+   what the renderer's own bounds do and what makes this comparable with them.
+
+   Written out here on purpose. Asking [Viewport.first_pixel] and
+   [Viewport.last_pixel] what they thought would agree with the renderer however
+   the pair of them moved, which is a test of nothing. *)
+let covered ~n a b =
+  let inside i =
+    let centre = float_of_int i +. 0.5 in
+    centre >= a && centre < b
+  in
+  let first = ref (-1) and last = ref (-1) in
+  for i = n - 1 downto 0 do
+    if inside i then first := i
+  done;
+  for i = 0 to n - 1 do
+    if inside i then last := i
+  done;
+  (!first, !last)
+
+(* A pattern whose rows say which end of the tile they came from: its top band
+   red and everything below blue. Nothing else in these fixtures is red, and the
+   two survive fog and shading as an inequality — the haze is neither. *)
+let banded =
+  Material.make
+    ~pattern:
+      (Texture.generate (fun ~u:_ ~v ->
+           if v < 8 then Color.rgb 255 0 0 else Color.rgb 0 0 255))
+
+(* The hall with its far wall banded. The other three are behind the player or
+   edge-on to the centre column, so what that column meets is this wall, the
+   floor under it, and nothing else. *)
+let banded_hall =
+  let floor = Plane.horizontal 0. in
+  Room.make
+    ~floor:{ Room.plane = floor; material = pale }
+    ~ceiling:(Room.Roof { Room.plane = Plane.above floor 3.; material = dim })
+    [
+      Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-4.))
+        (Vec.make 12. (-4.));
+      Room.wall ~height:3. ~material:banded (Vec.make 12. (-4.))
+        (Vec.make 12. 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make 12. 4.) (Vec.make (-4.) 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make (-4.) 4.)
+        (Vec.make (-4.) (-4.));
+    ]
+
+let banded_world =
+  World.make
+    ~rooms:[ ("hall", banded_hall) ]
+    ~links:[] ~atmosphere:air
+    ~spawn:("hall", Vec.make 0. 0.)
+
+(* The depth buffer is the oracle for "a wall painted this pixel":
+   [Renderer.draw_frame] clears it to infinity and only an opaque wall writes to
+   it, so the rows it holds a distance in are exactly the rows of the strip.
+
+   Swept along the hall so the foot lands at a spread of fractional rows — the
+   bug is there at every one of them, but only a sweep says so. *)
+let a_wall_stops_where_the_floor_starts () =
+  let fb = Framebuffer.offscreen ~width ~height in
+  let v = viewport ~floor_z:0. in
+  let column = width / 2 in
+  List.iter
+    (fun x ->
+      let player = looking_east ~pos:(Vec.make x 0.) () in
+      Renderer.draw_frame fb banded_world player;
+      let distance = 12. -. x in
+      let y_foot = Viewport.project_height v ~z:0. ~distance
+      and y_top = Viewport.project_height v ~z:3. ~distance in
+      let painted row =
+        fb.Framebuffer.depth.((row * width) + column) < infinity
+      in
+      let highest = ref (-1) and lowest = ref (-1) in
+      for row = height - 1 downto 0 do
+        if painted row then highest := row
+      done;
+      for row = 0 to height - 1 do
+        if painted row then lowest := row
+      done;
+      let name =
+        Printf.sprintf "%.2f cells away, the strip is [%.3f, %.3f)" distance
+          y_top y_foot
+      in
+      Alcotest.(check (pair int int))
+        (name ^ ": the rows whose centres are on the wall")
+        (covered ~n:height y_top y_foot)
+        (!highest, !lowest);
+      let c = Framebuffer.pixel fb ~x:column ~y:!lowest in
+      Alcotest.(check bool)
+        (Printf.sprintf "%s: sampled at the bottom of the tile, not the top"
+           name)
+        true (c.Color.b > c.Color.r))
+    [ 3.; 4.13; 5.27; 6.41; 7.55; 8.69; 9.83 ]
+
+(* The same edge on a doorway, which is the other place a projected foot becomes
+   a row. What a doorway hands to the room behind it — and to the haze that
+   stands in for one that is not built yet — is bounded by the same strip the
+   leaf across it is drawn on, so the three cannot come apart by a row.
+
+   [World.open_doorway] is the reachable case and says so itself: between it and
+   the [link] that fills the portal, the doorway "is solid and shows as haze".
+   The fill is written flat, with no fog in it, so an exact match against the
+   haze finds the fill and nothing else — the air here is thin enough that no
+   surface in the room has faded all the way into it. *)
+let thin_air =
+  Atmosphere.make ~haze:(Color.rgb 255 0 255) ~fog_distance:60.
+    ~min_brightness:0.25 ~ambient:0.6 ~directional:0.4 ()
+
+let onto_nothing =
+  let floor = Plane.horizontal 0. in
+  let surfaces = { Room.plane = floor; material = pale } in
+  let ceiling =
+    Room.Roof { Room.plane = Plane.above floor 3.; material = dim }
+  in
+  let walls =
+    [
+      Room.wall ~height:3. ~material:pale (Vec.make (-4.) (-4.))
+        (Vec.make 12. (-4.));
+      Room.wall ~height:3. ~material:pale (Vec.make 12. 4.) (Vec.make (-4.) 4.);
+      Room.wall ~height:3. ~material:pale (Vec.make (-4.) 4.)
+        (Vec.make (-4.) (-4.));
+    ]
+  in
+  let shut =
+    Room.make ~floor:surfaces ~ceiling
+      (Room.wall ~height:3. ~material:pale (Vec.make 12. (-4.))
+         (Vec.make 12. 4.)
+      :: walls)
+  in
+  let jambs, gap =
+    Room.doorway ~name:"onward" ~width:1.5 ~opening:2.2 ~height:3.
+      ~material:pale (Vec.make 12. (-4.)) (Vec.make 12. 4.)
+  in
+  let opened =
+    Room.make ~thresholds:[ gap ] ~floor:surfaces ~ceiling (jambs @ walls)
+  in
+  World.open_doorway
+    (World.make
+       ~rooms:[ ("hall", shut) ]
+       ~links:[] ~atmosphere:thin_air
+       ~spawn:("hall", Vec.make 0. 0.))
+    ~room:0 ~opened
+
+let a_doorway_onto_nothing_stops_where_the_floor_starts () =
+  let fb = Framebuffer.offscreen ~width ~height in
+  let v = viewport ~floor_z:0. in
+  let column = width / 2 in
+  let haze = (World.atmosphere onto_nothing).Atmosphere.haze in
+  List.iter
+    (fun x ->
+      let player = looking_east ~pos:(Vec.make x 0.) () in
+      Renderer.draw_frame fb onto_nothing player;
+      let distance = 12. -. x in
+      let y_foot = Viewport.project_height v ~z:0. ~distance
+      and y_head = Viewport.project_height v ~z:2.2 ~distance in
+      let filled row = Framebuffer.pixel fb ~x:column ~y:row = haze in
+      let highest = ref (-1) and lowest = ref (-1) in
+      for row = height - 1 downto 0 do
+        if filled row then highest := row
+      done;
+      for row = 0 to height - 1 do
+        if filled row then lowest := row
+      done;
+      let name =
+        Printf.sprintf "%.2f cells away, the opening is [%.3f, %.3f)" distance
+          y_head y_foot
+      in
+      Alcotest.(check (pair int int))
+        (name ^ ": the rows whose centres are in the opening")
+        (covered ~n:height y_head y_foot)
+        (!highest, !lowest))
+    [ 3.; 4.13; 5.27; 6.41; 7.55 ]
+
+(* And a billboard, which is the same rule in both directions at once: its right
+   column and its bottom row are one short of rounding, the same as a wall's
+   foot. Compared against [Viewport.sprite_box] exactly rather than within a
+   pixel, because a pixel is the whole of what this is about.
+
+   Swept in both x and y so that each of the four edges crosses a pixel centre
+   over the run — one placement would only say that one rounding came out right.
+*)
+let a_billboard_covers_the_pixels_its_box_holds () =
+  let v = viewport ~floor_z:0. in
+  List.iter
+    (fun i ->
+      let pos =
+        Vec.make (5. +. (float_of_int i *. 0.037)) (float_of_int i *. 0.011)
+      in
+      let s = Room.sprite ~size:1.6 ~image:square pos in
+      let with_it, without = alone [ s ] in
+      let player = looking_east () in
+      let drawn = box ~with_it ~without player in
+      let el, et, er, eb =
+        Viewport.sprite_box v player ~floor_z:0. ~distance:pos.Vec.x s
+      in
+      let l, r = covered ~n:width el er and t, b = covered ~n:height et eb in
+      Alcotest.(check (list int))
+        (Printf.sprintf "at (%.3f, %.3f), the box is (%.3f, %.3f, %.3f, %.3f)"
+           pos.Vec.x pos.Vec.y el et er eb)
+        [ l; t; r; b ]
+        (let l, t, r, b = drawn in
+         [ l; t; r; b ]))
+    (List.init 12 Fun.id)
+
 let () =
   Alcotest.run "Renderer"
     [
@@ -1293,6 +1516,15 @@ let () =
             a_distant_sprite_fades_into_the_haze;
           case "orientation dims a wall rather than fogging it"
             orientation_dims_a_wall_rather_than_fogging_it;
+        ] );
+      ( "where a surface stops",
+        [
+          case "a wall stops where the floor starts"
+            a_wall_stops_where_the_floor_starts;
+          case "so does a doorway onto nothing"
+            a_doorway_onto_nothing_stops_where_the_floor_starts;
+          case "a billboard covers the pixels its box holds"
+            a_billboard_covers_the_pixels_its_box_holds;
         ] );
       ( "every pixel of a frame",
         [

@@ -16,10 +16,12 @@
 
     A pixel is its centre. {!ray_direction} and {!row_factor} take a pixel
     {e index} and answer for that pixel's centre; {!project_height},
-    {!project_point} and {!sprite_box} answer in continuous coordinates, so
-    [Float.round] of one of their answers is exactly "the pixel whose centre
-    that covers". The two are inverse — {!project_point} of {!ray_direction} at
-    column [c] is [c + 0.5], the centre of that very column. *)
+    {!project_point} and {!sprite_box} answer in continuous coordinates, and the
+    two are inverse — {!project_point} of {!ray_direction} at column [c] is
+    [c + 0.5], the centre of that very column. {!first_pixel} and {!last_pixel}
+    come back the other way, and an extent is half-open: the pixels it covers
+    run from {!first_pixel} of where it starts to {!last_pixel} of where it
+    stops, which is one short of rounding both ends alike. *)
 
 type t = {
   width : int;  (** the drawing surface, in pixels *)
@@ -55,7 +57,28 @@ val project_height : t -> z:float -> distance:float -> float
     with distance and is measured down from the horizon. A wall's foot is this
     at the floor's height there, its top at the floor plus the wall's height,
     and the strip between them is the wall. A continuous row and not a pixel
-    index — it is [Float.round] of this that names the pixel. *)
+    index — {!first_pixel} and {!last_pixel} are what name the pixels. *)
+
+val first_pixel : float -> int
+(** The first pixel an extent starting at that continuous coordinate covers: the
+    first whose centre lies at or past it, which is [Float.round] of it. *)
+
+val last_pixel : float -> int
+(** The last pixel an extent stopping at that continuous coordinate covers,
+    which is {!first_pixel} of it {e less one}.
+
+    An extent is half-open — the coordinate is where the next thing begins — so
+    the pixel whose centre it falls inside belongs to that and not to this.
+    Rounding both ends alike instead hands over a pixel the extent only reaches
+    part of the way across, to be sampled at a point outside it: for a wall,
+    that is a row drawn over the floor at a height below the wall's own foot,
+    and {!Texture.row_of_height} tiles a negative height into the top of the
+    pattern rather than refusing it.
+
+    These two are public for the reason {!sprite_box} is. Anything drawing
+    attention to what the renderer drew — an outline round the thing the player
+    is looking at — has to land on the same pixels, and the rounding is half of
+    where those are. *)
 
 val row_factor : t -> row:int -> float
 (** The dimensionless [(row + ½ - horizon) / projection] the centre of a screen
