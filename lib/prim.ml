@@ -70,6 +70,11 @@ let inside = function
   | Hud -> "on the hud"
   | _ -> "there"
 
+let misplaced ~child ~parent =
+  Printf.sprintf "a %s cannot go %s" (describe child) (inside parent)
+
+let not_a_world prim = Printf.sprintf "a %s is not a world" (describe prim)
+
 let may_contain ~parent ~child =
   match (parent, child) with
   | World _, (Room _ | Link _ | Camera _ | Cursor | Finish | Hud) -> true

@@ -202,9 +202,7 @@ let walk ~parent (node : Prim.t Loom.Host.node) =
   List.map
     (fun ((child : Prim.t Loom.Host.node), parent) ->
       error (path_of child)
-        (Printf.sprintf "a %s cannot go %s"
-           (Prim.describe child.Loom.Host.prim)
-           (Prim.inside parent))
+        (Prim.misplaced ~child:child.Loom.Host.prim ~parent)
         ~detail:[ belongs_here parent ])
     (Nesting.misplaced ~parent node)
 
@@ -254,8 +252,7 @@ let structure forest =
     | [ node ] ->
         [
           error (path_of node)
-            (Printf.sprintf "a %s is not a world"
-               (Prim.describe node.Loom.Host.prim))
+            (Prim.not_a_world node.Loom.Host.prim)
             ~detail:
               [ "Every description is one P.world with everything inside it." ];
         ]

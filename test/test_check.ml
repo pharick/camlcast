@@ -232,6 +232,35 @@ let links =
    World.has_length and its three neighbours are public — this file used to
    measure with its own 1e-9 against the engine's 1e-6 — and the last is the
    reason Element.Render_refused exists. *)
+(* Agreeing about which descriptions are wrong is half of it. The other half is
+   saying so in the same words, and by the time this was written the two shared
+   the rule (Prim.may_contain), the traversal (Nesting.misplaced) and the nouns
+   (Prim.describe, Prim.inside) — everything but the sentence. Host raised
+   "... does not belong in a world" where the checker reported "a ... cannot go
+   in a world": one offence under two names, which a developer who met one and
+   then the other had no way to connect. Every part anyone had thought to share
+   was shared, which is why the last part was not.
+
+   Not written as the words themselves — those are pinned in "structure" above,
+   and pinning them twice would only mean two places to edit. Written as the
+   relation: whatever the engine puts in its exception has to contain what the
+   checker puts in its summary. Containment and not equality because Host
+   prefixes the path it was found at and the checker carries that in a field of
+   its own, which is the one difference between them that is about the job
+   rather than about the words. *)
+let refused_in_the_same_words name description =
+  case name (fun () ->
+      let said = summaries description in
+      Alcotest.(check bool)
+        "the checker has something to say about it" true (said <> []);
+      match Mount.build description with
+      | _ -> Alcotest.fail "the engine built what the checker refused"
+      | exception Host.Malformed message ->
+          Alcotest.(check bool)
+            (Printf.sprintf "the engine's %S is one the checker wrote" message)
+            true
+            (List.exists (fun s -> mentions message s) said))
+
 let agrees_with_the_engine =
   let pair ?east_floor ?dw ?de ?(w = 2.) ?(e = 2.) () =
     P.world ~atmosphere:Atmosphere.default
@@ -247,6 +276,19 @@ let agrees_with_the_engine =
       ]
   in
   [
+    refused_in_the_same_words "a sprite where a room should be"
+      (P.world ~atmosphere:Atmosphere.default
+         ~spawn:("nowhere", Vec.make 0. 0.)
+         [ P.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ]);
+    refused_in_the_same_words "a room inside a room"
+      (P.world ~atmosphere:Atmosphere.default
+         ~spawn:("outer", Vec.make 0. 0.)
+         [
+           P.room ~name:"outer" ~floor ~ceiling
+             [ P.room ~name:"inner" ~floor ~ceiling [] ];
+         ]);
+    refused_in_the_same_words "a description that is not a world at all"
+      (P.wall ~height ~material:stone (Vec.make 0. 0.) (Vec.make 1. 0.));
     case "a width difference the engine tolerates is not a complaint" (fun () ->
         (* 1e-7: inside World's epsilon of 1e-6, so this world builds and runs.
            Reported, it was a fatal-sounding error about a world with nothing

@@ -88,6 +88,24 @@ val inside : t -> string
     ["on a wall"], ["on the hud"]. What a complaint about one of them ends with.
 *)
 
+val misplaced : child:t -> parent:t -> string
+(** What to say about a nesting {!may_contain} refused:
+    ["a sprite (0,0) cannot go in a world"]. {!describe} for the thing and
+    {!inside} for the place, with the one sentence they go in.
+
+    Here for the reason the rule below is, and it is the same reason a third
+    time. {!Host.assemble} raised ["… does not belong in a world"] and
+    {!Check.report} reported ["a … cannot go in a world"], which is one offence
+    with two names — so a game developer who met the checker's wording and then
+    the engine's had no way to tell they had been told the same thing twice. The
+    nouns were already shared and only the verb was not, which is how it went
+    unnoticed: every part of the sentence anyone thought to share was shared. *)
+
+val not_a_world : t -> string
+(** What to say about a description whose one root is something else:
+    ["a wall (0,0)-(1,0) is not a world"]. The same sentence for the same
+    reason, which the two readers had come within an article of agreeing on. *)
+
 val may_contain : parent:t -> child:t -> bool
 (** Whether that nesting means anything.
 

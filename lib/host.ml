@@ -10,12 +10,13 @@ exception Malformed of string
 let node_path (node : prim Camlcast_loom.Host.node) =
   Camlcast_loom.Path.to_string node.Camlcast_loom.Host.path
 
+(* The offence is {!Prim}'s to word, the path is this one's to prefix: Check
+   carries the path in a field of its own and this has only the one line. *)
 let unexpected ~parent (node : prim Camlcast_loom.Host.node) =
   raise
     (Malformed
-       (Printf.sprintf "%s: %s does not belong %s" (node_path node)
-          (Prim.describe node.Camlcast_loom.Host.prim)
-          (Prim.inside parent)))
+       (Printf.sprintf "%s: %s" (node_path node)
+          (Prim.misplaced ~child:node.Camlcast_loom.Host.prim ~parent)))
 
 (* Both readers of the nesting rule ask {!Nesting} for it rather than each
    walking the tree their own way: this one to refuse the first thing out of
@@ -143,10 +144,18 @@ let assemble nodes =
         hud = !hud;
         targets;
       }
+  (* These two say something different from {!Check}'s, and unlike the pair
+     above that is about the shape of the report rather than about the words.
+     Check has a summary and a detail: it spends the first on what it found
+     ("there is no world here") and the second on the rule. This has one line
+     and no room for both, so it spends it on the rule, which is the half that
+     tells someone what to do. The offence with a primitive in it — a wall where
+     the world should be — is {!Prim.not_a_world} on both sides, because there
+     the sentence really was the same sentence twice. *)
   | [] -> raise (Malformed "a description has to have a world in it")
   | [ node ] ->
       raise
         (Malformed
-           (Printf.sprintf "%s: %s is not a world" (node_path node)
-              (Prim.describe node.Camlcast_loom.Host.prim)))
+           (Printf.sprintf "%s: %s" (node_path node)
+              (Prim.not_a_world node.Camlcast_loom.Host.prim)))
   | _ -> raise (Malformed "a description has to have exactly one world in it")
