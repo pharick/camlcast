@@ -19,7 +19,20 @@
     {!Framebuffer.blend}, the per-pixel calls these clip for, where a record per
     pixel would be paid in the inner loop.) Everything is clipped, so a shape
     that falls partly or wholly outside the buffer draws what fits and no more,
-    without raising. *)
+    without raising.
+
+    {b And everything is clamped}, on the same terms and for the same reason.
+    {!Color.rgb} does not hold its channels to 0 .. 255 — deliberately, so that
+    a colour reached by arithmetic can be carried about before it is put back —
+    while {!Framebuffer.set} takes one already in range and stores it in a byte.
+    A channel outside it therefore does not saturate down there: it wraps, and a
+    red brightened to 280 is drawn at 24, a colour nobody named and darker than
+    the one it started from. Every colour and every alpha that arrives here is
+    clamped once, out of the loop, before any of it reaches a pixel. Saturating
+    is what the rest of the engine does with the same overshoot —
+    {!Color.clamp}, {!Color.shade}, {!Image.make}, {!Texture.generate} — and a
+    game is entitled to arrive at a colour by arithmetic in exactly the way they
+    all assume it does. *)
 
 val rect :
   Framebuffer.t ->
@@ -34,7 +47,8 @@ val rect :
     [alpha] is out of 255, and 255 writes the pixel outright rather than
     blending it with itself. Clamped, so an alpha arrived at by arithmetic
     cannot wrap the pixels underneath: at or below 0 draws nothing, at or above
-    255 is solid. A [w] or [h] of zero or less draws nothing. *)
+    255 is solid. [color] is clamped with it, channel by channel. A [w] or [h]
+    of zero or less draws nothing. *)
 
 val sub :
   ?tint:Color.t ->
@@ -61,7 +75,10 @@ val sub :
 
     [tint] multiplies the picture's own colour channel by channel if it is
     given, which is what {!Font} uses to draw one white atlas in any colour a
-    screen asks for; omitted, the picture's colours are used as they stand.
+    screen asks for; omitted, the picture's colours are used as they stand. It
+    is clamped before it multiplies anything, since it is the one number here a
+    game supplies — a picture's own channels are already in range, {!Image.make}
+    having clamped them, so a tint in range keeps the product in range too.
 
     A pixel with zero alpha costs a comparison and no write, so a cut-out
     picture — which is most of them — is cheap over the parts that are not

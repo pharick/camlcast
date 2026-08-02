@@ -4,7 +4,16 @@ let clipped (fb : Framebuffer.t) ~x ~y ~w ~h =
     Int.min fb.Framebuffer.width (x + w),
     Int.min fb.Framebuffer.height (y + h) )
 
-let rect fb ~x ~y ~w ~h ~color:(c : Color.t) ~alpha =
+let rect fb ~x ~y ~w ~h ~color ~alpha =
+  (* The colour on the same terms as the alpha below, and for the whole of the
+     same reason. {!Color.rgb} does not clamp — deliberately, so that a value
+     reached by arithmetic can be carried about before it is put back — and
+     {!Framebuffer.set} takes a channel already in range and stores it in a
+     byte, so one that is not does not saturate: it wraps. A red brightened to
+     280 is drawn at 24, which is not a brighter red or a duller one but a
+     colour nobody named, and darker than the one it started from. Hoisted out
+     of the loops, since a rectangle is one colour. *)
+  let (c : Color.t) = Color.clamp color in
   let r = c.Color.r and g = c.Color.g and b = c.Color.b in
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w ~h in
   (* Taken at the nearer end when it falls outside 0 .. 255, on both sides and
@@ -23,6 +32,13 @@ let rect fb ~x ~y ~w ~h ~color:(c : Color.t) ~alpha =
     done
 
 let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
+  (* Once, before the loops, for the reason {!rect} clamps its colour: a tint
+     arrives from a game and is the multiplier of every channel of every pixel
+     below, so one out of range carries the whole picture out with it. In range
+     it cannot: a picture's own channels are in range by the time it exists —
+     {!Image.make} clamps what its function hands back and {!Image.load} goes
+     through it — so [c * t / 255] of two bytes is a byte. *)
+  let tint = Option.map Color.clamp tint in
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w:sw ~h:sh in
   (* And no further into the picture than the picture goes, at either edge. The
      near one matters as much as the far: [u] is [sx + px - x], so a negative

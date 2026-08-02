@@ -182,6 +182,75 @@ let an_alpha_that_overshoots_is_clamped () =
     (Color.rgb 0 0 200)
     (Framebuffer.pixel fb ~x:2 ~y:2)
 
+(* And the colour beside it, which is the same argument the comment above
+   [rect]'s alpha makes, word for word, about the three channels it used not to
+   apply it to. {!Color.rgb} does not clamp — deliberately, so that a value
+   reached by arithmetic can be carried about before it is put back — and
+   {!Framebuffer.set} stores a byte, so a channel outside 0 .. 255 does not
+   saturate there: it takes the low eight bits.
+
+   Written as {e asking for more never gives less}, which is what a wrap breaks
+   and what a game writing [base + boost] is relying on, rather than as
+   agreement with {!Color.clamp} — a test that asked the clamp what it thought
+   would go on passing if both moved together. The sweep runs well past both
+   ends, in steps that cross 256 and 0 rather than landing on them. *)
+let asking_for_more_of_a_channel_never_gives_less () =
+  let painted through v =
+    let fb = buffer () in
+    through fb (Color.rgb v (255 - v) 0);
+    Framebuffer.pixel fb ~x:1 ~y:1
+  in
+  let solid fb color = Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~color ~alpha:255
+  and blended fb color =
+    Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~color:black ~alpha:255;
+    Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~color ~alpha:128
+  and tinted fb tint =
+    let white =
+      Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
+    in
+    Paint.image ~tint fb white ~x:0 ~y:0
+  in
+  List.iter
+    (fun (name, through) ->
+      let asked = List.init 31 (fun i -> -150 + (i * 27)) in
+      let got = List.map (fun v -> painted through v) asked in
+      List.iter2
+        (fun v (c : Color.t) ->
+          Alcotest.(check bool)
+            (Printf.sprintf "%s: %d landed on the buffer as %d" name v c.Color.r)
+            true
+            (c.Color.r >= 0 && c.Color.r <= 255))
+        asked got;
+      (* Rising on the red, falling on the green, and every step of both in the
+         direction it was asked in. A wrap shows up as one step the other way. *)
+      ignore
+        (List.fold_left2
+           (fun (v0, (was : Color.t)) v (c : Color.t) ->
+             Alcotest.(check bool)
+               (Printf.sprintf
+                  "%s: %d asked for more red than %d and got less (%d after %d)"
+                  name v v0 c.Color.r was.Color.r)
+               true (c.Color.r >= was.Color.r);
+             Alcotest.(check bool)
+               (Printf.sprintf
+                  "%s: %d asked for less green than %d and got more (%d after \
+                   %d)"
+                  name v v0 c.Color.g was.Color.g)
+               true (c.Color.g <= was.Color.g);
+             (v, c))
+           (List.hd asked, List.hd got)
+           (List.tl asked) (List.tl got)))
+    [ ("solid", solid); ("blended", blended); ("tinted", tinted) ];
+  (* The concrete case the report named, worth pinning on its own: a red
+     brightened past full used to come out a dark teal. *)
+  let fb = buffer () in
+  Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4
+    ~color:(Color.rgb (200 + 80) 40 40)
+    ~alpha:255;
+  Alcotest.check color "200 boosted by 80 saturates rather than wrapping to 24"
+    (Color.rgb 255 40 40)
+    (Framebuffer.pixel fb ~x:1 ~y:1)
+
 (* A picture keeps its own per-pixel alpha, so a cut-out one leaves what was
    under it rather than stamping a rectangle of paint. *)
 let an_image_keeps_its_own_transparency () =
@@ -410,6 +479,8 @@ let () =
             alpha_blends_with_what_is_underneath;
           case "an alpha that overshoots is clamped"
             an_alpha_that_overshoots_is_clamped;
+          case "asking for more of a channel never gives less"
+            asking_for_more_of_a_channel_never_gives_less;
           case "an image keeps its own transparency"
             an_image_keeps_its_own_transparency;
           case "a sub rectangle takes what it was asked for"

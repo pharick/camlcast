@@ -80,12 +80,15 @@ val clear_depth : t -> unit
 
 val set : t -> x:int -> y:int -> r:int -> g:int -> b:int -> unit
 (** Write one opaque pixel. [r], [g] and [b] are assumed already clamped to 0 ..
-    255 by the caller; the hot loops do that as part of their arithmetic.
+    255 by the caller; the hot loops do that as part of their arithmetic. One
+    that is not does not saturate here — a bigarray of bytes takes the low eight
+    bits — so 280 is stored as 24.
 
-    {b Unchecked.} [x] and [y] must be inside the buffer. The renderer's loops
-    have clipped long before they reach here and the test would cost more than
-    everything else in the inner loop — which is what {!Paint} exists to do for
-    a caller that has not clipped. *)
+    {b Unchecked}, in both of those senses. [x] and [y] must be inside the
+    buffer too. The renderer's loops have clipped and clamped long before they
+    reach here and either test would cost more than everything else in the inner
+    loop — which is what {!Paint} exists to do for a caller that has done
+    neither. *)
 
 val blend : t -> x:int -> y:int -> r:int -> g:int -> b:int -> alpha:int -> unit
 (** Blend one pixel over what is already there with opacity [alpha] (0 leaves

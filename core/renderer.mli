@@ -156,11 +156,14 @@ val render :
     [ref], to be replaced when the window changes shape.
 
     [overlay] is handed the finished world, still in the buffer and not yet on
-    the screen, and may draw over it with {!Framebuffer.set} and
-    {!Framebuffer.blend} — an indicator, a message, a fade. It runs after
-    everything in the world and is clipped by nothing, so whatever it draws is
-    in front of all of it. The buffer's size is the one in it, and it changes
-    with the window.
+    the screen, and may draw over it — an indicator, a message, a fade. {!Paint}
+    and {!Font} are what to draw with: they clip to the buffer and clamp what
+    they are given, and a game's overlay is exactly the caller neither of those
+    can be assumed of. {!Framebuffer.set} and {!Framebuffer.blend} are
+    underneath them and take a pixel that is already on the buffer and channels
+    that are already in range. It runs after everything in the world and is
+    clipped by nothing, so whatever it draws is in front of all of it. The
+    buffer's size is the one in it, and it changes with the window.
 
     This is the loop's seam and not a game's: {!Engine.run} calls it once a
     frame, and a game reaches the overlay through the callback of the same name
