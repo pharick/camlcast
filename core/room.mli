@@ -997,6 +997,22 @@ val doorway :
       test is written as the negation of the passing condition, so a [nan]
       argument fails it rather than slipping through. *)
 
+val polygon_corners :
+  center:Vec.t -> radius:float -> sides:int -> rotation:float -> Vec.t list
+(** The corners of a regular polygon of [sides], [radius] from [center], turned
+    by [rotation] — wound as {!val-path} wants them.
+
+    The half of {!regular_polygon} that is a shape rather than a boundary, split
+    out so that a caller who wants those corners for something else does not
+    have to have walls built to get them. {!Camlcast.P.polygon} is that caller:
+    it hands them to a boundary whose legs can each carry their own material and
+    handlers, which walls already built cannot be given.
+
+    @raise Invalid_argument
+      on the same four counts {!regular_polygon} does, and under whichever of
+      the two names was called: fewer than three sides, a radius that is not
+      positive and finite, or a rotation or centre that is not a number. *)
+
 val regular_polygon :
   center:Vec.t ->
   radius:float ->

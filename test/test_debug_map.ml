@@ -23,14 +23,19 @@ let floor = Room.floor ~plane:flat ~material:stone
 let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
 
 let west_side =
-  P.path ~height:wall_height ~material:stone
-    [
-      Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.); Vec.make 0. (-4.);
-    ]
+  P.boundary ~closed:false ~height:wall_height ~material:stone
+    (P.corners
+       [
+         Vec.make 0. 4.;
+         Vec.make (-6.) 4.;
+         Vec.make (-6.) (-4.);
+         Vec.make 0. (-4.);
+       ])
 
 let east_side =
-  P.path ~height:wall_height ~material:stone
-    [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ]
+  P.boundary ~closed:false ~height:wall_height ~material:stone
+    (P.corners
+       [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ])
 
 let west_door =
   P.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:wall_height

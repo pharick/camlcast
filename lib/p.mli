@@ -17,10 +17,10 @@
     nothing wants the reversed version, and the symptom — a black room — points
     nowhere near the cause.
 
-    {!outline} settles it by not asking. It measures the loop it was given and
-    winds it correctly, so the same corners in either order build the same room,
-    and the mistake stops being possible rather than being diagnosed. Write a
-    boundary with {!outline} and the question never arises.
+    {!val-boundary} settles it by not asking. It measures the loop it was given
+    and winds it correctly, so the same corners in either order build the same
+    room, and the mistake stops being possible rather than being diagnosed.
+    Write a boundary with it and the question never arises.
 
     A free-standing {!wall} is a different matter and needs no rule: it is drawn
     from both sides and has no inside for a normal to face into. *)
@@ -108,13 +108,6 @@ val room :
     {!Camlcast_core.Room.roof} or {!Camlcast_core.Room.open_sky} for what is
     overhead. *)
 
-val outline :
-  ?key:string -> height:float -> material:Material.t -> Vec.t list -> t
-(** A closed boundary through these corners, wound so the room is on the inside.
-
-    The corners in either order describe the same room; see the note at the top
-    of this page. Three at least, and no two the same in a row. *)
-
 type corner
 (** One point on a {!boundary}, and how the wall {e leaving} it is made. *)
 
@@ -139,6 +132,10 @@ val corner :
     which is the one mistake this shape invites. A closed boundary has no such
     corner. *)
 
+val corners : Vec.t list -> corner list
+(** Every one of these points as a plain corner. The bulk form of {!val-corner},
+    for the boundary that says nothing at any leg — which is most of them. *)
+
 val boundary :
   ?key:string ->
   ?closed:bool ->
@@ -149,16 +146,22 @@ val boundary :
 (** A run of wall through these corners, each leg made to its own taste, wound
     so the room is on the inside.
 
-    {!outline} and {!path} with the whole of {!wall} available at every leg.
-    They stay, and are what to reach for when a boundary is plain: this is for
-    the one that is not, and until it existed a boundary with a single handler
-    on it had to be written wall by wall — which meant giving up the winding,
-    which is the reason those two exist. The chalk demo did exactly that for
-    every wall a mark can go on.
+    The one way to lay a run of wall in a description, and the whole of {!wall}
+    is available at every leg of it.
 
-    [closed] joins the last corner back to the first, as {!outline} does to
-    {!path}; it is open unless said otherwise. [height] and [material] are what
-    a corner that does not say gets.
+    There were three: [outline] for a closed run, [path] for an open one, and
+    this for a run whose legs differ. The first two were this with
+    {!val-corners} in front of them and nothing said at any leg, which the suite
+    asserted before they went — so they were two names for a special case rather
+    than two things. A boundary with one handler on it used to mean dropping to
+    {!wall} per side and giving up the winding, which is the reason those two
+    existed at all; the chalk demo did exactly that for every wall a mark can go
+    on.
+
+    [closed] joins the last corner back to the first, and is what a boundary
+    does unless told otherwise — say [~closed:false] for the run that stops,
+    which is a boundary with a {!doorway} in it. [height] and [material] are
+    what a corner that does not say gets.
 
     Named for what it builds rather than for its shape. It was [run], for a run
     of wall, which is the ordinary word for this and the wrong one here: a game
@@ -170,12 +173,12 @@ val boundary :
 
     {b The winding is still yours not to think about}, and it is the reason this
     takes corners rather than a list of {!wall}s. A boundary written the wrong
-    way round is reversed, exactly as {!outline}'s is — and every leg is
-    reversed with it, so what a corner said about its wall is still true of that
-    wall. It is one wall's worth of care to get that right and it is easy to get
-    wrong: reversing the corners and letting each leg travel with its own corner
-    puts every leg one wall out, a leg describing the wall it leaves and a
-    reversal making that the wall it arrives by.
+    way round is reversed — and every leg is reversed with it, so what a corner
+    said about its wall is still true of that wall. It is one wall's worth of
+    care to get that right and it is easy to get wrong: reversing the corners
+    and letting each leg travel with its own corner puts every leg one wall out,
+    a leg describing the wall it leaves and a reversal making that the wall it
+    arrives by.
 
     {b One thing does not survive the reversal: a hand-placed {!decal}.} Its
     [along] is measured from the wall's first point, and a reversed wall has the
@@ -188,30 +191,17 @@ val boundary :
     wall in the same frame. Hand-placing one on a boundary whose winding you
     have not checked is what {!wall} is still there for. *)
 
-val path : ?key:string -> height:float -> material:Material.t -> Vec.t list -> t
-(** An open run of wall through these corners: what a boundary is when part of
-    it is a {!doorway} rather than a wall.
-
-    Wound like {!outline}, by measuring the loop it would be if its two ends
-    were joined. A room's boundary with a gap in it is exactly that loop, so the
-    measurement is the same one and a game gets the same freedom not to think
-    about it. A run that doubles back on itself, or one whose corners are all in
-    a line, encloses nothing to measure and is left in the order it was given.
-
-    Two corners at least. *)
-
 val polygon :
-  center:Vec.t ->
-  radius:float ->
-  sides:int ->
-  rotation:float ->
-  height:float ->
-  material:Material.t ->
-  t
-(** A regular polygon of [sides] walls, wound so its inside is inside.
+  center:Vec.t -> radius:float -> sides:int -> rotation:float -> corner list
+(** The corners of a regular polygon, ready for {!boundary}: [sides] of them,
+    [radius] from [center], turned by [rotation].
 
-    A pillar, most of the time. [radius] is to a corner and not to a face, and
-    [rotation] turns the whole thing about its centre. *)
+    A pillar, most of the time. [radius] is to a corner and not to a face.
+
+    Corners and not walls, so that a polygon is a boundary like any other and
+    its legs can carry what any other leg can — a six-sided pillar with a
+    handler on one face was not writable before. Wrap it in {!boundary} and give
+    it a height and a material there. *)
 
 val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
 (** The two ends of the opening {!doorway} would cut into the wall from [a] to
@@ -295,8 +285,9 @@ val wall :
   t
 (** One segment, from one point to another, with any {!decal}s hung on it.
 
-    For a room's boundary reach for {!outline} instead. This is for what stands
-    on its own — a partition, a bench you see over, a monolith. *)
+    For a room's boundary reach for {!val-boundary} instead, whose every leg
+    takes all of this. This is for what stands on its own — a partition, a bench
+    you see over, a monolith. *)
 
 val decal :
   ?key:string ->

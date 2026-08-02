@@ -25,13 +25,14 @@ let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
 let room =
   P.room ~name:"room" ~floor ~ceiling
     [
-      P.outline ~height:wall_height ~material:stone
-        [
-          Vec.make (-4.) (-4.);
-          Vec.make 4. (-4.);
-          Vec.make 4. 4.;
-          Vec.make (-4.) 4.;
-        ];
+      P.boundary ~height:wall_height ~material:stone
+        (P.corners
+           [
+             Vec.make (-4.) (-4.);
+             Vec.make 4. (-4.);
+             Vec.make 4. 4.;
+             Vec.make (-4.) 4.;
+           ]);
     ]
 
 let showing items =

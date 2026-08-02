@@ -361,13 +361,14 @@ let () =
                         ~ceiling:
                           (roof ~plane:(Plane.above flat height) ~material:stone)
                         [
-                          path ~height ~material:stone
-                            [
-                              Vec.make 0. 4.;
-                              Vec.make (-6.) 4.;
-                              Vec.make (-6.) (-4.);
-                              Vec.make 0. (-4.);
-                            ];
+                          boundary ~closed:false ~height ~material:stone
+                            (corners
+                               [
+                                 Vec.make 0. 4.;
+                                 Vec.make (-6.) 4.;
+                                 Vec.make (-6.) (-4.);
+                                 Vec.make 0. (-4.);
+                               ]);
                           doorway
                             ?door:(if shut then Some leaf else None)
                             ~on_use:(fun _ -> set_shut (not shut))
@@ -379,13 +380,14 @@ let () =
                         ~ceiling:
                           (roof ~plane:(Plane.above flat height) ~material:stone)
                         [
-                          path ~height ~material:stone
-                            [
-                              Vec.make 0. (-4.);
-                              Vec.make 6. (-4.);
-                              Vec.make 6. 4.;
-                              Vec.make 0. 4.;
-                            ];
+                          boundary ~closed:false ~height ~material:stone
+                            (corners
+                               [
+                                 Vec.make 0. (-4.);
+                                 Vec.make 6. (-4.);
+                                 Vec.make 6. 4.;
+                                 Vec.make 0. 4.;
+                               ]);
                           doorway
                             ?door:(if shut then Some leaf else None)
                             ~name:"west" ~width:2. ~opening:2.5 ~height

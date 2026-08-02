@@ -226,17 +226,18 @@ let level =
           ~ceiling:
             (roof ~plane:(Plane.above ground_plane height) ~material:stone)
           [
-            (* The corners in whichever order reads best. outline measures the
+            (* The corners in whichever order reads best. boundary measures the
                loop and winds it so the room is on the inside, so a boundary
                wound the wrong way round — and a room black from within —
                cannot be written down. *)
-            outline ~height ~material:stone
-              [
-                Vec.make (-6.) (-6.);
-                Vec.make 6. (-6.);
-                Vec.make 6. 6.;
-                Vec.make (-6.) 6.;
-              ];
+            boundary ~height ~material:stone
+              (corners
+                 [
+                   Vec.make (-6.) (-6.);
+                   Vec.make 6. (-6.);
+                   Vec.make 6. 6.;
+                   Vec.make (-6.) 6.;
+                 ]);
           ];
       ])
 

@@ -117,7 +117,7 @@ let chamber =
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
       [
-        outline ~height ~material:Surfaces.brick [ sw; se; ne; nw ];
+        boundary ~height ~material:Surfaces.brick (corners [ sw; se; ne; nw ]);
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
       ])
 

@@ -38,13 +38,14 @@ let backdrop ~angle ~taken ~over =
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
-            outline ~height ~material:Surfaces.stone
-              [
-                Vec.make (-4.) (-4.);
-                Vec.make 4. (-4.);
-                Vec.make 4. 4.;
-                Vec.make (-4.) 4.;
-              ];
+            boundary ~height ~material:Surfaces.stone
+              (corners
+                 [
+                   Vec.make (-4.) (-4.);
+                   Vec.make 4. (-4.);
+                   Vec.make 4. 4.;
+                   Vec.make (-4.) 4.;
+                 ]);
           ];
         (* The eye is the description's here rather than the runtime's: the
            backdrop turns on its own and the controls are the list's, so a walk

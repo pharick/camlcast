@@ -150,7 +150,7 @@ let described =
   P.world ~atmosphere:Atmosphere.default ~spawn
     [
       P.room ~name:"room" ~floor ~ceiling
-        [ P.outline ~height ~material:stone corners ];
+        [ P.boundary ~height ~material:stone (P.corners corners) ];
     ]
 
 let the_smallest_game =
@@ -170,6 +170,10 @@ let the_smallest_game =
 (* {!P.boundary} with nothing said at any leg has to be the two helpers it
    generalizes, or it is a third way of building a boundary rather than one way
    with more available. *)
+(* {!P.boundary} is now the only way to lay a run of wall in a description, so
+   what has to be pinned is that its two axes still mean what the two functions
+   it replaced meant: [closed] shuts the loop, and {!P.polygon} hands it the
+   corners {!Room.regular_polygon} would have used. *)
 let runs =
   let described children =
     (Mount.build
@@ -177,26 +181,60 @@ let runs =
           [ P.room ~name:"room" ~floor ~ceiling children ]))
       .Scene.world
   in
-  let open_corners =
-    [ List.nth corners 0; List.nth corners 1; List.nth corners 2 ]
+  let walls world =
+    let r = World.room world 0 in
+    List.init (Room.wall_count r) (Room.wall_at r)
   in
   [
-    case "a run of bare corners is an outline" (fun () ->
-        same_world
-          (described [ P.outline ~height ~material:stone corners ])
-          (described
-             [
-               P.boundary ~closed:true ~height ~material:stone
-                 (List.map P.corner corners);
-             ]));
-    case "and an open one is a path" (fun () ->
-        same_world
-          (described [ P.path ~height ~material:stone open_corners ])
-          (described
-             [
-               P.boundary ~height ~material:stone
-                 (List.map P.corner open_corners);
-             ]));
+    case "closed shuts the loop and open leaves it" (fun () ->
+        let shut =
+          described [ P.boundary ~height ~material:stone (P.corners corners) ]
+        and ajar =
+          described
+            [
+              P.boundary ~closed:false ~height ~material:stone
+                (P.corners corners);
+            ]
+        in
+        Alcotest.(check int)
+          "four corners, four walls shut" 4
+          (List.length (walls shut));
+        Alcotest.(check int) "and three open" 3 (List.length (walls ajar));
+        (* The one the open run leaves out is the one back to the first
+           corner. *)
+        let last = List.nth (walls shut) 3 in
+        Alcotest.check vec "it is the closing wall that is missing"
+          (List.nth corners 3) last.Room.a;
+        Alcotest.check vec "and it comes back to the start" (List.nth corners 0)
+          last.Room.b);
+    case "a polygon boundary is Room.regular_polygon" (fun () ->
+        (* The corners were split out of that function so a pillar could carry
+           per-leg handlers; splitting them must not have moved one. *)
+        let center = Vec.make 1.5 (-2.5) in
+        let built =
+          Room.regular_polygon ~center ~radius:0.8 ~sides:5 ~rotation:0.3
+            ~height ~material:stone
+        in
+        let described_walls =
+          walls
+            (described
+               [
+                 P.boundary ~height ~material:stone
+                   (P.polygon ~center ~radius:0.8 ~sides:5 ~rotation:0.3);
+               ])
+        in
+        Alcotest.(check int)
+          "same count" (List.length built)
+          (List.length described_walls);
+        List.iteri
+          (fun i ((one : Room.wall), (other : Room.wall)) ->
+            Alcotest.check vec
+              (Printf.sprintf "wall %d from" i)
+              one.Room.a other.Room.a;
+            Alcotest.check vec
+              (Printf.sprintf "wall %d to" i)
+              one.Room.b other.Room.b)
+          (List.combine built described_walls));
     case "the last corner of an open run cannot carry anything" (fun () ->
         (* It leaves no wall, so a handler there would never fire — the one
            mistake the "describes the wall leaving it" shape invites. *)
@@ -205,18 +243,18 @@ let runs =
              "P.boundary: the last corner of an open run leaves no wall, so it \
               can carry nothing") (fun () ->
             ignore
-              (P.boundary ~height ~material:stone
-                 (match open_corners with
-                 | [ p; q; r ] ->
+              (P.boundary ~closed:false ~height ~material:stone
+                 (match corners with
+                 | p :: q :: r :: _ ->
                      [ P.corner p; P.corner q; P.corner r ~key:"nowhere" ]
                  | _ -> assert false)));
         (* A closed run has no such corner, so the same list is fine shut. *)
         ignore
           (described
              [
-               P.boundary ~closed:true ~height ~material:stone
-                 (match open_corners with
-                 | [ p; q; r ] ->
+               P.boundary ~height ~material:stone
+                 (match corners with
+                 | p :: q :: r :: _ ->
                      [ P.corner p; P.corner q; P.corner r ~key:"back" ]
                  | _ -> assert false);
              ]));
@@ -229,13 +267,16 @@ let winding =
           P.world ~atmosphere:Atmosphere.default ~spawn
             [
               P.room ~name:"room" ~floor ~ceiling
-                [ P.outline ~height ~material:stone corners ];
+                [ P.boundary ~height ~material:stone (P.corners corners) ];
             ]
         and backwards =
           P.world ~atmosphere:Atmosphere.default ~spawn
             [
               P.room ~name:"room" ~floor ~ceiling
-                [ P.outline ~height ~material:stone (List.rev corners) ];
+                [
+                  P.boundary ~height ~material:stone
+                    (P.corners (List.rev corners));
+                ];
             ]
         in
         same_world (Mount.build forwards).Scene.world
@@ -248,7 +289,10 @@ let winding =
              (P.world ~atmosphere:Atmosphere.default ~spawn
                 [
                   P.room ~name:"room" ~floor ~ceiling
-                    [ P.outline ~height ~material:stone (List.rev corners) ];
+                    [
+                      P.boundary ~height ~material:stone
+                        (P.corners (List.rev corners));
+                    ];
                 ]))
             .Scene.world);
     (* {!P.boundary} is the winding above with the whole of {!P.wall} at every leg,
@@ -313,7 +357,10 @@ let winding =
                (P.world ~atmosphere:Atmosphere.default ~spawn
                   [
                     P.room ~name:"room" ~floor ~ceiling
-                      [ P.outline ~height ~material:stone (List.rev corners) ];
+                      [
+                        P.boundary ~height ~material:stone
+                          (P.corners (List.rev corners));
+                      ];
                   ]))
               .Scene.world
             0
@@ -341,25 +388,27 @@ let two_room_world ~door =
     [
       P.room ~name:"west" ~floor ~ceiling
         [
-          P.path ~height ~material:stone
-            [
-              Vec.make 0. 4.;
-              Vec.make (-6.) 4.;
-              Vec.make (-6.) (-4.);
-              Vec.make 0. (-4.);
-            ];
+          P.boundary ~closed:false ~height ~material:stone
+            (P.corners
+               [
+                 Vec.make 0. 4.;
+                 Vec.make (-6.) 4.;
+                 Vec.make (-6.) (-4.);
+                 Vec.make 0. (-4.);
+               ]);
           P.doorway ?door ~name:"east" ~width:2. ~opening:2.5 ~height
             ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.);
         ];
       P.room ~name:"east" ~floor ~ceiling
         [
-          P.path ~height ~material:stone
-            [
-              Vec.make 0. (-4.);
-              Vec.make 6. (-4.);
-              Vec.make 6. 4.;
-              Vec.make 0. 4.;
-            ];
+          P.boundary ~closed:false ~height ~material:stone
+            (P.corners
+               [
+                 Vec.make 0. (-4.);
+                 Vec.make 6. (-4.);
+                 Vec.make 6. 4.;
+                 Vec.make 0. 4.;
+               ]);
           P.doorway ?door ~name:"west" ~width:2. ~opening:2.5 ~height
             ~material:stone (Vec.make 0. 4.) (Vec.make 0. (-4.));
         ];
@@ -484,7 +533,7 @@ let malformed =
   in
   [
     fails "a description with no world in it"
-      (P.outline ~height ~material:stone corners);
+      (P.boundary ~height ~material:stone (P.corners corners));
     fails "a wall loose at the top level"
       (P.wall ~height ~material:stone (Vec.make 0. 0.) (Vec.make 1. 0.));
     fails "a room inside a room"
@@ -516,7 +565,7 @@ let both_readers =
   let module E = Camlcast_loom.Element in
   let only_room =
     P.room ~name:"room" ~floor ~ceiling
-      [ P.outline ~height ~material:stone corners ]
+      [ P.boundary ~height ~material:stone (P.corners corners) ]
   in
   let world_with extra =
     E.prim
@@ -600,7 +649,7 @@ let furnishing =
       [
         P.room ~name:"room" ~floor ~ceiling
           [
-            P.outline ~height ~material:stone corners;
+            P.boundary ~height ~material:stone (P.corners corners);
             P.wall ~height:2. ~material:stone
               ~decals:
                 [

@@ -51,9 +51,11 @@ let at ~light ~over =
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
-            outline ~height ~material:Surfaces.stone [ sw; se; ne; nw ];
-            polygon ~center:(Vec.make 4.5 3.5) ~radius:0.8 ~sides:4
-              ~rotation:0.5 ~height:2.6 ~material:Surfaces.brick;
+            boundary ~height ~material:Surfaces.stone
+              (corners [ sw; se; ne; nw ]);
+            boundary ~height:2.6 ~material:Surfaces.brick
+              (polygon ~center:(Vec.make 4.5 3.5) ~radius:0.8 ~sides:4
+                 ~rotation:0.5);
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
               (Vec.make 1.5 0.);
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel

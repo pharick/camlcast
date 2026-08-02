@@ -42,13 +42,14 @@ let level =
           ~ceiling:
             (roof ~plane:(Plane.above ground_plane height) ~material:stone)
           [
-            outline ~height ~material:stone
-              [
-                Vec.make (-6.) (-6.);
-                Vec.make 6. (-6.);
-                Vec.make 6. 6.;
-                Vec.make (-6.) 6.;
-              ];
+            boundary ~height ~material:stone
+              (corners
+                 [
+                   Vec.make (-6.) (-6.);
+                   Vec.make 6. (-6.);
+                   Vec.make 6. 6.;
+                   Vec.make (-6.) 6.;
+                 ]);
           ];
       ])
 

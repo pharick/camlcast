@@ -66,7 +66,7 @@ level is the picture changing rather than the window going away.
   let () = ignore (Run.play ~title:"A game" level)
 ]}
 
-A description is made with {!Camlcast.P} — [world], [room], [outline], [doorway],
+A description is made with {!Camlcast.P} — [world], [room], [boundary], [doorway],
 [sprite], [hud] — and the parts of it that have to remember something are
 {e components}: functions from props to a description, holding state with
 {!Camlcast.Hook.use_state} and reaching the outside world through

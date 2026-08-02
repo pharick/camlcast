@@ -117,13 +117,14 @@ And [bin/main.ml], which is Step 1.
             ~floor:(floor ~plane:ground ~material:stone)
             ~ceiling:(roof ~plane:(Plane.above ground height) ~material:stone)
             [
-              outline ~height ~material:stone
-                [
-                  Vec.make (-6.) (-6.);
-                  Vec.make 6. (-6.);
-                  Vec.make 6. 6.;
-                  Vec.make (-6.) 6.;
-                ];
+              boundary ~height ~material:stone
+                (corners
+                   [
+                     Vec.make (-6.) (-6.);
+                     Vec.make 6. (-6.);
+                     Vec.make 6. 6.;
+                     Vec.make (-6.) 6.;
+                   ]);
             ];
         ])
 
@@ -148,25 +149,40 @@ starts and stops.
 Distances are in {b cells}. One cell is one texture repeat, and the eye stands
 half a cell up, so a twelve-cell room under a four-cell ceiling reads as a hall.
 
-{!Camlcast.P.outline} is a closed boundary through the corners you give it.
-{b The order does not matter}: it measures the loop and winds it so the room is
-on the inside. A boundary wound the wrong way round draws a room black from
-within, it is never what anybody wanted, and this is why you will not meet it.
+{!Camlcast.P.boundary} is a run of wall through the corners you give it, shut
+into a loop unless you say [~closed:false]. {b The order does not matter}: it
+measures the loop and winds it so the room is on the inside. A boundary wound
+the wrong way round draws a room black from within, it is never what anybody
+wanted, and this is why you will not meet it.
+
+{!Camlcast.P.corners} is every point as a plain corner, which is what a boundary
+with nothing to say at any of its sides wants. The next step is what a corner is
+for.
 
 {1 Step 2 — More than one material}
 
-[outline] gives every side the same material. Name the corners and write the
-walls yourself when they should differ:
+A boundary gives every side the material it was handed, and any corner may say
+otherwise:
 
 {[
   P.
     [
-      wall ~height ~material:brick sw se;
-      wall ~height ~material:panel se ne;
-      wall ~height ~material:stone ne nw;
-      wall ~height ~material:tile nw sw;
+      boundary ~height ~material:stone
+        [
+          corner sw ~material:brick;
+          corner se ~material:panel;
+          corner ne;
+          corner nw ~material:tile;
+        ];
     ]
 ]}
+
+{b A corner describes the wall {e leaving} it}, so [corner sw ~material:brick]
+is the wall from [sw] to [se]. Everything {!Camlcast.P.wall} takes goes there —
+a key, an [on_gaze] or [on_use], decals, a height of its own — which is what
+lets a boundary be decorated or interactive without giving up the winding. Reach
+for {!Camlcast.P.wall} itself only for what stands on its own: a partition, a
+bench you see over, a monolith.
 
 A pattern is a pure function from a texel coordinate to a colour, and
 {!Camlcast.Texture.generate} turns one into a tiling square.
@@ -248,12 +264,12 @@ says the two are the same one.
       ])
 ]}
 
-{b Three sides run as a {!Camlcast.P.path} and the fourth is cut.} That is the
-shape of a boundary with a hole in it. An [outline] of all four corners {e and}
-a doorway along one of them is a solid wall standing behind an opening — a
-doorway you can see through and cannot walk through. [path] winds itself by
-measuring the loop it would be if its ends were joined, so it asks no more of you
-than [outline] does.
+{b Three sides run as an open [boundary ~closed:false] and the fourth is cut.}
+That is the shape of a boundary with a hole in it. A closed boundary of all four
+corners {e and} a doorway along one of them is a solid wall standing behind an
+opening — a doorway you can see through and cannot walk through. An open
+boundary winds itself by measuring the loop it would be if its ends were joined,
+so it asks no more of you than a shut one does.
 
 Every room has its own coordinates and there is no world-wide compass. Which
 means a neighbour's floor has to be {e carried} across the doorway rather than
@@ -284,7 +300,8 @@ Use it wherever a part of a world goes:
 
 {[
   P.room ~name:"hall" ~floor ~ceiling
-    [ outline ~height ~material:stone corners; torch here; torch there ]
+    [ boundary ~height ~material:stone (corners here_corners);
+      torch here; torch there ]
 ]}
 
 {b Declare components at the top level.} This is a rule and not a style. A

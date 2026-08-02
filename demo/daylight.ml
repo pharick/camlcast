@@ -46,11 +46,12 @@ let yard ~name ~sky ~column =
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(open_sky sky)
       [
-        path ~height ~material:Surfaces.stone [ ne; nw; sw; se ];
+        boundary ~closed:false ~height ~material:Surfaces.stone
+          (corners [ ne; nw; sw; se ]);
         doorway ~name:"door" ~width:2.8 ~opening:2.4 ~height
           ~material:Surfaces.stone se ne;
-        polygon ~center:column ~radius:0.9 ~sides:6 ~rotation:0. ~height:7.
-          ~material:Surfaces.brick;
+        boundary ~height:7. ~material:Surfaces.brick
+          (polygon ~center:column ~radius:0.9 ~sides:6 ~rotation:0.);
       ])
 
 let level =

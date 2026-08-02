@@ -315,7 +315,7 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
-            boundary ~height ~material:Surfaces.stone
+            boundary ~closed:false ~height ~material:Surfaces.stone
               [
                 chalk_leg ~material:Surfaces.brick "jamb-north" hall_q;
                 chalk_leg "north" hall_ne;
@@ -339,7 +339,7 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
           ~ceiling:
             (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
           [
-            boundary ~height ~material:Surfaces.stone
+            boundary ~closed:false ~height ~material:Surfaces.stone
               [
                 chalk_leg ~material:Surfaces.brick "back-jamb-south" back_q;
                 chalk_leg "back-south" back_sw;

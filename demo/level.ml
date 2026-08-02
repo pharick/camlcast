@@ -182,9 +182,7 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
              ones. *)
           @ List.init 6 (fun k ->
               let angle = float_of_int k *. Float.pi /. 3. in
-              polygon
-                ~center:(Vec.make (6. *. cos angle) (6. *. sin angle))
-                ~radius:0.6 ~sides:4 ~rotation:0.6
+              boundary
                 ~height:[| 3.5; 0.6; 2.2; 4.5; 1.3; 2.8 |].(k)
                 ~material:
                   [|
@@ -192,7 +190,10 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
                     Surfaces.panel;
                     Surfaces.stone;
                     Surfaces.tile;
-                  |].(k mod 4))
+                  |].(k mod 4)
+                (polygon
+                   ~center:(Vec.make (6. *. cos angle) (6. *. sin angle))
+                   ~radius:0.6 ~sides:4 ~rotation:0.6))
           @ [
               (* A brick wall hung on both sides: a painting and a poster facing
                  the spawn, and on the back of it a lit sign.
@@ -256,8 +257,9 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
             (* A low bench you see over. *)
             wall ~height:0.5 ~material:Surfaces.panel (Vec.make 3. (-4.))
               (Vec.make 5. (-4.));
-            polygon ~center:(Vec.make 4. 3.) ~radius:0.7 ~sides:4 ~rotation:0.3
-              ~height:4.5 ~material:Surfaces.tile;
+            boundary ~height:4.5 ~material:Surfaces.tile
+              (polygon ~center:(Vec.make 4. 3.) ~radius:0.7 ~sides:4
+                 ~rotation:0.3);
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
               (Vec.make 3. (-2.));
           ];
@@ -266,8 +268,8 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
           [
             doorway ~name:"south" ~width:gate_width ~opening:2.6 ~height:3.2
               ~material:Surfaces.tile (Vec.make (-3.) 0.) (Vec.make 3. 0.);
-            path ~height:3.2 ~material:Surfaces.tile
-              [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ];
+            boundary ~closed:false ~height:3.2 ~material:Surfaces.tile
+              (corners [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ]);
           ];
         room ~name:"garden"
           ~floor:(ground garden_floor)
@@ -302,14 +304,15 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
             wall ~height:6. ~material:Surfaces.brick (Vec.make (-6.) (-3.5))
               (Vec.make (-4.5) (-4.5));
             (* A winding low wall you look over into the sky beyond. *)
-            path ~height:0.5 ~material:Surfaces.panel
-              [
-                Vec.make (-7.) (-3.);
-                Vec.make (-2.) (-2.);
-                Vec.make (-4.) 1.;
-                Vec.make (-1.) 3.;
-                Vec.make (-6.) 4.;
-              ];
+            boundary ~closed:false ~height:0.5 ~material:Surfaces.panel
+              (corners
+                 [
+                   Vec.make (-7.) (-3.);
+                   Vec.make (-2.) (-2.);
+                   Vec.make (-4.) 1.;
+                   Vec.make (-1.) 3.;
+                   Vec.make (-6.) 4.;
+                 ]);
             (* Held clear of the floor, which nothing else in the level is: a
                sprite's base is where its feet are, and a barrel with its feet
                at 1.6 is a barrel sitting on nothing. *)

@@ -50,8 +50,8 @@ let level =
           ~floor:(floor ~plane:hall_floor ~material:Surfaces.ground)
           ~ceiling:(roof ~plane:hall_roof ~material:Surfaces.soffit)
           [
-            path ~height ~material:Surfaces.stone
-              [ hall_ne; hall_nw; hall_sw; hall_se ];
+            boundary ~closed:false ~height ~material:Surfaces.stone
+              (corners [ hall_ne; hall_nw; hall_sw; hall_se ]);
             doorway ~name:"onward" ~width ~opening:3.2 ~height
               ~material:Surfaces.brick hall_se hall_ne;
             (* Standing on the slope: a sprite's feet are on the floor wherever
@@ -65,7 +65,8 @@ let level =
           ~floor:(floor ~plane:up_floor ~material:Surfaces.ground)
           ~ceiling:(roof ~plane:up_roof ~material:Surfaces.soffit)
           [
-            path ~height ~material:Surfaces.stone [ up_sw; up_se; up_ne; up_nw ];
+            boundary ~closed:false ~height ~material:Surfaces.stone
+              (corners [ up_sw; up_se; up_ne; up_nw ]);
             doorway ~name:"back" ~width ~opening:3.2 ~height
               ~material:Surfaces.brick up_nw up_sw;
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure

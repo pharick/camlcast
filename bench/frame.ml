@@ -48,13 +48,14 @@ let square ~name ~at ~reach contents =
     room ~name
       ~floor:(floor ~plane:flat ~material:ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
-      (outline ~height ~material:stone
-         [
-           Vec.make (at -. reach) (-.reach);
-           Vec.make (at +. reach) (-.reach);
-           Vec.make (at +. reach) reach;
-           Vec.make (at -. reach) reach;
-         ]
+      (boundary ~height ~material:stone
+         (corners
+            [
+              Vec.make (at -. reach) (-.reach);
+              Vec.make (at +. reach) (-.reach);
+              Vec.make (at +. reach) reach;
+              Vec.make (at -. reach) reach;
+            ])
       :: contents))
 
 (* One room and nothing in it: the floor of what a description can cost. *)
@@ -68,13 +69,14 @@ let smallest =
 let showcase =
   let pillar ~at ~side =
     P.(
-      outline ~height ~material:stone
-        [
-          Vec.make (at -. side) (-.side);
-          Vec.make (at +. side) (-.side);
-          Vec.make (at +. side) side;
-          Vec.make (at -. side) side;
-        ])
+      boundary ~height ~material:stone
+        (corners
+           [
+             Vec.make (at -. side) (-.side);
+             Vec.make (at +. side) (-.side);
+             Vec.make (at +. side) side;
+             Vec.make (at -. side) side;
+           ]))
   in
   let furnished ~name ~at =
     square ~name ~at ~reach:8.

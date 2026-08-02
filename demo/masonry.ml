@@ -44,8 +44,9 @@ let level =
             wall ~height ~material:Surfaces.tile nw sw;
             (* An oak post off to one side, so the four walls are also seen at a
                glancing angle, where the directional light falls differently. *)
-            polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
-              ~rotation:0.4 ~height:2.6 ~material:Surfaces.oak;
+            boundary ~height:2.6 ~material:Surfaces.oak
+              (polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
+                 ~rotation:0.4);
           ];
       ])
 

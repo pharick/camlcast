@@ -28,13 +28,14 @@ let level =
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
             (* A plain box boundary: four corners say all of it. *)
-            outline ~height ~material:Surfaces.stone
-              [
-                Vec.make (-8.) (-6.);
-                Vec.make 8. (-6.);
-                Vec.make 8. 6.;
-                Vec.make (-8.) 6.;
-              ];
+            boundary ~height ~material:Surfaces.stone
+              (corners
+                 [
+                   Vec.make (-8.) (-6.);
+                   Vec.make 8. (-6.);
+                   Vec.make 8. 6.;
+                   Vec.make (-8.) 6.;
+                 ]);
             (* A screen across the room in two halves, bars on one side and
                leaded glass on the other, with a gap between them to walk
                through. It stands square across the way you are facing when you

@@ -38,20 +38,22 @@ let level =
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           (* The colonnade runs east, which is the way you are facing when you
              arrive. A plain box boundary, so four corners say all of it. *)
-          (outline ~height ~material:Surfaces.stone
-             [
-               Vec.make 0. (-6.);
-               Vec.make length (-6.);
-               Vec.make length 6.;
-               Vec.make 0. 6.;
-             ]
+          (boundary ~height ~material:Surfaces.stone
+             (corners
+                [
+                  Vec.make 0. (-6.);
+                  Vec.make length (-6.);
+                  Vec.make length 6.;
+                  Vec.make 0. 6.;
+                ])
           :: List.concat
                (List.init 14 (fun k ->
                     let x = 6. +. (float_of_int k *. 6.) in
                     List.map
                       (fun y ->
-                        polygon ~center:(Vec.make x y) ~radius:0.7 ~sides:6
-                          ~rotation:0.2 ~height ~material:Surfaces.brick)
+                        boundary ~height ~material:Surfaces.brick
+                          (polygon ~center:(Vec.make x y) ~radius:0.7 ~sides:6
+                             ~rotation:0.2))
                       [ -3.5; 3.5 ])));
       ])
 

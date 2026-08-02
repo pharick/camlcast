@@ -105,8 +105,8 @@ let at ~phase =
                ~plane:(Plane.above hall_floor height)
                ~material:Surfaces.soffit)
           ([
-             path ~height ~material:Surfaces.stone
-               [ hall_ne; hall_nw; hall_sw; hall_se ];
+             boundary ~closed:false ~height ~material:Surfaces.stone
+               (corners [ hall_ne; hall_nw; hall_sw; hall_se ]);
              doorway ~name:"onward" ~width ~opening:3.4 ~height
                ~material:Surfaces.brick hall_se hall_ne;
              (* A partition that stops well short of the roof, standing across
@@ -125,8 +125,8 @@ let at ~phase =
                ~plane:(Plane.above annex_floor height)
                ~material:Surfaces.soffit)
           [
-            path ~height ~material:Surfaces.stone
-              [ annex_sw; annex_se; annex_ne; annex_nw ];
+            boundary ~closed:false ~height ~material:Surfaces.stone
+              (corners [ annex_sw; annex_se; annex_ne; annex_nw ]);
             doorway ~name:"back" ~width ~opening:3.4 ~height
               ~material:Surfaces.brick annex_nw annex_sw;
             cloud ~key:"annex" ~base:1.9 (Vec.make 4. 0.);

@@ -83,7 +83,8 @@ let chamber =
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
       [
-        path ~height ~material:Surfaces.brick [ sw; se; ne; nw ];
+        boundary ~closed:false ~height ~material:Surfaces.brick
+          (corners [ sw; se; ne; nw ]);
         doorway ~name:"back" ?door ~on_gaze ~on_use ~width:2.4 ~opening:3.
           ~height ~material:Surfaces.brick nw sw;
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.);

@@ -23,13 +23,14 @@ let box ~name ~at contents =
     room ~name
       ~floor:(floor ~plane:flat ~material:stone)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
-      (outline ~height ~material:stone
-         [
-           Vec.make (at -. 2.) (-2.);
-           Vec.make (at +. 2.) (-2.);
-           Vec.make (at +. 2.) 2.;
-           Vec.make (at -. 2.) 2.;
-         ]
+      (boundary ~height ~material:stone
+         (corners
+            [
+              Vec.make (at -. 2.) (-2.);
+              Vec.make (at +. 2.) (-2.);
+              Vec.make (at +. 2.) 2.;
+              Vec.make (at -. 2.) 2.;
+            ])
       :: contents))
 
 let world_of ~spawn rooms = P.world ~atmosphere:Atmosphere.default ~spawn rooms
@@ -49,13 +50,14 @@ let joined =
           ~floor:(floor ~plane:flat ~material:stone)
           ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
           [
-            path ~height ~material:stone
-              [
-                Vec.make 0. 3.;
-                Vec.make (-5.) 3.;
-                Vec.make (-5.) (-3.);
-                Vec.make 0. (-3.);
-              ];
+            boundary ~closed:false ~height ~material:stone
+              (corners
+                 [
+                   Vec.make 0. 3.;
+                   Vec.make (-5.) 3.;
+                   Vec.make (-5.) (-3.);
+                   Vec.make 0. (-3.);
+                 ]);
             doorway ~name:"east" ~width:2. ~opening:2.5 ~height ~material:stone
               (Vec.make 0. (-3.)) (Vec.make 0. 3.);
           ];
@@ -63,13 +65,14 @@ let joined =
           ~floor:(floor ~plane:flat ~material:stone)
           ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
           [
-            path ~height ~material:stone
-              [
-                Vec.make 0. (-3.);
-                Vec.make 5. (-3.);
-                Vec.make 5. 3.;
-                Vec.make 0. 3.;
-              ];
+            boundary ~closed:false ~height ~material:stone
+              (corners
+                 [
+                   Vec.make 0. (-3.);
+                   Vec.make 5. (-3.);
+                   Vec.make 5. 3.;
+                   Vec.make 0. 3.;
+                 ]);
             doorway ~name:"west" ~width:2. ~opening:2.5 ~height ~material:stone
               (Vec.make 0. 3.) (Vec.make 0. (-3.));
           ];

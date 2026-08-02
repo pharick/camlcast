@@ -57,13 +57,14 @@ let hall =
     room ~name:props.name
       ~floor:(floor ~plane:flat ~material:ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
-      (outline ~height ~material:stone
-         [
-           Vec.make (-.r) (-.r);
-           Vec.make r (-.r);
-           Vec.make r r;
-           Vec.make (-.r) r;
-         ]
+      (boundary ~height ~material:stone
+         (corners
+            [
+              Vec.make (-.r) (-.r);
+              Vec.make r (-.r);
+              Vec.make r r;
+              Vec.make (-.r) r;
+            ])
       :: props.children))
 
 type phase = Waiting | Burning | Done

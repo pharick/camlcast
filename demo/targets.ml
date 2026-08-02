@@ -115,13 +115,14 @@ let at ~collected ~aimed ~aim ~take ~look ~viewport:(_, down) =
       [
         room ~name:"near" ~floor:ground ~ceiling:roofed
           [
-            path ~height ~material:Surfaces.brick
-              [
-                Vec.make 6. 6.;
-                Vec.make (-6.) 6.;
-                Vec.make (-6.) (-6.);
-                Vec.make 6. (-6.);
-              ];
+            boundary ~closed:false ~height ~material:Surfaces.brick
+              (corners
+                 [
+                   Vec.make 6. 6.;
+                   Vec.make (-6.) 6.;
+                   Vec.make (-6.) (-6.);
+                   Vec.make 6. (-6.);
+                 ]);
             doorway ~name:"east" ~width:2.6 ~opening:2.8 ~height
               ~material:Surfaces.brick (Vec.make 6. (-6.)) (Vec.make 6. 6.);
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure

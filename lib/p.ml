@@ -58,20 +58,15 @@ let cursor = E.prim Prim.Cursor
 let finish = E.prim Prim.Finish
 let link here there = E.prim (Prim.Link { here; there })
 
-(* Room.wall is private, so its parts can be read back out — which is what lets
-   the helpers below hand their work to the same Wall primitive a game writes by
-   hand, decals and all, rather than needing a second kind of wall for walls the
-   engine built. *)
-let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
+(* Room.wall is private, so a wall the engine built can be read back out and
+   handed to the same Wall primitive a game writes by hand, rather than needing
+   a second kind of wall for the two.
 
-(* No [?key], unlike its neighbours: every argument here is labelled, so there
-   is no positional one for an optional to be erased against. Nothing is lost by
-   it — a polygon is walls and holds no state, and a game that needs to key a
-   group of them can say so with {!Camlcast_loom.Element.fragment} directly. *)
-let polygon ~center ~radius ~sides ~rotation ~height ~material =
-  E.fragment
-    (List.map of_wall
-       (Room.regular_polygon ~center ~radius ~sides ~rotation ~height ~material))
+   It does not carry decals over, and its one caller is {!doorway}, whose jambs
+   come from {!Room.doorway} and never have any. Anything that did would lose
+   them here without a word, so if a second caller ever appears this needs the
+   [?decals] it does not currently pass. *)
+let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
 
 (* The same arithmetic Room.doorway does to place its opening. Written once
    there and read back here rather than restated, so the two cannot disagree
@@ -124,9 +119,6 @@ let twice_signed_area points =
   in
   go 0. points
 
-let wound points =
-  if twice_signed_area points < 0. then List.rev points else points
-
 type leg = {
   key : string option;
   on_gaze : (bool -> unit) option;
@@ -159,7 +151,12 @@ let legs ~closed corners =
   in
   go corners
 
-let boundary ?key ?(closed = false) ~height ~material corners =
+let corners = List.map corner
+
+let polygon ~center ~radius ~sides ~rotation =
+  corners (Room.polygon_corners ~center ~radius ~sides ~rotation)
+
+let boundary ?key ?(closed = true) ~height ~material corners =
   let points = List.map (fun c -> c.at) corners in
   (* Refused by the same call {!outline} and {!path} are refused by, so a run of
      two identical corners or a closed one of two says what it has always said,
@@ -202,19 +199,6 @@ let boundary ?key ?(closed = false) ~height ~material corners =
            ~material:(Option.value leg.material ~default:material)
            a b)
        laid)
-
-let path ?key ~height ~material points =
-  E.fragment ?key
-    (List.map of_wall
-       (Room.path ~closed:false ~height ~material (wound points)))
-
-let outline ?key ~height ~material points =
-  let wound = wound points in
-  (* Room.path does the closing and the refusing — fewer than three corners, two
-     the same in a row — so those stay refused in one place and in the words
-     they have always been refused in. *)
-  E.fragment ?key
-    (List.map of_wall (Room.path ~closed:true ~height ~material wound))
 
 let doorway ?key ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material
     a b =

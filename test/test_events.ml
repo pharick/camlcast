@@ -23,13 +23,14 @@ let tick = 1. /. 60.
 let box name reach =
   P.room ~name ~floor ~ceiling
     [
-      P.outline ~height ~material:stone
-        [
-          Vec.make (-.reach) (-.reach);
-          Vec.make reach (-.reach);
-          Vec.make reach reach;
-          Vec.make (-.reach) reach;
-        ];
+      P.boundary ~height ~material:stone
+        (P.corners
+           [
+             Vec.make (-.reach) (-.reach);
+             Vec.make reach (-.reach);
+             Vec.make reach reach;
+             Vec.make (-.reach) reach;
+           ]);
     ]
 
 let around ?(atmosphere = Atmosphere.default) children =

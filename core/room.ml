@@ -551,27 +551,38 @@ let nearest_threshold ?(within = infinity) ?(where = fun _ -> true) t
     t.thresholds;
   Option.map snd !best
 
-let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
+let corners_at ~who ~center ~radius ~sides ~rotation =
   (* Refused here and not left to {!path}, which would name a function the
      caller never called and, for a negative count, not get that far: List.init
      raises under its own name first. Fewer than three sides is not a polygon —
      two are a pair of coincident walls wound against each other, one is a wall
      of no length, none is a room with no boundary at all. Negated, so a nan
-     radius, rotation or center is refused with the flat ones. *)
+     radius, rotation or center is refused with the flat ones.
+
+     [who] because there are two ways in and each should name the one that was
+     called: this, and {!regular_polygon} built on it. *)
   if not (sides >= 3) then
-    invalid_arg
-      "Room.regular_polygon: a polygon has to have at least three sides";
+    invalid_arg (who ^ ": a polygon has to have at least three sides");
   if not (Float.is_finite radius && radius > 0.) then
-    invalid_arg "Room.regular_polygon: a polygon has to have a radius";
+    invalid_arg (who ^ ": a polygon has to have a radius");
   if not (Float.is_finite rotation) then
-    invalid_arg "Room.regular_polygon: the rotation has to be a number";
+    invalid_arg (who ^ ": the rotation has to be a number");
   if not (Float.is_finite center.Vec.x && Float.is_finite center.Vec.y) then
-    invalid_arg "Room.regular_polygon: the center has to be a point";
+    invalid_arg (who ^ ": the center has to be a point");
+  List.init sides (fun k ->
+      let angle =
+        rotation +. (float_of_int k *. 2. *. Float.pi /. float_of_int sides)
+      in
+      Vec.add center (Vec.make (radius *. cos angle) (radius *. sin angle)))
+
+let polygon_corners = corners_at ~who:"Room.polygon_corners"
+
+let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
+  let corners =
+    corners_at ~who:"Room.regular_polygon" ~center ~radius ~sides ~rotation
+  in
+  (* After the corners, which is where it was: the shape is refused before the
+     height so that a caller who got both wrong hears about the shape. *)
   if not (Float.is_finite height && height > 0.) then
     invalid_arg "Room.regular_polygon: the walls have to rise above the floor";
-  path ~closed:true ~height ~material
-    (List.init sides (fun k ->
-         let angle =
-           rotation +. (float_of_int k *. 2. *. Float.pi /. float_of_int sides)
-         in
-         Vec.add center (Vec.make (radius *. cos angle) (radius *. sin angle))))
+  path ~closed:true ~height ~material corners

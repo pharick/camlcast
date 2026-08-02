@@ -31,7 +31,10 @@
         world ~atmosphere:Atmosphere.default ~spawn:("room", origin)
           [
             room ~name:"room" ~floor ~ceiling
-              [ outline ~height:4. ~material:stone corners; torch here ];
+              [
+                boundary ~height:4. ~material:stone (P.corners corners);
+                torch here;
+              ];
           ])
 
     let () = ignore (Run.play ~title:"A game" level)

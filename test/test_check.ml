@@ -50,12 +50,14 @@ let ceiling = Room.roof ~plane:(Plane.above flat height) ~material:stone
 (* Three sides run open and the fourth cut, which together close the boundary.
    Everything below is this, bent one way or another. *)
 let west_side ?key ?(corner = Vec.make 0. (-4.)) () =
-  P.path ?key ~height ~material:stone
-    [ Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.); corner ]
+  P.boundary ~closed:false ?key ~height ~material:stone
+    (P.corners
+       [ Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.); corner ])
 
 let east_side =
-  P.path ~height ~material:stone
-    [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ]
+  P.boundary ~closed:false ~height ~material:stone
+    (P.corners
+       [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ])
 
 let west_door ?key ?door ?(width = 2.) ?(name = "east") () =
   P.doorway ?key ?door ~name ~width ~opening:2.5 ~height ~material:stone
@@ -542,13 +544,14 @@ let the_world_it_makes =
                      reaches it either. *)
                   P.room ~name:"cellar" ~floor ~ceiling
                     [
-                      P.outline ~height ~material:stone
-                        [
-                          Vec.make 10. 0.;
-                          Vec.make 14. 0.;
-                          Vec.make 14. 4.;
-                          Vec.make 10. 4.;
-                        ];
+                      P.boundary ~height ~material:stone
+                        (P.corners
+                           [
+                             Vec.make 10. 0.;
+                             Vec.make 14. 0.;
+                             Vec.make 14. 4.;
+                             Vec.make 10. 4.;
+                           ]);
                     ];
                   P.link ("west", "east") ("east", "west");
                 ])));
