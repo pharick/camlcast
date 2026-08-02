@@ -160,10 +160,10 @@ let names_are_distinct () =
    raise at all. *)
 let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
   let ran : (Engine.ending, [ `Msg of string ]) result =
-    Catalogue.attempt (fun () -> Ok Engine.Left)
+    Catalogue.attempt (fun () -> Ok Engine.Returned)
   in
   Alcotest.(check bool)
-    "an ending is passed through untouched" true (ran = Ok Engine.Left);
+    "an ending is passed through untouched" true (ran = Ok Engine.Returned);
   let refused : (Engine.ending, [ `Msg of string ]) result =
     Catalogue.attempt (fun () -> Error (`Msg "no window"))
   in

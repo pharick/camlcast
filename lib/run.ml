@@ -62,7 +62,7 @@ type frame = {
 }
 
 type window = Engine.window
-type ending = Engine.ending = Closed | Left
+type ending = Engine.ending = Closed | Returned
 
 let with_window = Engine.with_window
 

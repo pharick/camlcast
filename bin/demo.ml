@@ -33,7 +33,7 @@ let rec browse ?from window =
       match Catalogue.attempt (fun () -> demo.Catalogue.run window) with
       | Error _ as error -> error
       | Ok Camlcast.Run.Closed -> Ok ()
-      | Ok Camlcast.Run.Left -> browse ~from:demo window)
+      | Ok Camlcast.Run.Returned -> browse ~from:demo window)
 
 let () =
   match Sys.argv with

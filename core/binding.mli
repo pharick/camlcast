@@ -54,7 +54,7 @@ type t = {
   pitch : axis;  (** looking up and down, + up *)
   fullscreen : Input.control list;  (** any of these toggles it *)
   leave : Input.control list;
-      (** any of these ends the run, reported as {!Engine.Left} *)
+      (** any of these ends the run, reported as {!Engine.Returned} *)
 }
 (** The whole of what the player's controls are for: four axes that produce an
     {!Input.motion}, and two lists of controls that the engine acts on itself. A

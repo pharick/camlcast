@@ -36,18 +36,28 @@ type window
 
     Only something that plays one run after another has any use for the
     difference, which is why it took until there was a launcher to write it
-    down. The demo browser shows its menu again when a demo is [Left] and stops
-    altogether when one is [Closed], so that shutting the window — or Cmd-Q,
-    which reaches SDL by the same road — ends the program instead of bouncing
-    back to the list. *)
+    down. The demo browser shows its menu again when a demo is [Returned] and
+    stops altogether when one is [Closed], so that shutting the window — or
+    Cmd-Q, which reaches SDL by the same road — ends the program instead of
+    bouncing back to the list. *)
 type ending =
   | Closed
       (** the window was shut, or the desktop asked the program to stop. The
           window itself is still open until {!with_window} returns; what has
           ended is the run, and what the player asked for is the program. *)
-  | Left
+  | Returned
       (** the run ended on its own terms: [finished] said so, or the player
-          pressed something the game's {!Binding.t} listed as leaving it *)
+          pressed something the game's {!Binding.t} listed as leaving it. The
+          window is still open and whatever started the run has it back, which
+          is what the name is for.
+
+          {b It was [Left]}, which read better against {!Binding.t}'s [leave] —
+          the field that produces it — and shared a spelling with {!Input.Left},
+          the mouse button, one facade away. Neither could be confused into a
+          working program: both are nullary constructors of unrelated types, so
+          every mix-up is a compile error that names both. A homograph in the
+          one API a game reads is worth more than that, though, and this half of
+          the pair is the half that could move. *)
 
 type 'a game = {
   update : 'a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a;

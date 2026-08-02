@@ -3,7 +3,7 @@
 open Tsdl
 open Result_ext
 
-type ending = Closed | Left
+type ending = Closed | Returned
 
 type 'a game = {
   update : 'a -> dt:float -> motion:Input.motion -> actions:Input.actions -> 'a;
@@ -196,7 +196,7 @@ let rec loop window game ~state ~actions ~previous =
     (* Asked before the frame is drawn because it is a thing the player did with
        the controls, and this is where what they did is read. What the game says
        about its own ending is asked further down, after the drawing. *)
-    if Binding.taken bindings.Binding.leave actions then Ok (state, Left)
+    if Binding.taken bindings.Binding.leave actions then Ok (state, Returned)
     else begin
       (* Which of the two things the mouse is for is the game's to say and the
          engine's to carry out, and the state it has just become is the one that
@@ -213,7 +213,7 @@ let rec loop window game ~state ~actions ~previous =
          the last one the player sees rather than the one nobody was shown. A
          game says it is over by describing an ending, and an ending drawn one
          frame late is an ending never drawn at all. *)
-      if game.finished state then Ok (state, Left)
+      if game.finished state then Ok (state, Returned)
       else begin
         let idle = Clock.idle_time ~spent:(Clock.now () -. now) in
         Sdl.delay (Int32.of_float (idle *. 1000.));

@@ -56,7 +56,8 @@ type window = Engine.window
 
 type ending = Engine.ending =
   | Closed  (** the window was shut, or the desktop asked the program to stop *)
-  | Left  (** the run ended on its own terms: {!P.finish}, or a leaving key *)
+  | Returned
+      (** the run ended on its own terms: {!P.finish}, or a leaving key *)
 
 val with_window :
   ?title:string ->

@@ -83,7 +83,7 @@ crosshair is on, and which shows the map over the world. Each is a list of
 an empty list turns something off.
 
 It reports how the run ended, as a {!Camlcast.Run.ending}: [Closed] for a window
-that was shut, [Left] for a run that finished on its own terms — a leaving
+that was shut, [Returned] for a run that finished on its own terms — a leaving
 control, or a description that said {!Camlcast.P.finish}. Only something that
 plays one run after another needs the difference.
 

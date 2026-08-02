@@ -176,4 +176,4 @@ let choose ?from window =
   let+ ending =
     Run.on window ~controls:Bindings.escapable (list (font, from, chosen))
   in
-  match ending with Run.Closed -> None | Run.Left -> !chosen
+  match ending with Run.Closed -> None | Run.Returned -> !chosen

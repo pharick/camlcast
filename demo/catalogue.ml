@@ -30,7 +30,7 @@ type t = {
   run : Camlcast.Run.window -> (Camlcast.Run.ending, [ `Msg of string ]) result;
       (** plays it on the launcher's window, and says how the player left it —
           {!Menu} shows itself again on that same window after a demo that was
-          [Left], and stops after one that was [Closed] *)
+          [Returned], and stops after one that was [Closed] *)
 }
 
 let demos =
