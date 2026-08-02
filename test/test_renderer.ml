@@ -1083,6 +1083,59 @@ let a_grille_is_picked_where_it_is_drawn () =
         (picked y0))
     [ -2.; -2.1 ]
 
+(* What the buffer's size promises, over every window shape worth having and a
+   good many that are not.
+
+   The shape is the part worth pinning, because it is the part the interface
+   used to overstate. Both axes divide by one whole number, so the buffer is the
+   window at a clean pixel multiple — and then each floors, so the ratio comes
+   out a little off wherever that number does not go into both. What is asserted
+   is the bound those two truncations imply rather than a figure somebody
+   measured: dividing [w] by [s] loses less than one whole pixel, so the ratio
+   moves by less than one part in each of the buffer's own extents. A test
+   written against a constant would be a test that a particular window is no
+   worse than it happens to be. *)
+let the_buffer_is_the_window_at_a_whole_number_of_pixels () =
+  let shapes =
+    List.concat_map
+      (fun w ->
+        List.map (fun h -> (w, h)) [ 240; 400; 480; 481; 769; 1080; 1441; 2160 ])
+      [ 320; 401; 640; 1001; 1366; 1367; 1920; 2560; 3840 ]
+  in
+  List.iter
+    (fun (w, h) ->
+      let bw, bh = Renderer.internal_size ~width:w ~height:h in
+      let said = Printf.sprintf "%dx%d -> %dx%d" w h bw bh in
+      Alcotest.(check bool)
+        (said ^ ": both extents are real")
+        true
+        (bw >= 1 && bh >= 1);
+      Alcotest.(check bool)
+        (said ^ ": no bigger than the window it is shown in")
+        true
+        (bw <= w && bh <= h);
+      (* Within the cap, or the window was already inside it and is used whole.
+         The second half is what says the cap is a cap and not a target. *)
+      Alcotest.(check bool)
+        (Printf.sprintf "%s: inside the cap of %d" said Config.max_render_height)
+        true
+        (bh <= Config.max_render_height || (bw, bh) = (w, h));
+      if h <= Config.max_render_height then
+        Alcotest.(check (pair int int))
+          (said ^ ": a window already small enough is left alone")
+          (w, h) (bw, bh);
+      let want = float_of_int w /. float_of_int h
+      and got = float_of_int bw /. float_of_int bh in
+      let bound = (1. /. float_of_int bw) +. (1. /. float_of_int bh) in
+      Alcotest.(check bool)
+        (Printf.sprintf
+           "%s: shape out by %.4f%%, and the two floors allow %.4f%%" said
+           (Float.abs (got -. want) /. want *. 100.)
+           (bound *. 100.))
+        true
+        (Float.abs (got -. want) /. want < bound))
+    shapes
+
 (* The corner a jamb shares with the threshold beside it, aimed at squarely.
    {!Ray.segment} takes [s] in a closed interval at both ends and has to: a
    room's corners are shared between two walls, and the pair does not come out
@@ -1924,6 +1977,11 @@ let () =
             a_doorway_onto_nothing_stops_where_the_floor_starts;
           case "a billboard covers the pixels its box holds"
             a_billboard_covers_the_pixels_its_box_holds;
+        ] );
+      ( "the size a frame is drawn at",
+        [
+          case "the buffer is the window at a whole number of pixels"
+            the_buffer_is_the_window_at_a_whole_number_of_pixels;
         ] );
       ( "every pixel of a frame",
         [

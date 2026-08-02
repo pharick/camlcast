@@ -130,9 +130,25 @@
 
 val internal_size : width:int -> height:int -> int * int
 (** [internal_size ~width ~height] is the buffer size to render a window of that
-    size at: the window scaled down by a whole number until it is within
-    {!Config.max_render_height}, so its aspect ratio — and with it the
-    {!Viewport} resize rules — is preserved.
+    size at: both axes divided by the same whole number, the smallest that
+    brings the height within {!Config.max_render_height}. A window already
+    within it is used as it is.
+
+    One divisor for both axes is what keeps the shape, and it is also what makes
+    the GPU's job a clean pixel multiple rather than a resample. But each axis
+    {e floors} after dividing, so the shape is kept only to within those two
+    truncations — the ratio can be out by up to [1/w + 1/h] of the buffer's own
+    extents, which for an ordinary window is under a tenth of a percent
+    (2560x1440 gives 853x480, low by 0.04%) and for a very narrow one is a
+    fraction of a percent. The {!Viewport} is built from the buffer, so the
+    projection is exactly right for what is drawn and the residual is a stretch
+    of that much when the buffer is put on the window. It is not visible, and it
+    is not nothing: this says so rather than claiming the ratio is preserved,
+    which it is only where the divisor happens to go into both.
+
+    Fixing it would mean scaling the two axes by different amounts, which is the
+    whole-number relationship traded away — a resample everyone can see, for an
+    error nobody can.
 
     A game needs this only to know what coordinates its overlay is drawing in,
     which are the buffer's and not the window's. *)
