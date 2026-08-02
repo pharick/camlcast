@@ -39,7 +39,38 @@
     reclaimed. *)
 
 type portal = {
-  threshold : Room.threshold;  (** the doorway, in this room's own frame *)
+  threshold : Room.threshold;
+      (** the doorway, in this room's own frame,
+          {b as it was when the link was made}.
+
+          A copy and not a view. It is taken once, by {!make} or {!link}, and no
+          later change to the room refreshes it — so which of its fields can be
+          trusted afterwards is a question with two answers, and the split is
+          exactly what {!replace_room} and {!open_doorway} re-check on the way
+          through.
+
+          {b Pinned: [name], [a], [b], [height]} — and therefore [edge],
+          [length] and [normal], which are derived from [a] and [b]. Both of
+          those functions refuse a replacement that moved any of them, so this
+          copy agrees with the live room about where the opening is and what it
+          is called, forever. That is why {!val-crossing} and {!seam_gap} may
+          read [a] and [b] straight off it, and they do.
+
+          {b Not pinned: [door] and [lintel].} Nothing checks them, because a
+          leaf swinging open is the ordinary reason to rebuild a room. After one
+          {!set_door} this copy still says what the door was doing before it,
+          and will for the life of the world. A caller wanting either must ask
+          the room: [Room.threshold_at (room world r) i], where [i] is the slot
+          this portal came from — the portals of a room run parallel to its
+          thresholds, so the slot is all it takes.
+
+          Kept stale rather than refreshed on purpose. Refreshing means
+          rebuilding a portals row inside {!replace_room}, which is on the
+          per-frame path for any game that animates by rebuilding a room, and it
+          roughly doubles what that call allocates — measured, for a world of
+          thirty rooms, at 37 words against 76. The engine never reads the two
+          unpinned fields; {!check} deliberately asks the live rooms instead,
+          and says so. *)
   to_room : int;  (** the room on the other side *)
   twin : int;
       (** which of [to_room]'s own thresholds is this same doorway, described
@@ -420,7 +451,13 @@ val passable : t -> room:int -> from:Vec.t -> dest:Vec.t -> bool
 
     An open door is not one of them. It is a leaf swung aside, and it neither
     draws nor blocks — so opening a door never moves the player, which is a rule
-    the game wants and gets for free from doing nothing here. *)
+    the game wants and gets for free from doing nothing here.
+
+    {b What this does not update is every {!type-portal}'s copy of the
+       threshold}, on either side. Those keep the leaf as it was when the link
+    was made; see {!type-portal} for which of that copy's fields are pinned and
+    which are not, and ask {!Room.threshold_at} for the state a door is actually
+    in. *)
 
 type crossing = {
   index : int;

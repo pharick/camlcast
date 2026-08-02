@@ -875,6 +875,52 @@ let a_row_reads_point_free () =
   Alcotest.(check int)
     "every sprite" (Room.sprite_count first) (List.length sprites)
 
+(* {!World.type-portal}'s [threshold] is the copy taken when the link was made,
+   and the type says which of its fields survive a room being rebuilt. Both
+   halves are asserted, because a promise about half a record is only worth
+   having if the other half is known to be the way it is on purpose.
+
+   These would fail if anyone made the copy refresh itself, which is the point:
+   that is a change worth making deliberately, with the paragraph on the type
+   rewritten and the per-frame cost of it weighed again. *)
+let snapshot_and_live world ~room ~slot =
+  let portal = Option.get (World.portal world ~room ~threshold:slot) in
+  (portal.World.threshold, Room.threshold_at (World.room world room) slot)
+
+let a_portals_copy_keeps_the_geometry () =
+  let opened = World.set_door two_rooms_closed ~room:0 ~threshold:0 Door.Open in
+  let copy, live = snapshot_and_live opened ~room:0 ~slot:0 in
+  Alcotest.(check string) "same name" live.Room.name copy.Room.name;
+  Alcotest.check vec "same a" live.Room.a copy.Room.a;
+  Alcotest.check vec "same b" live.Room.b copy.Room.b;
+  Alcotest.check close "same height" live.Room.height copy.Room.height;
+  (* Derived from a and b, so pinned by the same check rather than separately. *)
+  Alcotest.check close "same length" live.Room.length copy.Room.length;
+  Alcotest.check vec "same normal" live.Room.normal copy.Room.normal
+
+let a_portals_copy_does_not_keep_the_door () =
+  let shut_state (t : Room.threshold) =
+    Option.map (fun (d : Door.t) -> d.Door.state) t.Room.door
+  in
+  let copy, live = snapshot_and_live two_rooms_closed ~room:0 ~slot:0 in
+  Alcotest.(check bool)
+    "before anything is worked, the two agree" true
+    (shut_state copy = shut_state live && shut_state live = Some Door.Closed);
+  let opened = World.set_door two_rooms_closed ~room:0 ~threshold:0 Door.Open in
+  let copy, live = snapshot_and_live opened ~room:0 ~slot:0 in
+  Alcotest.(check bool)
+    "the room says the leaf swung aside" true
+    (shut_state live = Some Door.Open);
+  Alcotest.(check bool)
+    "and the portal's copy still says it is shut" true
+    (shut_state copy = Some Door.Closed);
+  (* The far side too, so this is the rule and not one side of set_door being
+     lazier than the other. *)
+  let copy, live = snapshot_and_live opened ~room:1 ~slot:0 in
+  Alcotest.(check bool)
+    "both ways round" true
+    (shut_state live = Some Door.Open && shut_state copy = Some Door.Closed)
+
 let () =
   Alcotest.run "World"
     [
@@ -925,4 +971,9 @@ let () =
           case "invalid replacement is refused" invalid_replacement_is_refused;
         ] );
       ("reading", [ case "a row reads point-free" a_row_reads_point_free ]);
+      ( "the portal's copy of a threshold",
+        [
+          case "keeps where the opening is" a_portals_copy_keeps_the_geometry;
+          case "and not what hangs in it" a_portals_copy_does_not_keep_the_door;
+        ] );
     ]
