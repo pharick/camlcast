@@ -44,6 +44,29 @@ let epsilon = 1e-6
 let door_state (t : Room.threshold) =
   Option.map (fun (d : Door.t) -> d.Door.state) t.Room.door
 
+(* The four questions {!pair} asks of a link, each written as what {e passes} so
+    that a caller says [not (…)] to refuse. That shape is the nan handling and
+    not a style: nan answers false to every ordered comparison, so a threshold of
+    length nan fails [has_length] and fails [lengths_agree] with its twin, and is
+    refused by both. Asserting the failure instead — [length <= epsilon] — would
+    let it through each of them. The long note on {!pair} is about this.
+
+    Public because {!Check} reads a description for the same mistakes before the
+    world is built, and a checker that models the engine with its own copy of
+    these numbers is a checker that disagrees with it as soon as either moves.
+    It did: it refused a disagreement of 1e-9 that the engine accepts to 1e-6,
+    and it compared whether a door was there rather than what it was doing. One
+    implementation, asked twice. *)
+let has_length (t : Room.threshold) = t.Room.length > epsilon
+
+let lengths_agree (a : Room.threshold) (b : Room.threshold) =
+  Float.abs (a.Room.length -. b.Room.length) <= epsilon
+
+let heights_agree (a : Room.threshold) (b : Room.threshold) =
+  Float.abs (a.Room.height -. b.Room.height) <= epsilon
+
+let doors_agree a b = door_state a = door_state b
+
 (* Refuse two thresholds of one room sharing a name: no link could tell them
     apart, and {!link} resolves by name. *)
 let check_names ~who ~room name (r : Room.t) =
@@ -108,17 +131,17 @@ let check_room_names ~who names =
 let pair ~who ~describe (ia, ja, (a : Room.threshold))
     (ib, jb, (b : Room.threshold)) =
   let length (t : Room.threshold) room =
-    if not (t.Room.length > epsilon) then
+    if not (has_length t) then
       invalid_arg (who ^ ": threshold has no length: " ^ describe room t)
   in
   length a ia;
   length b ib;
   let both = describe ia a ^ " and " ^ describe ib b in
-  if not (Float.abs (a.Room.length -. b.Room.length) <= epsilon) then
+  if not (lengths_agree a b) then
     invalid_arg (who ^ ": linked thresholds differ in length: " ^ both);
-  if not (Float.abs (a.Room.height -. b.Room.height) <= epsilon) then
+  if not (heights_agree a b) then
     invalid_arg (who ^ ": linked thresholds differ in height: " ^ both);
-  if door_state a <> door_state b then
+  if not (doors_agree a b) then
     invalid_arg (who ^ ": linked thresholds disagree about a door: " ^ both);
   let onto =
     Transform.between ~a1:a.Room.a ~a2:a.Room.b ~b1:b.Room.a ~b2:b.Room.b

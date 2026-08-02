@@ -55,6 +55,25 @@ exception Duplicate_key of { at : string; key : string }
     so the tree from the frame before is still standing and nothing has been
     committed. See {!Reconcile}. *)
 
+exception Render_refused of { at : string; message : string }
+(** A component's own function raised [Invalid_argument] while describing
+    itself. [at] is that component's path and [message] is what it said.
+
+    This is a translation and not a new failure: the runtime turns the exception
+    into one that says {e which} component it came out of. A description is
+    built lazily, one component at a time, so the path is known exactly at the
+    moment the call is made — and without it the message is a complaint about a
+    world with nothing to attach it to, which is no use to a reader looking for
+    the line to change.
+
+    Only [Invalid_argument] is translated, because that is what a primitive
+    raises to refuse what it was handed. Anything else a component raises is the
+    component's own business and goes out untouched.
+
+    Printed as [path: message], so a game that meets one uncaught reads the two
+    things it needs off the line that stopped it. {!Camlcast.Check} is the way
+    to be told before that happens. *)
+
 (** A description of a subtree.
 
     Concrete rather than abstract, because the reconciler is a fold over these

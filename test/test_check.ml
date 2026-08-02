@@ -223,6 +223,105 @@ let links =
                 ])));
   ]
 
+(* Where this module has to say what the engine says, because a checker that
+   answers a question differently from the thing it models is worse than no
+   checker: it fails worlds that run and passes worlds that do not, and either
+   way the reader stops believing it.
+
+   Every case here was a disagreement. The tolerance ones are the reason
+   World.has_length and its three neighbours are public — this file used to
+   measure with its own 1e-9 against the engine's 1e-6 — and the last is the
+   reason Element.Render_refused exists. *)
+let agrees_with_the_engine =
+  let pair ?east_floor ?dw ?de ?(w = 2.) ?(e = 2.) () =
+    P.world ~atmosphere:Atmosphere.default
+      ~spawn:("west", Vec.make (-3.) 0.)
+      [
+        P.room ~name:"west" ~floor ~ceiling
+          [ west_side (); west_door ?door:dw ~width:w () ];
+        P.room ~name:"east"
+          ~floor:(Option.value east_floor ~default:floor)
+          ~ceiling
+          [ east_side; east_door ?door:de ~width:e () ];
+        P.link ("west", "east") ("east", "west");
+      ]
+  in
+  [
+    case "a width difference the engine tolerates is not a complaint" (fun () ->
+        (* 1e-7: inside World's epsilon of 1e-6, so this world builds and runs.
+           Reported, it was a fatal-sounding error about a world with nothing
+           wrong with it. *)
+        Alcotest.check lines "nothing to say" []
+          (summaries (pair ~e:(2. +. 1e-7) ())));
+    case "a width difference the engine refuses still is" (fun () ->
+        Alcotest.check lines "1e-3 is outside the tolerance"
+          [ "the two sides of this link are different widths" ]
+          (summaries (pair ~e:(2. +. 1e-3) ())));
+    case "a doorway too narrow to link is named here" (fun () ->
+        (* Below World's epsilon, so the engine refuses it. There was no check
+           for this at all, and it arrived as the engine's own message under
+           "the engine refused to build this world". *)
+        Alcotest.check lines "once for each side"
+          [
+            "this doorway is too narrow to link";
+            "this doorway is too narrow to link";
+          ]
+          (summaries (pair ~w:5e-7 ~e:5e-7 ())));
+    case "two sides disagreeing about an open door" (fun () ->
+        (* Both sides have a leaf, so a check on presence alone saw nothing and
+           the engine refused it afterwards on the state. *)
+        Alcotest.check lines "the state, not just the leaf"
+          [
+            "the two sides of this link disagree about whether the door is open";
+          ]
+          (summaries
+             (pair
+                ~dw:(Door.make ~state:Door.Open stone)
+                ~de:(Door.make ~state:Door.Closed stone)
+                ())));
+    case "a door on one side and none on the other, still" (fun () ->
+        Alcotest.check lines "the presence case is not lost"
+          [ "one side of this link has a door and the other does not" ]
+          (summaries (pair ~dw:(Door.make stone) ())));
+    case "a tolerated difference hides nothing below it" (fun () ->
+        (* The tiers short-circuit: a link complaint stops the checks only an
+           assembled world can answer. So a spurious one cost the reader every
+           diagnostic behind it, which is what this is really about. *)
+        Alcotest.check lines "the seam is still reported"
+          [
+            {|the floor steps by 0.5 through the doorway "east"|};
+            {|the floor steps by 0.5 through the doorway "west"|};
+          ]
+          (summaries (pair ~east_floor:(floor_at 0.5) ~e:(2. +. 1e-7) ())));
+    case "a primitive refusing inside a component is reported, not raised"
+      (fun () ->
+        (* The doorway is wider than the wall it is cut into, which Room.doorway
+           refuses. Built inside a component — where a game builds one — it used
+           to come straight out of Check.report as Invalid_argument, so the
+           module written to replace a crash ended in one. *)
+        let bad =
+          Camlcast_loom.Element.declare ~name:"BadRoom" @@ fun () ->
+          P.room ~name:"west" ~floor ~ceiling
+            [ west_side (); west_door ~width:100. () ]
+        in
+        let report =
+          Check.report
+            (P.world ~atmosphere:Atmosphere.default
+               ~spawn:("west", Vec.make (-3.) 0.)
+               [
+                 bad ();
+                 P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ];
+                 P.link ("west", "east") ("east", "west");
+               ])
+        in
+        Alcotest.check lines "reported"
+          [ "this part of the description was refused" ]
+          (List.map (fun (d : Check.t) -> d.Check.summary) report);
+        Alcotest.check lines "and named by the component it came out of"
+          [ "#0/BadRoom" ]
+          (List.map (fun (d : Check.t) -> d.Check.where) report));
+  ]
+
 (* What only an assembled world can answer. Each of these builds cleanly. *)
 let the_world_it_makes =
   [
@@ -488,6 +587,7 @@ let () =
       ("structure", structure);
       ("naming", naming);
       ("links", links);
+      ("agrees with the engine", agrees_with_the_engine);
       ("the world it makes", the_world_it_makes);
       ("where it says", where_it_says);
     ]

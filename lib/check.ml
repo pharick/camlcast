@@ -406,7 +406,26 @@ let linking rooms links =
         let name (room_name, threshold_name) =
           room_name ^ "." ^ threshold_name
         in
-        if Float.abs (one.Room.length -. other.Room.length) > 1e-9 then
+        (* Asked of World rather than measured here, and negated rather than
+           inverted, for the reasons that interface gives. What this file used
+           to do instead — its own 1e-9 against the engine's 1e-6, and
+           Option.is_some against the engine's door state — is what made a
+           checker that failed worlds the engine builds and passed worlds it
+           refuses. *)
+        List.iter
+          (fun (side, t) ->
+            if not (World.has_length t) then
+              complain
+                (error at "this doorway is too narrow to link"
+                   ~detail:
+                     [
+                       Printf.sprintf "%s is %g wide." (name side) t.Room.length;
+                       "A doorway that small has no direction, and the engine \
+                        cannot work out how the two rooms are turned relative \
+                        to one another through it.";
+                     ]))
+          [ (here, one); (there, other) ];
+        if not (World.lengths_agree one other) then
           complain
             (error at "the two sides of this link are different widths"
                ~detail:
@@ -416,7 +435,7 @@ let linking rooms links =
                    "They are the same doorway seen from either side, so they \
                     have to be the same size.";
                  ]);
-        if Float.abs (one.Room.height -. other.Room.height) > 1e-9 then
+        if not (World.heights_agree one other) then
           complain
             (error at "the two sides of this link are different heights"
                ~detail:
@@ -424,14 +443,39 @@ let linking rooms links =
                    Printf.sprintf "%s is %g tall and %s is %g." (name here)
                      one.Room.height (name there) other.Room.height;
                  ]);
-        if Option.is_some one.Room.door <> Option.is_some other.Room.door then
+        if not (World.doors_agree one other) then
+          let describe (t : Room.threshold) =
+            match t.Room.door with
+            | None -> "no door"
+            | Some { Door.state = Door.Open; _ } -> "a door standing open"
+            | Some { Door.state = Door.Closed; _ } -> "a door standing closed"
+          in
           complain
-            (error at "one side of this link has a door and the other does not"
-               ~detail:
-                 [
-                   "A door hangs in one opening, so both sides have to agree \
-                    that it is there.";
-                 ])
+            (match (one.Room.door, other.Room.door) with
+            | Some _, Some _ ->
+                error at
+                  "the two sides of this link disagree about whether the door \
+                   is open"
+                  ~detail:
+                    [
+                      Printf.sprintf "%s has %s and %s has %s." (name here)
+                        (describe one) (name there) (describe other);
+                      "It is one leaf in one opening, so a door open from one \
+                       room and closed from the other is one the player could \
+                       walk through in only one direction.";
+                      "Door.set_state through World.set_door moves both sides \
+                       at once; two descriptions written apart do not.";
+                    ]
+            | _ ->
+                error at
+                  "one side of this link has a door and the other does not"
+                  ~detail:
+                    [
+                      Printf.sprintf "%s has %s and %s has %s." (name here)
+                        (describe one) (name there) (describe other);
+                      "A door hangs in one opening, so both sides have to \
+                       agree that it is there.";
+                    ])
       end)
     links;
   Hashtbl.iter
@@ -547,6 +591,40 @@ let report description =
   Fun.protect ~finally:(fun () -> Forest.destroy root) @@ fun () ->
   match Forest.render root description with
   | forest -> of_forest forest
+  (* A primitive refusing what a component handed it — a doorway wider than the
+     wall it is cut into is the common one — and the mistake this whole module
+     exists to report rather than raise. It arrives named: the runtime turns the
+     bare Invalid_argument into {!Loom.Element.Render_refused} carrying the path
+     of the component whose description raised it, which is the line the reader
+     has to go and change.
+
+     Caught here rather than beside the two refusals in [of_forest] because it
+     happens earlier than either: a description is built lazily, so a primitive
+     that will not take its arguments says so while the forest is still being
+     walked, and there is no forest yet to read. *)
+  | exception Loom.Element.Render_refused { at; message } ->
+      [
+        error at "this part of the description was refused"
+          ~detail:
+            [
+              message;
+              "That is the engine's own message, raised by the primitive that \
+               would not take what it was given.";
+            ];
+      ]
+  (* The same mistake in a description assembled outside any component, where
+     there is no path to name it with because nothing lazy was ever entered. *)
+  | exception Invalid_argument message ->
+      [
+        error "(root)" "this description was refused"
+          ~detail:
+            [
+              message;
+              "That is the engine's own message. It is not attributed to a \
+               component because the primitive ran while the description was \
+               being built rather than while one was being rendered.";
+            ];
+      ]
   (* The one mistake that stops a description becoming a forest at all, and so
      the one that has to be caught here rather than read off one. Reported
      rather than raised, for the same reason the two refusals above are: a check

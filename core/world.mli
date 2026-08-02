@@ -153,6 +153,45 @@ val make :
     What is {e not} refused is a floor mismatch across a doorway; see
     {!seam_gap}. *)
 
+(** {1 What a link has to satisfy}
+
+    The four questions {!make} and {!link} ask of a pair of thresholds, asked
+    separately so that something reading a description can ask them before there
+    is a world to ask about — which is what {!Camlcast.Check} does, and the
+    reason these are public at all.
+
+    {b Each is written as what passes.} Refuse with [not (…)] rather than by
+    asserting the failure: [nan] answers false to every ordered comparison, so a
+    length of [nan] passes neither {!has_length} nor {!lengths_agree} and is
+    refused by both, where [length <= epsilon] would have waved it through. A
+    caller that inverts one of these by hand loses that and gets a world built
+    out of a transform that is [nan] throughout. *)
+
+val has_length : Room.threshold -> bool
+(** Whether this threshold is long enough to be a doorway. A shorter one has a
+    transform that collapses the world to a point. This is a length too small to
+    be a doorway rather than no length at all, which {!Room.threshold} has
+    already refused. *)
+
+val lengths_agree : Room.threshold -> Room.threshold -> bool
+(** Whether two linked thresholds are the same width, to the tolerance {!make}
+    uses. They are one doorway seen from either side, so a difference is a seam
+    visible from both. *)
+
+val heights_agree : Room.threshold -> Room.threshold -> bool
+(** Whether two linked thresholds are the same height, on the same terms as
+    {!lengths_agree}. *)
+
+val doors_agree : Room.threshold -> Room.threshold -> bool
+(** Whether two linked thresholds say the same thing about a door: whether a
+    leaf hangs there and, if one does, whether it is open.
+
+    Not what it is made of. The renderer draws the near side's, so a door that
+    is oak from the hall and stone from the cellar is a choice; one open from
+    the hall and closed from the cellar is a door the player could walk through
+    in only one direction, which is not a door. {!set_door} changes both sides
+    at once for that reason. *)
+
 (** {1 Growing a world}
 
     Three primitives that a generator composes to build a level ahead of the

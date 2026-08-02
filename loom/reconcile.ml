@@ -211,8 +211,27 @@ module Make (H : Host.HOST) = struct
       'props ->
       element =
    fun ~context ~env ~path ~slots render props ->
-    Hook.run ~slots ~pending:context.pending ~at:(Path.to_debug_string path)
-      ~env ~invalidate:context.invalidate (fun () -> render props)
+    let at = Path.to_debug_string path in
+    Hook.run ~slots ~pending:context.pending ~at ~env
+      ~invalidate:context.invalidate (fun () ->
+        (* Where a refusal picks up the name of what was refused. A primitive
+           says invalid_arg when it will not take what it was handed, and it
+           cannot say more than that: it is a function that knows a width and a
+           wall and has never heard of the tree. This is the one place a
+           component's function is called, and so the only frame in which the
+           path is that component's rather than whatever is walked next — hence
+           the translation happens here and not in the handler at the top of
+           {!render}, which by then has lost it.
+
+           Only Invalid_argument, and see {!Element.Render_refused}: it is the
+           channel a primitive refuses through, and re-raising anything else
+           would be this claiming to explain exceptions that are not its own. *)
+        try render props
+        with Invalid_argument message ->
+          let backtrace = Printexc.get_raw_backtrace () in
+          Printexc.raise_with_backtrace
+            (Element.Render_refused { at; message })
+            backtrace)
 
   and reconcile_children ~context ~env ~parent olds news =
     let olds = Array.of_list olds in

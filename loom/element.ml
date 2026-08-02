@@ -1,6 +1,17 @@
 (* Implementation of {!Camlcast_loom.Element}; the interface carries the prose. *)
 
 exception Duplicate_key of { at : string; key : string }
+exception Render_refused of { at : string; message : string }
+
+(* Without this the default printer puts the path and the message inside a
+   constructor — Render_refused("#0/Hall", "Room.doorway: ...") — which is
+   further from readable than the bare Invalid_argument it replaced. A game that
+   does not run this through Check meets it as the line that stops the program,
+   so it is worth the four lines to have it read like one. *)
+let () =
+  Printexc.register_printer (function
+    | Render_refused { at; message } -> Some (at ^ ": " ^ message)
+    | _ -> None)
 
 type 'prim t =
   | Empty
