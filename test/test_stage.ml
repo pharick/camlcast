@@ -167,7 +167,7 @@ let the_smallest_game =
 
    The trap this step exists to close. *)
 
-(* {!P.run} with nothing said at any leg has to be the two helpers it
+(* {!P.boundary} with nothing said at any leg has to be the two helpers it
    generalizes, or it is a third way of building a boundary rather than one way
    with more available. *)
 let runs =
@@ -186,33 +186,38 @@ let runs =
           (described [ P.outline ~height ~material:stone corners ])
           (described
              [
-               P.run ~closed:true ~height ~material:stone
-                 (List.map P.via corners);
+               P.boundary ~closed:true ~height ~material:stone
+                 (List.map P.corner corners);
              ]));
     case "and an open one is a path" (fun () ->
         same_world
           (described [ P.path ~height ~material:stone open_corners ])
           (described
-             [ P.run ~height ~material:stone (List.map P.via open_corners) ]));
+             [
+               P.boundary ~height ~material:stone
+                 (List.map P.corner open_corners);
+             ]));
     case "the last corner of an open run cannot carry anything" (fun () ->
         (* It leaves no wall, so a handler there would never fire — the one
            mistake the "describes the wall leaving it" shape invites. *)
         Alcotest.check_raises "said plainly"
           (Invalid_argument
-             "P.run: the last corner of an open run leaves no wall, so it can \
-              carry nothing") (fun () ->
+             "P.boundary: the last corner of an open run leaves no wall, so it \
+              can carry nothing") (fun () ->
             ignore
-              (P.run ~height ~material:stone
+              (P.boundary ~height ~material:stone
                  (match open_corners with
-                 | [ p; q; r ] -> [ P.via p; P.via q; P.via r ~key:"nowhere" ]
+                 | [ p; q; r ] ->
+                     [ P.corner p; P.corner q; P.corner r ~key:"nowhere" ]
                  | _ -> assert false)));
         (* A closed run has no such corner, so the same list is fine shut. *)
         ignore
           (described
              [
-               P.run ~closed:true ~height ~material:stone
+               P.boundary ~closed:true ~height ~material:stone
                  (match open_corners with
-                 | [ p; q; r ] -> [ P.via p; P.via q; P.via r ~key:"back" ]
+                 | [ p; q; r ] ->
+                     [ P.corner p; P.corner q; P.corner r ~key:"back" ]
                  | _ -> assert false);
              ]));
   ]
@@ -246,7 +251,7 @@ let winding =
                     [ P.outline ~height ~material:stone (List.rev corners) ];
                 ]))
             .Scene.world);
-    (* {!P.run} is the winding above with the whole of {!P.wall} at every leg,
+    (* {!P.boundary} is the winding above with the whole of {!P.wall} at every leg,
        so the question it has to answer is whether a leg stays on the wall its
        corner named when the run comes out wound the other way. Written in both
        orders, every wall must end up with the same material on it.
@@ -266,7 +271,7 @@ let winding =
         let legs cs =
           match cs with
           | [ p; q; r; s ] ->
-              [ P.via p; P.via q ~material:brick; P.via r; P.via s ]
+              [ P.corner p; P.corner q ~material:brick; P.corner r; P.corner s ]
           | _ -> assert false
         in
         let describe cs =
@@ -274,7 +279,9 @@ let winding =
              (P.world ~atmosphere:Atmosphere.default ~spawn
                 [
                   P.room ~name:"room" ~floor ~ceiling
-                    [ P.run ~closed:true ~height ~material:stone (legs cs) ];
+                    [
+                      P.boundary ~closed:true ~height ~material:stone (legs cs);
+                    ];
                 ]))
             .Scene.world
         in

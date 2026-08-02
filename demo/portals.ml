@@ -26,7 +26,7 @@ let flat = Plane.horizontal 0.
 
 (* The hub's corners. Sides 0 and 5 run diagonally, so the transforms through
    them are genuine rotations and not merely translations. *)
-let corner k =
+let hub_corner k =
   let angle = float_of_int k *. Float.pi /. 3. in
   Vec.make (8. *. cos angle) (8. *. sin angle)
 
@@ -67,13 +67,13 @@ let level =
               both links turn as well as move, and near enough each other to be
               seen at the same time. *)
            doorway ~name:"right" ~width:2.6 ~opening:3. ~height
-             ~material:Surfaces.stone (corner 0) (corner 1)
+             ~material:Surfaces.stone (hub_corner 0) (hub_corner 1)
           :: doorway ~name:"left" ~width:2.6 ~opening:3. ~height
-               ~material:Surfaces.stone (corner 5) (corner 0)
+               ~material:Surfaces.stone (hub_corner 5) (hub_corner 0)
           :: List.map
                (fun k ->
-                 wall ~height ~material:Surfaces.stone (corner k)
-                   (corner ((k + 1) mod 6)))
+                 wall ~height ~material:Surfaces.stone (hub_corner k)
+                   (hub_corner ((k + 1) mod 6)))
                [ 1; 2; 3; 4 ]);
         (* The same room, twice. *)
         chamber ~key:"east" "east";

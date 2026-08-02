@@ -116,9 +116,9 @@ val outline :
     of this page. Three at least, and no two the same in a row. *)
 
 type corner
-(** One point on a {!run}, and how the wall {e leaving} it is made. *)
+(** One point on a {!boundary}, and how the wall {e leaving} it is made. *)
 
-val via :
+val corner :
   ?key:string ->
   ?on_gaze:(bool -> unit) ->
   ?on_use:(Aim.spot -> unit) ->
@@ -129,22 +129,17 @@ val via :
   corner
 (** A corner, and what to make of the wall running from it to the next one.
 
-    Everything is optional and everything omitted falls back to what {!run} was
-    given, so a corner that is only a corner is [via p]. What is given here is
-    exactly what {!wall} takes, because the wall this describes is one.
+    Everything is optional and everything omitted falls back to what {!boundary}
+    was given, so a corner that is only a corner is [corner p]. What is given
+    here is exactly what {!wall} takes, because the wall this describes is one.
 
-    Named [via] and not [corner] because a game opening this module inside
-    [P.(...)] is a game that may well have written [let corner k = ...] of its
-    own — [demo/portals.ml] and [demo/level.ml] both have one — and a
-    constructor here would shadow it inside every such block. The type keeps the
-    word; types and values do not collide.
+    {b The wall leaving it, not arriving at it.} The last corner of an open
+    boundary therefore describes no wall at all, and {!boundary} refuses one
+    carrying anything — a handler put there is a handler that would never fire,
+    which is the one mistake this shape invites. A closed boundary has no such
+    corner. *)
 
-    {b The wall leaving it, not arriving at it.} The last corner of an open run
-    therefore describes no wall at all, and {!run} refuses one carrying anything
-    — a handler put there is a handler that would never fire, which is the one
-    mistake this shape invites. A closed run has no such corner. *)
-
-val run :
+val boundary :
   ?key:string ->
   ?closed:bool ->
   height:float ->
@@ -165,25 +160,33 @@ val run :
     {!path}; it is open unless said otherwise. [height] and [material] are what
     a corner that does not say gets.
 
+    Named for what it builds rather than for its shape. It was [run], for a run
+    of wall, which is the ordinary word for this and the wrong one here: a game
+    reading [Camlcast] has {!Camlcast.Run} and {!Camlcast_core.Engine.run} in
+    front of it already, both about playing a game rather than laying masonry,
+    and a third [run] in the module a level is written in is one word doing two
+    jobs a facade apart. A free-standing {!wall} is not a boundary and does not
+    come through here, so the name also says when not to reach for it.
+
     {b The winding is still yours not to think about}, and it is the reason this
-    takes corners rather than a list of {!wall}s. A run written the wrong way
-    round is reversed, exactly as {!outline}'s is — and every leg is reversed
-    with it, so what a corner said about its wall is still true of that wall. It
-    is one wall's worth of care to get that right and it is easy to get wrong:
-    reversing the corners and letting each leg travel with its own corner puts
-    every leg one wall out, a leg describing the wall it leaves and a reversal
-    making that the wall it arrives by.
+    takes corners rather than a list of {!wall}s. A boundary written the wrong
+    way round is reversed, exactly as {!outline}'s is — and every leg is
+    reversed with it, so what a corner said about its wall is still true of that
+    wall. It is one wall's worth of care to get that right and it is easy to get
+    wrong: reversing the corners and letting each leg travel with its own corner
+    puts every leg one wall out, a leg describing the wall it leaves and a
+    reversal making that the wall it arrives by.
 
     {b One thing does not survive the reversal: a hand-placed {!decal}.} Its
     [along] is measured from the wall's first point, and a reversed wall has the
-    other one first, so a decal written for a run that turns out to need
+    other one first, so a decal written for a boundary that turns out to need
     reversing lands mirrored along its wall. Nothing here can fix that — a decal
     arrives already built, and there is no reading [along] back out of it to
     flip. It does not touch a decal whose [along] came {e from} the engine,
     which is the ordinary case and the chalk demo's: {!Aim.spot} reports [along]
     on the wall as built, and a decal placed back at that [along] is on the same
-    wall in the same frame. Hand-placing one on a run whose winding you have not
-    checked is what {!wall} is still there for. *)
+    wall in the same frame. Hand-placing one on a boundary whose winding you
+    have not checked is what {!wall} is still there for. *)
 
 val path : ?key:string -> height:float -> material:Material.t -> Vec.t list -> t
 (** An open run of wall through these corners: what a boundary is when part of

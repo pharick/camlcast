@@ -290,12 +290,12 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
         mark { wall = name; along; z; facing; symbol = selected }
     | _ -> ()
   in
-  (* The boundary walls, as legs of a {!P.run}: the run winds itself, which is
+  (* The boundary walls, as legs of a {!P.boundary}, which winds itself — which is
      what this demo used to give up by writing every wall out. A leg carries
      everything P.wall does, which it has to — the jambs are brick where the
      rest is stone. *)
   let chalk_leg ?material name p =
-    P.via ?material ~key:name ~decals:(chalked ~marks name)
+    P.corner ?material ~key:name ~decals:(chalked ~marks name)
       ~on_use:(takes_a_mark name) p
   in
   (* And free-standing walls, which are not part of any boundary and stay as
@@ -315,14 +315,14 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
-            run ~height ~material:Surfaces.stone
+            boundary ~height ~material:Surfaces.stone
               [
                 chalk_leg ~material:Surfaces.brick "jamb-north" hall_q;
                 chalk_leg "north" hall_ne;
                 chalk_leg "west" hall_nw;
                 chalk_leg "south" hall_sw;
                 chalk_leg ~material:Surfaces.brick "jamb-south" hall_se;
-                via hall_p;
+                corner hall_p;
               ];
             threshold ~name:"onward" ~height:clearance ~lintel:this_demos_lintel
               hall_p hall_q;
@@ -339,14 +339,14 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
           ~ceiling:
             (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
           [
-            run ~height ~material:Surfaces.stone
+            boundary ~height ~material:Surfaces.stone
               [
                 chalk_leg ~material:Surfaces.brick "back-jamb-south" back_q;
                 chalk_leg "back-south" back_sw;
                 chalk_leg ~material:Surfaces.brick "back-east" back_se;
                 chalk_leg "back-north" back_ne;
                 chalk_leg ~material:Surfaces.brick "back-jamb-north" back_nw;
-                via back_p;
+                corner back_p;
               ];
             threshold ~name:"here" ~height:clearance ~lintel:this_demos_lintel
               back_p back_q;

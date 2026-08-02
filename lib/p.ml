@@ -143,13 +143,13 @@ let bare l =
   && Option.is_none l.material && Option.is_none l.height
   && match l.decals with [] -> true | _ -> false
 
-let via ?key ?on_gaze ?on_use ?(decals = []) ?material ?height at =
+let corner ?key ?on_gaze ?on_use ?(decals = []) ?material ?height at =
   { at; leg = { key; on_gaze; on_use; decals; material; height } }
 
 (* The segments a run describes, in the order they were written, each carrying
    the leg of the corner it leaves. Built here rather than read back off
    {!Room.path} because winding may reverse the run, and a leg has to stay with
-   its own wall through that — see {!run}. *)
+   its own wall through that — see {!boundary}. *)
 let legs ~closed corners =
   let rec go = function
     | { at = a; leg } :: ({ at = b; _ } :: _ as rest) -> (a, b, leg) :: go rest
@@ -159,7 +159,7 @@ let legs ~closed corners =
   in
   go corners
 
-let run ?key ?(closed = false) ~height ~material corners =
+let boundary ?key ?(closed = false) ~height ~material corners =
   let points = List.map (fun c -> c.at) corners in
   (* Refused by the same call {!outline} and {!path} are refused by, so a run of
      two identical corners or a closed one of two says what it has always said,
@@ -171,8 +171,8 @@ let run ?key ?(closed = false) ~height ~material corners =
   (match List.rev corners with
   | last :: _ when (not closed) && not (bare last.leg) ->
       invalid_arg
-        "P.run: the last corner of an open run leaves no wall, so it can carry \
-         nothing"
+        "P.boundary: the last corner of an open run leaves no wall, so it can \
+         carry nothing"
   | _ -> ());
   let written = legs ~closed corners in
   (* One reversal, and each wall flipped with it, so a leg stays on the wall its
