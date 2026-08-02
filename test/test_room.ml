@@ -115,6 +115,56 @@ let a_decal_is_only_on_the_face_it_was_drawn_on () =
     "the row is answered either way" true
     (Room.decal_row back ~above:1. <> None)
 
+(* And which way round it reads on the face it is on. [along] runs from the
+   wall's [a] to its [b], and by the winding rule that walk goes left to right
+   for someone standing at the Front and right to left for someone at the Back —
+   so the same offset has to name opposite columns of the picture from the two
+   sides, or a sign hung on the far face is drawn in reverse.
+
+   Stated as the direction the reading moves in rather than as an arithmetic on
+   the column, because the direction is the claim: walking [along] the wall
+   walks {e forwards} through a Front picture and {e backwards} through a Back
+   one. The mirror falls out of that and is checked with it. *)
+let a_mark_on_the_far_face_reads_back_to_front () =
+  let place facing =
+    Room.decal ~facing ~along:2. ~z:1. ~half_width:1. ~half_height:1. poster
+  in
+  let front = place Room.Front and back = place Room.Back in
+  let n = poster.Image.width in
+  let read d side along =
+    Option.get (Room.decal_column d ~seen_from:side ~along)
+  in
+  (* The decal spans [1. .. 3.]; sample across it, ends included. *)
+  let offsets = List.init 9 (fun i -> 1. +. (float_of_int i /. 4.)) in
+  let seen_from_front = List.map (read front Room.Front) offsets
+  and seen_from_back = List.map (read back Room.Back) offsets in
+  Alcotest.(check (list int))
+    "walking a to b walks forwards through the near face's picture"
+    (List.sort compare seen_from_front)
+    seen_from_front;
+  Alcotest.(check (list int))
+    "and backwards through the far face's"
+    (List.rev (List.sort compare seen_from_back))
+    seen_from_back;
+  (* Which is the mirror, and the two ends say it plainest: the end of the
+     extent nearer [a] is the picture's left edge from the front and its right
+     edge from behind. *)
+  Alcotest.(check (pair int int))
+    "the a end of it, from either side"
+    (0, n - 1)
+    (read front Room.Front 1.0001, read back Room.Back 1.0001);
+  Alcotest.(check (pair int int))
+    "the b end of it, from either side"
+    (n - 1, 0)
+    (read front Room.Front 2.9999, read back Room.Back 2.9999);
+  List.iter2
+    (fun f b ->
+      Alcotest.(check int)
+        (Printf.sprintf "column %d from the front is column %d from behind" f b)
+        (n - 1 - f)
+        b)
+    seen_from_front seen_from_back
+
 (* Marking a wall at run time: the decal goes on the end of that wall's list,
    which is where the topmost one is, and nothing else about the room moves. *)
 let a_decal_can_be_added_to_a_wall () =
@@ -1246,6 +1296,8 @@ let () =
             front_is_the_side_the_normal_points_to;
           case "a decal is only on the face it was drawn on"
             a_decal_is_only_on_the_face_it_was_drawn_on;
+          case "a mark on the far face reads back to front"
+            a_mark_on_the_far_face_reads_back_to_front;
           case "a decal can be added to a wall" a_decal_can_be_added_to_a_wall;
         ] );
       ( "sprites",

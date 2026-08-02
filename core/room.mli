@@ -166,7 +166,17 @@ val decal_column : decal -> seen_from:side -> along:float -> int option
 
     The face test is here, in the once-per-column half, rather than anywhere its
     two callers could have written it differently. It is why a mark chalked on
-    this side of a grille is not also on the other side of it, reversed. *)
+    this side of a grille is not also on the other side of it, reversed.
+
+    {b A mark on the [Back] face is read back to front.} [along] runs from the
+    wall's [a] to its [b], and by the winding rule above that walk goes left to
+    right seen from the [Front] and right to left seen from the [Back] — so the
+    same offset names opposite columns of the picture depending on which side
+    you are standing. The column is mirrored for the far face, and what that
+    buys is that a picture is drawn the way it was authored on either face: a
+    sign hung on the back of a wall is legible from behind it rather than
+    written in reverse. The extent is untouched, because that is where the paint
+    is; only the picture within it turns round. *)
 
 val decal_row : decal -> above:float -> int option
 (** Where down a decal's height a point [above] the wall's foot falls, as a row

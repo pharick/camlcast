@@ -1248,6 +1248,14 @@ rather than the per-pixel one, and put it somewhere the picker can call too — 
 mark you can see and a mark you can aim at must be the same mark, and the surest
 way to keep them the same is for there to be one function that says so.
 
+That function owes one more thing, and it is easy to miss because a symmetric
+picture will not show it. [along] grows from the wall's [a] to its [b], and by
+the winding above that walk runs left to right on screen for a viewer at the
+front and right to left for one at the back. So the offset alone names a column
+of the picture from one side only: {b mirror it for the far face}, or every
+[Back] decal is drawn — and picked — in reverse, which anything with writing in
+it announces immediately.
+
 {2 Step 6.4 — Sprites (billboards)}
 
 A sprite is an [Image] standing in the world that always faces the player. Add

@@ -67,9 +67,25 @@ let decal_column d ~seen_from ~along =
     if not (off >= 0. && off <= width) then None
     else
       let n = d.image.Image.width in
-      Some
-        (Int.max 0
-           (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n))))
+      let u =
+        Int.max 0
+          (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n)))
+      in
+      (* [along] runs from the wall's [a] to its [b], and which way round that
+         is on screen is the whole of what the winding rule above decides: the
+         normal is [perp edge], so standing on the Front the walk from [a] to
+         [b] goes left to right, and standing on the Back it goes right to left.
+         The offset alone therefore names a column of the picture only from one
+         side, and from the other it names its mirror.
+
+         So the far face reads back to front. The extent is untouched — the
+         decal covers the same stretch of wall from either side, because that is
+         where the paint is — and only the picture within it is turned round,
+         which is what makes [along] a place on the wall rather than a place in
+         the image. Written here rather than in the renderer because {!Sight}
+         reads this too, and a mark drawn mirrored and picked unmirrored would
+         be a mark whose left half answered for its right. *)
+      Some (match seen_from with Front -> u | Back -> n - 1 - u)
 
 let decal_row d ~above =
   let height = 2. *. d.half_height in

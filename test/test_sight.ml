@@ -657,6 +657,80 @@ let a_decal_on_a_see_through_wall_is_picked () =
     | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
     | _ -> None)
 
+(* Which half of a mark the crosshair is on, which is a question about the
+   viewer and not about the wall. [along] runs from a wall's [a] to its [b], and
+   that walk goes left to right for someone standing at its Front and right to
+   left for someone at its Back, so {!Room.decal_column} turns the far face's
+   column round. This is that mirror arriving here: aim to the right of a mark's
+   middle and what answers is the right of the picture, whichever side of the
+   wall you walked to.
+
+   The mark is cut away on its left half and solid on its right, so "is it
+   picked" {e is} "which half is the crosshair on" — a decal is only found where
+   its picture is not clear. Both faces are asked, because the claim is not that
+   the two agree with each other but that both agree with the picture as it was
+   authored.
+
+   A free-standing wall rather than a room boundary, because both of its faces
+   have to be walked to. Opaque, so the ray stops at it however the crosshair
+   falls and the answer is about the mark rather than about a hole. *)
+let handed =
+  Image.make ~width:8 (fun ~u ~v:_ ->
+      if u < 4 then Image.clear else (Color.rgb 0 240 120, 255))
+
+let a_mark_is_picked_the_way_it_was_authored_on_either_face () =
+  (* From (4, 2) to (4, 6), so [perp] points at -x and the Front is the side
+     x = 2 is on. The mark is centred at [along = 2], which is y = 4. *)
+  let world facing =
+    let partition =
+      Room.wall ~height:3. ~material:dim (Vec.make 4. 2.) (Vec.make 4. 6.)
+        ~decals:
+          [
+            Room.decal ~facing ~along:2. ~z:Config.eye_height ~half_width:0.5
+              ~half_height:0.6 handed;
+          ]
+    in
+    World.make
+      ~rooms:
+        [
+          ( "only",
+            Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+              (partition
+              :: Room.rectangle ~height:3. ~material:pale (Vec.make 0. 0.)
+                   (Vec.make 8. 8.)) );
+        ]
+      ~links:[] ~atmosphere:air
+      ~spawn:("only", Vec.make 2. 4.)
+  in
+  let marked world player =
+    match Sight.look world player with
+    | Some { Sight.kind = Sight.Wall w; _ } -> w.decal <> None
+    | other -> Alcotest.failf "expected a wall, got %s" (describe other)
+  in
+  (* Standing at the Front the camera looks east, so screen-right is +y;
+     standing at the Back it looks west, and screen-right is -y. Each pair is
+     the same question — the crosshair a quarter cell to one side of the mark's
+     middle — asked from the two sides of the wall. *)
+  List.iter
+    (fun (name, facing, x, angle, sign) ->
+      let world = world facing in
+      let at offset =
+        marked world
+          (Player.make ~room:0 ~pos:(Vec.make x (4. +. offset)) ~angle)
+      in
+      Alcotest.(check bool)
+        (name ^ ": the solid right of the picture is on the viewer's right")
+        true
+        (at (sign *. 0.25));
+      Alcotest.(check bool)
+        (name ^ ": and the clear left of it on the viewer's left")
+        false
+        (at (sign *. -0.25)))
+    [
+      ("from the front", Room.Front, 2., 0., 1.);
+      ("from behind", Room.Back, 6., Float.pi, -1.);
+    ]
+
 (* The whole of dynamic decals in one test: what a wall hit reports is exactly
    what a decal is placed in.
 
@@ -788,6 +862,8 @@ let () =
           case "a decal on a wall is named" a_decal_on_a_wall_is_named;
           case "a decal on a see-through wall is picked"
             a_decal_on_a_see_through_wall_is_picked;
+          case "a mark is picked the way it was authored on either face"
+            a_mark_is_picked_the_way_it_was_authored_on_either_face;
           case "a wall can be marked where the crosshair is"
             a_wall_can_be_marked_where_the_crosshair_is;
           case "a target can be found on the screen"

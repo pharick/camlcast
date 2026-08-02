@@ -204,7 +204,10 @@ A {b decal} is a picture fixed flat on a wall, placed in that wall's own terms:
 ]}
 
 [~facing:Back] hangs it on the far face, so walking round the wall is what finds
-it, and [~glow] lifts it clear of the light the rest of the wall is under — a
+it. The picture still reads the way you drew it: [along] says where the paint is
+and the engine turns the image round for whichever side you are standing on, so
+a sign on the back of a wall is legible from behind rather than written in
+reverse. [~glow] lifts it clear of the light the rest of the wall is under — a
 sign that is its own light source.
 
 A {b sprite} stands in the room and turns to face you. It is sized by its height

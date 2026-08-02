@@ -768,6 +768,75 @@ let a_decal_on_the_far_face_is_drawn_from_behind () =
     "and nowhere at all from the front" true
     (drawn ~with_it:(marked Room.Back) ~without:bare (in_front ()) = None)
 
+(* Which way round it is drawn, which the two above say nothing about — they ask
+   whether a mark is there and not what it looks like, and a mirrored picture is
+   as present as an unmirrored one.
+
+   [along] runs from the wall's [a] to its [b], and by {!Room}'s winding rule
+   that walk goes left to right on screen for someone at the Front and right to
+   left for someone at the Back. So the offset alone names a column of the
+   picture only from one side. Left unmirrored, every mark on a far face is
+   drawn reversed — invisible on the demos' poster, which is a ring in a border,
+   and unmissable on anything with writing in it.
+
+   The mark here has a hand: its left half red and its right half green. Which
+   colour lands on the left of the screen is the whole of the test, and it is
+   asked of both faces, because the claim is not that the two agree with each
+   other but that both agree with the picture as it was authored. *)
+let handed =
+  Image.make ~width:8 (fun ~u ~v:_ ->
+      if u < 4 then (Color.rgb 255 0 0, 255) else (Color.rgb 0 255 0, 255))
+
+let a_mark_is_drawn_the_way_it_was_authored_on_either_face () =
+  let hung facing =
+    fst
+      (alone
+         ~extra:
+           (partition
+              [
+                Room.decal ~facing ~along:2. ~z:0.6 ~half_width:0.5
+                  ~half_height:0.5 handed;
+              ])
+         [])
+  in
+  (* Every column the mark changed, split by which half of its palette arrived
+     there. Read off the buffer and not off [Room], so this is what a player
+     sees rather than what the placement says. *)
+  let halves ~with_it player =
+    let a = Framebuffer.offscreen ~width ~height
+    and b = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame a with_it player;
+    Renderer.draw_frame b bare player;
+    let left = ref [] and right = ref [] in
+    for y = 0 to height - 1 do
+      for x = 0 to width - 1 do
+        let p = Framebuffer.pixel a ~x ~y in
+        if p <> Framebuffer.pixel b ~x ~y then
+          if p.Color.r > p.Color.g then left := x :: !left
+          else if p.Color.g > p.Color.r then right := x :: !right
+      done
+    done;
+    let span l =
+      match List.sort compare l with
+      | [] -> Alcotest.fail "half of the mark reached no pixel at all"
+      | l -> (List.hd l, List.nth l (List.length l - 1))
+    in
+    (span !left, span !right)
+  in
+  List.iter
+    (fun (name, facing, player) ->
+      let (l0, l1), (r0, r1) = halves ~with_it:(hung facing) player in
+      Alcotest.(check bool)
+        (Printf.sprintf
+           "%s: the picture's left half is on the left of the screen — red at \
+            %d..%d, green at %d..%d"
+           name l0 l1 r0 r1)
+        true (l1 < r0))
+    [
+      ("a Front mark from the front", Room.Front, in_front ());
+      ("a Back mark from behind", Room.Back, behind ());
+    ]
+
 (* And the round-trip, on the pixels this time: aim at a wall, put a mark where
    Sight says the crosshair is, and it lands on the crosshair — the middle of
    the screen, which is where {!Viewport.ray_direction} sends the centre column
@@ -1539,6 +1608,8 @@ let () =
             a_decal_is_drawn_on_the_face_it_is_on;
           case "a decal on the far face is drawn from behind"
             a_decal_on_the_far_face_is_drawn_from_behind;
+          case "a mark is drawn the way it was authored on either face"
+            a_mark_is_drawn_the_way_it_was_authored_on_either_face;
           case "a mark lands under the crosshair"
             a_mark_lands_under_the_crosshair;
           case "a grille is picked where it is drawn"
