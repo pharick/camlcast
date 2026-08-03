@@ -191,15 +191,12 @@ A game **describes** its world: it says what the world should be right now,
 every frame, from nothing, and the runtime works out what changed. A level is
 OCaml code rather than a file in some format, so the smallest complete game is
 one room and a call. This is
-[`examples/described_room.ml`](examples/described_room.ml), compiled with the
-rest of the tree so that it cannot drift from the engine:
+[`examples/step01_room.ml`](examples/step01_room.ml) — step 1 of the guide,
+compiled with the rest of the tree so that it cannot drift from the engine:
 
 ```ocaml
 open Camlcast
 
-(* A pattern is a pure function from a texel coordinate to a colour. This one is
-   a check; Color.level scales all three channels together, so it moves the
-   brightness without touching the hue. *)
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
 
@@ -212,24 +209,17 @@ let ground =
     ~pattern:(Texture.generate (checker ~color:(Color.rgb 116 110 98)))
 
 let height = 4.
-let ground_plane = Plane.horizontal 0.
+let flat = Plane.horizontal 0.
 
 let level =
-  (* P holds the parts a world is made of, and is written round a description
-     rather than opened over the file: its names are short and ordinary, so a
-     local open puts them exactly where a world is being written. *)
   P.(
-    world ~atmosphere:Atmosphere.default ~spawn:("room", Vec.make (-4.5) 0.)
+    world ~atmosphere:Atmosphere.default
+      ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"room"
-          ~floor:(floor ~plane:ground_plane ~material:ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above ground_plane height) ~material:stone)
+        room ~name:"vault"
+          ~floor:(floor ~plane:flat ~material:ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
           [
-            (* The corners in whichever order reads best. boundary measures the
-               loop and winds it so the room is on the inside, so a boundary
-               wound the wrong way round — and a room black from within —
-               cannot be written down. *)
             boundary ~height ~material:stone
               (corners
                  [
@@ -242,7 +232,7 @@ let level =
       ])
 
 let () =
-  match Run.play ~title:"A described room" level with
+  match Run.play ~title:"The Undercroft" level with
   | Ok _ending -> ()
   | Error (`Msg message) ->
       prerr_endline message;
@@ -267,10 +257,9 @@ Components compose by being functions, so a higher-order component that takes
 children and puts something around them is ordinary OCaml.
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
 walks through all of it a feature at a time, with the demo that isolates each
-one. The complete programs beside `described_room.ml` are in
-[`examples/`](examples/) — including `game.ml` and `described_fuse.ml`, which
-are the same small game written against the platform and against the layer, and
-are worth reading side by side.
+one. Every step of it is a complete program in [`examples/`](examples/) —
+`step01_room.ml` through `step26_shipping.ml`, each the whole game as that step
+leaves it, all compiled with the tree so none of them can drift.
 
 ## Controls
 
@@ -293,29 +282,39 @@ _no_ key that ends a run, because a game with screens in it wants `Esc` for
 closing them; `Engine.run_world` adds it itself, since a bare world has nothing
 else to end it with.
 
-Rebinding is a value — [`examples/rebind.ml`](examples/rebind.ml) moves walking
-onto `I` and `K` and adds Escape as the way out, leaving everything unsaid as
-the default has it:
+Rebinding is a value —
+[`examples/step23_controls.ml`](examples/step23_controls.ml) walks on `I` and
+`K` beside `W` and `S`, puts the left mouse button to work beside `E`, and says
+Escape again, since a given part replaces the default's rather than adding to
+it:
 
 ```ocaml
-let bindings =
-  Binding.make
-    ~forward:
-      {
-        Binding.speed = 3.6 (* cells a second at full ask *);
-        terms =
-          [
-            { Binding.source = Binding.Hold (Input.Key Key.i); weight = 1. };
-            { Binding.source = Binding.Hold (Input.Key Key.k); weight = -1. };
-          ];
-      }
-    ~leave:[ Input.Key Key.escape ] ()
+let controls =
+  let hold key weight =
+    { Binding.source = Binding.Hold (Input.Key key); weight }
+  in
+  Controls.make
+    ~bindings:
+      (Binding.make
+         ~forward:
+           {
+             Binding.speed = 3.6;
+             terms =
+               [
+                 hold Key.w 1.; hold Key.s (-1.); hold Key.i 1.;
+                 hold Key.k (-1.);
+               ];
+           }
+         ~leave:[ Input.Key Key.escape ] ())
+    ~use:[ Input.Key Key.e; Input.Button Input.Left ]
+    ~map:[ Input.Key Key.f3; Input.Key Key.m ]
+    ()
 ```
 
 An axis adds up terms, and the two kinds of term are added differently: a held
 key is a **rate**, summed and paid out at the axis's speed over the frame, while
 the mouse is a **displacement**, added as it stands. That distinction — and the
-seam a gamepad would arrive through — is step 13 of
+seam a gamepad would arrive through — is step 23 of
 [the guide](https://pharick.github.io/camlcast/making-a-game.html).
 
 Some demos bind keys of their own beyond the table: `phases` starts on Space;
