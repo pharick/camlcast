@@ -608,8 +608,11 @@ let report description =
                would not take what it was given.";
             ];
       ]
-  (* The same mistake in a description assembled outside any component, where
-     there is no path to name it with because nothing lazy was ever entered. *)
+  (* The same mistake with no component to name — which, elements being built
+     strictly, nothing in this repository can arrange: a bad primitive outside
+     any component raises while the caller is still building [description],
+     before this function is entered at all. Kept because the promise above is
+     worth a belt past the argument that nothing currently reaches it. *)
   | exception Invalid_argument message ->
       [
         error "(root)" "this description was refused"

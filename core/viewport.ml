@@ -152,9 +152,11 @@ let project_height t ~z ~distance =
 
 (** The first pixel an extent starting at the continuous coordinate [x] covers:
     the first whose centre lies at or past it. A centre sits half a pixel in, so
-    that is [Float.round] — bar an [x] exactly on one, where it names the pixel
-    after and the extent gives up a boundary it would only have won on an
-    equality between two projected floats. *)
+    that is [Float.round] — bar an [x] exactly on one, which rounds away from
+    zero: for the non-negative coordinates a screen has, the pixel after, so the
+    extent gives up a boundary it would only have won on an equality between two
+    projected floats. Off screen to the left the tie breaks the other way, and
+    nothing here cares — every caller clamps at the screen's edge first. *)
 let first_pixel x = int_of_float (Float.round x)
 
 (** The last pixel an extent stopping at the continuous coordinate [x] covers,

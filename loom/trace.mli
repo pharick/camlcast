@@ -29,10 +29,12 @@ type 'prim event =
           reader — and, once there are effects to run, a cleanup — sees the
           deepest thing go first. *)
   | Refused
-      (** the host would not build what this render described, so none of what
-          was reported above it in the same render happened: the tree is the one
-          from the frame before, with every component it held still standing and
-          still holding its state.
+      (** the render did not stand — the host would not build what it described,
+          or the description itself would not finish: a duplicate key, a changed
+          hook order, a component that raised. None of what was reported above
+          it in the same render happened: the tree is the one from the frame
+          before, with every component it held still standing and still holding
+          its state.
 
           Last, and once. Everything before it in that render is what the
           reconciler was doing when it walked into the refusal, which is the

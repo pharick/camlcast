@@ -95,8 +95,9 @@ val to_debug_string : t -> string
     [torch#0] and [torch#1] are what tell them apart. A key needs no index
     beside it, being unique among its siblings by the rule {!Element} enforces.
 
-    It holds for any two paths, given component names with no ["/"] or ["#"] in
-    them — the two characters the spelling is made of. Nothing enforces that,
-    and nothing needs to while names are written the way {!Element.declare}'s
-    examples write them; it is said because the promise above is otherwise not
-    quite true. *)
+    It holds for any two paths, given component names with no ["/"], ["#"] or
+    ["["] in them and keys with no ["]"] or ["/"] — the characters the spelling
+    is made of, which a name or key containing them can counterfeit. Nothing
+    enforces that, and nothing needs to while names are written the way
+    {!Element.declare}'s examples write them; it is said because the promise
+    above is otherwise not quite true. *)

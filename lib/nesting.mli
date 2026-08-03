@@ -26,7 +26,8 @@ val misplaced :
     it is, each paired with the parent that may not hold it. [parent] is what
     [node] itself is, which the caller knows and the node does not carry.
 
-    Empty for a tree that is nested correctly. The order is breadth before depth
-    — a node's own children first, then what is under each of them — so the
-    shallowest mistake comes first, which is the one to report when only one is
-    going to be. *)
+    Empty for a tree that is nested correctly. A node's own misplaced children
+    come before anything found under them, so the first pair is never a
+    consequence of one above it — the mistake to report when only one is going
+    to be. Between siblings the walk is depth-first all the same: the first
+    branch's mistakes, however deep, come before the second branch's. *)

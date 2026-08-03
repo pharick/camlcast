@@ -42,8 +42,9 @@
 
     {!P} is written [P.( ... )] around a description rather than opened over a
     whole file. Its names are short and ordinary — [wall], [room], [text],
-    [path] — and a local open puts them in scope exactly where a description is
-    being written and nowhere else, which also marks where one starts and stops.
+    [boundary] — and a local open puts them in scope exactly where a description
+    is being written and nowhere else, which also marks where one starts and
+    stops.
 
     {1 Where to read next}
 
