@@ -5,9 +5,9 @@
    the world the old API builds by hand — which is the strongest thing available
    until there are pixels to compare, and stronger than reading the code twice.
 
-   The reference is the guide's one room, restated inline below and built with the
-   tree. If the declarative version of it stops agreeing with it, one of the two
-   has moved. *)
+   The reference is the one-room world the core API builds by hand, restated inline
+   below and built with the tree. If the declarative version stops agreeing with it,
+   one of the two has moved. *)
 
 (* {1 Comparing two worlds}
 
