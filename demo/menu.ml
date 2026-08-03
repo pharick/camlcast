@@ -10,49 +10,53 @@
 
     Leaving is two different things and the menu has to tell them apart. Escape
     and Enter both end this run, and so does closing the window; {!choose}
-    reports the difference back through {!Camlcast.Engine.ending} so that the
-    launcher can show the list again after a demo but stop altogether when the
-    player has shut the window. *)
+    reports the difference back through {!Camlcast_core.Engine.ending} so that
+    the launcher can show the list again after a demo but stop altogether when
+    the player has shut the window. *)
 
 open Camlcast
-open Result_ext
+open Camlcast_core.Result_ext
 
 let demos = Array.of_list Catalogue.demos
-
-(** The one room the list is drawn over. Nothing in it is read from a file — the
-    three surfaces are generated from {!Patterns} — so unlike a demo's world it
-    cannot fail to be built, and the menu has nothing to fall back to. *)
-let backdrop =
-  let height = 4. in
-  let sw = Vec.make (-4.) (-4.)
-  and se = Vec.make 4. (-4.)
-  and ne = Vec.make 4. 4.
-  and nw = Vec.make (-4.) 4. in
-  let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
-  in
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make 0. 0.)
-
-type t = {
-  selected : int;
-  chosen : int option;  (** set by Enter, and the whole of [finished] *)
-  player : Player.t;  (** turning on the spot in {!backdrop} *)
-}
 
 (** How fast the backdrop turns, in radians per second. Slow enough to read the
     list over. *)
 let turn_rate = 0.25
 
-let start = { selected = 0; chosen = None; player = Player.spawn backdrop }
+(** The one room the list is drawn over. Nothing in it is read from a file — the
+    three surfaces are generated from {!Patterns} — so unlike a demo's world it
+    cannot fail to be built, and the menu has nothing to fall back to. *)
+let backdrop ~angle ~taken ~over =
+  let height = 4. in
+  let flat = Plane.horizontal 0. in
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:("room", Vec.make 0. 0.)
+      [
+        room ~name:"room"
+          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+          ~ceiling:
+            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          [
+            boundary ~height ~material:Surfaces.stone
+              (corners
+                 [
+                   Vec.make (-4.) (-4.);
+                   Vec.make 4. (-4.);
+                   Vec.make 4. 4.;
+                   Vec.make (-4.) 4.;
+                 ]);
+          ];
+        (* The eye is the description's here rather than the runtime's: the
+           backdrop turns on its own and the controls are the list's, so a walk
+           nobody asked for would be a walk fighting the arrow keys. *)
+        camera ~room:"room" ~pos:(Vec.make 0. 0.) ~angle ();
+        hud over;
+        (* Chosen: the frame it was chosen on is drawn, and then the run stops.
+           Which is what ~finished used to say, said the way everything else
+           here is said. *)
+        (if taken then finish else Element.empty);
+      ])
 
 (** Where the list opens. [None] is the top, which is where a launcher starts.
     [Some demo] is that demo's own row, so that coming back from one lands on
@@ -62,105 +66,115 @@ let start = { selected = 0; chosen = None; player = Player.spawn backdrop }
     A demo the catalogue does not name opens at the top. Nothing can hand one
     over that it did not first take from {!Camlcast_demo.Catalogue.demos}, so
     this is a total function rather than a case anybody has to think about. *)
-let start_on = function
-  | None -> start
+let row_of = function
+  | None -> 0
   | Some (demo : Catalogue.t) ->
       let rec find i =
-        if i >= Array.length demos then start
-        else if demos.(i).Catalogue.name = demo.Catalogue.name then
-          { start with selected = i }
+        if i >= Array.length demos then 0
+        else if demos.(i).Catalogue.name = demo.Catalogue.name then i
         else find (i + 1)
       in
       find 0
-
-let update state ~dt ~motion:_ ~actions =
-  let count = Array.length demos in
-  let moved =
-    if Input.pressed actions (Input.Key Key.down) then 1
-    else if Input.pressed actions (Input.Key Key.up) then -1
-    else 0
-  in
-  (* Wraps, so a long list is reachable from either end. *)
-  let selected = (state.selected + moved + count) mod count in
-  let taken =
-    List.exists
-      (fun key -> Input.pressed actions (Input.Key key))
-      [ Key.return; Key.kp_enter; Key.space ]
-  in
-  {
-    selected;
-    chosen = (if taken then Some selected else None);
-    player =
-      Engine.step backdrop state.player
-        { Input.still with Input.turn = turn_rate *. dt };
-  }
-
-let view state = (backdrop, state.player)
 
 (** The list, over a curtain dark enough to read against whatever world is
     turning behind it.
 
     Only as many rows as the buffer has room for are drawn, and the window
     slides to keep the selection inside it. The framebuffer is a fraction of the
-    window ({!Camlcast.Renderer.internal_size}) and shrinks with it, so "they
-    all fit" is true at the size this opens at and not a thing to rely on. *)
-let overlay font fb state =
-  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
+    window ({!Camlcast_core.Renderer.internal_size}) and shrinks with it, so
+    "they all fit" is true at the size this opens at and not a thing to rely on.
+
+    Not (width, height): a local open of P puts a wall's height in scope. *)
+let listing font ~selected ~viewport:(across, down) =
   let line = font.Font.height + 2 in
   let margin = line in
-  Paint.rect fb ~x:0 ~y:0 ~w:width ~h:height ~color:(Color.rgb 0 0 0) ~alpha:170;
   let ink = Color.rgb 200 200 200 in
   let bright = Color.rgb 255 255 255 in
   let dim = Color.rgb 140 140 140 in
-  Font.draw fb font "camlcast-demo" ~x:margin ~y:margin ~color:bright;
   let top = margin + (2 * line) in
-  let bottom = margin + (2 * line) in
-  let rows = Int.max 1 ((height - top - bottom) / line) in
+  let rows = Int.max 1 ((down - top - top) / line) in
   let count = Array.length demos in
   let first =
     if count <= rows then 0
-    else Int.max 0 (Int.min (count - rows) (state.selected - (rows / 2)))
+    else Int.max 0 (Int.min (count - rows) (selected - (rows / 2)))
   in
-  for row = 0 to Int.min rows (count - first) - 1 do
-    let index = first + row in
-    let demo = demos.(index) in
-    let y = top + (row * line) in
-    let here = index = state.selected in
-    if here then
-      Paint.rect fb ~x:(margin / 2) ~y:(y - 1) ~w:(width - margin) ~h:line
-        ~color:(Color.rgb 70 90 120) ~alpha:220;
-    Font.draw fb font
-      (Printf.sprintf "%-9s %s" demo.Catalogue.name demo.Catalogue.blurb)
-      ~x:margin ~y
-      ~color:(if here then bright else ink)
-  done;
-  (* Which way there is more list, for a window too short to show all of it. *)
-  if first > 0 then Font.draw fb font "^" ~x:(width - margin) ~y:top ~color:dim;
-  if first + rows < count then
-    Font.draw fb font "v" ~x:(width - margin)
-      ~y:(top + ((rows - 1) * line))
-      ~color:dim;
-  Font.draw fb font
-    (Printf.sprintf "%s %s  choose      %s  run      %s  quit" (Key.name Key.up)
-       (Key.name Key.down) (Key.name Key.return) (Key.name Key.escape))
-    ~x:margin
-    ~y:(height - margin - font.Font.height)
-    ~color:dim
+  P.(
+    [
+      rect ~x:0 ~y:0 ~w:across ~h:down ~color:(Color.rgb 0 0 0) ~alpha:170 ();
+      text ~font ~x:margin ~y:margin ~color:bright "camlcast-demo";
+    ]
+    @ List.concat
+        (List.init
+           (Int.min rows (count - first))
+           (fun row ->
+             let index = first + row in
+             let demo = demos.(index) in
+             let y = top + (row * line) in
+             let here = index = selected in
+             (if here then
+                [
+                  rect ~x:(margin / 2) ~y:(y - 1) ~w:(across - margin) ~h:line
+                    ~color:(Color.rgb 70 90 120) ~alpha:220 ();
+                ]
+              else [])
+             @ [
+                 text ~font ~x:margin ~y
+                   ~color:(if here then bright else ink)
+                   (Printf.sprintf "%-9s %s" demo.Catalogue.name
+                      demo.Catalogue.blurb);
+               ]))
+    (* Which way there is more list, for a window too short to show all of it. *)
+    @ (if first > 0 then
+         [ text ~font ~x:(across - margin) ~y:top ~color:dim "^" ]
+       else [])
+    @ (if first + rows < count then
+         [
+           text ~font ~x:(across - margin)
+             ~y:(top + ((rows - 1) * line))
+             ~color:dim "v";
+         ]
+       else [])
+    @ [
+        text ~font ~x:margin
+          ~y:(down - margin - font.Font.height)
+          ~color:dim
+          (Printf.sprintf "%s %s  choose      %s  run      %s  quit"
+             (Key.name Key.up) (Key.name Key.down) (Key.name Key.return)
+             (Key.name Key.escape));
+      ])
+
+(** The list itself. [chosen] is where it puts what was picked: a run says how
+    it ended and not what it decided, so a description that decides something
+    hands it back the way any OCaml value does. *)
+let list =
+  Element.declare ~name:"list" @@ fun (font, from, chosen) ->
+  let selected, set_selected = Hook.use_state (row_of from) in
+  let angle, set_angle = Hook.use_state 0. in
+  let taken, set_taken = Hook.use_state false in
+  let count = Array.length demos in
+  Events.use_frame (fun ~dt -> set_angle (angle +. (turn_rate *. dt)));
+  Events.use_pressed (Input.Key Key.down) (fun () ->
+      set_selected ((selected + 1) mod count));
+  Events.use_pressed (Input.Key Key.up) (fun () ->
+      set_selected ((selected - 1 + count) mod count));
+  List.iter
+    (fun control ->
+      Events.use_pressed control (fun () ->
+          chosen := Some demos.(selected);
+          set_taken true))
+    [ Input.Key Key.return; Input.Key Key.kp_enter; Input.Key Key.space ];
+  backdrop ~angle ~taken
+    ~over:(listing font ~selected ~viewport:(Events.use_viewport ()))
 
 (** Show the list on [window] and wait. [None] means the player wants no demo at
     all — Escape, or the window shut — and either way the launcher stops.
 
     [from] is the demo just played, if there was one: the list opens on it. See
-    {!start_on}. *)
+    {!row_of}. *)
 let choose ?from window =
   let* font = Typeface.load () in
-  let+ state, ending =
-    Engine.run window
-      (Engine.game ~update ~view ~overlay:(overlay font)
-         ~finished:(fun state -> state.chosen <> None)
-         ~bindings:Bindings.escapable ())
-      (start_on from)
+  let chosen = ref None in
+  let+ ending =
+    Run.on window ~controls:Bindings.escapable (list (font, from, chosen))
   in
-  match ending with
-  | Engine.Closed -> None
-  | Engine.Left -> Option.map (fun index -> demos.(index)) state.chosen
+  match ending with Run.Closed -> None | Run.Returned -> !chosen

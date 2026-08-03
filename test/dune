@@ -34,7 +34,7 @@
 (library
  (name support)
  (modules support)
- (libraries camlcast alcotest))
+ (libraries camlcast_core alcotest))
 
 ; The engine's own. The suites that load pictures read them from fixtures/ by
 ; plain relative path, because dune runs a test with its working directory here
@@ -50,6 +50,7 @@
  (names
   test_vec
   test_result_ext
+  test_extent
   test_asset
   test_bitmap
   test_paint
@@ -78,6 +79,14 @@
   :standard
   \
   support
+  test_loom
+  test_stage
+  test_check
+  test_debug_map
+  test_events
+  test_overlay
+  test_aim
+  test_dynamics
   test_patterns
   test_pictures
   test_level
@@ -86,7 +95,48 @@
  (package camlcast)
  (deps
   (glob_files fixtures/*))
- (libraries camlcast alcotest support))
+ (libraries camlcast_core alcotest support))
+
+; The runtime's own, and a stanza to itself for the same reason loom's dune has
+; an empty (libraries) line. A suite sitting in the engine's stanza would link
+; camlcast, and could then come to lean on it without anyone noticing — at which
+; point the independence is a thing to remember rather than a thing the build
+; will not let you break. Support is absent for that reason too: it is built on
+; the engine's types, and a host made of strings has no use for a Vec testable.
+;
+; It belongs to the camlcast package because camlcast.loom does. `-p camlcast
+; @runtest` runs it; `-p camlcast-demo @runtest` does not.
+
+(tests
+ (names test_loom)
+ (modules test_loom)
+ (package camlcast)
+ (libraries camlcast_loom alcotest qcheck-alcotest qcheck-core))
+
+; The binding's own. This one does link camlcast, because that is the whole of
+; what it is testing: that a description assembles into the same world the old
+; API builds by hand. Support comes with it for the Vec and float testables — a
+; failing comparison should print (3, 2.5) and not a bare false.
+
+(tests
+ (names
+  test_stage
+  test_check
+  test_debug_map
+  test_events
+  test_overlay
+  test_aim
+  test_dynamics)
+ (modules
+  test_stage
+  test_check
+  test_debug_map
+  test_events
+  test_overlay
+  test_aim
+  test_dynamics)
+ (package camlcast)
+ (libraries camlcast_core camlcast camlcast_loom alcotest support))
 
 ; The demos'. Their art comes in through Asset rather than by relative path,
 ; which is why the whole of assets/ is a dependency: test_demos builds every
@@ -100,4 +150,4 @@
  (package camlcast-demo)
  (deps
   (source_tree ../assets))
- (libraries camlcast camlcast_demo alcotest support))
+ (libraries camlcast_core camlcast_demo camlcast alcotest support))

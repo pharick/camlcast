@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 (* A transform with both a rotation and an offset, so [point] and [direction]
@@ -31,21 +31,21 @@ let a_direction_ignores_the_offset () =
     (Transform.direction t (Vec.sub q p))
     (Vec.sub (Transform.point t q) (Transform.point t p))
 
-let inverse_and_compose_round_trip () =
+(* Applying one motion and then its inverse. There is no [compose] to fold the
+   two into a single transform and check that against the identity, because
+   nothing in the engine composes: a chain of doorways is walked a link at a
+   time. So the round trip is written the way the renderer travels it. *)
+let inverse_round_trips () =
   let t = turn_and_shift in
   let p = Vec.make (-0.2) 0.7 in
   Alcotest.check vec "inverse undoes point" p
     (Transform.point (Transform.inverse t) (Transform.point t p));
-  Alcotest.check vec "composing with the inverse moves nothing" p
-    (Transform.point (Transform.compose (Transform.inverse t) t) p);
-  (* [compose outer inner] applies the inner motion first. *)
-  let u =
-    Transform.between ~a1:(Vec.make 1. 1.) ~a2:(Vec.make 1. 3.)
-      ~b1:(Vec.make (-2.) 0.) ~b2:(Vec.make (-2.) 2.)
-  in
-  Alcotest.check vec "inner then outer"
-    (Transform.point u (Transform.point t p))
-    (Transform.point (Transform.compose u t) p)
+  Alcotest.check vec "and undoes direction" p
+    (Transform.direction (Transform.inverse t) (Transform.direction t p));
+  (* Both ways round, since the inverse of the inverse is the motion itself and
+     an implementation that negated the wrong thing would pass only one. *)
+  Alcotest.check vec "the other way too" p
+    (Transform.point t (Transform.point (Transform.inverse t) p))
 
 let between_reverses_endpoints () =
   let a1 = Vec.make 0. 0. and a2 = Vec.make 0. 1. in
@@ -108,7 +108,43 @@ let a_segment_with_no_length_is_refused () =
      length not being finite. *)
   refused "a coordinate that is infinite"
     "Transform.between: b1 and b2 are the same point" here there here
-    (Vec.make Float.infinity 2.)
+    (Vec.make Float.infinity 2.);
+  (* And the case neither of those two covers, which the guard used to let
+     through: a length that is finite and above zero and still too small to take
+     a reciprocal of. Below about 5.6e-309 the reciprocal is infinity, so
+     normalising gives (infinity, nan) and both cos and sin come out nan — a
+     rotation that is not one, in the type whose privacy is there to promise it
+     cannot be. See Vec.normalizable. *)
+  let hair = Vec.make 1e-320 0. in
+  refused "the first segment subnormally short"
+    "Transform.between: a1 and a2 are the same point" (Vec.make 0. 0.) hair here
+    there;
+  refused "the second segment subnormally short"
+    "Transform.between: b1 and b2 are the same point" here there
+    (Vec.make 0. 0.) hair
+
+(* The invariant the private type is for, over everything that can build one. *)
+let a_rotation_is_always_a_rotation () =
+  List.iter
+    (fun (a1, a2, b1, b2) ->
+      match Transform.between ~a1 ~a2 ~b1 ~b2 with
+      | t ->
+          Alcotest.check close "cos^2 + sin^2 is one" 1.
+            ((t.Transform.cos *. t.Transform.cos)
+            +. (t.Transform.sin *. t.Transform.sin))
+      | exception Invalid_argument _ -> ())
+    [
+      (Vec.make 0. 0., Vec.make 1. 0., Vec.make 0. 0., Vec.make 0. 1.);
+      (Vec.make 2. 2., Vec.make 2. 5., Vec.make 7. 1., Vec.make 4. 1.);
+      (* Short but real, either side of the reciprocal boundary. Whichever of
+         these is built has to be a rotation; the rest are refused. *)
+      (Vec.make 0. 0., Vec.make 1e-300 0., Vec.make 0. 0., Vec.make 0. 1e-300);
+      ( Vec.make 0. 0.,
+        Vec.make (1. /. Float.max_float) 0.,
+        Vec.make 0. 0.,
+        Vec.make 0. (1. /. Float.max_float) );
+      (Vec.make 0. 0., Vec.make 1e-320 0., Vec.make 0. 0., Vec.make 0. 1e-320);
+    ]
 
 let () =
   Alcotest.run "Transform"
@@ -117,10 +153,11 @@ let () =
         [
           case "identity moves nothing" identity_moves_nothing;
           case "a direction ignores the offset" a_direction_ignores_the_offset;
-          case "inverse and compose round trip" inverse_and_compose_round_trip;
+          case "inverse round trips" inverse_round_trips;
           case "between reverses endpoints" between_reverses_endpoints;
           case "between preserves lengths" between_preserves_lengths;
           case "a segment with no length is refused"
             a_segment_with_no_length_is_refused;
+          case "a rotation is always a rotation" a_rotation_is_always_a_rotation;
         ] );
     ]

@@ -15,33 +15,40 @@
 open Camlcast
 
 let height = 4.
+let flat = Plane.horizontal 0.
 
-let world =
-  (* Counterclockwise, so that every wall's normal faces into the room. *)
-  let sw = Vec.make (-6.) (-6.)
-  and se = Vec.make 6. (-6.)
-  and ne = Vec.make 6. 6.
-  and nw = Vec.make (-6.) 6. in
-  let wall material a b = Room.wall ~height ~material a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      (wall Surfaces.brick sw se :: wall Surfaces.panel se ne
-     :: wall Surfaces.stone ne nw
-      :: wall Surfaces.tile nw sw
-         (* An oak post off to one side, so the four walls are also seen at a
-         glancing angle, where the directional light falls differently. *)
-      :: Room.regular_polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
-           ~rotation:0.4 ~height:2.6 ~material:Surfaces.oak)
-  in
-  (* Facing the green panel wall, with the red brick running away to the right
-     and the blue stone to the left: three of the four are in shot at once. *)
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make (-4.5) 0.)
+(* The four corners. Given to outline they would be four walls of one material;
+   given one at a time they are four walls of four, which is what this one is
+   about. They still bound the room, so they are written the way outline would
+   have wound them. *)
+let sw = Vec.make (-6.) (-6.)
+let se = Vec.make 6. (-6.)
+let ne = Vec.make 6. 6.
+let nw = Vec.make (-6.) 6.
 
-let run window = Engine.run_world window world
+let level =
+  P.(
+    (* Facing the green panel wall, with the red brick running away to the right
+       and the blue stone to the left: three of the four are in shot at once. *)
+    world ~atmosphere:Surfaces.air
+      ~spawn:("room", Vec.make (-4.5) 0.)
+      [
+        room ~name:"room"
+          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+          ~ceiling:
+            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          [
+            wall ~height ~material:Surfaces.brick sw se;
+            wall ~height ~material:Surfaces.panel se ne;
+            wall ~height ~material:Surfaces.stone ne nw;
+            wall ~height ~material:Surfaces.tile nw sw;
+            (* An oak post off to one side, so the four walls are also seen at a
+               glancing angle, where the directional light falls differently. *)
+            boundary ~height:2.6 ~material:Surfaces.oak
+              (polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
+                 ~rotation:0.4);
+          ];
+      ])
+
+let world = (Mount.build level).Scene.world
+let run window = Run.on window level

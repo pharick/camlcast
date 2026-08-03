@@ -10,7 +10,7 @@
     same shape as the real one — and every pixel of cell [n] is the grey [n], so
     a glyph that lands on the screen says which cell it came from. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let cell_w = 6
@@ -126,6 +126,39 @@ let measuring () =
     "and a trailing newline opens one"
     (3 * cell_w, 2 * cell_h)
     (Font.measure font "abc\n")
+
+(* A character is a byte, all the way through. Nothing here decodes anything, so
+   a UTF-8 string is a string of bytes to every one of the three: [é] is two
+   cells wide, two glyphs, and a place a line may break.
+
+   Pinned because it is the interface's claim and not an accident anyone should
+   discover — and pinned as the {e agreement} rather than as the byte count
+   alone, since that half is what makes the result a tidy layout of the wrong
+   thing rather than a mess. A version of this module that decoded UTF-8 would
+   fail the first check below and still pass the rest, which is the right shape
+   for a test of something whose remedy is a different atlas and a different
+   index. *)
+let text_is_measured_and_wrapped_in_bytes () =
+  (* "café" in UTF-8: four letters, five bytes, and so five cells wide. *)
+  let word = "caf\xc3\xa9" in
+  Alcotest.(check int)
+    "a four-letter word of five bytes measures five cells" 5
+    (fst (Font.measure font word) / cell_w);
+  (* And the agreement, which holds whatever the unit turns out to be: every
+     line wrapping gives back fits the width it was given, and the height
+     measured of the wrapped text is the number of lines it came back as. *)
+  let wrapped = Font.wrap font word ~width:(3 * cell_w) in
+  List.iter
+    (fun line ->
+      Alcotest.(check bool)
+        (Printf.sprintf "%S fits the width it was wrapped to" line)
+        true
+        (fst (Font.measure font line) <= 3 * cell_w))
+    wrapped;
+  Alcotest.(check int)
+    "and measuring the wrapped text counts the lines it produced"
+    (List.length wrapped * cell_h)
+    (snd (Font.measure font (String.concat "\n" wrapped)))
 
 let wrapping_breaks_on_spaces () =
   let wrap text width = Font.wrap font text ~width in
@@ -254,6 +287,8 @@ let () =
       ( "layout",
         [
           case "measuring" measuring;
+          case "text is measured and wrapped in bytes"
+            text_is_measured_and_wrapped_in_bytes;
           case "wrapping breaks on spaces" wrapping_breaks_on_spaces;
           case "wrapping keeps the lines that are empty"
             wrapping_keeps_the_lines_that_are_empty;

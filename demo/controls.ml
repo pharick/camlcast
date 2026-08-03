@@ -2,41 +2,43 @@
     walking about — and, since walking about is a game's too, the table that
     says which key does it.
 
-    The engine names no actions. It reports {e controls} — a {!Camlcast.Key}, or
-    a mouse button — and four questions about each: is it down, did it go down
-    this frame, did it come up this frame, and how long has it been held.
-    "Interact" and "commit" are this demo's words, and the table from the one to
-    the other is {!interact}, {!screen} and {!primary} below.
+    The engine names no actions. It reports {e controls} — a
+    {!Camlcast_core.Key}, or a mouse button — and four questions about each: is
+    it down, did it go down this frame, did it come up this frame, and how long
+    has it been held. "Interact" and "commit" are this demo's words, and the
+    table from the one to the other is {!interact}, {!screen} and {!primary}
+    below.
 
     - {b Hold E.} The meter fills. Let go before it is full and the {b blue}
       lamp lights; let go after and the {b green} one does. That is the whole of
-      press-versus-hold: {!Camlcast.Input.held_for} counts from the frame after
-      the press and keeps its value for the one frame {!Camlcast.Input.released}
-      is true, so the release itself can ask how long the hold lasted.
+      press-versus-hold: {!Camlcast_core.Input.held_for} counts from the frame
+      after the press and keeps its value for the one frame
+      {!Camlcast_core.Input.released} is true, so the release itself can ask how
+      long the hold lasted.
     - {b Click.} The amber lamp lights. A mouse button is a control like a key.
     - {b Tab.} Releases the mouse. The cursor comes back, a white square follows
-      it, and the camera stops turning with it — that is [pointing] on
-      {!Camlcast.Engine.run}, which is how a game that opens a screen over its
-      world hands the mouse to it. Press it again to take the mouse back.
-    - {b IJKL, as well as WASD.} Walking is bound by a {!Camlcast.Binding.t}
-      like everything else, and this demo hands {!Camlcast.Engine.run} one of
-      its own with a second set of keys added. Both sets are live at once, and
-      holding one of each walks at {e one} speed rather than two — an axis
-      clamps what its terms add up to, which is what stops a table with two keys
-      on one axis from running.
+      it, and the camera stops turning with it — that is {!Camlcast.P.cursor},
+      which a description writes when it wants the mouse for something it has
+      drawn. Press it again to take the mouse back.
+    - {b IJKL, as well as WASD.} Walking is bound by a
+      {!Camlcast_core.Binding.t} like everything else, and this demo hands
+      {!Camlcast.Run.on} a {!Camlcast.Controls.t} carrying one of its own with a
+      second set of keys added. Both sets are live at once, and holding one of
+      each walks at {e one} speed rather than two — an axis clamps what its
+      terms add up to, which is what stops a table with two keys on one axis
+      from running.
 
     The line across the top is printed from that table with
-    {!Camlcast.Key.name}, not spelled out: move a key here and the words on
+    {!Camlcast_core.Key.name}, not spelled out: move a key here and the words on
     screen follow it. What the player reads is the layout's name for the place,
     so the line says Z on an AZERTY board where it says W on a QWERTY one — and
     it is the same key either way, because a binding is a place.
 
-    The cursor arrives in [update] already in the framebuffer's coordinates,
-    which are the ones the overlay draws in, so the square lands under the
-    pointer at any window size. *)
+    The cursor arrives already in the framebuffer's coordinates, which are the
+    ones the overlay draws in, so the square lands under the pointer at any
+    window size. *)
 
 open Camlcast
-open Result_ext
 
 let height = 4.
 
@@ -58,7 +60,7 @@ let named = function
 
 (** The engine's table with a second set of walking keys added to it: the whole
     of rebinding is a value like this one, stated once and handed to
-    {!Camlcast.Engine.run}.
+    {!Camlcast.Run.on}.
 
     [~leave] has to be asked for — {!Camlcast.Binding.default} binds no key that
     ends a run, since a game with screens in it wants Escape for closing them —
@@ -103,118 +105,113 @@ let commit_after = 1.5
 (** How long a lamp stays lit after the thing it reports. *)
 let lamp_time = 0.8
 
-type t = {
-  player : Player.t;
-  pointing : bool;
-  hold : float;  (** how long E has been held, or zero *)
-  tap : float;  (** seconds of lamp left, for each of the three *)
-  commit : float;
-  click : float;
-  pointer : int * int;
-}
+let flat = Plane.horizontal 0.
+let sw = Vec.make (-7.) (-7.)
+let se = Vec.make 7. (-7.)
+let ne = Vec.make 7. 7.
+let nw = Vec.make (-7.) 7.
 
-let world =
-  let sw = Vec.make (-7.) (-7.)
-  and se = Vec.make 7. (-7.)
-  and ne = Vec.make 7. 7.
-  and nw = Vec.make (-7.) 7. in
-  let wall a b = Room.wall ~height ~material:Surfaces.stone a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      ~sprites:
-        [
-          Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
-          Room.sprite ~size:0.9 ~image:Pictures.barrel (Vec.make 0. (-2.5));
-        ]
-      [ wall sw se; wall se ne; wall ne nw; wall nw sw ]
-  in
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("room", Vec.make (-4.5) 0.)
+let chamber =
+  P.(
+    room ~name:"room"
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      [
+        boundary ~height ~material:Surfaces.stone (corners [ sw; se; ne; nw ]);
+        sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
+        sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
+          (Vec.make 0. (-2.5));
+      ])
 
-let start =
-  {
-    player = Player.spawn world;
-    pointing = false;
-    hold = 0.;
-    tap = 0.;
-    commit = 0.;
-    click = 0.;
-    pointer = (0, 0);
-  }
+let spawn = ("room", Vec.make (-4.5) 0.)
+
+(* Not (width, height): a local open of P puts a wall's height in scope, and a
+   buffer's is a different number. *)
+let panel ~hold ~lamps ~pointing ~pointer ~viewport:(across, down) =
+  let font = Lazy.force font in
+  let unit = Int.max 3 (down / 60) in
+  let margin = 2 * unit in
+  let full = hold >= commit_after in
+  P.(
+    [
+      text ~font ~x:margin ~y:margin ~color:(Color.rgb 150 156 170)
+        (Lazy.force help);
+      (* The hold meter, turning from amber to green as it passes the mark. *)
+      bar ~x:margin
+        ~y:(down - margin - (2 * unit))
+        ~w:(across / 3) ~h:(2 * unit) ~fraction:(hold /. commit_after)
+        ~color:
+          (Color.rgb
+             (if full then 120 else 230)
+             (if full then 220 else 180)
+             (if full then 130 else 80))
+        ();
+    ]
+    (* Three lamps in a row, each fading out over [lamp_time]. *)
+    @ List.mapi
+        (fun i (left, (r, g, b)) ->
+          rect
+            ~x:(margin + (i * 5 * unit))
+            ~y:(down - margin - (7 * unit))
+            ~w:(4 * unit) ~h:(3 * unit) ~color:(Color.rgb r g b)
+            ~alpha:(int_of_float (255. *. Float.min 1. (left /. lamp_time)))
+            ())
+        lamps
+    @
+    if pointing then
+      let x, y = pointer in
+      [
+        rect ~x:(x - unit) ~y:(y - unit) ~w:(2 * unit) ~h:(2 * unit)
+          ~color:(Color.rgb 250 250 250) ~alpha:255 ();
+      ]
+    else [ crosshair ~color:(Color.rgb 245 245 245) () ])
 
 let fade lamp dt = Float.max 0. (lamp -. dt)
 
-let update state ~dt ~motion ~actions =
-  let let_go = Input.released actions interact in
-  let lasted = Input.held_for actions interact in
-  {
-    player = Engine.step world state.player motion;
-    pointing =
-      (if Input.pressed actions screen then not state.pointing
-       else state.pointing);
-    hold = (if Input.down actions interact then lasted else 0.);
-    tap =
-      (if let_go && lasted < commit_after then lamp_time else fade state.tap dt);
-    commit =
-      (if let_go && lasted >= commit_after then lamp_time
-       else fade state.commit dt);
-    click =
-      (if Input.pressed actions primary then lamp_time else fade state.click dt);
-    pointer = Input.pointer actions;
-  }
+let reading =
+  Element.declare ~name:"reading" @@ fun () ->
+  let actions = Events.use_actions () in
+  let pointing, set_pointing = Hook.use_state false in
+  let tap, set_tap = Hook.use_state 0. in
+  let commit, set_commit = Hook.use_state 0. in
+  let click, set_click = Hook.use_state 0. in
+  (* {!screen} by name, and not the key it happens to be. A hook that takes a
+     control rather than a key is what lets this demo's own table be the only
+     place a control is named. *)
+  Events.use_pressed screen (fun () -> set_pointing (not pointing));
+  Events.use_frame (fun ~dt ->
+      let let_go = Input.released actions interact in
+      let lasted = Input.held_for actions interact in
+      set_tap
+        (if let_go && lasted < commit_after then lamp_time else fade tap dt);
+      set_commit
+        (if let_go && lasted >= commit_after then lamp_time else fade commit dt);
+      set_click
+        (if Input.pressed actions primary then lamp_time else fade click dt));
+  P.(
+    world ~atmosphere:Surfaces.air ~spawn
+      [
+        chamber;
+        (if pointing then cursor else Element.empty);
+        hud
+          (panel
+             ~hold:
+               (if Input.down actions interact then
+                  Input.held_for actions interact
+                else 0.)
+             ~lamps:
+               [
+                 (tap, (110, 170, 245));
+                 (commit, (120, 220, 130));
+                 (click, (240, 190, 90));
+               ]
+             ~pointing ~pointer:(Input.pointer actions)
+             ~viewport:(Events.use_viewport ()));
+      ])
 
-let overlay fb state =
-  let font = Lazy.force font in
-  let width = fb.Framebuffer.width and height = fb.Framebuffer.height in
-  let unit = Int.max 3 (height / 60) in
-  let margin = 2 * unit in
-  Font.draw fb font (Lazy.force help) ~x:margin ~y:margin
-    ~color:(Color.rgb 150 156 170);
-  (* The hold meter, turning from amber to green as it passes the mark. *)
-  let full = state.hold >= commit_after in
-  Paint.bar fb ~x:margin
-    ~y:(height - margin - (2 * unit))
-    ~w:(width / 3) ~h:(2 * unit)
-    ~fraction:(state.hold /. commit_after)
-    ~color:
-      (Color.rgb
-         (if full then 120 else 230)
-         (if full then 220 else 180)
-         (if full then 130 else 80));
-  (* Three lamps in a row, each fading out over [lamp_time]. *)
-  List.iteri
-    (fun i (left, (r, g, b)) ->
-      let alpha = int_of_float (255. *. Float.min 1. (left /. lamp_time)) in
-      Paint.rect fb
-        ~x:(margin + (i * 5 * unit))
-        ~y:(height - margin - (7 * unit))
-        ~w:(4 * unit) ~h:(3 * unit) ~color:(Color.rgb r g b) ~alpha)
-    [
-      (state.tap, (110, 170, 245));
-      (state.commit, (120, 220, 130));
-      (state.click, (240, 190, 90));
-    ];
-  if state.pointing then begin
-    let x, y = state.pointer in
-    Paint.rect fb ~x:(x - unit) ~y:(y - unit) ~w:(2 * unit) ~h:(2 * unit)
-      ~color:(Color.rgb 250 250 250) ~alpha:255
-  end
-  else Paint.crosshair fb ~color:(Color.rgb 245 245 245)
+let world =
+  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn [ chamber ]))
+    .Scene.world
 
 let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings ~update
-         ~view:(fun state -> (world, state.player))
-         ~overlay
-         ~pointing:(fun state -> state.pointing)
-         ())
-      start
-  in
-  ending
+  Run.on window ~controls:(Controls.make ~bindings ()) (reading ())

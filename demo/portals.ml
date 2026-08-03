@@ -17,72 +17,71 @@
 
     Look through one doorway from the middle of the hub: the renderer follows
     the ray into the next room, transformed, up to
-    {!Camlcast.Config.max_portal_depth} doorways deep. *)
+    {!Camlcast_core.Config.max_portal_depth} doorways deep. *)
 
 open Camlcast
 
 let height = 5.
+let flat = Plane.horizontal 0.
 
-(* The hub's corners, counterclockwise. Sides 0 and 2 run diagonally, so the
-   transforms through them are genuine rotations and not merely translations. *)
-let corner k =
+(* The hub's corners. Sides 0 and 5 run diagonally, so the transforms through
+   them are genuine rotations and not merely translations. *)
+let hub_corner k =
   let angle = float_of_int k *. Float.pi /. 3. in
   Vec.make (8. *. cos angle) (8. *. sin angle)
 
-let chamber () =
-  let sw = Vec.make (-3.5) 0.
-  and se = Vec.make 3.5 0.
-  and ne = Vec.make 3.5 9.
-  and nw = Vec.make (-3.5) 9. in
-  let jambs, threshold =
-    Room.doorway ~name:"back" ~width:2.6 ~opening:3. ~height
-      ~material:Surfaces.brick sw se
-  in
-  let wall a b = Room.wall ~height ~material:Surfaces.brick a b in
-  Room.make ~thresholds:[ threshold ]
-    ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:Surfaces.ground)
-    ~ceiling:
-      (Room.roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
-    ~sprites:[ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 0. 6.5) ]
-    (jambs @ [ wall se ne; wall ne nw; wall nw sw ])
+let sw = Vec.make (-3.5) 0.
+let se = Vec.make 3.5 0.
+let ne = Vec.make 3.5 9.
+let nw = Vec.make (-3.5) 9.
 
-let world =
-  let gate k name =
-    Room.doorway ~name ~width:2.6 ~opening:3. ~height ~material:Surfaces.stone
-      (corner k)
-      (corner ((k + 1) mod 6))
-  in
-  (* Sides 0 and 5 are the two that meet at due east: both slanted, so both
-     links turn as well as move, and near enough each other to be seen at the
-     same time. *)
-  let right_jambs, right = gate 0 "right"
-  and left_jambs, left = gate 5 "left" in
-  let side k =
-    Room.wall ~height ~material:Surfaces.stone (corner k)
-      (corner ((k + 1) mod 6))
-  in
-  let hub =
-    Room.make ~thresholds:[ right; left ]
-      ~floor:(Room.floor ~plane:(Plane.horizontal 0.) ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
-      (List.concat [ right_jambs; left_jambs; List.map side [ 1; 2; 3; 4 ] ])
-  in
-  World.make
-    ~rooms:
+(* A component, because there are two of them and they are the same room. Given
+   different names, they are two rooms of one shape — which is exactly what the
+   old version said by calling a function twice, in a form the runtime can also
+   tell apart. *)
+let chamber =
+  Element.declare ~name:"chamber" @@ fun name ->
+  P.(
+    room ~name
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
       [
-        ("hub", hub);
+        boundary ~closed:false ~height ~material:Surfaces.brick
+          (corners [ se; ne; nw; sw ]);
+        doorway ~name:"back" ~width:2.6 ~opening:3. ~height
+          ~material:Surfaces.brick sw se;
+        sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 0. 6.5);
+      ])
+
+let level =
+  P.(
+    (* Standing back from the middle, so that both doorways are ahead of you and
+       the same room can be seen through each. *)
+    world ~atmosphere:Surfaces.air
+      ~spawn:("hub", Vec.make (-6.) 0.)
+      [
+        room ~name:"hub"
+          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+          ~ceiling:
+            (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
+          ((* Sides 0 and 5 are the two that meet at due east: both slanted, so
+              both links turn as well as move, and near enough each other to be
+              seen at the same time. *)
+           doorway ~name:"right" ~width:2.6 ~opening:3. ~height
+             ~material:Surfaces.stone (hub_corner 0) (hub_corner 1)
+          :: doorway ~name:"left" ~width:2.6 ~opening:3. ~height
+               ~material:Surfaces.stone (hub_corner 5) (hub_corner 0)
+          :: List.map
+               (fun k ->
+                 wall ~height ~material:Surfaces.stone (hub_corner k)
+                   (hub_corner ((k + 1) mod 6)))
+               [ 1; 2; 3; 4 ]);
         (* The same room, twice. *)
-        ("east", chamber ());
-        ("west", chamber ());
-      ]
-    ~links:
-      [
-        (("hub", "right"), ("east", "back")); (("hub", "left"), ("west", "back"));
-      ]
-    ~atmosphere:Surfaces.air
-      (* Standing back from the middle, so that both doorways are ahead of you
-       and the same room can be seen through each. *)
-    ~spawn:("hub", Vec.make (-6.) 0.)
+        chamber ~key:"east" "east";
+        chamber ~key:"west" "west";
+        link ("hub", "right") ("east", "back");
+        link ("hub", "left") ("west", "back");
+      ])
 
-let run window = Engine.run_world window world
+let world = (Mount.build level).Scene.world
+let run window = Run.on window level

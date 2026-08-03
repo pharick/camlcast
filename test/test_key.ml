@@ -1,10 +1,10 @@
 (** [Key] is a table of names, and a table is only worth testing where it could
     be wrong: that two names are not secretly the same place, that the way out
     to a scancode and back is the identity, and that every key it names fits in
-    the block {!Camlcast.Input} sizes for the keyboard. Get that last one wrong
-    and a control quietly indexes into the mouse's part of the arrays. *)
+    the block {!Camlcast_core.Input} sizes for the keyboard. Get that last one
+    wrong and a control quietly indexes into the mouse's part of the arrays. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 (* Every key the module names. Kept by hand, which is the point: a key added to

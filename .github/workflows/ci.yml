@@ -71,6 +71,16 @@ jobs:
       # packages, so odoc writes a directory for each.
       - run: opam exec -- dune build @doc
 
+      # @doc exits 0 whatever odoc warns about, so a reference that does not
+      # resolve reaches the published site as inert text and nothing says so.
+      # Dune's own knob for that -- (env (_ (odoc (warnings fatal)))) -- is no
+      # use here: the classic @doc pipeline drops external libraries from odoc's
+      # include path, so every @raise naming a stdlib exception warns however it
+      # is written, and turning warnings fatal would fail on 35 nobody can fix.
+      # This tells the two apart by name. See the script's own comment.
+      - name: Check the doc references resolve
+        run: opam exec -- python3 tools/odoc-refs.py
+
       # odoc namespaces its output by package and a project site is rooted at
       # the repository name, so publishing _html as it stands would put the docs
       # at /camlcast/camlcast/. This moves the engine's package directory up to
@@ -91,18 +101,22 @@ jobs:
         with:
           path: _site
 
-  # The floor dune-project names. Both packages declare (ocaml (>= 5.1)) —
-  # Array.find_index, which World uses to resolve a name to an index, is the
-  # newest thing in the tree and arrived in 5.1 — and a floor nothing ever
-  # builds at is a claim rather than a fact.
+  # The floor dune-project names. Both packages declare (ocaml (>= 5.2)) — for
+  # -H, without which (implicit_transitive_deps false) does not mean what it
+  # says — and a floor nothing ever builds at is a claim rather than a fact.
+  # This job was the only thing that noticed: the compiler development happens
+  # on has -H, so the tree built clean everywhere else while three directories'
+  # worth of aliases and printers failed here.
   #
   # Build and test only. @fmt and @doc are properties of the tree rather than of
   # the compiler, they are already checked above, and asking for them here would
   # drag the pinned ocamlformat and odoc in to answer a question that is not
   # being asked. If this ever fails on a dependency rather than on this code,
-  # that is a reason to raise the floor in dune-project, not to pin around it.
+  # that is a reason to raise the floor in dune-project, not to pin around it —
+  # which is how it got to 5.2, the failure being the build's own rule rather
+  # than a dependency, and the same answer applying.
   floor:
-    name: OCaml 5.1
+    name: OCaml 5.2
     runs-on: ubuntu-latest
 
     steps:
@@ -110,7 +124,7 @@ jobs:
 
       - uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: "5.1"
+          ocaml-compiler: "5.2"
           dune-cache: true
 
       - run: opam install . --deps-only --with-test

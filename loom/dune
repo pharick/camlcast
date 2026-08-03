@@ -1,0 +1,27 @@
+; The runtime: elements, the instance tree, reconciliation, hooks, context and
+; scheduling. In React's terms this is [react] together with the reconciler, and
+; emphatically not the renderer — nothing here draws anything.
+;
+; (libraries) is empty, and that is the load-bearing part of this file. Nothing
+; in this directory may know what a wall, a pixel or an SDL window is: the
+; reconciler is driven through Host.HOST and nothing else. Three things follow
+; from that, and all three are the reason for the split:
+;
+;   - it can be tested against a mock host of plain strings, with no window
+;     open and no renderer linked, which is what makes the hard part of this
+;     engine testable as text;
+;   - camlcast's own suite is untouched by anything that happens here;
+;   - a second backend — a top-down view, a headless simulator — costs one
+;     module implementing HOST rather than a fork.
+;
+; Adding camlcast to this line would compile. It would also silently delete all
+; three, so it is a rule and not a preference.
+
+; -w +70 for the same reason it is in core/dune: all eight modules here already
+; carry an .mli, and the flag is what keeps the ninth from arriving without one.
+
+(library
+ (flags
+  (:standard -w +70))
+ (name camlcast_loom)
+ (public_name camlcast.loom))

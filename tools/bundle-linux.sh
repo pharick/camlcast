@@ -41,7 +41,7 @@ rm -rf "$stage"
 mkdir -p "$libs"
 
 # Flat, so that the directory beside the binary is the one holding the art —
-# the second of the roots lib/asset.ml searches.
+# the second of the roots core/asset.ml searches.
 cp "$root/_build/default/bin/demo.exe" "$stage/camlcast-demo-bin"
 chmod u+w "$stage/camlcast-demo-bin"
 cp -R "$root/assets" "$stage/assets"

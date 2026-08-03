@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let links_resolve () =
@@ -26,7 +26,7 @@ let links_resolve () =
    0..4 square, so a crossing is only meaningful once the transform has carried
    the point into the neighbour's frame. *)
 let crossing_changes_frame () =
-  let slot, portal, at =
+  let { World.index = slot; portal; at } =
     Option.get
       (World.crossing two_rooms ~room:0 ~from:(Vec.make 3.8 2.)
          ~dest:(Vec.make 4.2 2.))
@@ -68,7 +68,7 @@ let crossing_changes_frame () =
 let a_crossing_is_reported_however_short_the_step_is () =
   let whisker = Float.ldexp 1. (-44) in
   let dest = Vec.make (4. +. whisker) 2. in
-  let slot, portal, at =
+  let { World.index = slot; portal; at } =
     Option.get
       (World.crossing two_rooms ~room:0
          ~from:(Vec.make (4. -. whisker) 2.)
@@ -834,6 +834,93 @@ let changing_the_air_changes_nothing_else () =
   Alcotest.check close "and the world it came from keeps its own air" 12.
     (World.atmosphere two_rooms).Atmosphere.fog_distance
 
+(* The five readers that take their index bare and last, each partly applied,
+   which is the whole of what being bare and last buys — see {!World}'s prose on
+   which index arguments are labelled.
+
+   This is a compile-time guard wearing a test's clothes: the assertions are
+   near-trivial and the point is the five expressions above them, which stop
+   being well typed the moment anyone labels one of these indices.
+
+   {b It is not what would catch that, and it is worth being exact about why.}
+   Labelling {!Room.wall_at} was tried here: it breaks twelve files, and the
+   first error inside this one is at a point-free read three hundred lines above
+   — same message, no explanation. Thirty-odd incidental sites already fail
+   loudly and none of them says what the rule is. So this case adds no
+   detection. What it adds is the one place the constraint is written as code
+   and named for itself, next to the reason, for whoever reaches the suite after
+   the compiler has stopped being helpful. *)
+let a_row_reads_point_free () =
+  let rooms = List.init (World.room_count two_rooms) (World.room two_rooms) in
+  let names = List.init (World.room_count two_rooms) (World.name two_rooms) in
+  let first = World.room two_rooms 0 in
+  let walls = List.init (Room.wall_count first) (Room.wall_at first) in
+  let doors =
+    List.init (Room.threshold_count first) (Room.threshold_at first)
+  in
+  let sprites = List.init (Room.sprite_count first) (Room.sprite_at first) in
+  Alcotest.(check int)
+    "every room"
+    (World.room_count two_rooms)
+    (List.length rooms);
+  Alcotest.(check bool)
+    "and they are the rooms themselves, not copies" true
+    (List.hd rooms == first);
+  Alcotest.(check (list string)) "every name" [ "first"; "second" ] names;
+  Alcotest.(check int) "every wall" (Room.wall_count first) (List.length walls);
+  Alcotest.(check int)
+    "every threshold"
+    (Room.threshold_count first)
+    (List.length doors);
+  Alcotest.(check int)
+    "every sprite" (Room.sprite_count first) (List.length sprites)
+
+(* {!World.type-portal}'s [threshold] is the copy taken when the link was made,
+   and the type says which of its fields survive a room being rebuilt. Both
+   halves are asserted, because a promise about half a record is only worth
+   having if the other half is known to be the way it is on purpose.
+
+   These would fail if anyone made the copy refresh itself, which is the point:
+   that is a change worth making deliberately, with the paragraph on the type
+   rewritten and the per-frame cost of it weighed again. *)
+let snapshot_and_live world ~room ~slot =
+  let portal = Option.get (World.portal world ~room ~threshold:slot) in
+  (portal.World.threshold, Room.threshold_at (World.room world room) slot)
+
+let a_portals_copy_keeps_the_geometry () =
+  let opened = World.set_door two_rooms_closed ~room:0 ~threshold:0 Door.Open in
+  let copy, live = snapshot_and_live opened ~room:0 ~slot:0 in
+  Alcotest.(check string) "same name" live.Room.name copy.Room.name;
+  Alcotest.check vec "same a" live.Room.a copy.Room.a;
+  Alcotest.check vec "same b" live.Room.b copy.Room.b;
+  Alcotest.check close "same height" live.Room.height copy.Room.height;
+  (* Derived from a and b, so pinned by the same check rather than separately. *)
+  Alcotest.check close "same length" live.Room.length copy.Room.length;
+  Alcotest.check vec "same normal" live.Room.normal copy.Room.normal
+
+let a_portals_copy_does_not_keep_the_door () =
+  let shut_state (t : Room.threshold) =
+    Option.map (fun (d : Door.t) -> d.Door.state) t.Room.door
+  in
+  let copy, live = snapshot_and_live two_rooms_closed ~room:0 ~slot:0 in
+  Alcotest.(check bool)
+    "before anything is worked, the two agree" true
+    (shut_state copy = shut_state live && shut_state live = Some Door.Closed);
+  let opened = World.set_door two_rooms_closed ~room:0 ~threshold:0 Door.Open in
+  let copy, live = snapshot_and_live opened ~room:0 ~slot:0 in
+  Alcotest.(check bool)
+    "the room says the leaf swung aside" true
+    (shut_state live = Some Door.Open);
+  Alcotest.(check bool)
+    "and the portal's copy still says it is shut" true
+    (shut_state copy = Some Door.Closed);
+  (* The far side too, so this is the rule and not one side of set_door being
+     lazier than the other. *)
+  let copy, live = snapshot_and_live opened ~room:1 ~slot:0 in
+  Alcotest.(check bool)
+    "both ways round" true
+    (shut_state live = Some Door.Open && shut_state copy = Some Door.Closed)
+
 let () =
   Alcotest.run "World"
     [
@@ -882,5 +969,11 @@ let () =
             replacing_never_disturbs_a_portal;
           case "a door takes two replacements" a_door_takes_two_replacements;
           case "invalid replacement is refused" invalid_replacement_is_refused;
+        ] );
+      ("reading", [ case "a row reads point-free" a_row_reads_point_free ]);
+      ( "the portal's copy of a threshold",
+        [
+          case "keeps where the opening is" a_portals_copy_keeps_the_geometry;
+          case "and not what hangs in it" a_portals_copy_does_not_keep_the_door;
         ] );
     ]

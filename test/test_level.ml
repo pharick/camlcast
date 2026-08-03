@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Camlcast_demo
 open Support
 
@@ -76,11 +76,20 @@ let the_default_world_is_varied () =
     (List.exists (fun (r : Room.t) -> not (ceiling_is_open r)) all);
   (* The cellar doorway carries an oak leaf. It stands open, so the level is
      walkable end to end; a shut one is the Doors demo's business. *)
+  (* Off the rooms as they stand, not off a portal's copy of a threshold. That
+     copy is pinned on where an opening is and not on what hangs in it (see
+     {!World.type-portal}), so [door] read from there is the leaf as it was when
+     the link was made. It happens to be right for a level nobody has worked a
+     door in, which is exactly how this sort of read survives — and the
+     assertion just below already walks the live rooms for the same fact. *)
   Alcotest.(check bool)
     "some threshold carries a door" true
     (List.exists
-       (fun (_, _, p) -> (Option.get p).World.threshold.Room.door <> None)
-       (doorways Level.default));
+       (fun (r : Room.t) ->
+         List.exists
+           (fun (t : Room.threshold) -> t.Room.door <> None)
+           (List.init (Room.threshold_count r) (Room.threshold_at r)))
+       all);
   Alcotest.(check bool)
     "and every door in the level stands open, so nothing is sealed off" true
     (List.for_all

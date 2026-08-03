@@ -50,7 +50,7 @@ can walk through. The nav above goes back to the engine's own pages.
 
 Three more modules the demos have in common — not demos, but what they run on:
 
-- {!Camlcast_demo.Bindings} — the demos' controls: one table, shared by all of
+- {!Camlcast_demo.Bindings} — the demos' controls: one record, shared by all of
   them
 - {!Camlcast_demo.Menu} — the list of demos, on screen
 - {!Camlcast_demo.Typeface} — the typeface the demos draw with

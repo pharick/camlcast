@@ -1,0 +1,12 @@
+; Not a test. `dune build` compiles it so it cannot rot, and `dune runtest`
+; never runs it: a benchmark answers a question somebody asked, and spending a
+; minute of every CI run on one nobody read is how a suite gets ignored.
+;
+;   dune exec bench/frame.exe
+;
+; It belongs to no package, exactly as examples/ does, so nothing installs it
+; and the -p builds opam runs never see it.
+
+(executable
+ (name frame)
+ (libraries camlcast_core camlcast bechamel))

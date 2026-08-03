@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 (* Where a step ends up, with the doorways it went through dropped. The engine
@@ -43,14 +43,37 @@ let pitch_tips_within_a_limit () =
   let p = facing_east () in
   Alcotest.check close "starts level" 0. p.Player.pitch;
   Alcotest.check close "a small tip is kept" 0.1
-    (Player.pitch_by p ~radians:0.1).Player.pitch;
+    (Player.pitch_by p ~fraction:0.1).Player.pitch;
   Alcotest.(check bool)
     "looking too far up is capped" true
-    ((Player.pitch_by p ~radians:100.).Player.pitch <= Config.max_pitch +. 1e-9);
+    ((Player.pitch_by p ~fraction:100.).Player.pitch <= Config.max_pitch +. 1e-9);
   Alcotest.(check bool)
     "and too far down" true
-    ((Player.pitch_by p ~radians:(-100.)).Player.pitch
+    ((Player.pitch_by p ~fraction:(-100.)).Player.pitch
    >= -.Config.max_pitch -. 1e-9)
+
+(* What [~fraction] is a fraction {e of}. The label used to say [~radians], and
+   nothing here disagreed with it: the test above only checks that the number
+   comes back out again, and {!Viewport}'s own pitch test only checks which way
+   the horizon moved. So the whole suite passed with a [tan] in the middle of
+   this, which is what believing the old label would put there.
+
+   The claim is that the number is measured in window heights, and the one place
+   that is cashed out is the horizon, two modules away. Hence the reach across:
+   asking {!Player} alone can only ever get the number back that was put in. *)
+let a_tip_is_a_fraction_of_the_window () =
+  let height = 600 in
+  let horizon_at pitch =
+    (Viewport.make ~pitch ~eye_z:0.5 ~width:800 ~height).Viewport.horizon
+  in
+  List.iter
+    (fun fraction ->
+      let tipped = Player.pitch_by (facing_east ()) ~fraction in
+      Alcotest.check close
+        (Printf.sprintf "%g of the window height" fraction)
+        (horizon_at 0. +. (fraction *. float_of_int height))
+        (horizon_at tipped.Player.pitch))
+    [ 0.1; -0.25; Config.max_pitch ]
 
 (* The private record promises a unit basis and a pitch inside the limit, and a
    non-finite number keeps neither promise while breaking no type: [Vec.of_angle
@@ -87,10 +110,10 @@ let turning_by_nothing_real_is_refused () =
    compare false with either end of it. *)
 let tipping_by_nothing_real_is_refused () =
   List.iter
-    (fun radians ->
-      refused (Printf.sprintf "tipping by %f" radians)
-        "Player.pitch_by: the angle has to be finite" (fun () ->
-          Player.pitch_by (facing_east ()) ~radians))
+    (fun fraction ->
+      refused (Printf.sprintf "tipping by %f" fraction)
+        "Player.pitch_by: the pitch has to be finite" (fun () ->
+          Player.pitch_by (facing_east ()) ~fraction))
     unreal
 
 let turning_does_not_move_the_player () =
@@ -219,7 +242,10 @@ let rounding_a_jamb_is_not_a_crossing () =
    it has seen, and keeping a route home it can walk backwards — so the order
    and the identities have to be exact, not merely the count. *)
 
-let at world ~room ~pos = Player.make ~room ~pos ~angle:0.
+(* The world is named at each call site because that is what makes the helper
+   read as "a player at this spot in that world", and is not needed to build
+   one: [Player.make] takes the room index and the position and nothing else. *)
+let at _world ~room ~pos = Player.make ~room ~pos ~angle:0.
 
 (* Most frames go through no doorway at all, and the list has to be empty rather
    than approximately empty. *)
@@ -501,6 +527,40 @@ let a_wall_beyond_the_second_doorway_stops_the_step () =
     "and never inside it" false
     (Room.blocked (World.room world ended.Player.room) ended.Player.pos)
 
+(* The door shut behind a player who has just walked through it, which is the
+   thing a game does with the crossing it was handed. World.set_door moves
+   nobody — deliberately, and it says so — so the player is left standing
+   against the leaf, closer to it than the padding. Under the swept rule alone
+   every step from there was refused, the one deeper into the room they had just
+   entered along with the rest, and the game had to open the door again to let
+   them go. *)
+let a_door_shut_behind_the_player_does_not_trap_them () =
+  (* Standing open, so there is a leaf to shut. A doorway with no door in it
+     cannot be given one by set_door, which is the world's shape and not a
+     state. *)
+  let world = corridor ~door:(Door.make ~state:Door.Open dim) () in
+  let start = at world ~room:1 ~pos:(Vec.make 0.2 2.) in
+  let moved = Player.slide world start (Vec.make 0.2 0.) in
+  let ended = moved.Player.player in
+  Alcotest.(check int) "carried through into the last room" 2 ended.Player.room;
+  Alcotest.(check bool)
+    "and standing nearer the doorway than the padding, which is the trap" true
+    (Vec.length
+       (Vec.sub ended.Player.pos
+          (Room.threshold_at (World.room world 2) 0).Room.a)
+     < Config.collision_padding
+    || ended.Player.pos.x < Config.collision_padding);
+  let shut =
+    World.set_door world ~room:ended.Player.room ~threshold:0 Door.Closed
+  in
+  let away = Player.slide shut ended (Vec.make 0.1 0.) in
+  Alcotest.(check bool)
+    "with the door shut behind them they can still walk on" true
+    (away.Player.player.Player.pos.x > ended.Player.pos.x);
+  let back = Player.slide shut ended (Vec.make (-0.1) 0.) in
+  Alcotest.check vec "but not back through the leaf" ended.Player.pos
+    back.Player.player.Player.pos
+
 (* The same again for a shut leaf, which nothing in the first room can see:
    collision looks one room ahead, and one room ahead of the first is the
    middle. Only resolving the rest of the leg while standing in the middle room
@@ -526,6 +586,8 @@ let () =
           case "right is actually to the right" right_is_actually_to_the_right;
           case "turning preserves the basis" turning_preserves_the_basis;
           case "pitch tips within a limit" pitch_tips_within_a_limit;
+          case "a tip is a fraction of the window"
+            a_tip_is_a_fraction_of_the_window;
           case "turning does not move the player"
             turning_does_not_move_the_player;
           case "spawn uses the world" spawn_uses_the_world;
@@ -577,5 +639,7 @@ let () =
             a_wall_beyond_the_second_doorway_stops_the_step;
           case "a shut door beyond the first doorway stops the step"
             a_shut_door_beyond_the_first_doorway_stops_the_step;
+          case "a door shut behind the player does not trap them"
+            a_door_shut_behind_the_player_does_not_trap_them;
         ] );
     ]

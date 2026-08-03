@@ -1,8 +1,9 @@
 (** The showcase level's materials, sky and air.
 
     These were once a table indexed by an integer id, and reading them as names
-    is the whole argument for {!Camlcast.Material}: [~material:Surfaces.brick]
-    says what the wall is, where [~texture:1] said only where to look it up.
+    is the whole argument for {!Camlcast_core.Material}:
+    [~material:Surfaces.brick] says what the wall is, where [~texture:1] said
+    only where to look it up.
 
     A pattern carries its own colours, so a material here is a {!Patterns}
     function with its colours filled in and the rest generated. The same
@@ -13,7 +14,7 @@
     in exchange is {!brick}, whose mortar is a colour of its own rather than a
     paler red. *)
 
-open Camlcast
+open Camlcast_core
 
 (** A material from a pattern function with its colours already given. The two
     differ only in which generator they reach for, and so in whether the result
@@ -43,8 +44,8 @@ let ground = solid (Patterns.checker ~color:(Color.rgb 116 110 98))
 let soffit = solid (Patterns.panel ~color:(Color.rgb 92 92 112))
 
 (** A clear afternoon: a pale horizon deepening to a blue zenith, with the sun
-    low in the west — which is {!Camlcast.Sky.default}, named for what it is
-    here. *)
+    low in the west — which is {!Camlcast_core.Sky.default}, named for what it
+    is here. *)
 let day = Sky.default
 
 (** The other end of the same afternoon: the sun gone round to the east and
@@ -74,6 +75,6 @@ let dusk =
 
 (** Daylight air: a long, gentle fade to a blue-grey haze, and enough
     directional light that walls at different angles read as different surfaces.
-    {!Camlcast.Atmosphere.default} is exactly that air, so the name here only
-    says what the demos mean by it. *)
+    {!Camlcast_core.Atmosphere.default} is exactly that air, so the name here
+    only says what the demos mean by it. *)
 let air = Atmosphere.default

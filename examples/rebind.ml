@@ -5,7 +5,7 @@
    This is step 13 of doc/making-a-game.mld, compiled; demo/controls.ml binds
    a second full set of walking keys and prints them with Key.name. *)
 
-open Camlcast
+open Camlcast_core
 
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)

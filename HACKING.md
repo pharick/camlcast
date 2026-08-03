@@ -24,10 +24,13 @@ will not. On macOS add `--no-depexts` to the install line: Homebrew ships
 `sdl2-compat` under the name `sdl2`, which opam's dependency check cannot see,
 so you install the libraries yourself and tell opam to stop looking.
 
-The engine's floor is OCaml 5.1 — for `Array.find_index`, which `World` uses
-to resolve a room's name to its index — and CI builds and tests at 5.1 as well
-as at the version development happens on, so the bound in `dune-project` is
-checked rather than merely asserted.
+The engine's floor is OCaml 5.2 — for `-H`, the hidden include that makes
+`(implicit_transitive_deps false)` mean what it says rather than drop the
+directories it means to hide. The code asks for less: `Array.find_index`, which
+`World` uses to resolve a room's name to its index, arrived in 5.1 and is the
+newest thing in the tree. CI builds and tests at the floor as well as at the
+version development happens on, so the bound in `dune-project` is checked rather
+than merely asserted.
 
 ## Formatting
 
@@ -40,17 +43,29 @@ rather than quietly reflowing the tree.
 
 ## The examples
 
-`examples/` holds the complete programs the guides quote — `room.ml` is step 1
-of the making-a-game guide and the example in README.md, `doorways.ml` step 5,
-`game.ml` step 12, `rebind.ml` step 13. They compile with the default build and
-belong to no package, so `dune build` fails the moment the engine moves under
-them — which is the point: a snippet on a page cannot rot while the program it
-is quoted from still builds. Changing one of them means changing the page that
-quotes it, and the other way round.
+`examples/` holds the complete programs the guides quote. They compile with the
+default build and belong to no package, so `dune build` fails the moment the
+engine moves under them — which is the point: a snippet on a page cannot rot
+while the program it is quoted from still builds. Changing one means changing
+the page that quotes it, and the other way round.
+
+They come in pairs on purpose:
+
+| against the layer | against the platform | what it shows |
+| --- | --- | --- |
+| `described_room.ml` | `room.ml` | one room. `test_stage` renders both and compares every pixel |
+| `described_fuse.ml` | `game.ml` | a small game with a phase and a clock |
+| | `doorways.ml`, `rebind.ml` | two rooms; rebinding, on the older API |
+
+`described_room.ml` is what README.md quotes and step 1 of the guide.
+`described_fuse.ml` beside `game.ml` is the shortest account of what the layer
+is for: there, one record holds a phase, a clock and a player advanced by one
+`update`; here the phase and the clock belong to the component that uses them
+and the player belongs to the runtime.
 
 ## The docs and the site
 
-Every push to `main` publishes the odoc pages and both guides to
+Every push to `main` publishes the odoc pages and all three guides to
 [pharick.github.io/camlcast](https://pharick.github.io/camlcast/). Locally:
 
 ```sh
@@ -88,6 +103,80 @@ resolves. **That set of warnings is the expected output** — anything else in i
 is a real reference that has gone stale. `@doc-new`, the odoc 3 driver alias
 that would put `Stdlib` in scope, does not build in this tree.
 
+## The demos, and what migrating them found
+
+All twenty-two demos are descriptions. Migrating them was the parity check, and
+it worked as one: five primitives were found by rewriting a demo that had always
+needed them, rather than by design.
+
+| found by | what it closed |
+| --- | --- |
+| `slopes`, `floating`, `level` | `P.opening` / `P.through` — carrying a floor across a doorway |
+| `barred`, `level` | `P.threshold` — a lintel of a different material from its wall |
+| `controls` | `P.cursor` — freeing the mouse instead of capturing it |
+| `targets` | `P.highlight` and `Aim.ring` — the projection needed the viewport |
+| `targets`, `level` | `Events.aim` — what kind of thing the crosshair is on |
+
+Two more came from the audit before it: `on_use` takes an `Aim.spot`, because
+`chalk` marks a wall where the crosshair is; and `Events.use_crossed`, because
+`trail` builds a route home from the doorways a frame went through and
+`Engine.step` throws those away.
+
+Four tests stopped meaning what they meant, and each says so where it is rather
+than being quietly made to compile:
+
+- `dust` asserted that a moving room *shares* the walls of the room it moved
+  from. False now by design; `bench/frame.exe` is why that is affordable.
+- `endless` asserted that graph surgery was done right. There is no surgery.
+- `trail` and `menu` read private state. They read what the player sees now — the
+  ticks on the HUD, the row the list highlights.
+
+`test_menu` also found the one place a component differs visibly from the pure
+`update` it replaced: a handler runs *after* the frame it fired on, so the frame
+a key goes down on still shows what was selected before it.
+
+| demo | what it needs | where |
+| --- | --- | --- |
+| `masonry`, `loading` | materials, art from disk | `P.outline`, `Texture`, `Asset` |
+| `gallery` | decals and sprites | `P.decal`, `P.sprite` |
+| `glass`, `barred` | see-through materials, a door you see through | `P.wall`, `P.doorway ~door` |
+| `slopes` | inclined floors and roofs | `P.floor`, `P.roof` |
+| `daylight` | the open sky, per room | `P.open_sky` |
+| `haze` | atmosphere | `P.world ~atmosphere` |
+| `portals`, `doors` | doorways, links, doors that open | `P.doorway`, `P.link`, `on_use` |
+| `changing` | a room rebuilt every frame | describing it differently |
+| `floating`, `dust` | sprites off the floor, sprites that move | `P.sprite ~base`, `use_frame` |
+| `chalk` | marking a wall where you point | `on_use` and its `Aim.spot` |
+| `endless` | a world that grows | rooms appear; `Run.carry` holds the player |
+| `targets` | what the crosshair is on, through a doorway | `on_gaze` |
+| `trail` | the doorways a frame went through | `Events.use_crossed` |
+| `phases` | a phase, a clock, an ending | `use_state`, `use_frame`, `P.finish` |
+| `overlay`, `text` | drawing over the world, a bitmap font | `P.hud`, `P.text` |
+| `controls` | binding controls | `Run.play ~controls` |
+| `showcase` | all of the above at once | all of the above |
+
+What the layer is still compared against is not a demo but `examples/room.ml`,
+the hand-built world the README quotes: `test_stage` renders that and its
+described twin and compares every pixel. A reference has to be something that
+was not rewritten, and that one was not.
+
+## Benchmarks
+
+```sh
+dune exec bench/frame.exe                    # what a frame costs
+dune exec --profile release bench/frame.exe  # and what it costs shipped
+```
+
+`bench/` is an executable and not a test: `dune build` compiles it so it cannot
+rot, and `dune runtest` never runs it. A benchmark answers a question somebody
+asked, and spending a minute of every CI run on one nobody reads is how a suite
+comes to be ignored.
+
+`bench/frame.ml` is the one that settled whether the declarative layer needs to
+cache what it assembles. It does not — describing the largest world this engine
+has costs a seventh of one percent of drawing it — and the file says so with the
+numbers, so the next person to wonder can re-run it rather than re-argue it.
+
 ## Bundles
 
 `tools/bundle-macos.sh`, `bundle-linux.sh` and `bundle-windows.sh` each turn a
@@ -115,7 +204,9 @@ floor moves only when the pin in `.github/workflows/release.yml` does.
 
 A demo is added in four places, and the suite holds you to the first two:
 
-1. its file in `demo/` — one feature, short enough to read in a sitting;
+1. its file in `demo/` — one feature, short enough to read in a sitting. It
+   exposes `level` (or a component), `world` for the catalogue and the suites,
+   and `run window = Run.on window ...`;
 2. an entry in `Catalogue.demos`, which also enrols it in `test_demos` (spawn
    is standable, rooms enclose themselves, every room reachable, no floor step
    across a doorway);
@@ -129,7 +220,7 @@ Three workflows:
 
 - **CI** (`ci.yml`) — every push to `main` and every pull request: build and
   test on the development compiler, `dune build @fmt`, `dune build @doc`, and a
-  separate job that builds and tests at OCaml 5.1, the floor. On pushes to
+  separate job that builds and tests at OCaml 5.2, the floor. On pushes to
   `main` the built site deploys to GitHub Pages.
 - **Platforms** (`platforms.yml`) — on demand: build and test on macOS (both
   architectures) and Windows.

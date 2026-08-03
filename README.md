@@ -3,7 +3,7 @@
 [![CI](https://github.com/pharick/camlcast/actions/workflows/ci.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/ci.yml)
 [![Release](https://github.com/pharick/camlcast/actions/workflows/release.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/release.yml)
 [![Docs](https://img.shields.io/badge/docs-pharick.github.io%2Fcamlcast-blue)](https://pharick.github.io/camlcast/)
-[![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.1-ec6813)](https://ocaml.org)
+[![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.2-ec6813)](https://ocaml.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ![A walk through the showcase level: out of the twelve-sided plaza under an open sky, into a hall whose roof climbs away from its floor, through a door into a cellar with dust turning in it, back across the plaza and into a garden under a later sky, with a grille gate pulled down behind](doc/images/tour.gif)
@@ -139,16 +139,30 @@ spawns you, that its rooms enclose themselves, that every room is reachable, and
 that no floor steps across a doorway. Adding a demo to `Catalogue.demos` is also
 adding it to that suite.
 
-## Two libraries
+## The libraries
 
 The engine holds no content — not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-| directory | library         | what it is                                                     |
-| --------- | --------------- | -------------------------------------------------------------- |
-| `lib/`    | `camlcast`      | the engine: geometry, ray casting, rendering, SDL              |
-| `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo` |
+| directory | library         | what it is                                                      |
+| --------- | --------------- | --------------------------------------------------------------- |
+| `lib/`    | `camlcast`      | **what a game opens**: the parts a world is described with       |
+| `loom/`   | `camlcast.loom` | the declarative runtime: elements, reconciling, hooks, store     |
+| `core/`   | `camlcast.core` | the platform: geometry, ray casting, rendering, SDL              |
+| `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo`  |
+
+A game opens `Camlcast` and nothing else. What is not in that module is the
+platform underneath — `Engine`, `Renderer`, `Framebuffer`, `World`, `Player` —
+which is reachable by adding `camlcast.core` to a dune file and saying so. The
+boundary is a decision with a diff rather than something autocomplete finds for
+you.
+
+`camlcast.loom` depends on nothing but the standard library and knows nothing of
+walls; `camlcast` is the only library that knows both it and the platform. The
+guides and the demos teach the layer: `camlcast.core` is what a game reaches for
+when it genuinely needs a `World` or a `Renderer`, and the rest of the time it
+is the floor under the room rather than the room.
 
 Nothing in the engine depends on `demo/`, which is the point: it is content, and
 it lives outside the library it is content for. It stays in this repository
@@ -173,18 +187,19 @@ opam pin add camlcast git+https://github.com/pharick/camlcast.git
 (The demos are the second package and depend on the first, so a copy of them
 wants both pinned — `opam install .` from a checkout does that in one step.)
 
-A level is OCaml code rather than a file in some format, so the smallest
-complete game is one room, a window and a call. This is
-[`examples/room.ml`](examples/room.ml), compiled with the rest of the tree so
-that it cannot drift from the engine:
+A game **describes** its world: it says what the world should be right now,
+every frame, from nothing, and the runtime works out what changed. A level is
+OCaml code rather than a file in some format, so the smallest complete game is
+one room and a call. This is
+[`examples/described_room.ml`](examples/described_room.ml), compiled with the
+rest of the tree so that it cannot drift from the engine:
 
 ```ocaml
 open Camlcast
 
 (* A pattern is a pure function from a texel coordinate to a colour. This one is
    a check; Color.level scales all three channels together, so it moves the
-   brightness without touching the hue. Both coordinates and the levels are
-   0 .. 255 — the range every pattern computes in. *)
+   brightness without touching the hue. *)
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
 
@@ -196,61 +211,66 @@ let ground =
   Material.make
     ~pattern:(Texture.generate (checker ~color:(Color.rgb 116 110 98)))
 
-let world =
-  let height = 4. in
-  (* Distances are in cells: one cell is one texture repeat, and the eye
-     stands half a cell up, so a 12-cell room under a 4-cell ceiling reads as
-     a hall. *)
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:ground)
-      ~ceiling:(Room.roof ~plane:(Plane.above floor height) ~material:stone)
-      (* The axis-aligned box, from two opposite corners. *)
-      (Room.rectangle ~height ~material:stone (Vec.make (-6.) (-6.))
-         (Vec.make 6. 6.))
-  in
-  (* The air of an unremarkable day. Step 3 of the guide is about your own. *)
-  World.make
-    ~rooms:[ ("room", room) ]
-    ~links:[] ~atmosphere:Atmosphere.default
-    ~spawn:("room", Vec.make (-4.5) 0.)
+let height = 4.
+let ground_plane = Plane.horizontal 0.
+
+let level =
+  (* P holds the parts a world is made of, and is written round a description
+     rather than opened over the file: its names are short and ordinary, so a
+     local open puts them exactly where a world is being written. *)
+  P.(
+    world ~atmosphere:Atmosphere.default ~spawn:("room", Vec.make (-4.5) 0.)
+      [
+        room ~name:"room"
+          ~floor:(floor ~plane:ground_plane ~material:ground)
+          ~ceiling:
+            (roof ~plane:(Plane.above ground_plane height) ~material:stone)
+          [
+            (* The corners in whichever order reads best. boundary measures the
+               loop and winds it so the room is on the inside, so a boundary
+               wound the wrong way round — and a room black from within —
+               cannot be written down. *)
+            boundary ~height ~material:stone
+              (corners
+                 [
+                   Vec.make (-6.) (-6.);
+                   Vec.make 6. (-6.);
+                   Vec.make 6. 6.;
+                   Vec.make (-6.) 6.;
+                 ]);
+          ];
+      ])
 
 let () =
-  (* [with_window] opens the window, hands it over, and closes it again when
-     this is done with it — on the way out of an error just the same. *)
-  match Engine.with_window (fun window -> Engine.run_world window world) with
-  (* How the run ended matters only to a program that plays a second one.
-     This one has the single room above and nothing to go back to. *)
+  match Run.play ~title:"A described room" level with
   | Ok _ending -> ()
-  | Error (`Msg m) ->
-      prerr_endline m;
+  | Error (`Msg message) ->
+      prerr_endline message;
       exit 1
 ```
 
-`Engine.with_window` opens the window and closes it again when the function it
-is given is done with it. `Engine.run_world` is the loop over the only state the
-engine holds by itself: a world and the player walking it, plus an optional
-`extend : World.t -> Player.t -> World.t` called once on any frame the player
-went through a doorway on, with where they ended up. A game that keeps anything
-else — phases, doors, a journal, a score, a random seed — uses `Engine.run`
-instead, which runs a state of whatever type it likes and asks six things of it:
-`update`, `view`, `overlay`, `pointing`, `finished` and `bindings` — the last
-being what the player's controls are for, since the engine holds no keys any
-more than it holds colours. Everything else stays on the game's side of the
-line, and the engine stays a pure function of what it is handed.
+Distances are in cells: one cell is one texture repeat, and the eye stands half
+a cell up, so a 12-cell room under a 4-cell ceiling reads as a hall.
 
-A window and a run are two lifetimes and not one, which is why they are two
-calls. A game with a single world to show never notices the difference. A
-launcher does: it opens one window and plays run after run on it, so that
-returning to its menu is the picture changing rather than the window vanishing
-and coming back at the size it first had.
+A part of a world that needs to remember something is a **component** — a
+function from props to a description, holding state with hooks:
 
+```ocaml
+let torch =
+  Element.declare ~name:"torch" @@ fun pos ->
+  let lit, set_lit = Hook.use_state true in
+  Events.use_pressed (Input.Key Key.e) (fun () -> set_lit (not lit));
+  P.sprite ~size:0.8 ~image:(if lit then flame else stub) pos
+```
+
+Components compose by being functions, so a higher-order component that takes
+children and puts something around them is ordinary OCaml.
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
-walks through all of that a feature at a time, with the demo that isolates each
-one. The complete programs beside `room.ml` — a hub with two doorways, a game
-state with phases, a rebound walking table — are in
-[`examples/`](examples/).
+walks through all of it a feature at a time, with the demo that isolates each
+one. The complete programs beside `described_room.ml` are in
+[`examples/`](examples/) — including `game.ml` and `described_fuse.ml`, which
+are the same small game written against the platform and against the layer, and
+are worth reading side by side.
 
 ## Controls
 
@@ -338,27 +358,42 @@ runs on, is in [HACKING.md](HACKING.md).
 
 ## The engine in one page
 
-Twenty-nine modules, each depending only on the ones before it: `Config`,
-`Key` and `Vec` at the bottom, `Room`, `World` and `Ray` in the middle,
-`Renderer`, `Clock` and `Engine` on top. The annotated list — every module and
-what it is for — is the
-**[documentation landing page](https://pharick.github.io/camlcast/)**, and the
-maths lives in the module docs themselves: `Ray` for why the distance it
-reports is free of fish-eye, `Plane` for the equation that casts a sloped floor
-per pixel, `Viewport` for the projection and the resize rules, `Transform` for
-why linked doorways pair in reverse, `World` for the portal machinery.
+**`core/`** is twenty-nine modules, each depending only on the ones before it:
+`Config`, `Key` and `Vec` at the bottom, `Room`, `World` and `Ray` in the
+middle, `Renderer`, `Clock` and `Engine` on top. The maths lives in the module
+docs themselves: `Ray` for why the distance it reports is free of fish-eye,
+`Plane` for the equation that casts a sloped floor per pixel, `Viewport` for the
+projection and the resize rules, `Transform` for why linked doorways pair in
+reverse, `World` for the portal machinery.
+
+**`loom/`** is the declarative runtime, and depends on nothing but the standard
+library: `Element` is what a component returns, `Reconcile` matches this frame's
+description against last frame's tree, `Hook` keeps state in a row of slots
+reached through OCaml 5 effect handlers, `Context` hands values down a subtree
+with a `Type.Id` witness instead of a cast, and `Host` is the whole of the seam
+— two types and one function.
+
+**`lib/`** is what a game opens: `P` for the parts a world is made of, `Check`
+for what is wrong with a level before anyone walks into it, `Aim` for what the
+crosshair is on, `Run` for the loop.
+
+The annotated list is the
+**[documentation landing page](https://pharick.github.io/camlcast/)**.
 
 ## Documentation
 
 The modules are documented with odoc comments (`(** ... *)`), and the maths
 derivations live there rather than in this file. Every push to `main` publishes
-them, along with both guides:
+them, along with all three guides:
 **[pharick.github.io/camlcast](https://pharick.github.io/camlcast/)**.
 
 - **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
-  — from an empty directory to a game, one engine feature at a time.
+  — from an empty directory to a game, one feature at a time.
 - **[Building the engine from scratch](https://pharick.github.io/camlcast/building-the-engine.html)**
   — how the picture is drawn, rebuilt by hand with every derivation written out.
+- **[Building the layer from scratch](https://pharick.github.io/camlcast/building-the-layer.html)**
+  — how a description of a world becomes one, and how a component keeps state
+  across a frame that rebuilt everything. The second half of the one above.
 
 To read them from a working tree instead:
 

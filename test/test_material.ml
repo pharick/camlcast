@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let flat c = Texture.generate (fun ~u:_ ~v:_ -> c)

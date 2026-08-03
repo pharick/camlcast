@@ -1,29 +1,24 @@
 (** {b Growing a world.} A corridor that does not exist until you walk down it.
 
-    {!Camlcast.Engine.run_world} takes an [extend] callback and calls it on a
-    frame the player went through a doorway on, with the world and where they
-    now are; whatever it returns is the world drawn from then on. It runs on a
-    frame that crossed and not on every frame, so a generator may take its time
-    — and once per such frame however many doorways it crossed, which is why
-    what arrives is a room to build ahead of and not a doorway to build at.
+    A world that grows is a description with more in it than it had last frame,
+    and nothing besides. One number of state says how many segments have been
+    built; {!Camlcast.Events.use_crossings} says which doorways the frame before
+    this one went through, so the deepest of them is how far the player has got;
+    and when that comes close enough to the end, the number goes up and the next
+    description has another segment in it.
 
-    What it does here is build ahead of the player, using the three primitives a
-    world grows by and nothing else:
+    What that replaced is worth naming, because this is the clearest case in the
+    demos of the layer paying for itself. Growing a world used to mean surgery
+    on one — {!Camlcast_core.World.open_doorway} to give a dead end a way on,
+    {!Camlcast_core.World.add_room} for what lay beyond it,
+    {!Camlcast_core.World.link} to join the two, and a search for whether a room
+    already had a way on so that none of it was done twice, every step of it
+    careful to append and never move so that the indices things were holding
+    stayed valid. None of that is here. The segments described again are matched
+    against last frame's and kept, the new one is mounted, and the indices are
+    whatever assembling this frame's description happened to produce.
 
-    - {!Camlcast.World.open_doorway} replaces a room with one that has one more
-      threshold than it had, the ones it already had unmoved. That check is the
-      whole safety of this: a room cannot move a doorway that something else is
-      already linked through.
-    - {!Camlcast.World.add_room} appends a room whose doorways lead nowhere yet.
-    - {!Camlcast.World.link} joins two doorways that both exist and neither of
-      which leads anywhere.
-
-    Each appends and nothing else, so every index anything is holding stays
-    valid, and each leaves a world that renders and walks — a generator that
-    stopped halfway would leave you facing a wall rather than an exception in
-    the middle of a frame.
-
-    It builds {!Camlcast.Config.max_portal_depth} segments ahead, which is
+    It builds {!Camlcast_core.Config.max_portal_depth} segments ahead, which is
     exactly as deep as the renderer looks through doorways, so the end of the
     corridor is never in shot. Segments alternate brick and stone so you can
     count how far you have gone. *)
@@ -34,13 +29,28 @@ let height = 4.
 let width = 2.5
 let depth = 9.
 
-(** One segment: a rectangle with a doorway back the way you came and, once
-    something has been built beyond it, another one on.
+(** How far ahead of the player the corridor is kept. The renderer looks through
+    {!Camlcast.Config.max_portal_depth} doorways and no further, so building
+    that many beyond wherever they have got to is exactly enough for the end
+    never to be in shot. *)
+let ahead = Config.max_portal_depth
 
-    The coat is taken from the room's own index rather than from a counter, so
-    that rebuilding a room to give it a way on rebuilds it exactly as it was —
-    [open_doorway] permits the walls to change, but a room that changed colour
-    as you stepped into it would be a strange thing to watch. *)
+let named index = Printf.sprintf "segment-%d" index
+
+let index_of name =
+  match String.index_opt name '-' with
+  | Some dash ->
+      int_of_string_opt
+        (String.sub name (dash + 1) (String.length name - dash - 1))
+  | None -> None
+
+(** One segment: a rectangle with a doorway back the way you came and, unless it
+    is the last one built, another one on.
+
+    The coat is taken from the segment's own number rather than from a counter,
+    so that a segment which grows a way on is the same colour it was a moment
+    ago. A room that changed colour as you stepped into it would be a strange
+    thing to watch. *)
 let segment ~index ~back ~onward =
   (* Each segment runs east, which is the way you are facing when you arrive in
      it, so the corridor is straight ahead from the moment it starts. *)
@@ -49,84 +59,56 @@ let segment ~index ~back ~onward =
   and ne = Vec.make depth width
   and nw = Vec.make 0. width in
   let coat = if index mod 2 = 0 then Surfaces.brick else Surfaces.stone in
-  let cut name a b =
-    Room.doorway ~name ~width:2.2 ~opening:3. ~height ~material:coat a b
-  in
-  let wall a b = Room.wall ~height ~material:coat a b in
-  let back_jambs, back_door = cut "back" nw sw
-  and on_jambs, on_door = cut "on" se ne in
-  let floor = Plane.horizontal 0. in
-  Room.make
-    ~thresholds:
-      (List.concat
-         [
-           (if back then [ back_door ] else []);
-           (if onward then [ on_door ] else []);
-         ])
-    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-    ~ceiling:
-      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-    (List.concat
-       [
-         [ wall sw se ];
-         (if onward then on_jambs else [ wall se ne ]);
-         [ wall ne nw ];
-         (if back then back_jambs else [ wall nw sw ]);
-       ])
+  let flat = Plane.horizontal 0. in
+  P.(
+    room ~name:(named index)
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      [
+        wall ~height ~material:coat sw se;
+        (if onward then
+           doorway ~name:"on" ~width:2.2 ~opening:3. ~height ~material:coat se
+             ne
+         else wall ~height ~material:coat se ne);
+        wall ~height ~material:coat ne nw;
+        (if back then
+           doorway ~name:"back" ~width:2.2 ~opening:3. ~height ~material:coat nw
+             sw
+         else wall ~height ~material:coat nw sw);
+      ])
 
-let named index = Printf.sprintf "segment-%d" index
+(** The corridor as far as it has been built: one more segment than have been
+    walked into, and a link joining each to the next.
 
-(* Does this room already have a way on, and if so which threshold is it? *)
-let way_on (room : Room.t) =
-  let rec search index =
-    if index >= Room.threshold_count room then None
-    else if String.equal (Room.threshold_at room index).Room.name "on" then
-      Some index
-    else search (index + 1)
-  in
-  search 0
-
-(** Build [depth] segments beyond [room], following the ones that are there
-    already and adding the ones that are not. *)
-let rec build world ~room ~ahead =
-  if ahead <= 0 then world
-  else
-    match way_on (World.room world room) with
-    | Some index ->
-        let portal = Option.get (World.portal world ~room ~threshold:index) in
-        build world ~room:portal.World.to_room ~ahead:(ahead - 1)
-    | None ->
-        (* This room was built as a dead end. Give it a way on — the doorway it
-           already has stays exactly where it was — and put a new dead end
-           beyond it. *)
-        let world =
-          World.open_doorway world ~room
-            ~opened:(segment ~index:room ~back:true ~onward:true)
-        in
-        let index = World.room_count world in
-        let world, next =
-          World.add_room world ~name:(named index)
-            (segment ~index ~back:true ~onward:false)
-        in
-        let world = World.link world (room, "on") (next, "back") in
-        build world ~room:next ~ahead:(ahead - 1)
-
-let world =
-  (* The first segment has no way back, and the second is where growth begins. *)
-  let start =
-    World.make
-      ~rooms:
-        [
-          (named 0, segment ~index:0 ~back:false ~onward:true);
-          (named 1, segment ~index:1 ~back:true ~onward:false);
-        ]
-      ~links:[ ((named 0, "on"), (named 1, "back")) ]
-      ~atmosphere:Surfaces.air
+    Written out from a number every frame, because a description does not modify
+    a world — it says what the world is, and saying it with one more segment in
+    it {e is} growing the corridor. *)
+let corridor ~built =
+  P.(
+    world ~atmosphere:Surfaces.air
       ~spawn:(named 0, Vec.make 2. 0.)
-  in
-  build start ~room:0 ~ahead:Config.max_portal_depth
+      (List.init (built + 1) (fun index ->
+           segment ~index ~back:(index > 0) ~onward:(index < built))
+      @ List.init built (fun index ->
+          link (named index, "on") (named (index + 1), "back"))))
 
-let extend world (player : Player.t) =
-  build world ~room:player.Player.room ~ahead:Config.max_portal_depth
+let walking =
+  Element.declare ~name:"walking" @@ fun () ->
+  let built, set_built = Hook.use_state ahead in
+  let crossings = Events.use_crossings () in
+  Events.use_frame (fun ~dt:_ ->
+      (* Every doorway the frame went through, because a single step can cross
+         several. The deepest of them is where the player has got to. *)
+      let deepest =
+        List.fold_left
+          (fun deepest (c : Events.crossing) ->
+            match index_of c.Events.to_room with
+            | Some index -> Int.max deepest index
+            | None -> deepest)
+          0 crossings
+      in
+      if deepest + ahead > built then set_built (deepest + ahead));
+  corridor ~built
 
-let run window = Engine.run_world window ~extend world
+let world = (Mount.build (corridor ~built:ahead)).Scene.world
+let run window = Run.on window ~controls:Bindings.escapable (walking ())

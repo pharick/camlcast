@@ -6,7 +6,7 @@
    This is step 12 of doc/making-a-game.mld, compiled; demo/phases.ml is the
    dressed-up version of the same shape. *)
 
-open Camlcast
+open Camlcast_core
 
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)

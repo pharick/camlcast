@@ -6,4 +6,15 @@
 
 (executables
  (names room doorways game rebind)
- (libraries camlcast))
+ (modules room doorways game rebind)
+ (libraries camlcast_core))
+
+; The declarative layer's own, kept beside its counterpart on purpose:
+; described_room.ml is room.ml said the other way, and test_stage renders the
+; two and compares every pixel. A stanza of its own because it is the only one
+; here that needs camlcast.stage.
+
+(executables
+ (names described_room described_fuse)
+ (modules described_room described_fuse)
+ (libraries camlcast_core camlcast camlcast_loom))

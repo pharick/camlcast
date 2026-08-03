@@ -51,7 +51,7 @@ mkdir -p "$macos" "$frameworks" "$resources"
 
 # Contents/MacOS holds the real binary; Contents/Resources the art. Asset looks
 # one directory up and across from the executable for a Resources directory, so
-# the names here are the ones lib/asset.ml already searches — and the assets
+# the names here are the ones core/asset.ml already searches — and the assets
 # subdirectory matters, because callers ask for "assets/tiles.png".
 cp "$root/_build/default/bin/demo.exe" "$macos/camlcast-demo-bin"
 chmod u+w "$macos/camlcast-demo-bin"

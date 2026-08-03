@@ -1,13 +1,14 @@
 (** {b Traversal traces.} Every doorway a step went through, in the order it
     went through them.
 
-    {!Camlcast.Player.traverse} returns where the player ended up {e and} a list
-    of crossings, each naming the room and threshold it left by, the room and
-    threshold it arrived at, and the transform applied on the way.
-    {!Camlcast.Engine.move} is the same thing for a whole frame, with the turn
-    applied first; {!Camlcast.Engine.step} is that with the list dropped, which
-    is what every other demo here uses. {!Camlcast.Player.crossed} answers only
-    whether the list is empty, which is all a world that grows needs.
+    {!Camlcast_core.Player.traverse} returns where the player ended up {e and} a
+    list of crossings, each naming the room and threshold it left by, the room
+    and threshold it arrived at, and the transform applied on the way.
+    {!Camlcast_core.Engine.move} is the same thing for a whole frame, with the
+    turn applied first; {!Camlcast_core.Engine.step} is that with the list
+    dropped, which is what every other demo here uses.
+    {!Camlcast_core.Player.crossed} answers only whether the list is empty,
+    which is all a world that grows needs.
 
     A frame can cross more than one doorway. Movement resolves its two axes one
     after the other, and each leg can go through an opening of its own — so the
@@ -28,14 +29,12 @@
     geometry. *)
 
 open Camlcast
-open Result_ext
 
 let height = 4.
 let width = 2.5
 let depth = 8.
 let rooms = 5
-
-type t = { player : Player.t; stack : Player.crossing list }
+let named index = Printf.sprintf "chamber-%d" index
 
 (* One chamber of the corridor, with a doorway back the way you came and one on,
    except at the two ends. Alternating coats, so it is obvious you have gone
@@ -46,94 +45,98 @@ let chamber ~index =
   and ne = Vec.make depth width
   and nw = Vec.make 0. width in
   let coat = if index mod 2 = 0 then Surfaces.brick else Surfaces.stone in
-  let cut name a b =
-    Room.doorway ~name ~width:2.2 ~opening:3. ~height ~material:coat a b
-  in
-  let wall a b = Room.wall ~height ~material:coat a b in
-  let back_jambs, back = cut "back" nw sw and on_jambs, on = cut "on" se ne in
-  let floor = Plane.horizontal 0. in
+  let flat = Plane.horizontal 0. in
   let first = index = 0 and last = index = rooms - 1 in
-  Room.make
-    ~thresholds:
-      (List.concat
-         [ (if first then [] else [ back ]); (if last then [] else [ on ]) ])
-    ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-    ~ceiling:
-      (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-    ~sprites:
-      (if last then
-         [ Room.sprite ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.) ]
-       else [])
-    (List.concat
-       [
-         [ wall sw se ];
-         (if last then [ wall se ne ] else on_jambs);
-         [ wall ne nw ];
-         (if first then [ wall nw sw ] else back_jambs);
-       ])
-
-let named index = Printf.sprintf "chamber-%d" index
-
-let world =
-  World.make
-    ~rooms:(List.init rooms (fun index -> (named index, chamber ~index)))
-    ~links:
-      (List.init (rooms - 1) (fun index ->
-           ((named index, "on"), (named (index + 1), "back"))))
-    ~atmosphere:Surfaces.air
-    ~spawn:(named 0, Vec.make 2. 0.)
-
-let start = { player = Player.spawn world; stack = [] }
+  P.(
+    room ~name:(named index)
+      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ([
+         wall ~height ~material:coat sw se;
+         (if last then wall ~height ~material:coat se ne
+          else
+            doorway ~name:"on" ~width:2.2 ~opening:3. ~height ~material:coat se
+              ne);
+         wall ~height ~material:coat ne nw;
+         (if first then wall ~height ~material:coat nw sw
+          else
+            doorway ~name:"back" ~width:2.2 ~opening:3. ~height ~material:coat
+              nw sw);
+       ]
+      @
+      if last then
+        [
+          sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 6. 0.);
+        ]
+      else []))
 
 (** Is this crossing the undoing of that one — the same doorway, gone through
     the other way? Both sides are compared, because a room can be reached by
-    more than one of its doorways and only one of them is the way back. *)
-let undoes (a : Player.crossing) (b : Player.crossing) =
-  a.Player.from_room = b.Player.to_room
-  && a.Player.from_threshold = b.Player.to_threshold
-  && a.Player.to_room = b.Player.from_room
-  && a.Player.to_threshold = b.Player.from_threshold
+    more than one of its doorways and only one of them is the way back.
+
+    By name rather than by index, which is what a description deals in: the same
+    comparison, and one that would still be right if the rooms were written down
+    in another order. *)
+let undoes (a : Events.crossing) (b : Events.crossing) =
+  a.Events.from_room = b.Events.to_room
+  && a.Events.from_doorway = b.Events.to_doorway
+  && a.Events.to_room = b.Events.from_room
+  && a.Events.to_doorway = b.Events.from_doorway
 
 let record stack crossing =
   match stack with
   | top :: rest when undoes crossing top -> rest
   | _ -> crossing :: stack
 
-let update state ~dt:_ ~motion ~actions:_ =
-  let moved = Engine.move world state.player motion in
-  {
-    player = moved.Player.player;
-    (* Folded in the order they were crossed, which is the order they have to be
-       undone in: a frame that went out through one doorway and back through
-       another leaves the stack one deeper, not two. *)
-    stack = List.fold_left record state.stack moved.Player.crossings;
-  }
+(* Not (width, height): width is a chamber's, and a buffer's is a different
+   number. *)
+let ticks ~stack ~viewport:(_, down) =
+  let unit = Int.max 3 (down / 60) in
+  let deep = List.length stack in
+  P.(
+    (if deep = 0 then
+       (* Home: a single dim tick, so the row never disappears entirely. *)
+       [
+         rect ~x:(2 * unit)
+           ~y:(down - (5 * unit))
+           ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 70 80 95) ();
+       ]
+     else
+       (* One tick per doorway between here and the way out, oldest on the
+          left. *)
+       List.mapi
+         (fun i _ ->
+           rect
+             ~x:((2 * unit) + ((deep - 1 - i) * 3 * unit))
+             ~y:(down - (5 * unit))
+             ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 235 200 110) ())
+         stack)
+    @ [ crosshair ~color:(Color.rgb 245 245 245) () ])
 
-let overlay fb state =
-  let height = fb.Framebuffer.height in
-  let unit = Int.max 3 (height / 60) in
-  let depth = List.length state.stack in
-  (* One tick per doorway between here and the way out, oldest on the left. *)
-  List.iteri
-    (fun i _ ->
-      Paint.rect fb
-        ~x:((2 * unit) + ((depth - 1 - i) * 3 * unit))
-        ~y:(height - (5 * unit))
-        ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 235 200 110) ~alpha:255)
-    state.stack;
-  if depth = 0 then
-    (* Home: a single dim tick, so the row never disappears entirely. *)
-    Paint.rect fb ~x:(2 * unit)
-      ~y:(height - (5 * unit))
-      ~w:(2 * unit) ~h:(3 * unit) ~color:(Color.rgb 70 80 95) ~alpha:255;
-  Paint.crosshair fb ~color:(Color.rgb 245 245 245)
+let corridor ~stack ~viewport =
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:(named 0, Vec.make 2. 0.)
+      (List.init rooms (fun index -> chamber ~index)
+      @ List.init (rooms - 1) (fun index ->
+          link (named index, "on") (named (index + 1), "back"))
+      @ [ hud (ticks ~stack ~viewport) ]))
 
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update
-         ~view:(fun state -> (world, state.player))
-         ~overlay ())
-      start
-  in
-  ending
+let unwinding =
+  Element.declare ~name:"unwinding" @@ fun () ->
+  let stack, set_stack = Hook.use_state [] in
+  let crossings = Events.use_crossings () in
+  Events.use_frame (fun ~dt:_ ->
+      (* Folded in the order they were crossed, which is the order they have to
+         be undone in: a frame that went out through one doorway and back
+         through another leaves the stack one deeper, not two. *)
+      match crossings with
+      | [] -> ()
+      | _ -> set_stack (List.fold_left record stack crossings));
+  corridor ~stack ~viewport:(Events.use_viewport ())
+
+let world =
+  (Mount.build (corridor ~stack:[] ~viewport:Events.still.Events.viewport))
+    .Scene.world
+
+let run window = Run.on window ~controls:Bindings.escapable (unwinding ())

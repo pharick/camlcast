@@ -4,7 +4,7 @@
 ; content, and it lives outside the library it is content for.
 ;
 ; camlcast is the only dependency, SDL included: a demo that binds a key names
-; a Camlcast.Key and never reaches past the engine for it, the same way a game
+; a Camlcast_core.Key and never reaches past the engine for it, the same way a game
 ; does.
 
 ; The public name is the package name, so this installs as lib/camlcast-demo/
@@ -22,4 +22,4 @@
 (library
  (name camlcast_demo)
  (public_name camlcast-demo)
- (libraries camlcast))
+ (libraries camlcast_core camlcast))

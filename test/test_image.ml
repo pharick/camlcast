@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let make_builds_a_square () =

@@ -2,39 +2,52 @@
 
 A first-person raycasting engine in OCaml on top of SDL2 ([tsdl]).
 
-A {!Camlcast.World} is a graph of independently-authored {!Camlcast.Room}s, each
+A {!Camlcast_core.World} is a graph of independently-authored {!Camlcast_core.Room}s, each
 in its own coordinates, joined at named doorways that you both see and walk
 through: an open one is a portal, drawn recursively into the opening, and a
-{!Camlcast.Transform} carries the camera and the ray across. Rooms are built
+{!Camlcast_core.Transform} carries the camera and the ray across. Rooms are built
 from wall {e segments} at any angle, not cells of a grid; the floor is an
-inclined {!Camlcast.Plane} and the ceiling — per room — is an inclined plane or
-open {!Camlcast.Sky}; walls carry their own heights and {!Camlcast.Material}s,
-can be see-through, and can be hung with decals; {!Camlcast.Image} sprites stand
+inclined {!Camlcast_core.Plane} and the ceiling — per room — is an inclined plane or
+open {!Camlcast_core.Sky}; walls carry their own heights and {!Camlcast_core.Material}s,
+can be see-through, and can be hung with decals; {!Camlcast_core.Image} sprites stand
 in the world facing the player; and there is mouse look with pitch. Each frame is
 drawn into a CPU pixel buffer: the floor, ceiling and sky are cast per pixel, the
 opaque walls (with their decals) are painted over them, and then the sprites and
 the see-through walls together, farthest first, so that a sprite can stand in
 front of a window and be seen through one behind it. Surfaces take their
-patterns from a procedural {!Camlcast.Texture} and their colour from their
-material, dimmed by the world's {!Camlcast.Atmosphere}. The buffer is then
+patterns from a procedural {!Camlcast_core.Texture} and their colour from their
+material, dimmed by the world's {!Camlcast_core.Atmosphere}. The buffer is then
 scaled to the window by the GPU.
 
-{1 Two guides}
+{1 Three guides}
 
 - {{!page-"making-a-game"} {b Making a game on CamlCast}} — from an empty
-  directory to a game, one engine feature at a time, with the demo that isolates
+  directory to a game, one feature at a time, with the demo that isolates
   each one. Start here if you want to build something on the engine.
 - {{!page-"building-the-engine"} {b Building the engine from scratch}} — how the
   picture is drawn, rebuilt by hand in eight phases with every derivation written
   out. Start here if you want to know how a raycaster works.
+- {{!page-"building-the-layer"} {b Building the layer from scratch}} — how a
+  description of a world becomes one, and how a component keeps state across a
+  frame that rebuilt everything: elements, reconciling, hooks on effect
+  handlers, and the seam between the two. The second half of the one above.
 
-{1 Two libraries}
+{1 The libraries}
 
 The engine holds no content: not one colour, pattern, picture or room. What it
 has instead are the types those things are values of, so a game supplies its own
 and two games can share an engine without sharing a look.
 
-- {b [camlcast]} — the engine. Geometry, ray casting, rendering, SDL.
+- {b [camlcast]} — {b what a game opens.} The parts a world is described with,
+  the components that hold its state, and the loop that plays one. See
+  {!Camlcast}.
+- {b [camlcast.loom]} — the runtime under that: elements, reconciling, hooks,
+  contexts, a store. It depends on nothing but the standard library and knows
+  nothing of walls.
+- {b [camlcast.core]} — the platform. Geometry, ray casting, rendering, SDL. A
+  game that genuinely needs {!Camlcast_core.World} or
+  {!Camlcast_core.Renderer} adds this to its dune file and says so, which makes
+  reaching past the layer a decision rather than a drift.
 - {b [camlcast-demo]} — the demos and the art they are made of, run by
   [camlcast-demo]. One small world per engine feature, plus the five-room
   showcase that has all of them at once. It is content, and it lives outside the
@@ -43,54 +56,71 @@ and two games can share an engine without sharing a look.
 
 {1 Building a game on it}
 
-{!Camlcast.Engine.with_window} opens a window and closes it again when the
-function it is handed to is done with it. {!Camlcast.Engine.run} plays a run on
-one, and a program that has several to play — a launcher and its menu — opens
-the window once and plays them all on it, so that going from one to the next is
-the picture changing and not the window going away.
+A game hands over what its world should be, every frame, and never touches the
+loop. {!Camlcast.Run.play} opens a window, plays a description on it until the
+player quits, and closes it again; {!Camlcast.Run.on} is the same run on a window
+already open, which is what a launcher wants so that going from its menu to a
+level is the picture changing rather than the window going away.
 
-{!Camlcast.Engine.run} runs a state of whatever type the game likes, described
-by an {!Camlcast.Engine.type-game} — built with {!Camlcast.Engine.val-game} from
-the two things every game has and the four it may not: [update], given the
-frame's length, the movement asked for over it and what the player is pressing
-and holding through it; [view], which world and which player to draw this frame
-from; and optionally [overlay], anything drawn over the finished picture;
-[pointing], whether the mouse is working a cursor over something the game has
-drawn instead of looking around; [finished], whether the run is over; and
-[bindings], what the player's controls are for. Everything else a game keeps —
-phases, doors, a journal, a random seed, what it has already built — stays on
-the game's side of the line and the engine stays a pure function of what it is
-handed. Time passes only while the window has focus.
+{[
+  let () = ignore (Run.play ~title:"A game" level)
+]}
 
-It reports how the run ended, as an {!Camlcast.Engine.ending}: [Closed] for a
-window that was shut, [Left] for a run that finished on its own terms. Only
-something that plays one run after another needs the difference.
+A description is made with {!Camlcast.P} — [world], [room], [boundary], [doorway],
+[sprite], [hud] — and the parts of it that have to remember something are
+{e components}: functions from props to a description, holding state with
+{!Camlcast.Hook.use_state} and reaching the outside world through
+{!Camlcast.Hook.use_effect}. {!Camlcast.Events} is how one reads the frame it is
+being rendered for: how long the last one took, what the player is pressing, what
+the crosshair is on, which doorways were crossed. {!Camlcast.Store} is for what
+belongs to no component in particular — a score, an inventory, which chapter the
+player is in.
 
-Input arrives as controls and not as actions — {!Camlcast.Input.pressed},
-{!Camlcast.Input.released}, {!Camlcast.Input.val-down} and
-{!Camlcast.Input.held_for} over a {!Camlcast.Key} or a mouse button. What
+Everything the loop acts on by itself is one record, {!Camlcast.Controls.t}:
+which controls walk and look, which leaves the run, which works whatever the
+crosshair is on, and which shows the map over the world. Each is a list of
+{!Camlcast_core.Input.control}s, so a mouse button and a key do the same job and
+an empty list turns something off.
+
+It reports how the run ended, as a {!Camlcast.Run.ending}: [Closed] for a window
+that was shut, [Returned] for a run that finished on its own terms — a leaving
+control, or a description that said {!Camlcast.P.finish}. Only something that
+plays one run after another needs the difference.
+
+{2 The platform underneath}
+
+None of the above is where the loop actually is. {!Camlcast_core.Engine.run}
+plays a state of whatever type a game likes, described by an
+{!Camlcast_core.Engine.type-game}: [update], given the frame's length, the
+movement asked for and what the player is holding; [view], which world and which
+player to draw from; and optionally [overlay], [pointing], [finished] and
+[bindings]. {!Camlcast_core.Engine.run_world} is that loop over a bare
+{!Camlcast_core.World} and the player walking it, plus an optional
+[extend : World.t -> Player.t -> World.t] called on any frame the player crossed
+into another room on.
+
+That is the API this engine had before it had a layer over the top, and it is
+still the floor the layer stands on — {!Camlcast.Run} is one call to
+{!Camlcast_core.Engine.run} with a mount kept beside it. A game reaches for it
+when it genuinely needs a {!Camlcast_core.World} or a {!Camlcast_core.Renderer},
+by adding [camlcast.core] to its dune file and saying so.
+
+Input arrives as controls and not as actions — {!Camlcast_core.Input.pressed},
+{!Camlcast_core.Input.released}, {!Camlcast_core.Input.val-down} and
+{!Camlcast_core.Input.held_for} over a {!Camlcast_core.Key} or a mouse button. What
 "interact" or "journal" mean is a game's own table from the one to the other.
 
-Walking is that too. {!Camlcast.Binding} is the table a game hands over, and it
+Walking is that too. {!Camlcast_core.Binding} is the table a game hands over, and it
 covers the four movement axes, the key that goes fullscreen and the key — if any
-— that ends the run; {!Camlcast.Binding.default} is WASD, the arrows and the
+— that ends the run; {!Camlcast_core.Binding.default} is WASD, the arrows and the
 mouse, and it is a default and not a rule. An axis adds up terms, and the two
 kinds are added up differently: a held control or a stick is a {e rate}, summed,
 clamped to [[-1, 1]] and paid out at the axis's speed over the frame, while the
 mouse is a {e displacement} that has already moved and is added as it stands.
-Reading a table is {!Camlcast.Binding.motion}, which touches nothing and is
+Reading a table is {!Camlcast_core.Binding.motion}, which touches nothing and is
 where a second kind of device would arrive.
 
-{!Camlcast.Engine.run_world} is that loop over a bare {!Camlcast.World} and the
-player walking it, plus an optional [extend : World.t -> Player.t -> World.t],
-which it calls on any frame the player crossed into another room on — once per
-such frame, with where they ended up, however many doorways that took. A program
-with only one world to show has no use for the ending and can [ignore] it.
-
-A game that builds its world as the player explores it uses [extend] to stay far
-enough ahead that the edge is never in shot: {!Camlcast.Config.max_portal_depth}
-doorways, which is exactly as deep as the renderer looks through them. The
-[endless] demo does this in miniature.
+Time passes only while the window has focus.
 
 {1 The house rules}
 
@@ -101,100 +131,103 @@ them all.
   [Module.make], with configuration labelled and the subject of the call — a
   picture, a material, two endpoints — positional at the end. Domain-named
   constructors stand beside it where the domain has better words:
-  {!Camlcast.Color.rgb}, {!Camlcast.Plane.horizontal},
-  {!Camlcast.Texture.generate}, {!Camlcast.Transform.between},
-  {!Camlcast.Room.doorway}.
+  {!Camlcast_core.Color.rgb}, {!Camlcast_core.Plane.horizontal},
+  {!Camlcast_core.Texture.generate}, {!Camlcast_core.Transform.between},
+  {!Camlcast_core.Room.doorway}.
 - {b All-optional constructors end in [()]}, and each names its defaults in
-  its own doc: {!Camlcast.Atmosphere.make}, {!Camlcast.Sky.make},
-  {!Camlcast.Binding.make}, {!Camlcast.Engine.val-game}. Where the default is
-  a value worth having, it is also exported — {!Camlcast.Atmosphere.default},
-  {!Camlcast.Sky.default}, {!Camlcast.Binding.default} — as the thing to start
+  its own doc: {!Camlcast_core.Atmosphere.make}, {!Camlcast_core.Sky.make},
+  {!Camlcast_core.Binding.make}, {!Camlcast_core.Engine.val-game}. Where the default is
+  a value worth having, it is also exported — {!Camlcast_core.Atmosphere.default},
+  {!Camlcast_core.Sky.default}, {!Camlcast_core.Binding.default} — as the thing to start
   from and perturb.
 - {b Reading a file is [load]}, always [string -> (t, [ `Msg of string ])
   result], and every fallible call in the library carries that same closed
-  error: {!Camlcast.Bitmap.load}, {!Camlcast.Image.load},
-  {!Camlcast.Texture.load}, and the [of_asset] pair that goes through
-  {!Camlcast.Asset} first.
+  error: {!Camlcast_core.Bitmap.load}, {!Camlcast_core.Image.load},
+  {!Camlcast_core.Texture.load}, and the [of_asset] pair that goes through
+  {!Camlcast_core.Asset} first.
 - {b Every number states its unit and range where it is declared.} Distances
   and heights are in cells (one cell = one texture repeat; the eye stands
-  {!Camlcast.Config.eye_height} up); angles are radians on
-  {!Camlcast.Vec.of_angle}'s reckoning; colour channels and alpha run 0 .. 255;
+  {!Camlcast_core.Config.eye_height} up); angles are radians on
+  {!Camlcast_core.Vec.of_angle}'s reckoning; colour channels and alpha run 0 .. 255;
   fades and fractions run [0. .. 1.]. What a constructor would divide by or
   fade across, it checks — refusals are written as the negation of what would
   pass, so a [nan] is refused with the out-of-range.
 - {b Changing an immutable value}: [with_x] hands back the same thing with one
-  component replaced ({!Camlcast.Room.with_sprites},
-  {!Camlcast.World.with_atmosphere} — and {!Camlcast.Room.with_door}, whose
+  component replaced ({!Camlcast_core.Room.with_sprites},
+  {!Camlcast_core.World.with_atmosphere} — and {!Camlcast_core.Room.with_door}, whose
   "thing" is a single threshold); [add_x]
-  appends ({!Camlcast.Room.add_decal}, {!Camlcast.World.add_room}); [set_x] is
+  appends ({!Camlcast_core.Room.add_decal}, {!Camlcast_core.World.add_room}); [set_x] is
   an engine-mediated change that keeps a cross-cutting invariant
-  ({!Camlcast.World.set_door}, which changes both sides of a link at once).
-- {b The winding rule is stated once}, at the top of {!Camlcast.Room}, and
+  ({!Camlcast_core.World.set_door}, which changes both sides of a link at once).
+- {b The winding rule is stated once}, at the top of {!Camlcast_core.Room}, and
   everything else points there.
 
 {1 Where to start}
 
-{!Camlcast.Ray} carries the ray-versus-segment derivation and why the distance
-it reports is free of fish-eye. {!Camlcast.Plane} carries the one-line equation
-that casts the sloped floor and ceiling per pixel. {!Camlcast.Viewport} ties
+{!Camlcast_core.Ray} carries the ray-versus-segment derivation and why the distance
+it reports is free of fish-eye. {!Camlcast_core.Plane} carries the one-line equation
+that casts the sloped floor and ceiling per pixel. {!Camlcast_core.Viewport} ties
 them to the screen: the projection, the eye height, the pitch shear, and — since
 the window is resizable and can go fullscreen at any frame — the rules that
-decide what a resize does. {!Camlcast.Renderer} puts it all together.
-{!Camlcast.World} carries both the portal machinery and the three primitives a
+decide what a resize does. {!Camlcast_core.Renderer} puts it all together.
+{!Camlcast_core.World} carries both the portal machinery and the three primitives a
 world grows by.
 
 {1 The engine}
 
 Each depends only on the ones above it.
 
-- {!Camlcast.Config} — every tunable constant, in one place
-- {!Camlcast.Key} — the keyboard, named by the engine: a place on the board
+- {!Camlcast_core.Config} — every tunable constant, in one place
+- {!Camlcast_core.Key} — the keyboard, named by the engine: a place on the board
   rather than a letter, so a binding survives a change of layout
-- {!Camlcast.Result_ext} — [let*] and [let+], for chaining fallible SDL calls,
+- {!Camlcast_core.Result_ext} — [let*] and [let+], for chaining fallible SDL calls,
   and the acquire/use/release that frees a window however a frame ends
-- {!Camlcast.Vec} — immutable 2-D vectors, with the dot and cross products the
+- {!Camlcast_core.Extent} — whether a rectangle of pixels is a length an array can
+  have, divided rather than multiplied so the check cannot overflow the thing it
+  is checking for
+- {!Camlcast_core.Vec} — immutable 2-D vectors, with the dot and cross products the
   geometry needs
-- {!Camlcast.Transform} — rigid motions between room-local coordinate frames
-- {!Camlcast.Plane} — an inclined floor/ceiling plane and its casting equation
-- {!Camlcast.Color} — 8-bit RGB, shading and blending
-- {!Camlcast.Bitmap} — decoding a PNG or JPEG into plain bytes: the one place
+- {!Camlcast_core.Transform} — rigid motions between room-local coordinate frames
+- {!Camlcast_core.Plane} — an inclined floor/ceiling plane and its casting equation
+- {!Camlcast_core.Color} — 8-bit RGB, shading and blending
+- {!Camlcast_core.Bitmap} — decoding a PNG or JPEG into plain bytes: the one place
   pixel formats appear
-- {!Camlcast.Asset} — where a file is, searched relative to the executable
+- {!Camlcast_core.Asset} — where a file is, searched relative to the executable
   rather than to a source tree
-- {!Camlcast.Texture} — colour surface patterns, generated or loaded, and
+- {!Camlcast_core.Texture} — colour surface patterns, generated or loaded, and
   the wrapping value noise the generated ones are built from
-- {!Camlcast.Material} — what a surface is made of: its pattern
-- {!Camlcast.Door} — a leaf hung in a doorway: open or closed, and what of
-- {!Camlcast.Atmosphere} — the air a world is seen through: its fog, its haze,
+- {!Camlcast_core.Material} — what a surface is made of: its pattern
+- {!Camlcast_core.Door} — a leaf hung in a doorway: open or closed, and what of
+- {!Camlcast_core.Atmosphere} — the air a world is seen through: its fog, its haze,
   and where its light comes from
-- {!Camlcast.Sky} — the open sky where a room has no roof
-- {!Camlcast.Image} — full-colour images with alpha, for decals and sprites
-- {!Camlcast.Framebuffer} — a CPU pixel buffer and the streaming texture it
+- {!Camlcast_core.Sky} — the open sky where a room has no roof
+- {!Camlcast_core.Image} — full-colour images with alpha, for decals and sprites
+- {!Camlcast_core.Framebuffer} — a CPU pixel buffer and the streaming texture it
   uploads through
-- {!Camlcast.Paint} — clipped rectangles, lines and pictures over a finished
+- {!Camlcast_core.Paint} — clipped rectangles, lines and pictures over a finished
   frame
-- {!Camlcast.Font} — a bitmap font on a fixed grid: layout, wrapping and
+- {!Camlcast_core.Font} — a bitmap font on a fixed grid: layout, wrapping and
   drawing
-- {!Camlcast.Room} — one room's walls, thresholds, surfaces, sprites and
+- {!Camlcast_core.Room} — one room's walls, thresholds, surfaces, sprites and
   collision
-- {!Camlcast.World} — named rooms, linked portals, the world's air and spawn,
+- {!Camlcast_core.World} — named rooms, linked portals, the world's air and spawn,
   and how a world grows
-- {!Camlcast.Ray} — ray-versus-segment intersection: every wall the ray
+- {!Camlcast_core.Ray} — ray-versus-segment intersection: every wall the ray
   crosses, farthest first
-- {!Camlcast.Player} — the camera, as position + unit [dir] + unit [right],
+- {!Camlcast_core.Player} — the camera, as position + unit [dir] + unit [right],
   plus the pitch it looks up and down by
-- {!Camlcast.Viewport} — window size to camera geometry; the eye height, the
+- {!Camlcast_core.Viewport} — window size to camera geometry; the eye height, the
   pitch shear and the resize rules
-- {!Camlcast.Sight} — what the crosshair is on, traced through doorways
-- {!Camlcast.Input} — the keyboard and the mouse as they are: controls, their
+- {!Camlcast_core.Sight} — what the crosshair is on, traced through doorways
+- {!Camlcast_core.Input} — the keyboard and the mouse as they are: controls, their
   edges and holds, and what the analog sources read
-- {!Camlcast.Binding} — what those controls are for: a game's table, and the one
+- {!Camlcast_core.Binding} — what those controls are for: a game's table, and the one
   pure function that turns a frame of them into a movement
-- {!Camlcast.Renderer} — the software renderer: casts the planes, paints the
+- {!Camlcast_core.Renderer} — the software renderer: casts the planes, paints the
   walls, per pixel
-- {!Camlcast.Clock} — the pacing arithmetic the loop measures its frames by,
+- {!Camlcast_core.Clock} — the pacing arithmetic the loop measures its frames by,
   apart from any window
-- {!Camlcast.Engine} — window lifetime, fullscreen state, and the game loop
+- {!Camlcast_core.Engine} — window lifetime, fullscreen state, and the game loop
 
 {1 The demos}
 

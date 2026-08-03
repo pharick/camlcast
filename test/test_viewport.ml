@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Support
 
 let at ?(pitch = 0.) ?(eye_z = 0.5) ~width ~height () =
@@ -191,6 +191,49 @@ let a_column_projects_back_to_its_own_centre () =
         (List.sort_uniq compare [ 0; width / 2; width - 1 ]))
     [ (800, 600); (161, 101); (1, 1) ]
 
+(* The rule above turned into pixels, which is the half the renderer actually
+   calls. A pixel belongs to an extent when its {e centre} falls in it, and an
+   extent is half-open — a wall runs down to its foot, where the floor takes
+   over — so [first_pixel] of where it starts and [last_pixel] of where it
+   stops are one apart and not equal.
+
+   Written against the definition rather than against either function: the
+   answer is worked out by asking every pixel in reach whether its own centre is
+   inside, so rounding both ends alike shows up as one pixel too many. Both
+   edges are swept across more than a whole pixel, so every position of a
+   boundary relative to a centre is visited, and the widths run from under a
+   pixel — where the honest answer is sometimes no pixels at all — to several. *)
+let an_extent_covers_the_pixels_whose_centres_fall_in_it () =
+  let by_definition a b =
+    List.filter
+      (fun p ->
+        let centre = float_of_int p +. 0.5 in
+        centre >= a && centre < b)
+      (List.init 16 Fun.id)
+  in
+  for i = 0 to 30 do
+    for j = 1 to 30 do
+      let a = 3. +. (float_of_int i /. 13.) in
+      let b = a +. (float_of_int j /. 11.) in
+      let first = Viewport.first_pixel a and last = Viewport.last_pixel b in
+      let got = List.init (Int.max 0 (last - first + 1)) (fun k -> first + k) in
+      Alcotest.(check (list int))
+        (Printf.sprintf "[%.4f, %.4f)" a b)
+        (by_definition a b) got
+    done
+  done
+
+(* And the boundary between two extents laid end to end, which is the same
+   claim from the other side: a pixel goes to exactly one of them. *)
+let extents_laid_end_to_end_share_no_pixel () =
+  List.iter
+    (fun x ->
+      Alcotest.(check int)
+        (Printf.sprintf "%.4f ends one where it begins the next" x)
+        (Viewport.first_pixel x)
+        (Viewport.last_pixel x + 1))
+    [ 0.; 1.25; 7.5; 12.999; -3.4; 41.0001 ]
+
 (* The one place three modules have to agree, and the disagreement this change
    exists to end: the pixel [Paint] draws the crosshair on, the ray [Viewport]
    casts through that pixel, and the ray [Sight] picks along — which is
@@ -279,7 +322,7 @@ let a_square_picture_is_as_wide_as_it_is_tall () =
   in
   List.iter
     (fun distance ->
-      let l, t, r, b =
+      let { Viewport.left = l; top = t; right = r; bottom = b } =
         Viewport.sprite_box reference facing_east ~floor_z:0. ~distance s
       in
       Alcotest.check close
@@ -301,7 +344,7 @@ let a_wide_picture_is_as_wide_as_its_picture () =
   in
   List.iter
     (fun distance ->
-      let l, t, r, b =
+      let { Viewport.left = l; top = t; right = r; bottom = b } =
         Viewport.sprite_box reference facing_east ~floor_z:0. ~distance s
       in
       Alcotest.check close
@@ -324,15 +367,16 @@ let a_base_raises_both_edges_together () =
   and lifted =
     Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4. (at 1.25)
   in
-  let gl, gt, gr, gb = ground and ll, lt, lr, lb = lifted in
-  Alcotest.check close "the same left edge" gl ll;
-  Alcotest.check close "the same right edge" gr lr;
+  let open Viewport in
+  Alcotest.check close "the same left edge" ground.left lifted.left;
+  Alcotest.check close "the same right edge" ground.right lifted.right;
   let rise =
     Viewport.project_height reference ~z:0. ~distance:4.
     -. Viewport.project_height reference ~z:1.25 ~distance:4.
   in
-  Alcotest.check close "the top rose" (gt -. rise) lt;
-  Alcotest.check close "and the foot by the same" (gb -. rise) lb
+  Alcotest.check close "the top rose" (ground.top -. rise) lifted.top;
+  Alcotest.check close "and the foot by the same" (ground.bottom -. rise)
+    lifted.bottom
 
 (* The lift is measured from the floor under it and not from an absolute height,
    which is what makes a sprite ride a slope instead of the ground climbing
@@ -347,9 +391,11 @@ let a_base_is_measured_from_the_floor () =
     Viewport.sprite_box reference facing_east ~floor_z:0. ~distance:4.
       (Room.sprite ~base:1. ~size:1.5 ~image (Vec.make 4. 0.))
   in
-  let _, at, _, ab = on_a_high_floor and _, bt, _, bb = lifted_off_a_low_one in
-  Alcotest.check close "the same top" at bt;
-  Alcotest.check close "the same foot" ab bb
+  let open Viewport in
+  Alcotest.check close "the same top" on_a_high_floor.top
+    lifted_off_a_low_one.top;
+  Alcotest.check close "the same foot" on_a_high_floor.bottom
+    lifted_off_a_low_one.bottom
 
 let () =
   Alcotest.run "Viewport"
@@ -385,6 +431,13 @@ let () =
             a_flat_wall_stays_flat;
           case "a column projects back to its own centre"
             a_column_projects_back_to_its_own_centre;
+        ] );
+      ( "an extent in pixels",
+        [
+          case "covers the pixels whose centres fall in it"
+            an_extent_covers_the_pixels_whose_centres_fall_in_it;
+          case "laid end to end, two of them share no pixel"
+            extents_laid_end_to_end_share_no_pixel;
         ] );
       ( "the crosshair",
         [ case "sits on the centre ray" the_crosshair_sits_on_the_centre_ray ]

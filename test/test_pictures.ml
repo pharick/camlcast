@@ -1,4 +1,4 @@
-open Camlcast
+open Camlcast_core
 open Camlcast_demo
 open Support
 

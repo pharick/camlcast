@@ -3,21 +3,22 @@
     wants it: a chamber with dust drifting down through the whole of it, every
     mote of it somewhere else than it was last frame.
 
-    Nothing here is new. Every mote is a {!Camlcast.Room.type-sprite} with a
-    [base], the same field {!Floating} lifts one barrel with; what makes it a
+    Nothing here is new. Every mote is a {!Camlcast_core.Room.type-sprite} with
+    a [base], the same field {!Floating} lifts one barrel with; what makes it a
     fall rather than a hover is that the base is a function of the clock, and
     what makes it {e cheap} is what is not rebuilt with it.
 
     {1 What one frame costs}
 
     Seventy sprite records, one array to hold them, and the two records
-    {!Camlcast.Room.with_sprites} and {!Camlcast.World.replace_room} put around
-    them. That is the whole of it — about five microseconds, measured. The
-    walls, the floor plane and the ceiling plane are the ones this room was
-    built with and are shared, not copied, so a room's geometry is never touched
-    by anything moving through it however much of it is moving. Drawing the dust
-    costs more than moving it does, by a factor of a few hundred: at a 640 x 400
-    buffer this room takes about 8.7 ms to draw empty and 10.1 ms full.
+    {!Camlcast_core.Room.with_sprites} and {!Camlcast_core.World.replace_room}
+    put around them. That is the whole of it — about five microseconds,
+    measured. The walls, the floor plane and the ceiling plane are the ones this
+    room was built with and are shared, not copied, so a room's geometry is
+    never touched by anything moving through it however much of it is moving.
+    Drawing the dust costs more than moving it does, by a factor of a few
+    hundred: at a 640 x 400 buffer this room takes about 8.7 ms to draw empty
+    and 10.1 ms full.
 
     {b And no picture is made.} {!Pictures.motes} is twelve images, built once
     when that module was loaded, and a mote animating is a mote reading a
@@ -31,11 +32,11 @@
     {1 Where the motes are}
 
     Each one's place, size, fall speed and lateral sway come from its index and
-    nothing else, so the same dust comes back on every run and there is no state
-    to carry between frames — [update] is a clock, and [view] is a function of
-    it. The scattering constants are irrational and pairwise unrelated for the
-    reason {!Pictures.mote} spells out: two that add to one put every mote on a
-    diagonal.
+    nothing else, so the same dust comes back on every run and the only thing
+    carried between frames is the clock — one {!Camlcast.Hook.use_state}, and
+    every mote a function of it. The scattering constants are irrational and
+    pairwise unrelated for the reason {!Pictures.mote} spells out: two that add
+    to one put every mote on a diagonal.
 
     A mote that reaches the floor reappears at the ceiling, which is what makes
     the fall endless without anything remembering how many times round it has
@@ -44,7 +45,6 @@
     nothing here stops a step. *)
 
 open Camlcast
-open Result_ext
 
 (* A close chamber rather than a hall. Dust is only dust at a distance you can
    see it at, and {!Surfaces.air} fades everything out by twelve cells, so a
@@ -54,8 +54,6 @@ let half = 5.5
 let height = 4.
 let count = 70
 let period = 9.
-
-type t = { elapsed : float; player : Player.t }
 
 (** The [k]th mote's fixed properties: where on the floor plan it falls, how big
     it is, how fast it goes round, how far it sways, and how far into all of
@@ -78,68 +76,54 @@ let sway k = 0.3 +. (0.5 *. fraction 0.6180339887 k)
     The fall is [1] at the ceiling and [0] at the floor, so its height is the
     fraction times the room. Sideways it swings by [sway], and by more of it the
     nearer the ground it gets — dust that has almost landed is the dust that
-    hangs about. *)
+    hangs about.
+
+    Keyed by its number, so the reconciler knows which mote is which however the
+    seventy of them are written down. *)
 let mote ~t k =
   let frames = Array.length Pictures.motes in
   let fall = 1. -. Float.rem ((t *. rate k /. period) +. offset k) 1. in
   let turn = ((t /. period) +. offset k) *. 2. *. Float.pi in
   let base = spot k in
   let drift = sway k *. (1.3 -. fall) *. sin (turn *. 1.7) in
-  Room.sprite
+  P.sprite ~key:(string_of_int k)
     ~base:(fall *. (height -. 0.2))
     ~size:(size k)
     ~image:Pictures.motes.((k + int_of_float (t *. 9. *. rate k)) mod frames)
     (Vec.make (base.Vec.x +. drift) (base.Vec.y +. (drift *. 0.6)))
 
-let motes ~t = List.init count (mote ~t)
+let flat = Plane.horizontal 0.
+let sw = Vec.make (-.half) (-.half)
+let se = Vec.make half (-.half)
+let ne = Vec.make half half
+let nw = Vec.make (-.half) half
 
-let world =
-  let sw = Vec.make (-.half) (-.half)
-  and se = Vec.make half (-.half)
-  and ne = Vec.make half half
-  and nw = Vec.make (-.half) half in
-  let wall material a b = Room.wall ~height ~material a b in
-  let floor = Plane.horizontal 0. in
-  let room =
-    Room.make
-      ~floor:(Room.floor ~plane:floor ~material:Surfaces.ground)
-      ~ceiling:
-        (Room.roof ~plane:(Plane.above floor height) ~material:Surfaces.soffit)
-      ~sprites:(motes ~t:0.)
+let at ~t =
+  P.(
+    world ~atmosphere:Surfaces.air
+      ~spawn:("chamber", Vec.make (-5.) (-5.))
       [
-        wall Surfaces.stone sw se;
-        wall Surfaces.brick se ne;
-        wall Surfaces.stone ne nw;
-        wall Surfaces.brick nw sw;
-      ]
-  in
-  World.make
-    ~rooms:[ ("chamber", room) ]
-    ~links:[] ~atmosphere:Surfaces.air
-    ~spawn:("chamber", Vec.make (-5.) (-5.))
+        room ~name:"chamber"
+          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+          ~ceiling:
+            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ([
+             wall ~height ~material:Surfaces.stone sw se;
+             wall ~height ~material:Surfaces.brick se ne;
+             wall ~height ~material:Surfaces.stone ne nw;
+             wall ~height ~material:Surfaces.brick nw sw;
+           ]
+          @ List.init count (mote ~t));
+      ])
 
-let start = { elapsed = 0.; player = Player.spawn world }
+let falling =
+  Element.declare ~name:"falling" @@ fun () ->
+  let elapsed, set_elapsed = Hook.use_state 0. in
+  (* Wrapped so the clock never grows without bound, and at a multiple of the
+     period so nothing jumps when it does. *)
+  Events.use_frame (fun ~dt ->
+      set_elapsed (Float.rem (elapsed +. dt) (period *. 12.)));
+  at ~t:elapsed
 
-let update state ~dt ~motion ~actions:_ =
-  {
-    (* Wrapped so the clock never grows without bound, and at a multiple of the
-       period so nothing jumps when it does. *)
-    elapsed = Float.rem (state.elapsed +. dt) (period *. 12.);
-    player = Engine.step world state.player motion;
-  }
-
-(** The room as it stands at this moment. The walls and both planes come
-    straight out of [world]; only the sprite array is new. *)
-let view state =
-  ( World.replace_room world ~room:0
-      ~replacement:
-        (Room.with_sprites (World.room world 0) (motes ~t:state.elapsed)),
-    state.player )
-
-let run window =
-  let+ _, ending =
-    Engine.run window
-      (Engine.game ~bindings:Bindings.escapable ~update ~view ())
-      start
-  in
-  ending
+let world = (Mount.build (at ~t:0.)).Scene.world
+let run window = Run.on window ~controls:Bindings.escapable (falling ())

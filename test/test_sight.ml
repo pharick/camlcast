@@ -3,7 +3,7 @@
     {!Viewport.centre_rise}, which is a function of pitch alone — so all of it
     tests headlessly. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 (* Two rooms, joined, with something to look at in each. The near room's is off
@@ -73,7 +73,7 @@ let rooms ?door ?lintel ?lintel_top ?(ceiling = flat_ceiling) ?(bare = false)
    (2, 2) in it is two cells beyond the threshold. *)
 let looking_east ?(pitch = 0.) ?(from = centre) () =
   let p = Player.make ~room:0 ~pos:from ~angle:0. in
-  Player.pitch_by p ~radians:pitch
+  Player.pitch_by p ~fraction:pitch
 
 let describe = function
   | None -> "nothing"
@@ -90,30 +90,42 @@ let is what got = Alcotest.(check string) "" what (describe got)
    the image and not only on the box around it — and the horizontal half of that
    comes from the image's {e width}. The picture here is 16 across and 12 down,
    so the two extents are different numbers and reading across by the wrong one
-   lands somewhere else: its left half is clear and its right half solid, and a
-   version indexing columns by the height would put the middle of the box at
-   column 6 rather than 8, which is on the clear side.
+   lands somewhere else: a version indexing columns by the height would put the
+   middle of the box at column 6 rather than 8.
+
+   The split is at 7 and not at the middle, which matters for a reason worth
+   writing down. Dead ahead the crosshair falls on the box's exact centre, and
+   for a 16-wide picture that is exactly the boundary between columns 7 and 8 —
+   a real number the renderer reaches through the projection and this reaches
+   through [sprite_half_width], agreeing to about [5e-16] and therefore
+   disagreeing about which side of the boundary it is on. Split anywhere else
+   and the two land on the same side of the split whichever way that ulp falls.
+   Split there, as this fixture used to, and the case being asserted is the
+   rounding of a tie rather than the thing the test is named for.
 
    The renderer maps a sprite's screen box onto the image exactly this way, so
-   this is also what keeps what can be picked the same as what is drawn. *)
+   this is also what keeps what can be picked the same as what is drawn. That is
+   what the off-axis case below is really pinning: it was written the other way
+   round, against a {!Sight} that read the sprite mirrored, and it passed. *)
 let a_sprite_is_read_across_by_its_width () =
   let split =
     Image.make ~height:12 ~width:16 (fun ~u ~v:_ ->
-        if u < 8 then Image.clear else (Color.rgb 200 60 60, 255))
+        if u < 7 then Image.clear else (Color.rgb 200 60 60, 255))
   in
   let world =
     rooms ~near:[ Room.sprite ~size:1.4 ~image:split (Vec.make 3.5 2.) ] ()
   in
-  (* Dead ahead: the middle of the sprite's width, which is the first solid
-     column. *)
+  (* Dead ahead: the middle of the sprite's width, which is solid. Indexed by
+     the height instead it would be column 6, which is not. *)
   is "sprite 0 of room 0"
     (Sight.look world (looking_east ~from:(Vec.make 2. 2.) ()));
-  (* A quarter of the way across it, which is on the side that was cut away. The
-     crosshair passes through and carries on into the room beyond, so what it
-     finds there is the far room's business — all this case is asserting is that
-     the sprite is not it. *)
+  (* A quarter of the way across it, which is on the side that was cut away —
+     and to the sprite's {e left} as the frame shows it, which is the half of
+     this a mirrored reading gets wrong. The crosshair passes through and
+     carries on into the room beyond, so what it finds there is the far room's
+     business; all this case asserts is that the sprite is not it. *)
   let past =
-    describe (Sight.look world (looking_east ~from:(Vec.make 2. 2.35) ()))
+    describe (Sight.look world (looking_east ~from:(Vec.make 2. 1.65) ()))
   in
   Alcotest.(check bool)
     (Printf.sprintf "the cut-away side is seen through (found %s)" past)
@@ -289,7 +301,7 @@ let a_wall_occludes_and_names_itself () =
       (rooms ~far:[ figure (Vec.make 2. 2.) ] ())
   in
   match Sight.look blocked (looking_east ()) with
-  | Some { Sight.kind = Sight.Wall w; room; distance; crossed } ->
+  | Some { Sight.kind = Sight.Wall w; room; distance; crossed; _ } ->
       Alcotest.(check int) "the room the player is in" 0 room;
       Alcotest.(check int) "no doorway crossed" 0 crossed;
       Alcotest.(check int) "the wall just added, last in the array" 5 w.index;
@@ -407,7 +419,7 @@ let a_wall_is_not_picked_over_the_ceiling () =
       ~links:[] ~atmosphere:air ~spawn:("only", centre)
   in
   let looking ?(angle = 0.) pitch =
-    Player.pitch_by (Player.make ~room:0 ~pos:centre ~angle) ~radians:pitch
+    Player.pitch_by (Player.make ~room:0 ~pos:centre ~angle) ~fraction:pitch
   in
   Alcotest.(check bool)
     "the eye is under the roof and the crosshair over it" true
@@ -548,11 +560,15 @@ let the_roof_caps_what_an_opening_shows () =
   is "nothing" (Sight.look (rooms ~ceiling:low ~door:glazed ()) looking);
   is "nothing" (Sight.look (rooms ~ceiling:low ()) looking)
 
-(* One doorway by default, because that is what the design asks for. Asking for
-   none is asking about the room you are standing in. *)
+(* As far as the frame was drawn, by default — {!Config.max_portal_depth}, which
+   is pinned against the picture itself over a chain of rooms in test_renderer.
+   Here it is the other end of [through] that is under test: a game may ask for
+   a shorter ray than that, and none at all is asking about the room you are
+   standing in. *)
 let it_looks_as_far_as_it_is_told_to () =
   let world = rooms ~far:[ figure (Vec.make 2. 2.) ] () in
   is "sprite 0 of room 1" (Sight.look world (looking_east ()));
+  is "sprite 0 of room 1" (Sight.look ~through:1 world (looking_east ()));
   is "doorway 0 of room 0" (Sight.look ~through:0 world (looking_east ()))
 
 (* Asked twice, it answers the same. Nothing here consumes anything: collecting
@@ -657,6 +673,80 @@ let a_decal_on_a_see_through_wall_is_picked () =
     | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
     | _ -> None)
 
+(* Which half of a mark the crosshair is on, which is a question about the
+   viewer and not about the wall. [along] runs from a wall's [a] to its [b], and
+   that walk goes left to right for someone standing at its Front and right to
+   left for someone at its Back, so {!Room.decal_column} turns the far face's
+   column round. This is that mirror arriving here: aim to the right of a mark's
+   middle and what answers is the right of the picture, whichever side of the
+   wall you walked to.
+
+   The mark is cut away on its left half and solid on its right, so "is it
+   picked" {e is} "which half is the crosshair on" — a decal is only found where
+   its picture is not clear. Both faces are asked, because the claim is not that
+   the two agree with each other but that both agree with the picture as it was
+   authored.
+
+   A free-standing wall rather than a room boundary, because both of its faces
+   have to be walked to. Opaque, so the ray stops at it however the crosshair
+   falls and the answer is about the mark rather than about a hole. *)
+let handed =
+  Image.make ~width:8 (fun ~u ~v:_ ->
+      if u < 4 then Image.clear else (Color.rgb 0 240 120, 255))
+
+let a_mark_is_picked_the_way_it_was_authored_on_either_face () =
+  (* From (4, 2) to (4, 6), so [perp] points at -x and the Front is the side
+     x = 2 is on. The mark is centred at [along = 2], which is y = 4. *)
+  let world facing =
+    let partition =
+      Room.wall ~height:3. ~material:dim (Vec.make 4. 2.) (Vec.make 4. 6.)
+        ~decals:
+          [
+            Room.decal ~facing ~along:2. ~z:Config.eye_height ~half_width:0.5
+              ~half_height:0.6 handed;
+          ]
+    in
+    World.make
+      ~rooms:
+        [
+          ( "only",
+            Room.make ~floor:flat_floor ~ceiling:flat_ceiling
+              (partition
+              :: Room.rectangle ~height:3. ~material:pale (Vec.make 0. 0.)
+                   (Vec.make 8. 8.)) );
+        ]
+      ~links:[] ~atmosphere:air
+      ~spawn:("only", Vec.make 2. 4.)
+  in
+  let marked world player =
+    match Sight.look world player with
+    | Some { Sight.kind = Sight.Wall w; _ } -> w.decal <> None
+    | other -> Alcotest.failf "expected a wall, got %s" (describe other)
+  in
+  (* Standing at the Front the camera looks east, so screen-right is +y;
+     standing at the Back it looks west, and screen-right is -y. Each pair is
+     the same question — the crosshair a quarter cell to one side of the mark's
+     middle — asked from the two sides of the wall. *)
+  List.iter
+    (fun (name, facing, x, angle, sign) ->
+      let world = world facing in
+      let at offset =
+        marked world
+          (Player.make ~room:0 ~pos:(Vec.make x (4. +. offset)) ~angle)
+      in
+      Alcotest.(check bool)
+        (name ^ ": the solid right of the picture is on the viewer's right")
+        true
+        (at (sign *. 0.25));
+      Alcotest.(check bool)
+        (name ^ ": and the clear left of it on the viewer's left")
+        false
+        (at (sign *. -0.25)))
+    [
+      ("from the front", Room.Front, 2., 0., 1.);
+      ("from behind", Room.Back, 6., Float.pi, -1.);
+    ]
+
 (* The whole of dynamic decals in one test: what a wall hit reports is exactly
    what a decal is placed in.
 
@@ -722,7 +812,7 @@ let a_target_can_be_found_on_the_screen () =
           ~width:640 ~height:400
       in
       let sprite = Room.sprite_at (World.room world room) s.index in
-      let left, top, right, bottom =
+      let { Viewport.left; top; right; bottom } =
         Viewport.sprite_box viewport pose
           ~floor_z:(Plane.elevation flat_floor.Room.plane sprite.Room.pos)
           ~distance sprite
@@ -788,6 +878,8 @@ let () =
           case "a decal on a wall is named" a_decal_on_a_wall_is_named;
           case "a decal on a see-through wall is picked"
             a_decal_on_a_see_through_wall_is_picked;
+          case "a mark is picked the way it was authored on either face"
+            a_mark_is_picked_the_way_it_was_authored_on_either_face;
           case "a wall can be marked where the crosshair is"
             a_wall_can_be_marked_where_the_crosshair_is;
           case "a target can be found on the screen"

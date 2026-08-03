@@ -12,7 +12,11 @@
     entry in {!demos} below — which also enrols it in [test_demos] — a row in
     README.md's table, and a line on [doc/demo/index.mld]. *)
 
-open Camlcast
+(* Not `open Camlcast`: this file names every demo module, and one of them is
+   called Overlay — as is the module in camlcast that turns a described HUD into
+   pixels. Qualifying the two things wanted from it is cheaper than renaming a
+   demo after a collision nobody outside this file will ever have. *)
+open Camlcast_core
 
 type t = {
   name : string;  (** what you type after [camlcast-demo] *)
@@ -23,10 +27,10 @@ type t = {
           Behind a [lazy] because [loading] builds its world out of files, which
           can fail. Eager, one missing picture would stop [--list] from listing
           anything; deferred, it stops only the demo that needed it. *)
-  run : Engine.window -> (Engine.ending, [ `Msg of string ]) result;
+  run : Camlcast.Run.window -> (Camlcast.Run.ending, [ `Msg of string ]) result;
       (** plays it on the launcher's window, and says how the player left it —
           {!Menu} shows itself again on that same window after a demo that was
-          [Left], and stops after one that was [Closed] *)
+          [Returned], and stops after one that was [Closed] *)
 }
 
 let demos =
@@ -129,7 +133,7 @@ let demos =
     };
     {
       name = "phases";
-      blurb = "Engine.run: a phase, a clock, and a light going out";
+      blurb = "a component with a phase, a clock, and a light going out";
       world = lazy Phases.world;
       run = Phases.run;
     };
@@ -174,20 +178,25 @@ let find name = List.find_opt (fun demo -> demo.name = name) demos
     [`Msg] channel the launcher answers on.
 
     A world read off the disk is forced inside {!t.run} — deep in a frame, where
-    a result would have nowhere to go — so {!Loading} and {!Typeface} [failwith]
-    instead, and {!Camlcast.Result_ext.with_resource} deliberately lets an
-    exception through rather than making an [Error] of it. Between the two the
-    launcher had nothing to say: a missing picture printed OCaml's own
-    fatal-error banner and stopped with its exit code, past the [camlcast-demo:]
-    prefix every other failure wears and past the code that goes with it. This
-    is where the raising side ends and the reporting side starts, and it takes a
-    thunk rather than wrapping {!t.run} so that the seam can be tested without a
-    window.
+    a result would have nowhere to go — so {!Loading}, {!Typeface} and {!Text}
+    raise {!Reading.Unreadable} instead, and
+    {!Camlcast_core.Result_ext.with_resource} deliberately lets an exception
+    through rather than making an [Error] of it. Between the two the launcher
+    had nothing to say: a missing picture printed OCaml's own fatal-error banner
+    and stopped with its exit code, past the [camlcast-demo:] prefix every other
+    failure wears and past the code that goes with it. This is where the raising
+    side ends and the reporting side starts, and it takes a thunk rather than
+    wrapping {!t.run} so that the seam can be tested without a window.
 
-    Only [Failure] is caught, which is what those loaders raise.
-    [Invalid_argument] is the other kind of mistake — a world that does not join
-    up, a font atlas the wrong shape — and stopping with it named is the honest
-    report of one. The cost of drawing the line there is that [Failure] is not
-    only ours: a [List.nth] off the end of a list would arrive here dressed as a
-    demo whose art could not be read. *)
-let attempt f = try f () with Failure message -> Error (`Msg message)
+    One exception and ours, so this catches what it meant to. It caught
+    [Failure] while the loaders raised it with [failwith], and [Failure] belongs
+    to nobody: a [List.nth] off the end of a list, anywhere inside a demo's
+    frame, arrived here dressed as a demo whose art could not be read — reported
+    calmly, under a message naming a file that was never the trouble, and with
+    the real mistake nowhere in it. It now goes out as itself.
+
+    [Invalid_argument] is still not caught, and is the other kind of mistake — a
+    world that does not join up, a font atlas the wrong shape. Stopping with one
+    of those named is the honest report of it. *)
+let attempt f =
+  try f () with Reading.Unreadable message -> Error (`Msg message)

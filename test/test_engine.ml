@@ -1,9 +1,9 @@
 (** [Engine.step] and [Engine.simulate] are the pure part of the loop: input in,
     new player out, and what an arbitrary game state becomes over a frame. The
     rest of the module owns the window and cannot run headless; the arithmetic
-    it paces itself by is {!Camlcast.Clock} and is tested there. *)
+    it paces itself by is {!Camlcast_core.Clock} and is tested there. *)
 
-open Camlcast
+open Camlcast_core
 open Support
 
 let player () = Player.make ~room:0 ~pos:centre ~angle:0.
@@ -225,6 +225,37 @@ let extend_runs_once_a_frame_however_many_it_crossed () =
     (Engine.grow ~extend loop start { Input.still with Input.forward = 0.5 });
   Alcotest.(check int) "a frame that crossed nothing asks nothing" 0 !calls
 
+(* {!Engine.run}'s [result] covers the frame and not the game, and this pins the
+   difference. A game callback that raises comes out as itself rather than as an
+   [`Msg], because a game's own mistake is the other kind — the one the engine
+   would be flattening into a condition, and losing the backtrace over.
+
+   Asked of {!Engine.simulate} because [run] needs a window and simulate does
+   not, and it is [update]'s only caller in either: the loop reads the same
+   record, so what passes through here is what passes through a frame. *)
+exception The_games_own of string
+
+let a_games_own_exception_comes_out_as_itself () =
+  let raising =
+    Engine.game
+      ~update:(fun _ ~dt:_ ~motion:_ ~actions:_ ->
+        raise (The_games_own "from update"))
+      ~view:(fun _ -> (world, player ()))
+      ()
+  in
+  let frame focused () =
+    ignore
+      (Engine.simulate raising () ~focused ~pointing:false ~dt:0.016
+         ~motion:Input.still ~actions:Input.untouched)
+  in
+  Alcotest.check_raises "not wrapped, not swallowed"
+    (The_games_own "from update") (frame true);
+  (* And an unfocused frame runs [update] too — it passes a [dt] of zero rather
+     than skipping the call — so there is no half of the loop where a game's
+     exception would be quietly missed instead. *)
+  Alcotest.check_raises "and the same on a paused frame"
+    (The_games_own "from update") (frame false)
+
 let () =
   Alcotest.run "Engine"
     [
@@ -247,6 +278,8 @@ let () =
           case "losing focus pauses the game" losing_focus_pauses_the_game;
           case "pointing takes the mouse but not the clock"
             pointing_takes_the_mouse_but_not_the_clock;
+          case "a game's own exception comes out as itself"
+            a_games_own_exception_comes_out_as_itself;
         ] );
       ( "growing",
         [

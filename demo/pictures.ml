@@ -1,13 +1,13 @@
 (** The showcase level's pictures: two decals to hang on walls, two sprites to
     stand in the world, and a strip of frames for one that drifts.
 
-    Unlike a {!Camlcast.Texture}, which is square and tiles a world cell because
-    it is part of a surface, an {!Camlcast.Image} is drawn once at whatever
-    shape it was authored in. The decals are opaque within their frame; the
-    sprites are cut out against {!Camlcast.Image.clear} so only the object
-    itself is drawn. *)
+    Unlike a {!Camlcast_core.Texture}, which is square and tiles a world cell
+    because it is part of a surface, an {!Camlcast_core.Image} is drawn once at
+    whatever shape it was authored in. The decals are opaque within their frame;
+    the sprites are cut out against {!Camlcast_core.Image.clear} so only the
+    object itself is drawn. *)
 
-open Camlcast
+open Camlcast_core
 
 (** {1 Decals} *)
 
@@ -58,8 +58,8 @@ let mote_height = 48
     swinging up and down out of step with one another.
 
     The only picture here that is not square, and deliberately. A sprite is as
-    wide as its own image says — {!Camlcast.Room.sprite_half_width} — so this
-    one is drawn as a wide, thin drift rather than stretched across a box.
+    wide as its own image says — {!Camlcast_core.Room.sprite_half_width} — so
+    this one is drawn as a wide, thin drift rather than stretched across a box.
 
     Where each speck sits comes from its index and nothing else, so the same
     cloud comes back every run: there is no RNG to seed and no state to carry,
@@ -111,10 +111,10 @@ let mote ~frame =
 
 (** Every frame of it, built once when this module is loaded.
 
-    This is what {!Camlcast.Room.with_sprites} means by precomputed: all twelve
-    pictures exist before the first frame is drawn, and animating the cloud is
-    choosing one of them by index. Nothing generates an image while the world is
-    being rendered — see {!Floating}, which does the choosing. *)
+    This is what {!Camlcast_core.Room.with_sprites} means by precomputed: all
+    twelve pictures exist before the first frame is drawn, and animating the
+    cloud is choosing one of them by index. Nothing generates an image while the
+    world is being rendered — see {!Floating}, which does the choosing. *)
 let motes = Array.init mote_frames (fun frame -> mote ~frame)
 
 (** A standing figure: a head, a shirted torso with arms, and legs. *)
