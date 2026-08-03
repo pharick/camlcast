@@ -5,9 +5,9 @@
    the world the old API builds by hand — which is the strongest thing available
    until there are pixels to compare, and stronger than reading the code twice.
 
-   The reference is examples/room.ml, quoted in the README and compiled with the
-   tree. If the declarative version of it stops agreeing with it, one of the two
-   has moved. *)
+   The reference is the one-room world the core API builds by hand, restated inline
+   below and built with the tree. If the declarative version stops agreeing with it,
+   one of the two has moved. *)
 
 (* {1 Comparing two worlds}
 
@@ -111,7 +111,7 @@ let same_world expected actual =
     done
   done
 
-(* {1 The reference: examples/room.ml, said twice} *)
+(* {1 The reference: the guide's one room, said twice} *)
 
 let checker ~color ~u ~v =
   Color.level color (if ((u / 16) + (v / 16)) land 1 = 0 then 240 else 170)
@@ -155,7 +155,7 @@ let described =
 
 let the_smallest_game =
   [
-    case "a described room is the room examples/room.ml builds" (fun () ->
+    case "a described room is the room the platform builds" (fun () ->
         same_world built (Mount.build described).Scene.world);
     case "describing it twice into one mount changes nothing" (fun () ->
         let mount = Mount.create () in

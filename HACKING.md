@@ -43,25 +43,21 @@ rather than quietly reflowing the tree.
 
 ## The examples
 
-`examples/` holds the complete programs the guides quote. They compile with the
-default build and belong to no package, so `dune build` fails the moment the
-engine moves under them — which is the point: a snippet on a page cannot rot
-while the program it is quoted from still builds. Changing one means changing
-the page that quotes it, and the other way round.
+`examples/` holds one complete program per step of the making-a-game guide,
+`step01_room.ml` through `step26_shipping.ml` — each the whole game as that
+step leaves it, the guide quoting only what each step adds. They compile with
+the default build and belong to no package, so `dune build` fails the moment
+the engine moves under them — which is the point: a snippet on a page cannot
+rot while the program it is quoted from still builds. Changing one means
+changing the page that quotes it, and the other way round; a step's number
+lives in exactly three synced places — filename, header comment, guide heading.
 
-They come in pairs on purpose:
-
-| against the layer | against the platform | what it shows |
-| --- | --- | --- |
-| `described_room.ml` | `room.ml` | one room. `test_stage` renders both and compares every pixel |
-| `described_fuse.ml` | `game.ml` | a small game with a phase and a clock |
-| | `doorways.ml`, `rebind.ml` | two rooms; rebinding, on the older API |
-
-`described_room.ml` is what README.md quotes and step 1 of the guide.
-`described_fuse.ml` beside `game.ml` is the shortest account of what the layer
-is for: there, one record holds a phase, a clock and a player advanced by one
-`update`; here the phase and the clock belong to the component that uses them
-and the player belongs to the runtime.
+`step01_room.ml` is what README.md quotes, and `step23_controls.ml` is its
+rebinding snippet. Two steps read from `assets/` (`step13_words.ml` onward for
+the font, `step26_shipping.ml` for pictures), which is one more reason the
+default build copies `assets/` into `_build`. `step22_check.ml` proves the
+level without a window — `dune exec examples/step22_check.exe -- --check` — and
+is the guide's worked example of `Check` and `Mount`.
 
 ## The docs and the site
 
@@ -155,10 +151,10 @@ a key goes down on still shows what was selected before it.
 | `controls` | binding controls | `Run.play ~controls` |
 | `showcase` | all of the above at once | all of the above |
 
-What the layer is still compared against is not a demo but `examples/room.ml`,
-the hand-built world the README quotes: `test_stage` renders that and its
-described twin and compares every pixel. A reference has to be something that
-was not rewritten, and that one was not.
+What the layer is still compared against is not a demo but the guide's one
+room, hand-built against the platform and restated inline in `test_stage.ml`,
+which renders it beside its described twin and compares every pixel. A
+reference has to be something that was not rewritten, and that one was not.
 
 ## Benchmarks
 

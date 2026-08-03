@@ -1,20 +1,46 @@
-; Complete programs from the guides, compiled with everything else so the
-; pages that quote them cannot drift from the engine: room.ml is step 1 of
-; making-a-game (and README.md's example), doorways.ml is step 5, game.ml is
-; step 12 and rebind.ml is step 13. Attached to no package, so nothing
-; installs them and the -p builds opam runs never see them.
+; One complete program per step of doc/making-a-game.mld: stepNN_<slug>.ml is
+; the whole game as the guide leaves it at step NN. The guide quotes only what
+; each step adds, so these are the drift-guard: they compile with the default
+; build, and the moment the engine moves under them `dune build` says so.
+; step01_room.ml is also the program README.md quotes, and step23_controls.ml
+; its rebinding snippet. The font and the pictures some steps read (step13
+; onwards, step26) come from assets/, which `dune build` copies beside them in
+; _build — run it once before `dune exec`.
+;
+; All three libraries, not just camlcast: implicit_transitive_deps is off
+; repo-wide, so a stanza names what its modules' interfaces reach. A game in
+; its own repository writes (libraries camlcast) and nothing else — the flag
+; is this repository's discipline, not the engine's demand.
+;
+; Attached to no package, so nothing installs them and the -p builds opam runs
+; never see them.
 
 (executables
- (names room doorways game rebind)
- (modules room doorways game rebind)
- (libraries camlcast_core))
-
-; The declarative layer's own, kept beside its counterpart on purpose:
-; described_room.ml is room.ml said the other way, and test_stage renders the
-; two and compares every pixel. A stanza of its own because it is the only one
-; here that needs camlcast.stage.
-
-(executables
- (names described_room described_fuse)
- (modules described_room described_fuse)
+ (names
+  step01_room
+  step02_masonry
+  step03_pillars
+  step04_air
+  step05_dressing
+  step06_antechamber
+  step07_component
+  step08_state
+  step09_gaze
+  step10_burning
+  step11_wisp
+  step12_hud
+  step13_words
+  step14_prompt
+  step15_gate
+  step16_winch
+  step17_crossings
+  step18_effect
+  step19_embers
+  step20_store
+  step21_context
+  step22_check
+  step23_controls
+  step24_escape
+  step25_launcher
+  step26_shipping)
  (libraries camlcast_core camlcast camlcast_loom))
