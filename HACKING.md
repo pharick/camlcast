@@ -24,10 +24,13 @@ will not. On macOS add `--no-depexts` to the install line: Homebrew ships
 `sdl2-compat` under the name `sdl2`, which opam's dependency check cannot see,
 so you install the libraries yourself and tell opam to stop looking.
 
-The engine's floor is OCaml 5.1 — for `Array.find_index`, which `World` uses
-to resolve a room's name to its index — and CI builds and tests at 5.1 as well
-as at the version development happens on, so the bound in `dune-project` is
-checked rather than merely asserted.
+The engine's floor is OCaml 5.2 — for `-H`, the hidden include that makes
+`(implicit_transitive_deps false)` mean what it says rather than drop the
+directories it means to hide. The code asks for less: `Array.find_index`, which
+`World` uses to resolve a room's name to its index, arrived in 5.1 and is the
+newest thing in the tree. CI builds and tests at the floor as well as at the
+version development happens on, so the bound in `dune-project` is checked rather
+than merely asserted.
 
 ## Formatting
 
@@ -217,7 +220,7 @@ Three workflows:
 
 - **CI** (`ci.yml`) — every push to `main` and every pull request: build and
   test on the development compiler, `dune build @fmt`, `dune build @doc`, and a
-  separate job that builds and tests at OCaml 5.1, the floor. On pushes to
+  separate job that builds and tests at OCaml 5.2, the floor. On pushes to
   `main` the built site deploys to GitHub Pages.
 - **Platforms** (`platforms.yml`) — on demand: build and test on macOS (both
   architectures) and Windows.

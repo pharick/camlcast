@@ -3,7 +3,7 @@
 [![CI](https://github.com/pharick/camlcast/actions/workflows/ci.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/ci.yml)
 [![Release](https://github.com/pharick/camlcast/actions/workflows/release.yml/badge.svg)](https://github.com/pharick/camlcast/actions/workflows/release.yml)
 [![Docs](https://img.shields.io/badge/docs-pharick.github.io%2Fcamlcast-blue)](https://pharick.github.io/camlcast/)
-[![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.1-ec6813)](https://ocaml.org)
+[![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.2-ec6813)](https://ocaml.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ![A walk through the showcase level: out of the twelve-sided plaza under an open sky, into a hall whose roof climbs away from its floor, through a door into a cellar with dust turning in it, back across the plaza and into a garden under a later sky, with a grille gate pulled down behind](doc/images/tour.gif)
