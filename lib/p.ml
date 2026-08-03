@@ -84,8 +84,11 @@ let opening ~width a b =
      that was actually called. Without them the division below is a nan, and a
      nan travels: it comes back as a transform that will not invert or a doorway
      whose ends meet nothing, a long way from the pair of points that was
-     wrong. Negated, so a nan argument is refused with the degenerate ones. *)
-  if not (Float.is_finite span && span > 0.) then
+     wrong. Negated, so a nan argument is refused with the degenerate ones —
+     and measured as {!Room.doorway} measures it, {!Vec.normalizable} rather
+     than merely positive, so a span only a subnormal long is refused here, in
+     these words, and not by some construction later in the geometry's. *)
+  if not (Vec.normalizable span) then
     invalid_arg "P.opening: no wall to cut an opening into";
   if not (Float.is_finite width && width > 0.) then
     invalid_arg "P.opening: an opening has to have a width";

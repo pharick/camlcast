@@ -481,14 +481,35 @@ let path ?(closed = false) ~height ~material points =
     (Int.max 0 (last + 1))
     (fun i -> wall ~height ~material arr.(i) arr.((i + 1) mod n))
 
-(* Guarded by the caller, not here: {!doorway} and {!P.opening} each refuse the
+(* Guarded by the caller, not here — bar the one refusal at the bottom that
+   only the arithmetic can make: {!doorway} and {!P.opening} each refuse the
    degenerate cases in their own words, and this is the arithmetic they share
-   once those have passed. Same shape as {!Extent.fits}. *)
+   once those have passed. Same shape as {!Extent.fits}.
+
+   Halved and then divided, not divided by the doubled span: the doubling is
+   the one step here that could overflow, and past it the fraction came out 0
+   and the cut a full-span threshold nobody asked for — silently, where every
+   other wrong cut is refused out loud. Two divisions round once, exactly as
+   the one did — the halving is exact — so nothing else moves; at
+   [width = span] the numerator is exactly zero either way, and a full-width
+   doorway still cancels exactly. *)
 let cut_points ~width a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
-  let inset = Vec.scale edge ((span -. width) /. (2. *. span)) in
-  (Vec.add a inset, Vec.sub b inset)
+  let inset = Vec.scale edge ((span -. width) /. 2. /. span) in
+  let p = Vec.add a inset and q = Vec.sub b inset in
+  (* The refusal only the arithmetic can make. A width fine enough beside its
+     span — parts in 1e17, rounding noise rather than a size — moves each end
+     by half the span, and the two roundings can land [q] short of [p]: a
+     threshold wound backwards, the one violation every link's winding rule
+     exists to rule out, built silently. Neither caller can see it coming
+     without redoing the sum, so it is refused where the sum is; so is a cut
+     too fine for {!val-wall}'s own guard, under the same words, since both
+     are the same complaint about the same scale. *)
+  let cut = Vec.sub q p in
+  if Vec.dot cut edge < 0. || not (Vec.normalizable (Vec.length cut)) then
+    invalid_arg "Room.cut_points: the width is too fine to cut at this scale";
+  (p, q)
 
 let doorway ~name ?door ~width ~opening ~height ~material a b =
   let edge = Vec.sub b a in
@@ -511,10 +532,14 @@ let doorway ~name ?door ~width ~opening ~height ~material a b =
     invalid_arg ("Room.doorway: the opening has to fit under the wall: " ^ name);
   let p, q = cut_points ~width a b in
   (* A doorway exactly as wide as its wall is allowed above, and leaves no jamb
-     at either end. Those ends are dropped rather than built, because a wall of
-     no length is the one thing {!wall} refuses. *)
+     at either end. Those ends are dropped rather than built whenever {!wall}
+     would refuse them — no length, or a length too fine to normalize, which a
+     cut a few ulps short of the whole span leaves behind at the bottom of the
+     float range. Nothing is lost in the dropping: a jamb that thin was never
+     going to stop a ray or a step. *)
   let jamb (x, y) =
-    if Vec.length (Vec.sub y x) > 0. then Some (wall ~height ~material x y)
+    if Vec.normalizable (Vec.length (Vec.sub y x)) then
+      Some (wall ~height ~material x y)
     else None
   in
   ( List.filter_map jamb [ (a, p); (q, b) ],

@@ -685,6 +685,50 @@ let a_full_width_doorway_cancels_exactly () =
       (Vec.make (-0.3) 0.9, Vec.make 0.45 (-1.1));
     ]
 
+(* The cut arithmetic at the ends of the float range, where the mistakes it
+   could make are silent ones: a doubled span that overflowed read back as a
+   full-span threshold whatever width was asked; a width so far under its span
+   that the two insets round past each other and the threshold comes out wound
+   backwards; a jamb too fine for [wall]'s own guard, raised under a name the
+   caller never wrote. None of these scales can be authored, which is exactly
+   why they must refuse or degrade out loud rather than lie. *)
+let a_cut_too_fine_for_its_scale_is_refused () =
+  let refused =
+    Invalid_argument "Room.cut_points: the width is too fine to cut at this \
+                      scale"
+  in
+  let cut ~width a b () =
+    ignore
+      (Room.doorway ~name:"fine" ~width ~opening:2. ~height:3. ~material:pale a
+         b)
+  in
+  (* On these coordinates the two roundings land the cut points crossed:
+     refused, rather than built wound backwards. *)
+  let a = Vec.make 0.1 0.2 and b = Vec.make 0.7 1.3 in
+  let span = Vec.length (Vec.sub b a) in
+  Alcotest.check_raises "a width of rounding noise" refused
+    (cut ~width:(1e-18 *. span) a b);
+  (* At a span whose double overflows, the inset used to collapse to zero and
+     the asked width to be quietly ignored; measured overflow-free, it is half
+     the span, the cut a point, and the point refused. *)
+  Alcotest.check_raises "a span whose double overflows" refused
+    (cut ~width:1. (Vec.make 0. 0.) (Vec.make 1e308 0.))
+
+let a_jamb_too_fine_to_be_a_wall_is_dropped () =
+  let a = Vec.make 0. 0. and b = Vec.make 1e-304 0. in
+  let span = Vec.length (Vec.sub b a) in
+  let jambs, t =
+    Room.doorway ~name:"sliver" ~width:(span *. (1. -. 1e-4)) ~opening:2.
+      ~height:3. ~material:pale a b
+  in
+  (* Each end is ~5e-309 long: longer than nothing, and too fine for [wall],
+     so building it raised out of a function the caller never named. Dropped,
+     it costs nothing — a jamb that thin never stopped a ray or a step. *)
+  Alcotest.(check int) "no jamb survives" 0 (List.length jambs);
+  Alcotest.(check bool)
+    "and the opening itself still stands" true
+    (Vec.normalizable t.Room.length)
+
 (* And a doorway narrower than its wall still lands centred on awkward
    coordinates: two jambs, and the three pieces adding back up to the wall. *)
 let a_partial_doorway_still_splits_evenly () =
@@ -1380,6 +1424,10 @@ let () =
             a_full_width_doorway_cancels_exactly;
           case "a partial doorway still splits evenly"
             a_partial_doorway_still_splits_evenly;
+          case "a cut too fine for its scale is refused"
+            a_cut_too_fine_for_its_scale_is_refused;
+          case "a jamb too fine to be a wall is dropped"
+            a_jamb_too_fine_to_be_a_wall_is_dropped;
           case "a doorway as wide as its wall leaves no jamb"
             a_doorway_as_wide_as_its_wall_leaves_no_jamb;
           case "a doorway can hang a door" a_doorway_can_hang_a_door;
