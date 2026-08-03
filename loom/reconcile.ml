@@ -386,11 +386,20 @@ module Make (H : Host.HOST) = struct
        has nothing to walk: {!Hook.Runtime.on_unmount} reads a cleanup out of its cell
        without clearing it, and a row walked twice would owe it twice. *)
     root.tree <- None;
-    Hook.Runtime.flush root.pending;
-    (* A frame asked for before this, by a tree that is now gone. Nothing can
-       ask for one after it: the flush above put every row out of the tree, and
-       a setter on a row that has left says nothing to the root — which is what
-       keeps this [false] from being set back to [true] by a timer that outlived
-       the mount and left {!dirty} answering yes with nothing left to render. *)
-    root.dirty <- false
+    (* A frame asked for before this, by a tree that is now gone — or during
+       the flush, by a cleanup calling a setter on a row later in the queue
+       than its own. Nothing can ask for one after: the flush puts every row
+       out of the tree, and a setter on a row that has left says nothing to
+       the root — which is what keeps this [false] from being set back to
+       [true] by a timer that outlived the mount and left {!dirty} answering
+       yes with nothing left to render.
+
+       Cleared in a [finally] rather than on the line after, because the flush
+       re-raises the first thing a cleanup raised, and a root that kept its
+       flag on that path would keep it for good: every row silenced, nothing
+       left able to clear it, and {!dirty} answering yes forever about a root
+       that no longer renders. *)
+    Fun.protect
+      ~finally:(fun () -> root.dirty <- false)
+      (fun () -> Hook.Runtime.flush root.pending)
 end

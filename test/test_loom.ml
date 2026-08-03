@@ -796,6 +796,25 @@ let destroying =
           Alcotest.(list string)
           "and everything either side of it was still given back"
           [ "out a"; "out c" ] (read ()));
+    case "and does not leave a torn-down root asking for a frame" (fun () ->
+        (* The flush re-raises what a cleanup raised, and clearing [dirty] on
+           the line after would be skipped on that path — a root stuck
+           answering yes with every row silenced and nothing left to render. *)
+        let root = R.create () in
+        let ask = ref (fun () -> ()) in
+        let keeper =
+          Element.declare ~name:"keeper" @@ fun () ->
+          let _, set = Hook.use_state 0 in
+          ask := (fun () -> set 1);
+          Element.prim "kept"
+        in
+        ignore (run root (room [ keeper (); brittle () ]));
+        !ask ();
+        Alcotest.(check bool) "a frame was asked for" true (R.dirty root);
+        Alcotest.check_raises "the teardown still reports the raise" Broken
+          (fun () -> R.destroy root);
+        Alcotest.(check bool)
+          "and the root is quiet, not stuck" false (R.dirty root));
   ]
 
 (* Assembling is the last thing that can refuse a frame, and it happens after
