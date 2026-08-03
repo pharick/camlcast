@@ -442,7 +442,10 @@ val highlight : ?color:Color.t -> unit -> t
 
     A sprite is ringed by a rectangle and a picture on a wall by the trapezoid
     its four corners project to, because a wall recedes. Nothing is drawn when
-    the crosshair is on a bare wall, a doorway or nothing at all.
+    the crosshair is on a bare wall, a doorway or nothing at all — nor on a
+    frame the crosshair is not the player's, under {!cursor} or a placed
+    {!camera}, which is {!Run.aiming}'s answer read here as well as by the
+    handlers.
 
     The maths needs the viewport the frame is drawn with, which a description is
     written before there is — so this asks for it and {!Aim.ring} does it. *)

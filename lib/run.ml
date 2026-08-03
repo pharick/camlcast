@@ -174,8 +174,15 @@ let on window ?(controls = Controls.default) description =
   let pointing state = state.scene.Scene.pointing in
   let overlay buffer state =
     viewport := (buffer.Framebuffer.width, buffer.Framebuffer.height);
+    (* The ring is the telling half of the crosshair drawn, so it reads the
+       same answer the dispatch above reads: a frame under a cursor or a
+       placed camera highlights nothing, exactly as it tells nothing — the
+       door behind a pause menu is neither worked nor ringed. Withheld here
+       rather than inside {!Overlay.draw}, which has no scene to ask. *)
     Overlay.draw
-      ~aim:(state.scene.Scene.world, state.player)
+      ?aim:
+        (if aiming state.scene then Some (state.scene.Scene.world, state.player)
+         else None)
       buffer state.scene.Scene.hud;
     (* Over the game's own layer, because it is a thing you turn on to look
        under what is there rather than a thing the game drew. *)

@@ -116,7 +116,9 @@ val aiming : Scene.t -> bool
     reports what the crosshair is on, because a description that took the camera
     may well want to know what is in front of it. And whatever held the
     crosshair when the menu went up is told it has lost it, so nothing is left
-    highlighted behind a description that has taken the screen.
+    highlighted behind a description that has taken the screen. {!P.highlight}
+    is part of the telling: its ring is withheld on the same frames, so the door
+    behind a pause menu is neither worked nor ringed.
 
     Exposed for the same reason {!carry} and {!crossings_of} are. *)
 
