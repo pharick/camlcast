@@ -186,7 +186,8 @@ let () =
       ( "a game played out",
         [
           case "the fuse burns down and the light goes with it" (fun () ->
-              (* The guide's burning-brazier game (examples/step10_burning.ml), driven. The point is not the
+              (* A simplified version of the guide's burning-brazier game
+                 (examples/step10_burning.ml), driven. The point is not the
                  arithmetic — it is that a component holds a clock, nothing
                  above it knows, and a test can play the whole thing through
                  without opening anything. *)
