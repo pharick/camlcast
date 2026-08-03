@@ -956,10 +956,10 @@ val cut_points : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
     function the caller actually named, in its own words, and this is what is
     left once they have passed. [span] must be positive.
 
-    One cut is refused here rather than by a caller, because only the
-    arithmetic can see it: a [width] so far under its span — parts in [1e17],
-    rounding noise rather than a size — that the two insets round past each
-    other and the opening would come back wound backwards, or too short for
+    One cut is refused here rather than by a caller, because only the arithmetic
+    can see it: a [width] so far under its span — parts in [1e17], rounding
+    noise rather than a size — that the two insets round past each other and the
+    opening would come back wound backwards, or too short for
     {!Vec.normalizable}. Every width a level could mean is far above it.
 
     @raise Invalid_argument on that cut, and on no other. *)

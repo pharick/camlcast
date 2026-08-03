@@ -805,7 +805,7 @@ let destroying =
         let keeper =
           Element.declare ~name:"keeper" @@ fun () ->
           let _, set = Hook.use_state 0 in
-          ask := (fun () -> set 1);
+          (ask := fun () -> set 1);
           Element.prim "kept"
         in
         ignore (run root (room [ keeper (); brittle () ]));

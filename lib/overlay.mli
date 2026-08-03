@@ -14,8 +14,8 @@ val draw : ?aim:World.t * Player.t -> Framebuffer.t -> Prim.t list -> unit
 
     [aim] is the world and the eye this frame was drawn from, which
     {!P.highlight} needs and nothing else does. Without it a highlight draws
-    nothing, which is what a test asserting where a label landed wants — and
-    how {!Run} withholds the ring on a frame the crosshair is not the player's:
+    nothing, which is what a test asserting where a label landed wants — and how
+    {!Run} withholds the ring on a frame the crosshair is not the player's:
     under a cursor or a placed camera no [aim] arrives here, on {!Run.aiming}'s
     answer.
 

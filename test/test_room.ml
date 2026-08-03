@@ -694,8 +694,8 @@ let a_full_width_doorway_cancels_exactly () =
    why they must refuse or degrade out loud rather than lie. *)
 let a_cut_too_fine_for_its_scale_is_refused () =
   let refused =
-    Invalid_argument "Room.cut_points: the width is too fine to cut at this \
-                      scale"
+    Invalid_argument
+      "Room.cut_points: the width is too fine to cut at this scale"
   in
   let cut ~width a b () =
     ignore
@@ -718,8 +718,9 @@ let a_jamb_too_fine_to_be_a_wall_is_dropped () =
   let a = Vec.make 0. 0. and b = Vec.make 1e-304 0. in
   let span = Vec.length (Vec.sub b a) in
   let jambs, t =
-    Room.doorway ~name:"sliver" ~width:(span *. (1. -. 1e-4)) ~opening:2.
-      ~height:3. ~material:pale a b
+    Room.doorway ~name:"sliver"
+      ~width:(span *. (1. -. 1e-4))
+      ~opening:2. ~height:3. ~material:pale a b
   in
   (* Each end is ~5e-309 long: longer than nothing, and too fine for [wall],
      so building it raised out of a function the caller never named. Dropped,

@@ -63,8 +63,8 @@ let pixels path surface =
     Error
       (`Msg
          (Printf.sprintf
-            "%s: a picture of %dx%d holds more bytes than this machine can"
-            path width height))
+            "%s: a picture of %dx%d holds more bytes than this machine can" path
+            width height))
   else
     with_resource
       (fun () -> Sdl.lock_surface surface)
