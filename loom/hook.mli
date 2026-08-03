@@ -86,7 +86,17 @@
     was called instead. It matters most for the two hooks that run a game's own
     code while answering, {!use_memo}'s [compute] and either's [equal], and it
     is the same for {!Hook_order_changed}, which is a hook failing like any
-    other. *)
+    other.
+
+    Catching one is allowed the ordinary amount, and leaves the ordinary thing
+    behind: a {!use_memo} whose [compute] raised has remembered nothing, so its
+    slot is simply still empty and the next render asks again — a fallback
+    rendered around a failure is a fallback, not a corruption. The exception is
+    {!Hook_order_changed} itself. It means this render and the slot row no
+    longer agree about what comes next, so the only sound thing to do after
+    catching it is to call no further hooks: the slot it stopped at still holds
+    the other order's value, and a later hook that happened to match its kind
+    would read that value as something it never was. *)
 
 exception Hook_outside_render
 (** A hook was called with no render around it — at the top level of a module,
@@ -137,7 +147,8 @@ val use_memo : ?equal:('d -> 'd -> bool) -> deps:'d -> (unit -> 'a) -> 'a
     outside the component — that is {!use_effect}. What either raises arrives at
     this call, as "When a hook fails" above sets out; the default [equal] on
     deps that hold a closure is the way a game reaches that without having
-    written a raise at all. *)
+    written a raise at all. A [compute] that raises has computed nothing: the
+    slot stays empty, and the same call on the next render runs it again. *)
 
 val use_effect :
   ?equal:('d -> 'd -> bool) ->

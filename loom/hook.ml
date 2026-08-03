@@ -238,18 +238,32 @@ module Runtime = struct
                   Some
                     (fun (k : (a, _) Effect.Deep.continuation) ->
                       answer k @@ fun () ->
-                      let cell, fresh =
+                      (* The slot is claimed empty and filled after, where one
+                         step would read better, because [compute] is the
+                         game's own and can raise. Run inside {!claim}'s
+                         [initial], a raise left no slot behind — and a
+                         component that caught it (which {!answer} exists to
+                         allow) settled a row one slot short of its own hook
+                         calls: every render after was one hook too many, and
+                         a same-tagged neighbour one slot early could read a
+                         value that was never at its type. Claimed first, the
+                         row's shape is settled whatever [compute] does, and a
+                         slot whose compute raised is merely still empty —
+                         asked again on the next render, as any expression
+                         that failed would be. *)
+                      let cell, _ =
                         claim slots ~at ~tag:tag_memo ~initial:(fun () ->
-                            Obj.repr (deps, compute ()))
+                            Obj.repr None)
                       in
-                      if not fresh then begin
-                        let was, remembered = Obj.obj cell.value in
-                        if not (equal was deps) then
-                          cell.value <- Obj.repr (deps, compute ())
-                        else ignore remembered
-                      end;
-                      let _, value = Obj.obj cell.value in
-                      value)
+                      let remember () =
+                        let value = compute () in
+                        cell.value <- Obj.repr (Some (deps, value));
+                        value
+                      in
+                      match Obj.obj cell.value with
+                      | None -> remember ()
+                      | Some (was, remembered) ->
+                          if equal was deps then remembered else remember ())
               | Use_effect { start; deps; equal } ->
                   Some
                     (fun (k : (a, _) Effect.Deep.continuation) ->

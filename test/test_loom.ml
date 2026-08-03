@@ -529,6 +529,55 @@ let memo =
         Alcotest.(check string)
           "and so does the body, the same way" "choosy#0: no"
           (named in_the_body));
+    (* Being an ordinary expression includes being caught, and a catch on the
+       {e mount} render is the case worth pinning: the slot the compute was
+       filling has to exist afterwards, empty, or the row settles one short of
+       the component's own hook calls and every later render is one hook too
+       many. *)
+    case "a compute caught on the mount render is asked again" (fun () ->
+        let tries = ref 0 in
+        let flaky =
+          Element.declare ~name:"flaky" @@ fun () ->
+          let value =
+            try
+              string_of_int
+                (Hook.use_memo ~deps:0 (fun () ->
+                     incr tries;
+                     if !tries = 1 then raise Balked else 7))
+            with Balked -> "fallback"
+          in
+          Element.prim value
+        in
+        let root = R.create () in
+        Alcotest.check scene "the first render caught it" "fallback"
+          (scene_of root (flaky ()));
+        Alcotest.check scene "the next one computes" "7"
+          (scene_of root (flaky ()));
+        Alcotest.check scene "and the one after remembers" "7"
+          (scene_of root (flaky ()));
+        Alcotest.(check int) "asked exactly twice" 2 !tries);
+    case "and does not shift its neighbour's slot" (fun () ->
+        (* The sharper half of the same claim: with a second memo after the
+           caught one, a row settled one slot short would hand the second
+           memo's value back to the first — at the first's type. *)
+        let tries = ref 0 in
+        let pair =
+          Element.declare ~name:"pair" @@ fun () ->
+          let first =
+            try
+              Hook.use_memo ~deps:0 (fun () ->
+                  incr tries;
+                  if !tries = 1 then raise Balked else 41)
+            with Balked -> 0
+          in
+          let second = Hook.use_memo ~deps:0 (fun () -> "own") in
+          Element.prim (string_of_int first ^ "/" ^ second)
+        in
+        let root = R.create () in
+        Alcotest.check scene "caught on the mount" "0/own"
+          (scene_of root (pair ()));
+        Alcotest.check scene "each hook kept its own slot" "41/own"
+          (scene_of root (pair ())));
   ]
 
 (* Effects are the seam where a component may reach outside itself, and the
