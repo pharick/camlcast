@@ -36,7 +36,14 @@ val load : string -> (t, [ `Msg of string ]) result
 
     The error is [`Msg] carrying SDL_image's own message — a missing file and a
     file that is not a picture both arrive this way, since neither is something
-    the engine can tell apart before trying. *)
+    the engine can tell apart before trying. One more file arrives as this
+    module's own: a picture with more pixels than [rgba] can hold bytes, which
+    at four channels per pixel is a quarter of [Sys.max_string_length] — a
+    ceiling a 32-bit build meets in an ordinary texture, and one texel {e under}
+    the array ceiling {!Image.load} and {!Texture.load} check for themselves, so
+    the refusal has to be made here or their [result] types are broken from
+    underneath by [Bytes.create]. See {!Extent.fits} for the shape of the check.
+*)
 
 val sample : t -> u:int -> v:int -> Color.t * int
 (** [sample picture ~u ~v] is the colour of that pixel and how solid it is, the

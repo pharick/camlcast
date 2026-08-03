@@ -45,24 +45,42 @@ let ready () =
     done with it. The row-by-row loop is because [pitch] — the distance between
     the starts of two rows — may be larger than the row itself, so a surface's
     rows are not necessarily one contiguous block. *)
-let pixels surface =
+let pixels path surface =
   let width, height = Sdl.get_surface_size surface in
   let pitch = Sdl.get_surface_pitch surface in
-  with_resource
-    (fun () -> Sdl.lock_surface surface)
-    (fun () -> Sdl.unlock_surface surface)
-    (fun () ->
-      let raw = Sdl.get_surface_pixels surface Bigarray.int8_unsigned in
-      let row = width * 4 in
-      let rgba = Bytes.create (row * height) in
-      for y = 0 to height - 1 do
-        let src = y * pitch and dst = y * row in
-        for i = 0 to row - 1 do
-          Bytes.unsafe_set rgba (dst + i)
-            (Char.unsafe_chr (Bigarray.Array1.unsafe_get raw (src + i)))
-        done
-      done;
-      Ok { width; height; rgba })
+  (* The one refusal that has to live here, before the allocation it is about:
+     [rgba] holds four channels per pixel, so its ceiling is a quarter of
+     [Sys.max_string_length] — on a 32-bit machine one texel {e under} what a
+     [Color.t array] holds, which is why {!Image.load}'s and {!Texture.load}'s
+     own checks, sitting downstream of this function, could never be reached
+     by a decoded file there: [Bytes.create] raised first, out of a [result].
+     A file is a condition and not an authoring mistake, so a picture past the
+     ceiling comes back as an [Error] like any other file a loader refuses. *)
+  if
+    width > 0 && height > 0
+    && not (Extent.fits ~limit:(Sys.max_string_length / 4) ~width ~height)
+  then
+    Error
+      (`Msg
+         (Printf.sprintf
+            "%s: a picture of %dx%d holds more bytes than this machine can"
+            path width height))
+  else
+    with_resource
+      (fun () -> Sdl.lock_surface surface)
+      (fun () -> Sdl.unlock_surface surface)
+      (fun () ->
+        let raw = Sdl.get_surface_pixels surface Bigarray.int8_unsigned in
+        let row = width * 4 in
+        let rgba = Bytes.create (row * height) in
+        for y = 0 to height - 1 do
+          let src = y * pitch and dst = y * row in
+          for i = 0 to row - 1 do
+            Bytes.unsafe_set rgba (dst + i)
+              (Char.unsafe_chr (Bigarray.Array1.unsafe_get raw (src + i)))
+          done
+        done;
+        Ok { width; height; rgba })
 
 let load path =
   let* () = ready () in
@@ -72,7 +90,7 @@ let load path =
     (fun raw ->
       with_resource
         (fun () -> Sdl.convert_surface_format raw load_format)
-        Sdl.free_surface pixels)
+        Sdl.free_surface (pixels path))
 
 (* The byte offset of pixel [(x, y)]; its red channel, with green, blue and
     alpha in the three bytes after it. *)

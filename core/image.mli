@@ -115,9 +115,13 @@ val load : string -> (t, [ `Msg of string ]) result
     reached from here, is an [Invalid_argument] coming out of a function whose
     type says a bad file is a condition — the promise broken from the inside,
     and by the one input a caller has least control over. The second is out of
-    reach of any file a 64-bit build can decode and is an ordinary texture at 32
-    bits, where an array holds 2^22 entries and a 2048 by 2048 picture is one
-    past it; see {!Extent.fits} on why that difference is real. *)
+    reach of any file a 64-bit build can decode, and at 32 bits — where an array
+    holds 2^22 entries and a 2048 by 2048 picture is one past it — it is
+    answered a layer down: a decoded file lands in bytes, four per pixel, whose
+    ceiling undercuts the array's by one texel, so it is {!Bitmap.load} that
+    refuses such a picture, as an [Error], before the check here could see it.
+    Both checks stand, each the binding one on its own side of the word size;
+    see {!Extent.fits} on why the ceilings differ. *)
 
 val of_asset : string -> (t, [ `Msg of string ]) result
 (** {!load}, given an asset's name instead of a path: {!Asset.path} finds where
