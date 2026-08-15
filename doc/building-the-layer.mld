@@ -6,27 +6,27 @@ raycaster: rays against wall segments, a floor cast per pixel, portals drawn
 recursively into an opening. It ends with a renderer you can point at a
 {!Camlcast_core.World} and a loop you can drive one with.
 
-This page is about what sits over that. A game does not build a
-{!Camlcast_core.World}; it {e describes} one, every frame, from nothing, and
-something works out what changed. That something is about four hundred lines,
-none of it knows what a wall is, and this page rebuilds it in the order the
+This page covers what sits over that. A game does not build a
+{!Camlcast_core.World}; it {e describes} one, every frame, from nothing, and a
+runtime works out what changed. That runtime is about four hundred lines and
+contains nothing engine-specific. This page rebuilds it in the order the
 problems arrive.
 
-If you want to {e use} the layer rather than build it,
-{{!page-"making-a-game"} Making a game on CamlCast} is the page you want.
+To {e use} the layer rather than build it, read
+{{!page-"making-a-game"} Making a game on CamlCast} instead.
 
 {1 The problem, stated once}
 
 A raycaster wants a [World]: an array of rooms, each an array of walls, joined
-by portals carrying transforms. Building one is not cheap to write but it is
-cheap to run — twenty microseconds for a hundred and forty-five walls, against
-fourteen milliseconds to draw that same frame.
+by portals carrying transforms. Building one is verbose to write but cheap to
+run: twenty microseconds for a hundred and forty-five walls, against fourteen
+milliseconds to draw that same frame.
 
-A game wants something else entirely. It wants to say {e a torch is lit}, and
-have a torch that is lit. It wants a door that knows whether it is open, an
-enemy that knows where it is going, a fuse that knows how much is left — each
-of those written next to the thing it belongs to, not in one function that
-advances all of them together.
+A game wants something else. It wants to state {e a torch is lit} and get a lit
+torch. It wants a door that tracks whether it is open, an enemy that tracks
+where it is going, a fuse that tracks how much is left. Each of those should be
+written next to the thing it belongs to, not in one function that advances all
+of them together.
 
 The old shape of a game on this engine was the second thing forced into the
 first:
@@ -38,8 +38,8 @@ first:
   let view state = (* the whole world, from scratch *)
 ]}
 
-Every moving part of a world lives in one record and one function, because that
-is the only place there is to put them. There is no entity system —
+Every moving part of a world lives in one record and one function, because
+there is nowhere else to put them. There is no entity system —
 {!Camlcast_core.Room.val-sprite} is an inert record with no identity and no
 behaviour — so a torch that flickers, a door that opens and an enemy that walks
 are all branches of the same [update].
@@ -47,12 +47,12 @@ are all branches of the same [update].
 React solved this for documents, and the solution is not the virtual DOM. It is
 this: {b let the program describe what should exist, and keep the state
 somewhere the description does not have to mention.} The description is thrown
-away every frame. What survives is a tree beside it, and the whole trick is
-matching the two up.
+away every frame. A tree beside it survives, and the mechanism is matching the
+two up.
 
 {1 Phase 1 — What a description is}
 
-Start with the type. A description is a tree, and it has four shapes:
+Start with the type. A description is a tree with four shapes:
 
 {[
   type 'prim t =
@@ -68,41 +68,39 @@ Start with the type. A description is a tree, and it has four shapes:
         -> 'prim t
 ]}
 
-Three things to notice.
+Three properties matter.
 
-{b It is parameterised over ['prim].} A description does not know what a wall
-is. That is what lets the reconciler be tested against a host made of strings,
-with no renderer linked in at all — which is how the hard part of this engine is
-checked as text rather than as a picture.
+{b It is parameterised over ['prim].} A description does not reference the
+wall types. This lets the reconciler be tested against a host made of strings,
+with no renderer linked in, so the hard part of the engine is checked as text
+rather than as a picture.
 
-{b [Component] is a GADT constructor.} ['props] appears only inside it, so it is
-existentially quantified: a parent can hold children of many different prop types
-in one list, and only the component itself ever sees its own. Without this the
-type would have to be parameterised over every prop type in the tree, which is
-another way of saying it would not work.
+{b [Component] is a GADT constructor.} ['props] appears only inside it, so it
+is existentially quantified: a parent can hold children of many different prop
+types in one list, and only the component itself sees its own. Without this the
+type would have to be parameterised over every prop type in the tree.
 
 {b Nothing is called yet.} [Component] holds a function and its argument. The
-description of a subtree is built lazily, one level at a time, as something walks
-into it.
+description of a subtree is built lazily, one level at a time, as the walk
+enters it.
 
 {2 What identifies a component}
 
 Two descriptions at the same place are the same component when their [render]
-functions are {e physically the same closure}. Nothing else would do: a function
-is the only thing a component is.
+functions are {e physically the same closure}. A function is the only identity
+a component has.
 
-That has a consequence a user has to live with, and it is worth being blunt about
-it. A component built inside another render is a fresh closure every frame, is
-therefore never the same component as last frame, and is torn down and rebuilt —
-along with everything under it — sixty times a second. Its state will appear not
-to work.
+That has a consequence a user must know. A component built inside another
+render is a fresh closure every frame. It is therefore never the same component
+as last frame, and is torn down and rebuilt — along with everything under it —
+sixty times a second. Its state will appear not to work.
 
 {[
   let declare ~name render ?key props = Component { render; props; key; name }
 ]}
 
-[declare] exists to make the right thing the easy thing: the closure it captures
-is made once, when the module is initialised.
+[declare] exists to make the right thing the easy thing: the closure it
+captures is made once, when the module is initialised.
 
 {1 Phase 2 — The tree that survives}
 
@@ -118,19 +116,19 @@ Beside the description, an instance tree with the same shape:
                      name : string; slots : Hook.slots; child : instance }
 ]}
 
-Reconciling walks the two together. At each place it asks: is the thing described
-the thing already here? Same component (same closure, same key) or same primitive
-(same key) means keep the instance and walk into it. Anything else means unmount
-the old subtree deepest-first and mount the new one.
+Reconciling walks the two together. At each place it checks whether the thing
+described is the thing already here. Same component (same closure, same key) or
+same primitive (same key) means keep the instance and walk into it. Anything
+else means unmount the old subtree deepest-first and mount the new one.
 
 {2 The one [Obj] you cannot avoid, and the one you can}
 
 [render_id] is an [Obj.t]. Two components' [render] functions have different
-types whenever their props differ, so [==] cannot be applied to them directly —
-it would not typecheck. [Obj.repr] erases the type and nothing else, and physical
-equality on the result asks exactly the question meant: are these the same
-closure? Nothing is ever cast back, so nothing is assumed about what is behind
-the pointer. This is the safe kind.
+types whenever their props differ, so [==] applied to them directly would not
+typecheck. [Obj.repr] erases the type and nothing else; physical equality on
+the result asks exactly the intended question: are these the same closure?
+Nothing is ever cast back, so nothing is assumed about what is behind the
+pointer. This is the safe kind of [Obj].
 
 The unsafe kind arrives in Phase 4.
 
@@ -138,25 +136,24 @@ The unsafe kind arrives in Phase 4.
 
 Among one parent's children, a keyed description is matched to last frame's by
 its key wherever it has moved to, and an unkeyed one by its position. That is
-React's rule, for React's reason: a list of enemies that sorts itself by distance
-keeps each enemy's state only if the enemies are keyed.
+React's rule, for React's reason: a list of enemies that sorts itself by
+distance keeps each enemy's state only if the enemies are keyed.
 
-The implementation is worth one paragraph because a detail in it matters. Old
-children go into an array; keyed ones are indexed by key; claiming one empties
-its slot rather than removing it. That last part is what keeps the {e leftovers}
-— the ones nothing claimed, which are about to be unmounted — in the order they
-were declared. A hashtable walked at the end would unmount them in whatever
-order it felt like, and a trace of a frame would not read the same way twice.
+One implementation detail matters. Old children go into an array; keyed ones
+are indexed by key; claiming one empties its slot rather than removing it.
+Emptying rather than removing keeps the {e leftovers} — the children nothing
+claimed, which are about to be unmounted — in the order they were declared. A
+hashtable walked at the end would unmount them in unspecified order, and a
+trace of a frame would not read the same way twice.
 
 {2 Say what you did}
 
-Reconciling is the part of this engine that is hardest to be sure of and easiest
-to get subtly wrong: a component torn down when it should have been kept still
-looks right on screen, and only shows itself later as state that will not
-persist.
+Reconciling is the part of the engine that is hardest to verify and easiest to
+get subtly wrong. A component torn down when it should have been kept still
+looks right on screen; the bug only shows later as state that will not persist.
 
-So the reconciler says what it did — mounted, updated, unmounted, with a path —
-and the suite asserts on that:
+So the reconciler reports what it did — mounted, updated, unmounted, with a
+path — and the suite asserts on that:
 
 {v
 update   #0 : room
@@ -166,26 +163,25 @@ update   #0/torch[one]
 update   #0/torch[one]/#0 : flame
 v}
 
-That is a list of two torches written in the other order, with nothing remounted.
-It is not a claim you can check by looking at a picture.
+That is a list of two torches written in the other order, with nothing
+remounted. A picture cannot verify that claim; the trace can.
 
 {1 Phase 3 — Paths}
 
-A path is the chain of steps from the root to a node, and it is two things at
-once.
+A path is the chain of steps from the root to a node, and it serves two roles.
 
-It is an {b identity}: keyed steps by key, unkeyed steps by index, names ignored
-throughout. That is what the reconciler matches on and what everything hanging
-off an instance is found by.
+It is an {b identity}: keyed steps by key, unkeyed steps by index, names
+ignored throughout. The reconciler matches on it, and everything hanging off an
+instance is found by it.
 
-It is also a {b label}: when a level fails a check, the report has to say which
-part of a game wrote the offending geometry. [plaza / gallery_wall] is an answer
-someone can act on; [World.make: threshold linked twice: plaza.east] is not.
+It is also a {b label}: when a level fails a check, the report must say which
+part of the game wrote the offending geometry. [plaza / gallery_wall] is an
+answer someone can act on; [World.make: threshold linked twice: plaza.east] is
+not.
 
-So it prints two ways. The friendly one drops anonymous steps, because a wall
-being the fourth child of its room helps nobody. The debug one keeps them, because
-a trace has to tell two sibling walls apart. Two spellings of the same value, for
-two different readers.
+So a path prints two ways. The friendly form drops anonymous steps, because an
+unkeyed index identifies nothing a reader can act on. The debug form keeps
+them, because a trace has to tell two sibling walls apart.
 
 {1 Phase 4 — Hooks, on effect handlers}
 
@@ -193,8 +189,7 @@ A component is a function called afresh every frame, so anything it wants to
 remember has to live somewhere else. That somewhere is a row of slots on its
 instance, and a hook is a request for the next one.
 
-The interesting question is how a plain function reaches them. OCaml 5 answers
-it:
+A plain function reaches them through OCaml 5 effect handlers:
 
 {[
   type _ Effect.t +=
@@ -208,26 +203,25 @@ it:
 ]}
 
 [use_state] performs an effect. The one place a component's function is called
-installs a handler for it. That is the whole mechanism, and it is why a game
-writes
+installs a handler for it. That is the whole mechanism. It is why a game writes
 
 {[
   let lit, set_lit = Hook.use_state true in
 ]}
 
-in an ordinary function with an ordinary type, with nothing about the plumbing
-appearing in the signature. A state monad would have put it in the signature; a
+in an ordinary function with an ordinary type, with no plumbing in the
+signature. A state monad would have put the plumbing in the signature; a
 context argument would have put it in every call site.
 
 {2 The slot table, and the cast}
 
-A row of slots is heterogeneous, and OCaml has no other way to say so than
+A row of slots is heterogeneous, and OCaml has no way to express that except
 [Obj.t]. The cast back is sound exactly when the hook rule holds: the same call
 site reaches the same slot every time, so the type it stored is the type it
 reads.
 
-What makes that more than a hope is a tag on each cell. Three of the four ways to
-break the rule become an exception rather than a bad cast:
+A tag on each cell enforces most of that. Three of the four ways to break the
+rule become an exception rather than a bad cast:
 
 - a [use_ref] where a [use_state] used to be — the tags differ;
 - a render asking for more hooks than last time — the row has settled;
@@ -236,62 +230,62 @@ break the rule become an exception rather than a bad cast:
 
 The fourth gets through: a conditional swapping one [use_state] for another
 [use_state] of a {e different type} at the same index. Same kind, same slot,
-different type. That is unsound rather than merely wrong, and it is written down
-as such in {!Camlcast.Hook} rather than glossed. Do not write conditional hooks.
+different type. That is unsound rather than merely wrong, and {!Camlcast.Hook}
+documents it as unsound rather than glossing it. Do not write conditional
+hooks.
 
 {2 When a setter takes effect}
 
-React re-renders until the tree settles. This does not: a setter writes its slot,
-marks the root, and the change shows up on the next frame.
+React re-renders until the tree settles. This runtime does not: a setter writes
+its slot, marks the root, and the change shows up on the next frame.
 
-That is a trade, and worth stating as one. It costs sixteen milliseconds of
-latency at sixty frames a second, which nobody has noticed. It buys the
-impossibility of a render loop that does not converge, which is a class of bug
-this engine simply does not have. A game renders every frame anyway; a document
-does not, which is why React cannot make the same trade.
+The trade is explicit. It costs sixteen milliseconds of latency at sixty frames
+a second, which has not been noticeable in practice. It buys the impossibility
+of a render loop that does not converge, so that class of bug cannot occur. A
+game renders every frame anyway; a document does not, which is why React cannot
+make the same trade.
 
 {2 Effects run after the frame}
 
-[use_effect]'s work is queued, not run. It happens after the scene is assembled,
-with every cleanup before any setup — so a component leaving and a component
-arriving in the same frame never overlap on whatever they both hold. Unmounting
-queues its cleanups into that same flush rather than running them where it
-stands, which is what makes the ordering hold across a teardown as well as an
+[use_effect]'s work is queued, not run. It happens after the scene is
+assembled, with every cleanup before any setup, so a component leaving and a
+component arriving in the same frame never overlap on whatever they both hold.
+Unmounting queues its cleanups into that same flush rather than running them in
+place; that is what makes the ordering hold across a teardown as well as an
 update.
 
-Two things follow from queueing, and both had to be written down as functions
-before they were true.
+Two consequences follow from queueing, and both are implemented explicitly.
 
-A frame that is never assembled owes nothing. [assemble] is the last thing that
-can refuse a description — the host reads a forest it did not build and may find
-it is not a world — and until it has returned there is nothing to commit. So the
-tree is put in place after the scene comes back, not before, and a render that
-raises throws its queued work away instead of leaving it for the next frame to
-flush. Otherwise an effect belonging to a description that was rejected starts
-later, under a component that never existed.
+A frame that is never assembled runs no effects. [assemble] is the last thing
+that can refuse a description — the host reads a forest it did not build and
+may find it is not a world — and until it has returned there is nothing to
+commit. So the tree is put in place after the scene comes back, not before. A
+render that raises throws its queued work away instead of leaving it for the
+next frame to flush; otherwise an effect belonging to a rejected description
+would start later, under a component that never existed.
 
-What that does not buy is a frame nobody can tell happened. The components ran:
-a ref one of them wrote is written, a memo it recomputed is recomputed, and the
-trace has already said as much. Rolling those back would mean handing every
-component a copy of its own slots and swapping the copies in at the end — and a
-[use_ref] hands out a box by identity, so the one thing a component is most
-likely to have written is exactly the thing a copy cannot take back. The tree
-and the effects are what the runtime owns, and they are what it rolls back. The
-rest belongs to the component, and the interface says so rather than promising a
+That does not make the failed frame unobservable. The components ran: a ref one
+of them wrote is written, a memo it recomputed is recomputed, and the trace has
+already reported as much. Rolling those back would mean handing every component
+a copy of its own slots and swapping the copies in at the end. A [use_ref]
+hands out a box by identity, so the one thing a component is most likely to
+have written is exactly the thing a copy cannot take back. The tree and the
+effects are what the runtime owns, and they are what it rolls back. The rest
+belongs to the component, and the interface states that rather than promising a
 transaction it cannot keep.
 
-A root that is let go of owes everything. Every cleanup this runtime runs is
-reached through a later render that removed the component, so a root simply
-dropped — a one-shot [Mount.build], a checker's forest, a run whose window has
-closed — runs none of them at all, and whatever its effects took stays taken.
-{!Camlcast.Mount.destroy} is the missing half of [create]: it unmounts the tree
-deepest-first into the same flush, which is the same ordering seen from the end
-of a mount's life rather than the middle of one.
+A root that is simply dropped runs no cleanups at all. Every cleanup this
+runtime runs is reached through a later render that removed the component, so a
+root that is let go of — a one-shot [Mount.build], a checker's forest, a run
+whose window has closed — runs none of them, and whatever its effects took
+stays taken. {!Camlcast.Mount.destroy} is the missing half of [create]: it
+unmounts the tree deepest-first into the same flush, applying the same ordering
+at the end of a mount's life rather than the middle of one.
 
 {1 Phase 5 — Contexts, and a type witness}
 
-Some things every part of a world needs and no part wants as a prop: the air it
-is lit by, the key bindings in force, the font a label is drawn in.
+Some things every part of a world needs and no part wants as a prop: the
+atmosphere, the key bindings in force, the font a label is drawn in.
 
 {[
   type 'a t = { id : 'a Type.Id.t; default : 'a }
@@ -307,17 +301,16 @@ is lit by, the key bindings in force, the font a label is drawn in.
         | None -> find outer wanted)
 ]}
 
-This is where OCaml does better than the thing it is modelled on, and it is worth
-dwelling on for one paragraph. [Type.Id.provably_equal] returns a {e proof}, not
-a boolean. Matching on that proof is what lets [value] leave the function at the
-type [wanted] was declared with. There is no cast here — and without the witness
-the function could not be written at all.
+[Type.Id.provably_equal] returns a {e proof}, not a boolean. Matching on that
+proof is what lets [value] leave the function at the type [wanted] was declared
+with. There is no cast here; without the witness the function could not be
+written at all.
 
 The contrast with Phase 4 is the useful part. A context is a value the game
-creates explicitly, so there is somewhere to hang a witness. A hook has only its
-position in a row, and there is no per-call-site value to attach anything to.
-Where a witness can be had, it is had; where it cannot, the reason is written
-down.
+creates explicitly, so there is somewhere to hang a witness. A hook has only
+its position in a row, and there is no per-call-site value to attach anything
+to. Where a witness can be had, it is used; where it cannot, the reason is
+documented.
 
 {1 Phase 6 — The seam}
 
@@ -334,19 +327,19 @@ host is this:
   end
 ]}
 
-Two types and one function. React's host config is written the other way round —
-[createInstance], [appendChild], [removeChild] — because the DOM is a mutable
-tree that must be poked node by node. The world a raycaster draws is not: it is
-an immutable value assembled whole, and the primitives that go into it are cheap
-records. Handing over the finished forest and asking for a scene is both simpler
-and a better fit.
+Two types and one function. React's host config is written the other way round
+— [createInstance], [appendChild], [removeChild] — because the DOM is a mutable
+tree that must be mutated node by node. The world a raycaster draws is an
+immutable value assembled whole, and the primitives that go into it are cheap
+records. Handing over the finished forest and asking for a scene is both
+simpler and a better fit.
 
 It is also what makes the reconciler testable. A mock host is a dozen lines — a
 primitive is a string, a scene is an indented tree — and every decision the
-reconciler makes becomes readable text. And it pays a second time: pointing a
-second host at the same description, one that assembles {e nothing} and hands
-back the forest, is how the level checker reads a description's structure
-without building anything.
+reconciler makes becomes readable text. It pays a second time: a second host
+pointed at the same description, one that assembles {e nothing} and hands back
+the forest, is how the level checker reads a description's structure without
+building anything.
 
 {1 Phase 7 — The host for a raycaster}
 
@@ -368,10 +361,10 @@ Now the walls. A primitive is a description of one:
     | Hud | Rect of ... | Bar of ... | Text of ... | Highlight of ... | ...
 ]}
 
-A [Wall] carries its endpoints rather than an assembled {!Camlcast_core.Room.val-wall},
-because the decals hung on it arrive as its children and have to be in hand
-before [Room.wall] can be called at all. Where nothing nests, the assembled value
-is carried directly.
+A [Wall] carries its endpoints rather than an assembled
+{!Camlcast_core.Room.val-wall}, because the decals hung on it arrive as its
+children and have to be in hand before [Room.wall] can be called at all. Where
+nothing nests, the assembled value is carried directly.
 
 [assemble] folds the forest: rooms collect their walls, thresholds and sprites;
 the world collects its rooms and links; and out comes a
@@ -383,10 +376,10 @@ hand-written level always used.
 {b Winding.} A room is black from the inside if its boundary is wound the wrong
 way round. Nothing catches it, nothing wants the reversed version, and the
 symptom points nowhere near the cause. So {!Camlcast.P.boundary} measures the
-signed area of the loop it was given and winds it correctly: the same corners in
-either order build the same room. The measurement is calibrated against
-{!Camlcast_core.Room.rectangle}, which the engine documents as impossible to get
-wrong, so the definition cannot drift from what defines it.
+signed area of the loop it was given and winds it correctly: the same corners
+in either order build the same room. The measurement is calibrated against
+{!Camlcast_core.Room.rectangle}, which the engine documents as impossible to
+get wrong, so the definition cannot drift from what defines it.
 
 {b Names, not indices.} The player carries a room index across frames, and a
 description that grows a room, loses one, or writes its rooms in another order
@@ -397,8 +390,8 @@ produces.
 
 {1 Phase 8 — What it costs}
 
-Assembling a whole world every frame sounds like something to design around. It
-is not, and the point of measuring was to find out rather than to assume:
+Assembling a whole world every frame sounds like something to design around.
+Measurement, rather than assumption, shows it is not:
 
 {v
 describe five rooms         20 us
@@ -408,18 +401,18 @@ v}
 Five rooms and a hundred and forty-five walls is the largest world this engine
 has. The layer is a seventh of one percent of the frame it is for.
 
-So there is no memoisation in it. No props bailout, no cached room per instance,
-none of the machinery a reconciler is expected to carry — because a benchmark
-was written before any of it was, and said not to. Every node still carries a
-stable path, so caching remains a change to one module if that ever stops being
-true, and [bench/frame.exe] is there to be re-run rather than the argument being
-had again.
+So there is no memoisation in the layer: no props bailout, no cached room per
+instance, none of the machinery a reconciler is expected to carry. The
+benchmark was written before any of it, and its result said not to. Every node
+still carries a stable path, so caching remains a change to one module if the
+result ever changes, and [bench/frame.exe] can be re-run instead of the
+argument being repeated.
 
-The other number in that table is the interesting one. Drawing five rooms takes
+The other number in that table is the significant one. Drawing five rooms takes
 most of a sixty-frame budget on its own, because {!Camlcast_core.Ray.cast}
-intersects every wall segment in the room once per screen column and there is no
-spatial index. That is the engine as it has always been, has nothing to do with
-any layer over it, and is where work would actually pay.
+intersects every wall segment in the room once per screen column and there is
+no spatial index. That cost is the engine as it has always been, has nothing to
+do with the layer, and is where optimisation work would actually pay.
 
 {1 What to read in the source}
 
@@ -435,6 +428,6 @@ In dependency order, and none of them is long:
 - [loom/host.ml] — two types and one function.
 - [lib/prim.ml], [lib/host.ml] — the walls.
 
-[loom/] depends on nothing but the standard library, and its dune file argues
-the case at some length. That is not fastidiousness: it is what makes the mock
-host possible, and the mock host is what makes any of this checkable.
+[loom/] depends on nothing but the standard library, and its dune file states
+the reasons at length. That constraint is what makes the mock host possible,
+and the mock host is what makes any of this checkable.
