@@ -6,7 +6,7 @@
 [![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.2-ec6813)](https://ocaml.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-![A walk through the showcase level: a twelve-sided plaza under an open sky, a hall with a climbing roof, a cellar with falling dust, and a garden behind a grille gate](doc/images/tour.gif)
+![A walk through the showcase level: a twelve-sided plaza under an open sky, a hall with a climbing roof, a cellar with falling dust, and a garden under a different sky, with a grille gate closing behind](doc/images/tour.gif)
 
 A first-person raycasting engine in OCaml on SDL2 (`tsdl`). A world is a graph
 of rooms joined at doorways that can be seen through and walked through. Each
