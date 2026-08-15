@@ -75,10 +75,9 @@ eval $(opam env --switch=. --set-switch)  # so the pin lands in it, whatever
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ]}
 
-{b If the pin fails on macOS}, the cause is opam's depext check: Homebrew's
-[sdl2] is an alias for the [sdl2-compat] formula, and opam looks for the depext
-by name in [brew list], which reports only the formula. Install the system
-libraries yourself and skip the check:
+{b If the pin fails on macOS}, the cause is opam's depext check: opam cannot
+detect Homebrew's SDL2 (HACKING.md in the repository explains why). Install
+the system libraries yourself and skip the check:
 
 {@sh[
 brew install sdl2 sdl2_image
