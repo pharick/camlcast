@@ -1,17 +1,17 @@
 {0 Making a game on CamlCast}
 
-From an empty directory to a small game — {e The Undercroft}: a dark vault, a
-brazier, torches that answer the eye, a gate raised by a winch, and a way out
-under an evening sky — one feature at a time.
+This guide builds a small game, {e The Undercroft}, from an empty directory,
+one feature per step. The finished game has a dark vault, a brazier, torches
+operated by gaze, a gate raised by a winch, and an exit under an evening sky.
 
-A game on this engine {e describes} its world: it says what the world should be
-right now, every frame, from nothing, and the runtime works out what changed.
-That is React's idea over a raycaster, and it means the two things a game
-usually has to invent for itself — somewhere to keep state and a way to get it
-onto the screen — are already here.
+A game on this engine {e describes} its world. Every frame it states, from
+nothing, what the world should be right now, and the runtime computes what
+changed. This is React's model applied to a raycaster. The engine therefore
+already provides the two things a game usually has to invent for itself: state
+storage and a way to get state onto the screen.
 
 {b Every step of this guide is a complete program.} The page quotes only what
-each step adds; the whole game as that step leaves it is
+each step adds. The whole game as each step leaves it is
 [examples/stepNN_<slug>.ml], compiled with the rest of this repository so it
 cannot drift from the engine. From a checkout,
 
@@ -20,23 +20,23 @@ dune build
 dune exec examples/step01_room.exe
 ]}
 
-runs any step — the [dune build] first is what puts [assets/] where the later
-steps can read it.
+runs any step. Run [dune build] first; it puts [assets/] where the later steps
+can read it.
 
 {1 Four things to know before the first line}
 
 {2 There is no level file format}
 
-A level is OCaml. There is no editor, no [.map] to parse, and nothing to load at
-start-up. A room is a value, a world is a value, and a level that varies with
-the time of day is a function.
+A level is OCaml code. There is no editor, no [.map] to parse, and nothing to
+load at start-up. A room is a value, a world is a value, and a level that
+varies with the time of day is a function.
 
 {2 The engine holds no content}
 
-Not one colour, pattern, picture or room. What it has instead are the types
-those things are values of, so a game supplies its own and two games can share
-an engine without sharing a look. Every picture in this guide is drawn by a
-pure function, until the last step reads two from disk.
+The engine ships no colour, pattern, picture, or room. It provides only the
+types those things are values of. Each game supplies its own content, so two
+games can share an engine without sharing a look. Every picture in this guide
+is drawn by a pure function until the last step, which reads two from disk.
 
 {2 One library}
 
@@ -44,25 +44,24 @@ pure function, until the last step reads two from disk.
   open Camlcast
 ]}
 
-That is the whole of it. What is in {!Camlcast} is what a description is made
-of; what is not is the platform underneath — [Engine], [Renderer],
-[Framebuffer], [World], [Player]. Those are reachable by adding [camlcast.core]
-to your dune file and saying so, which makes reaching past the layer a decision
-with a diff rather than something autocomplete finds for you. You will not need
-it.
+This is the only library needed. {!Camlcast} contains everything a description
+is made of. The platform underneath — [Engine], [Renderer], [Framebuffer],
+[World], [Player] — is excluded. Reach it by adding [camlcast.core] to your
+dune file; this makes bypassing the layer an explicit decision visible in a
+diff, not something autocomplete offers. This guide never needs it.
 
 {2 Three ways of being wrong}
 
 A mistake in a level — a wall of no length, a doorway wider than the wall it is
-cut into — raises [Invalid_argument] where you wrote it. Those are bugs in your
+cut into — raises [Invalid_argument] where you wrote it. These are bugs in your
 program, not conditions it can be in.
 
-Something the world outside would not do — SDL refusing a window, a missing
-picture — comes back as [Error (`Msg _)]. Those are conditions.
+An external failure — SDL refusing a window, a missing picture — comes back as
+[Error (`Msg _)]. These are conditions.
 
-And the third, which is what {!Camlcast.Check} is for: a level that builds
-perfectly and is still wrong. A room nothing leads to, a spawn inside a wall, a
-step in the floor at a doorway. Step 22.
+The third kind is what {!Camlcast.Check} is for: a level that builds without
+error and is still wrong. Examples: a room nothing leads to, a spawn inside a
+wall, a step in the floor at a doorway. See Step 22.
 
 {1 Step 0 — A project that depends on the engine}
 
@@ -76,10 +75,10 @@ eval $(opam env --switch=. --set-switch)  # so the pin lands in it, whatever
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ]}
 
-{b If the pin fails on macOS}, it is opam's depext check: Homebrew's [sdl2] is
-an alias for the [sdl2-compat] formula, and opam looks for the depext by name
-in [brew list], which reports only the formula. Install the system libraries
-yourself and tell opam to stop looking:
+{b If the pin fails on macOS}, the cause is opam's depext check: Homebrew's
+[sdl2] is an alias for the [sdl2-compat] formula, and opam looks for the depext
+by name in [brew list], which reports only the formula. Install the system
+libraries yourself and skip the check:
 
 {@sh[
 brew install sdl2 sdl2_image
@@ -89,7 +88,7 @@ opam pin add camlcast git+https://github.com/pharick/camlcast.git --no-depexts
 On Debian or Ubuntu, opam resolves [libsdl2-dev] and [libsdl2-image-dev]
 through apt without help. On Windows, use the MSYS2 environment.
 
-Three files. [dune-project]:
+The project needs three files. [dune-project]:
 
 {[
 (lang dune 3.21)
@@ -153,72 +152,71 @@ And [bin/main.ml], which is Step 1.
         exit 1
 ]}
 
-[dune exec bin/main.exe] and walk about with WASD and the mouse. Escape leaves.
+Run [dune exec bin/main.exe]. Walk with WASD and the mouse. Escape exits.
 
 {2 What each piece is}
 
-{!Camlcast.P} holds the parts a world is made of, and is written [P.( ... )]
-around a description rather than opened over the whole file. Its names are
-short and ordinary — [wall], [room], [text] — so a local open puts them exactly
-where a world is being written and nowhere else, and marks where that starts
-and stops.
+{!Camlcast.P} holds the parts a world is made of. Write it as a local open,
+[P.( ... )], around a description rather than opening it over the whole file.
+Its names are short and common — [wall], [room], [text] — so the local open
+scopes them to the world description alone and marks where that description
+starts and stops.
 
-Distances are in {b cells}. One cell is one texture repeat, and the eye stands
-half a cell up, so a twelve-cell vault under a four-cell ceiling reads as a
-hall.
+Distances are in {b cells}. One cell is one texture repeat. The eye stands
+half a cell above the floor, so a twelve-cell vault under a four-cell ceiling
+reads as a hall.
 
-A pattern is a pure function from a texel coordinate to a colour, and
+A pattern is a pure function from a texel coordinate to a colour.
 {!Camlcast.Texture.generate} turns one into a tiling square.
-{!Camlcast.Material.make} is what a wall or a floor is dressed in.
+{!Camlcast.Material.make} builds the material a wall or floor is rendered with.
 
-{!Camlcast.P.boundary} is a run of wall through the corners you give it, shut
-into a loop unless you say [~closed:false]. {b The order does not matter}: it
-measures the loop and winds it so the room is on the inside. A boundary wound
-the wrong way round draws a room black from within, it is never what anybody
-wanted, and this is why you will not meet it.
+{!Camlcast.P.boundary} builds a run of wall through the corners you give it,
+closed into a loop unless you pass [~closed:false]. {b Corner order does not
+matter}: the boundary measures the loop and winds it so the room is on the
+inside. A boundary wound the wrong way draws the room black from within;
+auto-winding is why you will not encounter this.
 
-{!Camlcast.P.val-corners} is every point as a plain corner, which is what a
-boundary with nothing to say at any of its sides wants. The next step is what a
-corner is for.
+{!Camlcast.P.val-corners} marks every point as a plain corner, for a boundary
+that attaches nothing to any of its sides. The next step shows what a corner is
+for.
 
-{!Camlcast.Run.play} opens a window, renders the description once a frame until
-the player leaves, and says how it went. The [Error] case is SDL's — the world
-outside declining — and the [Ok] carries a {!Camlcast.Run.ending} this game
-does not read yet. Step 24 will.
+{!Camlcast.Run.play} opens a window, renders the description once per frame
+until the player leaves, and reports the result. The [Error] case comes from
+SDL — an external failure. The [Ok] case carries a {!Camlcast.Run.ending} this
+game does not read yet; Step 24 does.
 
 The whole program: [examples/step01_room.ml].
 
 {1 Step 2 — Every wall its own}
 
-A boundary gives every side the material it was handed, and any corner may say
-otherwise:
+A boundary applies its material to every side. Any corner may override it:
 
 {[
   boundary ~height ~material:stone
     [ corner sw ~material:brick; corner se; corner ne; corner nw ];
 ]}
 
-{b A corner describes the wall {e leaving} it}, so [corner sw ~material:brick]
-is the wall from [sw] to [se] — the south wall, brick, and the other three fall
-back to stone. Everything {!Camlcast.P.wall} takes goes on a corner — a
-handler, decals, a height of its own — which is what lets a boundary be
-decorated or interactive without giving up the winding.
+{b A corner describes the wall {e leaving} it}: [corner sw ~material:brick] is
+the wall from [sw] to [se] — the south wall, in brick. The other three fall
+back to stone. A corner accepts everything {!Camlcast.P.wall} takes — a
+handler, decals, a height of its own. This lets a boundary be decorated or
+interactive without giving up auto-winding.
 
-Reach for {!Camlcast.P.wall} itself only for what stands on its own. The vault
-gains a plinth, low enough to see over, drawn from both sides:
+Use {!Camlcast.P.wall} itself only for free-standing walls. This step adds a
+plinth to the vault, low enough to see over, drawn from both sides:
 
 {[
   wall ~height:1.1 ~material:slab (Vec.make (-2.) (-1.6)) (Vec.make (-2.) 1.6);
 ]}
 
 The whole program as of this step: [examples/step02_masonry.ml].
-[demo/masonry.ml] is one pattern function worn at several colours.
+[demo/masonry.ml] shows one pattern function used at several colours.
 
 {1 Step 3 — Pillars}
 
-{!Camlcast.P.polygon} hands back {e corners}, not walls — [sides] of them,
-[radius] from [center] to a corner — so a pillar is a boundary like any other,
-the winding is still not your problem, and any leg of it could carry a handler.
+{!Camlcast.P.polygon} returns {e corners}, not walls: [sides] of them, [radius]
+from [center] to each corner. A pillar is therefore a boundary like any other.
+Winding is still automatic, and any side can carry a handler.
 
 {[
   let pillar center =
@@ -240,9 +238,9 @@ is a colonnade of them.
 
 {1 Step 4 — The air}
 
-One {!Camlcast.Atmosphere} per world: how far you can see, what colour the
-distance is, and where the light comes from. The undercroft stops borrowing
-{!Camlcast.Atmosphere.default} and gets its gloom:
+A world has one {!Camlcast.Atmosphere}: how far you can see, what colour the
+distance fades to, and where the light comes from. This step replaces
+{!Camlcast.Atmosphere.default} with the undercroft's own dark atmosphere:
 
 {[
   let air =
@@ -251,9 +249,9 @@ distance is, and where the light comes from. The undercroft stops borrowing
       ~directional:0.7 ()
 ]}
 
-[directional] is how much of a wall's shading depends on which way it faces and
-[ambient] is how much does not, so a six-sided pillar under a high
-[directional] reads as six different greys — walk round one and watch.
+[directional] sets how much of a wall's shading depends on which way it faces;
+[ambient] sets how much does not. Under a high [directional] a six-sided pillar
+reads as six different greys. Walk around one to see it.
 
 The whole program as of this step: [examples/step04_air.ml]. [demo/haze.ml] is
 built to show exactly this.
@@ -275,9 +273,9 @@ alpha, drawn by the same kind of pure function:
         else Image.clear)
 ]}
 
-A {b decal} is a picture fixed flat on a wall, placed in that wall's own terms —
-[along] from the end it starts at, [z] up from the floor — and it rides on the
-corner that describes its wall:
+A {b decal} is a picture fixed flat on a wall. It is placed in the wall's own
+coordinates — [along] from the end the wall starts at, [z] up from the floor —
+and attached to the corner that describes its wall:
 
 {[
   corner sw ~material:brick
@@ -285,15 +283,15 @@ corner that describes its wall:
       [ decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2 mural ];
 ]}
 
-[~facing:Back] hangs one on the far face instead, and [~glow] lifts it clear of
-the room's light.
+[~facing:Back] places the decal on the far face instead. [~glow] lights it
+independently of the room's light.
 
-A {b sprite} stands in the room and turns to face you. It is sized by its
-height and takes its width from the picture; [~base] floats it clear of the
-floor, and [~glow] is how much light it makes of its own, which is none — a
-sprite without one is lit by the room's [ambient], so turning a game's light
-down turns its sprites down with it. A cold brazier stands on the floor, and a
-mote of something else floats near the pillars:
+A {b sprite} stands in the room and always faces the player. Its size sets its
+height; its width comes from the picture. [~base] raises it above the floor.
+[~glow] is how much light it emits itself, zero by default: a sprite without
+glow is lit by the room's [ambient], so dimming a game's light dims its sprites
+with it. This step adds a cold brazier on the floor and a mote floating near
+the pillars:
 
 {[
   sprite ~size:0.9 ~image:brazier_cold (Vec.make 0. 0.);
@@ -301,12 +299,13 @@ mote of something else floats near the pillars:
 ]}
 
 The whole program as of this step: [examples/step05_dressing.ml].
-[demo/gallery.ml] and [demo/floating.ml] are this step at leisure.
+[demo/gallery.ml] and [demo/floating.ml] expand on this step.
 
 {1 Step 6 — A second room}
 
-Two rooms are joined at a {b doorway} they both describe and a {b link} that
-says the two are the same one. The vault's east wall opens onto a corridor:
+Two rooms are joined by a {b doorway} each room describes and a {b link} that
+declares the two doorways to be the same one. The vault's east wall opens onto
+a corridor:
 
 {[
   boundary ~closed:false ~height ~material:stone
@@ -319,11 +318,11 @@ says the two are the same one. The vault's east wall opens onto a corridor:
   doorway ~name:"east" ~width:2. ~opening:2.6 ~height ~material:stone se ne;
 ]}
 
-{b Three sides run as an open boundary and the fourth is cut.} That is the
-shape of a boundary with a hole in it: an open run still winds itself, and its
+{b Three sides run as an open boundary and the fourth is cut.} This is the
+shape for a boundary with a hole in it. An open run still winds itself, and its
 last corner describes no wall, so it must carry nothing. A closed boundary of
-all four corners {e and} a doorway along one of them would be a solid wall
-standing behind an opening — a doorway you can see through and cannot walk
+all four corners {e and} a doorway along one of them would leave a solid wall
+standing behind the opening — a doorway you can see through but cannot walk
 through.
 
 The corridor is written in a frame of its own, because every room is:
@@ -335,9 +334,9 @@ The corridor is written in a frame of its own, because every room is:
   let c_nw = Vec.make 0. 2.
 ]}
 
-There is no world-wide compass; only the link places it. Which means a
-neighbour's floor is {e carried} across the doorway rather than written out
-again:
+There is no world-wide coordinate frame; only the link places the corridor. A
+neighbour's floor is therefore {e carried} across the doorway rather than
+written out again:
 
 {[
   let corridor_floor =
@@ -347,14 +346,15 @@ again:
       flat
 ]}
 
-{!Camlcast.P.opening} is the two ends the doorway will cut, in each room's own
-terms, and {!Camlcast.P.through} carries a plane from one frame to the other. A
-second floor written by hand to look right is one that will drift; derived, it
-cannot — here it comes back flat, and the day the vault's floor tilts, the
-corridor's follows. {!Camlcast.Check} reports a step in the floor at a doorway
-either way.
+{!Camlcast.P.opening} gives the two ends the doorway will cut, in each room's
+own coordinates. {!Camlcast.P.through} carries a plane from one frame to the
+other. Derive the neighbour's floor rather than writing it by hand, because a
+hand-written copy will drift out of agreement and a derived one cannot. Here it
+comes back flat, and if the vault's floor later tilts, the corridor's follows.
 
-The corridor answers with a doorway of its own, and the link marries the two:
+{!Camlcast.Check} reports a step in the floor at a doorway either way.
+
+The corridor describes a doorway of its own, and the link joins the two:
 
 {[
   doorway ~name:"west" ~width:2. ~opening:2.6 ~height ~material:stone c_sw c_nw;
@@ -368,8 +368,8 @@ inclined floor through seamlessly.
 
 {1 Step 7 — Your first component}
 
-Everything so far has been one value. A component is a function from props to a
-description, and it is what lets a part of a world keep something of its own.
+Everything so far has been one value. A component is a function from props to
+a description. Components are how a part of a world keeps state of its own.
 
 {[
   let torch =
@@ -377,7 +377,7 @@ description, and it is what lets a part of a world keep something of its own.
     P.sprite ~size:0.7 ~base:0.9 ~image:torch_stub pos
 ]}
 
-Use it wherever a part of a world goes — four times, at the four pillars:
+Use it wherever a part of a world goes. Here, four times, at the four pillars:
 
 {[
   torch ~key:"ne" (Vec.make 2.1 2.1);
@@ -386,15 +386,15 @@ Use it wherever a part of a world goes — four times, at the four pillars:
   torch ~key:"sw" (Vec.make (-2.1) (-2.1));
 ]}
 
-{b Declare components at the top level.} This is a rule and not a style. A
-component is identified by its function being physically the same closure,
-because a function is the only thing a component is — so one built inside
-another render is a fresh closure every frame, is never the same component as
-last frame, and is torn down and rebuilt along with everything under it. State
-will appear not to work. {!Camlcast.Element.declare} exists partly to make the
-right thing the easy one — and its type happens to enforce the other rule that
-comes with identity, that a render function is monomorphic in its props. Props
-are one value; when there are several things to say, they are a record.
+{b Declare components at the top level.} This is a rule, not a style choice. A
+component is identified by physical equality of its function, because the
+function is all a component is. A component built inside another render is a
+fresh closure every frame, so it is never the same component as last frame; it
+is torn down and rebuilt along with everything under it, and state appears not
+to work. {!Camlcast.Element.declare} exists partly to make the right form the
+easy one. Its type also enforces the other rule that comes with identity: a
+render function is monomorphic in its props. Props are one value; use a record
+when there are several things to pass.
 
 The whole program as of this step: [examples/step07_component.ml].
 
@@ -411,33 +411,33 @@ The whole program as of this step: [examples/step07_component.ml].
       pos
 ]}
 
-{!Camlcast.Hook.use_state} gives back what this brazier is holding and a way to
-replace it; {!Camlcast.Events.use_pressed} runs a handler on the frame a
-control goes down — the tap, not the hold. Space strikes the brazier alight.
+{!Camlcast.Hook.use_state} returns the current value and a setter.
+{!Camlcast.Events.use_pressed} runs a handler on the frame a control goes down
+— the tap, not the hold. Space lights the brazier.
 
-Two rules come with hooks, and both are short.
+Two rules come with hooks.
 
 {b Call hooks unconditionally, in the same order, every render.} Not inside an
 [if], not inside a loop whose length varies. Nothing names a hook, so its
-position is its identity. Break the rule and you get
-{!Camlcast.Hook.Hook_order_changed} raised where you broke it, rather than a
+position is its identity. Breaking the rule raises
+{!Camlcast.Hook.Hook_order_changed} where you broke it, rather than returning a
 value that was never there.
 
-{b A setter shows up next frame.} It writes its slot and marks the tree; it
-does not re-enter the render that is running. At sixty frames a second that is
-sixteen milliseconds, and in exchange no render can fail to settle.
+{b A setter takes effect next frame.} It writes its slot and marks the tree; it
+does not re-enter the render that is running. At sixty frames per second the
+delay is sixteen milliseconds. In exchange, no render can fail to settle.
 
-{b Walking is written with no hook at all.} That is the bindings' job, and it
-reaches the description as movement without a component asking. Step 23 is
-where the bindings themselves become yours.
+{b Walking uses no hook at all.} The bindings handle it, and it reaches the
+description as movement without a component asking. Step 23 makes the bindings
+themselves configurable.
 
 The whole program as of this step: [examples/step08_state.ml].
 
 {1 Step 9 — Being looked at}
 
 {!Camlcast.P.wall}, {!Camlcast.P.sprite} and {!Camlcast.P.doorway} each take
-[on_gaze] and [on_use], because those are the three things an eye can stop on.
-The torches take both:
+[on_gaze] and [on_use], because those are the three things the crosshair can
+land on. The torches take both:
 
 {[
   let torch =
@@ -453,32 +453,32 @@ The torches take both:
       pos
 ]}
 
-[on_gaze] is an {e enter} and a {e leave} — [true] when the crosshair arrives
-and [false] when it goes, and nothing in between. It is not a poll, which is
-why a setter is exactly the right shape for it.
+[on_gaze] reports an {e enter} and a {e leave} — [true] when the crosshair
+arrives, [false] when it goes, nothing in between. It is not a poll, so passing
+a state setter directly works.
 
-[on_use] fires when the player works the use control — [E], out of the box —
-while looking at this torch, and is handed an {!Camlcast.Aim.spot}: how far
-away, how many doorways through, and for a wall where on it. The crosshair
-reaches as far as the picture does — through doorways, up to
-{!Camlcast.Config.max_portal_depth} of them — so whether a thing can be
-{e worked} from here is a rule the game writes itself, and [distance] is what
-this one is written with:
+[on_use] fires when the player presses the use control — [E] by default —
+while looking at this torch. The handler receives an {!Camlcast.Aim.spot}: the
+distance, the number of doorways crossed, and for a wall the position on it.
+The crosshair reaches as far as the rendered picture does — through doorways,
+up to {!Camlcast.Config.max_portal_depth} of them. Whether a thing can be used
+from here is therefore a rule the game writes itself; this one uses
+[distance]:
 
 {[
   let reach = 2.5
 ]}
 
 {b Give a [key] to anything whose siblings can come and go.} The leave half of
-[on_gaze] is the one thing in a frame that has to recognise something from the
-last one, and an unkeyed child is recognised by its position among its
-siblings — insert one ahead of it and the [false] lands on whatever stands
-where it stood. A list written out in order is fine; a list built from
-something that changes wants keys. The rule and the reason are in
+[on_gaze] is the one thing in a frame that must recognise something from the
+previous one, and an unkeyed child is recognised by its position among its
+siblings. Insert a sibling ahead of it and the [false] lands on whatever now
+occupies that position. A list written out in a fixed order is fine; a list
+built from something that changes needs keys. The rule and the reason are in
 {!Camlcast.P}, under "Being looked at".
 
-A crosshair joins the game so there is something to aim with — one line of HUD,
-which gets its own step:
+This step adds a crosshair so there is something to aim with — one line of
+HUD, which gets its own step:
 
 {[
   hud [ crosshair () ];
@@ -490,11 +490,11 @@ marks walls with the rest of the spot.
 
 {1 Step 10 — Time}
 
-{!Camlcast.Events.use_frame} runs once a frame, with how long the last one
-lasted. The brazier stops holding forever and starts burning down — and since
-the {e world's} air should burn down with it, the fuel moves up, into a [game]
-component above the world. State lives at the lowest place everything that
-reads it can reach.
+{!Camlcast.Events.use_frame} runs once per frame and receives the previous
+frame's duration. This step makes the brazier burn down over time. The
+{e world's} atmosphere should follow the fire, so the fuel moves up into a
+[game] component above the world. Put state at the lowest place everything
+that reads it can reach.
 
 {[
   let game =
@@ -510,7 +510,7 @@ reads it can reach.
         [ (* the rooms, as before *) ])
 ]}
 
-The atmosphere becomes a function of the fire, the brazier becomes a component
+The atmosphere becomes a function of the fire. The brazier becomes a component
 that is {e told} what it holds — props down, state up:
 
 {[
@@ -526,24 +526,23 @@ that is {e told} what it holds — props down, state up:
 
 and [Run.play] is handed [(game ())] instead of a value.
 
-Scale the work by [dt] — a frame's length is not a constant, and a game that
-ignores it runs at the speed of the machine. The handler is also called once
-with [dt = 0.] before the first frame is drawn, because the description has to
-be rendered once to know where to spawn the player; work scaled by [dt] costs
-nothing there, which is one more reason it is the only way worth writing.
+Scale per-frame work by [dt]. A frame's length is not a constant, and a game
+that ignores it runs at the speed of the machine. The handler is also called
+once with [dt = 0.] before the first frame is drawn, because the description
+must be rendered once to know where to spawn the player. Work scaled by [dt]
+costs nothing in that call.
 
-Effects — and {!Camlcast.Events.use_frame} is one — run {e after} the scene is
-assembled and never during a render, because a render is meant to be a pure
-function of props and state. A handler that set state in the middle of one
-would make what a frame shows depend on the order its components happened to be
-walked in.
+Effects — {!Camlcast.Events.use_frame} is one — run {e after} the scene is
+assembled and never during a render, because a render must be a pure function
+of props and state. A handler that set state mid-render would make what a
+frame shows depend on the order its components happened to be walked in.
 
 The whole program as of this step: [examples/step10_burning.ml].
-[demo/phases.ml] is the same shape dressed differently.
+[demo/phases.ml] uses the same structure with different content.
 
 {1 Step 11 — A box, for what merely accumulates}
 
-The floating mote becomes a wisp, drifting a slow circle round the brazier:
+This step turns the floating mote into a wisp that slowly circles the brazier:
 
 {[
   let wisp =
@@ -556,14 +555,14 @@ The floating mote becomes a wisp, drifting a slow circle round the brazier:
       ~glow:0.9 ~size:0.25 ~image:mote pos
 ]}
 
-{!Camlcast.Hook.use_ref} is a box made once and handed back unchanged every
-render. Writing it asks for no frame — that is the whole difference from state,
-and it is exactly right here {e because the loop renders every frame anyway}: a
-phase that grows continuously would make every [set_state] a request for a
-frame already coming. State is for what arrives in steps and must be shown; a
-ref is for what merely accumulates while the world is being redrawn regardless.
-A root that renders on demand — {!Camlcast.Mount}, step 22 — sees the
-difference: nothing about a ref asks it to wake up.
+{!Camlcast.Hook.use_ref} is a box made once and returned unchanged every
+render. Writing it requests no frame; that is the whole difference from state.
+A ref fits here {e because the loop renders every frame anyway}: a phase that
+grows continuously would make every [set_state] a request for a frame already
+coming. State is for what arrives in steps and must be shown; a ref is for
+what merely accumulates while the world is redrawn regardless. A root that
+renders on demand — {!Camlcast.Mount}, step 22 — sees the difference: writing
+a ref never wakes it.
 
 The whole program as of this step: [examples/step11_wisp.ml]. [demo/dust.ml]
 moves a few hundred of these a frame.
@@ -595,29 +594,29 @@ and, at the end of the world's children:
 ]}
 
 {!Camlcast.P.hud} is a child of [world], drawn over the finished frame in the
-order it is written. {!Camlcast.P.rect} and {!Camlcast.P.bar} are what they
-say; {!Camlcast.P.highlight} rings whatever the crosshair is on — a rectangle
-round a sprite, and for a picture on a wall the trapezoid its corners project
-to, because a wall recedes.
+order it is written. {!Camlcast.P.rect} draws a rectangle and {!Camlcast.P.bar}
+draws a bar. {!Camlcast.P.highlight} outlines whatever the crosshair is on: a
+rectangle around a sprite, and for a picture on a wall the trapezoid its
+corners project to, because a wall recedes in perspective.
 
 Coordinates are the {b buffer's}, not the window's. The engine renders at
 whatever whole-number fraction of the window keeps it under
 {!Camlcast.Config.max_render_height} and stretches the result, so a
 thousand-pixel window is commonly a five-hundred-pixel buffer.
-{!Camlcast.Events.use_viewport} is how a component asks how big the frame
-really is, and is what the meter's centring is written against.
+{!Camlcast.Events.use_viewport} returns the frame's real size. The meter's
+centring is computed from it.
 
-{!Camlcast.Events.use_dt} is the same [dt] the frame handler gets, read during
-the render — here easing the drawn fraction toward the true one at a rate no
-faster than the frames actually come.
+{!Camlcast.Events.use_dt} returns the same [dt] the frame handler gets, read
+during the render. Here it eases the drawn fraction toward the true one at a
+rate bounded by the actual frame rate.
 
 The whole program as of this step: [examples/step12_hud.ml].
-[demo/overlay.ml] is a page of everything the layer can draw.
+[demo/overlay.ml] shows everything the layer can draw on one page.
 
 {1 Step 13 — Words}
 
-The engine holds no font, exactly as it holds no colours or pictures, so the
-game brings one: an atlas picture and the grid it is laid out on.
+The engine ships no font, just as it ships no colours or pictures. The game
+supplies one: an atlas picture and the grid it is laid out on.
 
 {[
   let typeface =
@@ -636,14 +635,15 @@ game brings one: an atlas picture and the grid it is laid out on.
         (* ... *))
 ]}
 
-This is the guide's first picture from disk: {!Camlcast.Image.of_asset} looks
-for [assets/font.png] relative to the executable — run [dune build] once first,
-which copies [assets/] beside the examples in [_build], or point
+This is the guide's first picture from disk. {!Camlcast.Image.of_asset} looks
+for [assets/font.png] relative to the executable. Run [dune build] once first
+— it copies [assets/] beside the examples in [_build] — or point
 [CAMLCAST_ASSETS] at a directory that holds it. A missing file is the second
-way of being wrong, so it comes back as [Error] and is dealt with before any
-window opens. The font travels into [game] as props.
+way of being wrong: it comes back as [Error] and is handled before any window
+opens. The font travels into [game] as props.
 
-While the brazier is cold, the game explains itself, wrapped to the buffer:
+While the brazier is cold, the game shows an explanatory message, wrapped to
+the buffer width:
 
 {[
   let lines =
@@ -651,23 +651,23 @@ While the brazier is cold, the game explains itself, wrapped to the buffer:
   in
 ]}
 
-{!Camlcast.Hook.use_memo} is [compute ()], recomputed only when [deps] changes
-— wrapping walks every character, so it is worth doing once per width rather
+{!Camlcast.Hook.use_memo} returns [compute ()], recomputed only when [deps]
+changes. Wrapping walks every character, so compute it once per width rather
 than once per frame. The lines are drawn with {!Camlcast.P.text} when [fuel]
-is spent, and simply not drawn otherwise; the hook itself runs every render,
-unconditionally, because that is the rule. {!Camlcast.Font.measure} is the
-other half of the arithmetic, and centres the prompt in the next step.
+is spent, and not drawn otherwise; the hook itself runs every render,
+unconditionally, per the hook rule. {!Camlcast.Font.measure} is the other half
+of the text arithmetic; it centres the prompt in the next step.
 
 The whole program as of this step: [examples/step13_words.ml].
-[demo/text.ml] wraps, measures and clips a whole page; [demo/typeface.ml] is
-the same atlas described once for everyone.
+[demo/text.ml] wraps, measures and clips a whole page; [demo/typeface.ml]
+defines the same atlas once, shared by the other demos.
 
 {1 Step 14 — Asking what the eye is on}
 
-[on_gaze] is the thing itself being {e told}. {!Camlcast.Events.use_aim} is the
-description {e asking} — what was the crosshair on when the last frame was
-drawn, and where on it — for saying something about whatever is looked at
-without the thing having to say so:
+[on_gaze] {e tells} the thing being looked at. {!Camlcast.Events.use_aim} lets
+the description {e ask}: what was the crosshair on when the last frame was
+drawn, and where on it. Use it to react to whatever is looked at without that
+thing's involvement:
 
 {[
   let prompt =
@@ -678,12 +678,12 @@ without the thing having to say so:
   in
 ]}
 
-An {!Camlcast.Aim.spot} names the kind and the geometry — [On_wall] with its
-[along] and [z], [On_sprite], [On_doorway] — and never the identity, so the
-prompt appears for any sprite within reach and each torch's own [on_use] still
-decides what E does there. One frame late, like the viewport, and for the same
-reason: a description is rendered before the player moves through the world it
-describes.
+An {!Camlcast.Aim.spot} carries the kind and the geometry — [On_wall] with its
+[along] and [z], [On_sprite], [On_doorway] — and never the identity. The
+prompt therefore appears for any sprite within reach, and each torch's own
+[on_use] still decides what E does there. The answer is one frame late, like
+the viewport, for the same reason: a description is rendered before the player
+moves through the world it describes.
 
 The prompt is centred with {!Camlcast.Font.measure}:
 
@@ -695,16 +695,17 @@ The prompt is centred with {!Camlcast.Font.measure}:
       text ~font ~x:((w - tw) / 2) ~y:(h - 36) line);
 ]}
 
-[Element.empty] is how a description says {e nothing} — a component cannot
-decline to return, so absence is a value too.
+[Element.empty] describes {e nothing}. A component cannot decline to return,
+so absence is a value too.
 
 The whole program as of this step: [examples/step14_prompt.ml].
 
 {1 Step 15 — A door in the doorway}
 
-Past the corridor lies a courtyard, and an iron grille says not yet. The grille
-is a {!Camlcast.Texture.generate_masked} material — colour where the bars are,
-alpha [0] between them, so the way out is visible long before it opens:
+This step adds a courtyard past the corridor, closed off by an iron grille.
+The grille is a {!Camlcast.Texture.generate_masked} material — colour where
+the bars are, alpha [0] between them — so the way out is visible before it
+opens:
 
 {[
   let grille =
@@ -716,11 +717,11 @@ alpha [0] between them, so the way out is visible long before it opens:
 ]}
 
 A {!Camlcast.Door} is a material and a state, [Open] or [Closed], and it hangs
-in an opening. {!Camlcast.P.doorway} would cut that opening and build the jambs
-in one piece; here the corridor's east end wants a {e brick} lintel over
-{e stone} jambs, which is the one case {!Camlcast.P.threshold} exists for — the
-opening alone, with the walls either side the game's own to build, by the same
-arithmetic the doorway would have used:
+in an opening. {!Camlcast.P.doorway} would cut that opening and build the
+jambs in one piece. Here the corridor's east end needs a {e brick} lintel over
+{e stone} jambs, the one case {!Camlcast.P.threshold} exists for: it builds
+the opening alone, and the game builds the walls on either side, using the
+same arithmetic the doorway would have used:
 
 {[
   let gate_a, gate_b = P.opening ~width:2. c_ne c_se
@@ -735,14 +736,15 @@ arithmetic the doorway would have used:
     ~height:2.6 gate_a gate_b;
 ]}
 
-[~height] is how tall the opening is; the {!Camlcast.lintel}'s [top] is how far
-the wall over it rises. Own the jambs and you owe them: an end of a threshold
-meeting no wall shows floor and sky to the horizon through the gap, which
-{!Camlcast.Check} reports and a doorway cannot produce.
+[~height] is the opening's height; the {!Camlcast.lintel}'s [top] is how far
+the wall over it rises. Building your own jambs makes them your
+responsibility: a threshold end that meets no wall shows floor and sky to the
+horizon through the gap. {!Camlcast.Check} reports this; a doorway cannot
+produce it.
 
-The courtyard describes the same opening from its side — and {b the same door}.
-A door hangs in one opening; both rooms describe that opening, so both say so,
-and {!Camlcast.Check} objects if they disagree:
+The courtyard describes the same opening from its side, with {b the same
+door}. A door hangs in one opening; both rooms describe that opening, so both
+must state the door, and {!Camlcast.Check} objects if they disagree:
 
 {[
   doorway ~name:"west"
@@ -750,17 +752,17 @@ and {!Camlcast.Check} objects if they disagree:
     ~width:2. ~opening:2.6 ~height ~material:stone y_sw y_nw;
 ]}
 
-The courtyard's floor arrives the way the corridor's did, carried through with
-{!Camlcast.P.through}, and a second link marries gate to courtyard.
+The courtyard's floor is derived the way the corridor's was, carried through
+with {!Camlcast.P.through}. A second link joins gate to courtyard.
 
 The whole program as of this step: [examples/step15_gate.ml]. [demo/doors.ml]
-opens and shuts them from both sides; [demo/barred.ml] is a room of grilles;
-[demo/glass.ml] is the translucent pass at leisure.
+opens and shuts doors from both sides; [demo/barred.ml] is a room of grilles;
+[demo/glass.ml] demonstrates the translucent pass.
 
 {1 Step 16 — Held controls}
 
-The gate wants a winch, and the winch wants the two ways of reading input that
-are not the tap.
+This step adds a winch that opens the gate. It uses the two ways of reading
+input other than the tap.
 
 {[
   let cupped = Events.use_down (Input.Key Key.lshift) in
@@ -769,14 +771,14 @@ are not the tap.
   let wound = Input.held_for actions (Input.Key Key.e) in
 ]}
 
-{!Camlcast.Events.use_down} is the hold — whether a control is down right now,
-read during the render. Shift {e cups} the brazier's flame: the frame handler
-stops draining fuel while it is held.
+{!Camlcast.Events.use_down} is the hold: whether a control is down right now,
+read during the render. Holding Shift {e cups} the brazier's flame: the frame
+handler stops draining fuel while it is held.
 
-{!Camlcast.Events.use_actions} is everything else — the whole
-{!Camlcast.Input.actions} record, asked what the two hooks do not cover:
-{!Camlcast.Input.held_for} is how long E has been held, and the frame handler
-opens the gate when it has been worked long enough at the winch:
+{!Camlcast.Events.use_actions} returns the whole {!Camlcast.Input.actions}
+record, for questions the two hooks do not cover. {!Camlcast.Input.held_for}
+reports how long E has been held. The frame handler opens the gate once E has
+been held long enough at the winch:
 
 {[
   Events.use_frame (fun ~dt ->
@@ -785,8 +787,8 @@ opens the gate when it has been worked long enough at the winch:
         set_gate_open true);
 ]}
 
-The winch itself is a sprite whose gaze handler is the {e game's} state,
-because what it opens is the game's gate — and both doors' state now follows
+The winch itself is a sprite whose gaze handler sets the {e game's} state,
+because what it opens is the game's gate. Both doors' state now follows
 [gate_open]:
 
 {[
@@ -795,9 +797,9 @@ because what it opens is the game's gate — and both doors' state now follows
 ]}
 
 Both hooks are named after {!Camlcast.Input.pressed} and
-{!Camlcast.Input.val-down}, because they are those two questions asked of this
-frame. A control rather than a key throughout, so a mouse button can do a
-component's job as readily as a key — step 23 does exactly that.
+{!Camlcast.Input.val-down}; they ask those two questions of the current frame.
+The API takes a control rather than a key throughout, so a mouse button can do
+the same job as a key. Step 23 does exactly that.
 
 The whole program as of this step: [examples/step16_winch.ml].
 [demo/controls.ml] prints what it is asked with [Key.name].
@@ -812,18 +814,19 @@ The whole program as of this step: [examples/step16_winch.ml].
 ]}
 
 {!Camlcast.Events.use_crossed} runs once for each doorway the last frame went
-through, in the same place in a frame that {!Camlcast.Events.use_frame} runs.
-A crossing names its rooms and doorways by the names the description gave them
-— a world is rebuilt every frame, and an index is what assembling one happened
-to produce. One frame late, like everything read back from the world, and
-{b empty while a description is placing the camera}: putting the eye somewhere
-is a jump, not a walk, so there is no path along which a doorway was crossed.
-{!Camlcast.Events.use_crossings} is the same list, read rather than handled.
+through, at the same point in a frame that {!Camlcast.Events.use_frame} runs.
+A crossing identifies its rooms and doorways by the names the description gave
+them, not by index: a world is rebuilt every frame, and an index is an
+artifact of one assembly. Crossings are one frame late, like everything read
+back from the world, and {b empty while a description is placing the camera}
+— placing the eye is a jump, not a walk, so no doorway is crossed along any
+path. {!Camlcast.Events.use_crossings} is the same list, read rather than
+handled.
 
-The corridor remembers its first visitor — motes hang in it from the first
-crossing on. And the status line in the corner reads three parts of the frame
-at once, which is what {!Camlcast.Events.use} — the whole
-{!Camlcast.Events.type-t} record in one ask — is for:
+The corridor records its first visit: motes hang in it from the first crossing
+on. The status line in the corner reads three parts of the frame at once,
+which is what {!Camlcast.Events.use} is for — the whole
+{!Camlcast.Events.type-t} record in one call:
 
 {[
   let frame = Events.use () in
@@ -834,14 +837,14 @@ at once, which is what {!Camlcast.Events.use} — the whole
 ]}
 
 The whole program as of this step: [examples/step17_crossings.ml].
-[demo/trail.ml] and [demo/endless.ml] are crossings put to work.
+[demo/trail.ml] and [demo/endless.ml] build further on crossings.
 
 {1 Step 18 — Reaching outside}
 
-{!Camlcast.Hook.use_effect} is the seam where a component may reach outside the
-description — a log, a subscription, a file — after the frame is committed,
-never during a render. [deps] decide when it runs again, and the returned
-cleanup is exactly as long-lived as what it cleans:
+{!Camlcast.Hook.use_effect} is where a component may reach outside the
+description — a log, a subscription, a file. It runs after the frame is
+committed, never during a render. [deps] decides when it runs again. The
+returned cleanup lives exactly as long as what it cleans:
 
 {[
   Hook.use_effect ~deps:gate_open (fun () ->
@@ -850,7 +853,7 @@ cleanup is exactly as long-lived as what it cleans:
 ]}
 
 runs after the first frame and again each time [gate_open] changes. The wisp
-takes the other shape — [~deps:()] is "once, on mount", and its cleanup runs
+takes the other form: [~deps:()] means once, on mount, with the cleanup run
 when the component leaves the tree:
 
 {[
@@ -859,27 +862,27 @@ when the component leaves the tree:
       Some (fun () -> prerr_endline "the wisp departs"));
 ]}
 
-It leaves the tree because the open gate frees it:
+The wisp leaves the tree when the gate opens:
 
 {[
   (if gate_open then Element.empty else wisp (Vec.make 0. 0.));
 ]}
 
-Raise the gate and stderr says goodbye — a subscription taken in the effect and
-dropped in the cleanup would have lived exactly that long, which is the next
-step's whole trick. To run an effect every frame instead, pass
-[~equal:(fun _ _ -> false)]; the default is structural equality, which raises
+Raise the gate and the departure line prints on stderr. A subscription taken
+in the effect and dropped in the cleanup would have lived exactly that long;
+the next step relies on this. To run an effect every frame instead, pass
+[~equal:(fun _ _ -> false)]. The default is structural equality, which raises
 on deps that hold a closure, so those need an [equal] of their own.
 
 The whole program as of this step: [examples/step18_effect.ml].
 
 {1 Step 19 — Shared state, by hand}
 
-Component state belongs to a component. The embers now scattered through the
-undercroft are worth counting, and the count belongs to nobody in particular —
-threading it down as props is how a codebase acquires arguments that exist only
-to be passed on. So the count lives outside the tree, in fifteen deliberately
-bare lines:
+Component state belongs to a component. This step scatters embers through the
+undercroft and counts them, and the count belongs to no single component.
+Threading it down as props would add arguments that exist only to be passed
+on. The count therefore lives outside the tree, in fifteen deliberately bare
+lines:
 
 {[
   let embers_taken = ref 0
@@ -894,7 +897,7 @@ bare lines:
     List.iter (fun listener -> listener ()) !listeners
 ]}
 
-An ember keeps its takenness to itself and tells the world about the count:
+An ember keeps its own taken state and notifies listeners of the count:
 
 {[
   let ember =
@@ -911,10 +914,10 @@ An ember keeps its takenness to itself and tells the world about the count:
         pos
 ]}
 
-And the tally is where the last hook comes in. {!Camlcast.Hook.use_invalidate}
-is a function that tells this component's root it has work to do — the seam for
-anything the runtime does not own. Subscribe in an effect, invalidate from the
-callback, unsubscribe in the cleanup:
+The tally uses the last hook. {!Camlcast.Hook.use_invalidate} returns a
+function that tells this component's root it has work to do — the integration
+point for anything the runtime does not own. Subscribe in an effect,
+invalidate from the callback, unsubscribe in the cleanup:
 
 {[
   let tally =
@@ -927,18 +930,18 @@ callback, unsubscribe in the cleanup:
     P.text ~font ~color:(Color.rgb 236 150 90) ~x:(w - tw - 12) ~y:12 line
 ]}
 
-Under {!Camlcast.Run.play} every frame renders anyway, and the tally would
-seem to work without any of this. The invalidate is what makes it {e correct}
-rather than lucky: a root that renders on demand — {!Camlcast.Mount}, three
+Under {!Camlcast.Run.play} every frame renders anyway, so the tally would
+appear to work without any of this. The invalidate makes it {e correct} rather
+than coincidental: a root that renders on demand — {!Camlcast.Mount}, three
 steps from here — redraws this text only because something asked.
 
-The whole program as of this step: [examples/step19_embers.ml]. The plumbing is
-the point of the step; keep reading before keeping it.
+The whole program as of this step: [examples/step19_embers.ml]. The manual
+plumbing is the point of the step; read the next step before adopting it.
 
 {1 Step 20 — The store}
 
-{!Camlcast.Store} is step 19, packaged: the state, the one function allowed to
-change it, and whoever is listening.
+{!Camlcast.Store} packages step 19's pattern: the state, the one function
+allowed to change it, and the listeners.
 
 {[
   type progress = { embers : int }
@@ -948,44 +951,44 @@ change it, and whoever is listening.
   let game_store = Store.create ~initial:{ embers = 0 } ~reducer:advance
 ]}
 
-Made once, at the top level — a store made inside a render would be a new store
-every frame, holding [initial] forever. The ember trades its hand-rolled notify
-for {!Camlcast.Store.dispatch}, safe from any handler or effect and never from
-inside a render:
+Create the store once, at the top level. A store made inside a render would be
+a new store every frame, holding [initial] forever. The ember replaces its
+hand-rolled notify with {!Camlcast.Store.dispatch}, safe to call from any
+handler or effect and never from inside a render:
 
 {[
   Store.dispatch game_store Ember_taken
 ]}
 
-and the tally trades subscribe-invalidate-cleanup for one hook:
+and the tally replaces subscribe-invalidate-cleanup with one hook:
 
 {[
   let embers = Store.use_selector game_store (fun s -> s.embers) in
 ]}
 
-{!Camlcast.Store.use_selector} arranges to be woken exactly when its answer
-changes. Select the smallest thing that will do: a component reading
-[fun s -> s.embers] is untouched by an action that moves anything else, while
-one reading [fun s -> s] is woken by every action there is. There is no
-provider and no dispatch hook, because OCaml needs neither — the store is a
-module-level value and reaching it is spelling its name.
+{!Camlcast.Store.use_selector} wakes the component exactly when the selected
+value changes. Select the smallest value that suffices: a component reading
+[fun s -> s.embers] is untouched by an action that changes anything else,
+while one reading [fun s -> s] wakes on every action. There is no provider and
+no dispatch hook, because OCaml needs neither: the store is a module-level
+value, reachable by name.
 
 The whole program as of this step: [examples/step20_store.ml].
 
 {1 Step 21 — Context}
 
-Some values are not state so much as {e surroundings}: a palette, a typeface,
-how alive the flames are. Threading them as props is the same disease the store
-cured, but these change with where you are in the tree, not with time — which
-is what {!Camlcast.Context} is for.
+Some values are {e surroundings} rather than state: a palette, a typeface, how
+alive the flames are. Threading them as props has the same cost the store
+avoided, but these values vary with position in the tree, not with time.
+{!Camlcast.Context} handles that case.
 
 {[
   let flicker = Context.make 1.
 ]}
 
-The argument is the default, for a render with no provider in sight —
-{!Camlcast.Check} gets that one. The game binds it above the world — cupping
-the brazier now dims every flame at once:
+The argument is the default value, used by a render with no provider above it;
+{!Camlcast.Check} renders with the default. The game binds the context above
+the world, so cupping the brazier now dims every flame at once:
 
 {[
   let alive = if cupped then 0.35 else 1. in
@@ -994,24 +997,25 @@ the brazier now dims every flame at once:
   @@ [ P.(world (* ... *)) ]
 ]}
 
-and any component under it reads it back, with no one in between naming it:
+Any component under it reads the value back, with nothing in between naming
+it:
 
 {[
   let alive = Hook.use_context flicker in
 ]}
 
 {!Camlcast.Hook.use_context} claims no slot and answers the same way every
-render, so it is the one hook that is harmless inside a conditional — write it
-unconditionally anyway; the rule is easier to keep than to keep track of
-exceptions to. Nothing subscribes and nothing needs to: a description is
-rebuilt every frame, so a changed value is simply what the next render sees.
-{!Camlcast.Events.context} — how time and input reach the hooks — is itself one
-of these, bound by {!Camlcast.Run.play} around your description every frame.
+render, so it is the one hook that is harmless inside a conditional. Write it
+unconditionally anyway; one rule is easier to keep than a rule with
+exceptions. Nothing subscribes and nothing needs to: a description is rebuilt
+every frame, so a changed value is simply what the next render sees.
+{!Camlcast.Events.context} — how time and input reach the hooks — is itself a
+context, bound by {!Camlcast.Run.play} around your description every frame.
 
-The same step brings {!Camlcast.Element.fragment}, for a helper that returns
-several primitives where one is expected — the corridor's pair of motes is one
-thing to the description now, and the key on the fragment is how the pair as a
-whole keeps its place when the list around it changes:
+This step also introduces {!Camlcast.Element.fragment}, for a helper that
+returns several primitives where one is expected. The corridor's pair of motes
+is now one element to the description. The key on the fragment keeps the pair
+as a whole in its place when the list around it changes:
 
 {[
   let mote_pair ~key a b =
@@ -1026,9 +1030,9 @@ The whole program as of this step: [examples/step21_context.ml].
 
 {1 Step 22 — Prove it without a window}
 
-Everything a description is can be read without SDL anywhere near. The step-15
-door disagreement was found exactly this way, and the game now proves itself
-before it plays:
+Everything in a description can be inspected without SDL. The step-15 door
+disagreement was found exactly this way. The game now checks itself before it
+plays:
 
 {[
   let prove font =
@@ -1053,25 +1057,24 @@ before it plays:
     print_endline "the undercroft holds: ok"
 ]}
 
-{!Camlcast.Check.report} renders the description — components, effects and all,
-giving back what they took — and reads the assembled world for what a compiler
-cannot see: a room nothing leads to, a spawn inside a wall, two doorways joined
-to the same third, a door only one side admits to. Where it can, a diagnostic
-names the {e component} that wrote the offending part rather than the room the
-engine found it in.
+{!Camlcast.Check.report} renders the description — components and effects
+included, with effect cleanups run afterwards — and reads the assembled world
+for what a compiler cannot see: a room nothing leads to, a spawn inside a
+wall, two doorways joined to the same third, a door only one side declares.
+Where it can, a diagnostic names the {e component} that wrote the offending
+part rather than the room the engine found it in.
 
-{!Camlcast.Mount} is the rest of the loop with the window left out:
-{!Camlcast.Mount.build} for one look at the {!Camlcast.Scene} a description
-assembles to, {!Camlcast.Mount.create} and {!Camlcast.Mount.render} to keep
-state between renders. And a fake frame is nothing but
-{!Camlcast.Events.context} bound by hand — [Events.still] with a [dt] — which
-is the whole trick by which time passes in a test. The scratch store says the
-last piece: a reducer is a plain function, so the shared state is as provable
-as the geometry.
+{!Camlcast.Mount} is the rest of the loop with the window left out.
+{!Camlcast.Mount.build} gives one look at the {!Camlcast.Scene} a description
+assembles to. {!Camlcast.Mount.create} and {!Camlcast.Mount.render} keep state
+between renders. A fake frame is nothing but {!Camlcast.Events.context} bound
+by hand — [Events.still] with a [dt] — and that is how time passes in a test.
+The scratch store shows the last piece: a reducer is a plain function, so the
+shared state is as provable as the geometry.
 
-It needs no window, so its natural home in your own project is [dune runtest] —
-one case per level, and your levels are covered for the cost of writing that
-down. Here it runs at startup, and
+None of this needs a window, so in your own project it belongs in
+[dune runtest] — one case per level covers your levels. Here it runs at
+startup, and
 
 {@sh[
 dune exec examples/step22_check.exe -- --check
@@ -1110,31 +1113,30 @@ control and the map — is one record, {!Camlcast.Controls.t}, handed to
       ()
 ]}
 
-A {!Camlcast.Binding} axis is a list of weighted sources summed into one number
-a second is scaled by — walking gains a second pair of keys here, and the left
-mouse button starts working what E works. {b Replacement, not merging}, at
-every level: a given [~forward] is the whole of that axis, so W and S are
-restated beside I and K; a given [~bindings] is the whole of the bindings, so
-Escape is said again — {!Camlcast.Controls.default} was the layer saying it for
-you.
+A {!Camlcast.Binding} axis is a list of weighted sources summed into one
+number that scales the per-second speed. Here walking gains a second pair of
+keys, and the left mouse button starts working what E works. {b Replacement,
+not merging}, at every level: a given [~forward] is the whole of that axis, so
+W and S are restated beside I and K. A given [~bindings] is the whole of the
+bindings, so Escape is restated too; {!Camlcast.Controls.default} previously
+supplied it.
 
 Press {b F3} — or now {b M} — in the running game and the room is drawn from
-above: every wall with a short tick pointing the way its normal faces, doorways
-green when linked and red when they lead nowhere, the player's disc with its
-collision ring, and a mark on anything {!Camlcast.Check} has something to say
-about. The ticks are the fastest way to see a boundary wound wrong — a row of
-them pointing out of the room — which is also why you have not needed the map
-yet. [~map:[]] is a game that has stopped wanting one, and it costs that game
-nothing: the walk over every wall that feeds the map only happens while the map
-is up.
+above: every wall with a short tick pointing the way its normal faces,
+doorways green when linked and red when they lead nowhere, the player's disc
+with its collision ring, and a mark on anything {!Camlcast.Check} flags. The
+ticks are the fastest way to see a boundary wound wrong — a row of them
+pointing out of the room. Auto-winding is why the map has not been needed so
+far. [~map:[]] disables the map, and it costs that game nothing: the walk over
+every wall that feeds the map only happens while the map is up.
 
 The whole program as of this step: [examples/step23_controls.ml].
 [demo/bindings.ml] and [demo/controls.ml] go further.
 
 {1 Step 24 — The ending}
 
-The courtyard opens to the sky. A ceiling is either a roof or the absence of
-one, and absence names what shows instead:
+This step opens the courtyard to the sky. A ceiling is either a roof or the
+absence of one, and absence names what shows instead:
 
 {[
   let evening = Sky.make ~sun_azimuth:2.7 ~sun_height:0.06 ()
@@ -1144,14 +1146,14 @@ one, and absence names what shows instead:
   ~ceiling:(open_sky evening)
 ]}
 
-Stepping out is a crossing, and it starts a clock:
+Stepping out is a crossing, and it starts a timer:
 
 {[
   if crossing.Events.to_room = "courtyard" && freedom = None then
     set_freedom (Some 0.)
 ]}
 
-While the clock runs, the description places the eye itself:
+While the timer runs, the description places the eye itself:
 
 {[
   (match freedom with
@@ -1163,24 +1165,24 @@ While the clock runs, the description places the eye itself:
         ());
 ]}
 
-While a {!Camlcast.P.camera} is in a description the controls do not move the
-player at all — the description says where the eye is, every frame, and a walk
-it did not ask for would fight it. Nor is the world {e worked} through this
-eye: [on_gaze], [on_use] and the crossings all fall silent, so a pan across a
-room does not drag an enter and a leave over everything it sweeps past. See
-{!Camlcast.Run.aiming} for that rule stated once. Take the camera out again and
-the player carries on from wherever it was last put.
+While a {!Camlcast.P.camera} is in a description, the controls do not move the
+player at all, because the description sets the eye position every frame and
+unrequested movement would conflict with it. Nor is the world interacted with
+through this eye: [on_gaze], [on_use] and the crossings all stay silent, so a
+pan across a room does not fire an enter and a leave on everything it sweeps
+past. See {!Camlcast.Run.aiming} for that rule stated once. Remove the camera
+and the player carries on from wherever it was last put.
 
-Three seconds up, the description says the one thing it has not yet said:
+After three seconds, the description declares the ending:
 
 {[
   (match freedom with Some t when t >= 3. -> finish | _ -> Element.empty);
 ]}
 
-{!Camlcast.P.finish} is declared, not called — a component that has reached its
-ending describes an ending, in the same place and the same way it says
-everything else. The frame it appears in is drawn, and then the run stops. And
-the [ending] that [Run.play] has been handing back all along finally gets read:
+{!Camlcast.P.finish} is declared, not called: a component that has reached its
+ending describes an ending, in the same place and the same way it describes
+everything else. The frame it appears in is drawn, and then the run stops. The
+[ending] that [Run.play] has returned all along is now read:
 
 {[
   match Run.play ~title:"The Undercroft" ~controls (game font) with
@@ -1193,18 +1195,18 @@ the [ending] that [Run.play] has been handing back all along finally gets read:
       exit 1
 ]}
 
-[Returned] is the run ending on its own terms — [finish], or the leave control.
-[Closed] is the window going away. The difference is the next step's whole
-subject.
+[Returned] means the run ended on its own terms — [finish], or the leave
+control. [Closed] means the window was closed. The next step depends on this
+difference.
 
 The whole program as of this step: [examples/step24_escape.ml].
 [demo/daylight.ml] is two rooms under different skies.
 
 {1 Step 25 — A launcher}
 
-A window and a run are two lifetimes. {!Camlcast.Run.play} is
-{!Camlcast.Run.with_window} and {!Camlcast.Run.on} rolled together, and taking
-them apart is what a title screen is:
+A window and a run have separate lifetimes. {!Camlcast.Run.play} combines
+{!Camlcast.Run.with_window} and {!Camlcast.Run.on}. A title screen comes from
+using them separately:
 
 {[
   let () =
@@ -1224,18 +1226,18 @@ them apart is what a title screen is:
         descend ())
 ]}
 
-Title and game take turns on one window; coming out of the dark comes back to
-the title, and the picture changes rather than the window blinking. The store
-outlives every run, so the embers accumulate across descents.
+Title and game take turns on one window. Finishing the game returns to the
+title, and the picture changes without the window closing and reopening. The
+store outlives every run, so the embers accumulate across descents.
 
 The title screen is a world like any other — a brick foyer, a torch, a camera
 swaying where a player would stand — plus the one part of {!Camlcast.P} this
-game has not needed: {!Camlcast.P.cursor} frees the mouse for a screen drawn
-over the world, instead of capturing it for looking around. While it is up
-nothing in the world is worked — the crosshair is not the player's — and what
-still answers is {!Camlcast.Events.use_aim}, which is asked rather than told.
-Enter describes [finish], and [finish] on a shared window is how a run hands
-the window back:
+game has not needed. {!Camlcast.P.cursor} frees the mouse for a screen drawn
+over the world, instead of capturing it for looking around. While the cursor
+is up, nothing in the world can be interacted with — the crosshair is not the
+player's. {!Camlcast.Events.use_aim} still answers, because it asks rather
+than being told. Enter describes [finish], and on a shared window [finish]
+hands the window back:
 
 {[
   Events.use_pressed (Input.Key Key.return) (fun () -> set_descending true);
@@ -1244,18 +1246,18 @@ the window back:
   (if descending then finish else Element.empty);
 ]}
 
-The title's controls list no way to leave, so Enter and the close button are
-the only two doors out of it — controls are per-run, which is the other thing
-this step buys.
+The title's controls list no leave binding, so Enter and the close button are
+the only two ways out of it. Controls are per-run; that is the other
+capability this step gains.
 
 The whole program as of this step: [examples/step25_launcher.ml].
-[demo/menu.ml] and [bin/demo.ml] are the same shape at full size.
+[demo/menu.ml] and [bin/demo.ml] use the same structure at full size.
 
 {1 Step 26 — Shipping}
 
-The game has drawn everything but the font itself. Real art arrives the same
-way the font did, and everything read from disk gathers into one record and one
-failure:
+So far the game has drawn everything except the font. Real art loads the same
+way the font did. Everything read from disk gathers into one record and one
+failure path:
 
 {[
   type art = { font : Font.t; tiles : Material.t; poster : Image.t }
@@ -1273,19 +1275,20 @@ failure:
       }
 ]}
 
-The south wall wears the tiles, the mural becomes the poster, and a missing
-file names itself before any window opens — which is the shape a bundled game
-wants.
+The south wall uses the tiles, the mural becomes the poster, and a missing
+file reports its name before any window opens. A bundled game needs exactly
+this behaviour.
 
-{!Camlcast.Asset} is the search order: [Contents/Resources] for a bundle,
+{!Camlcast.Asset} defines the search order: [Contents/Resources] for a bundle,
 beside the binary, one directory above it, and [share/<exe>] — plus wherever
-[CAMLCAST_ASSETS] points, which wins outright. So [dune build] serves a
-checkout, and shipping is [dune build --profile release] plus putting the
-binary, the SDL2 libraries and [assets/] in one directory —
+[CAMLCAST_ASSETS] points, which takes precedence over all of these.
+[dune build] therefore serves a checkout. Shipping is
+[dune build --profile release]
+plus putting the binary, the SDL2 libraries and [assets/] in one directory;
 [tools/bundle-*.sh] in this repository does exactly that, per platform.
 
 The whole program, and the whole game: [examples/step26_shipping.ml].
-[demo/loading.ml] is pictures from disk with nothing else in the way.
+[demo/loading.ml] loads pictures from disk with nothing else involved.
 
 {1 Where to go next}
 
