@@ -304,7 +304,8 @@ atmosphere, the key bindings in force, the font a label is drawn in.
 [Type.Id.provably_equal] returns a {e proof}, not a boolean. Matching on that
 proof is what lets [value] leave the function at the type [wanted] was declared
 with. There is no cast here; without the witness the function could not be
-written at all.
+written at all. This is stronger than the mechanism in React, which this layer
+is modelled on: React's context lookup has no proof to offer.
 
 The contrast with Phase 4 is the useful part. A context is a value the game
 creates explicitly, so there is somewhere to hang a witness. A hook has only
