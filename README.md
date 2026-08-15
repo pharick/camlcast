@@ -6,19 +6,19 @@
 [![OCaml](https://img.shields.io/badge/OCaml-%E2%89%A5%205.2-ec6813)](https://ocaml.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-![A walk through the showcase level: out of the twelve-sided plaza under an open sky, into a hall whose roof climbs away from its floor, through a door into a cellar with dust turning in it, back across the plaza and into a garden under a later sky, with a grille gate pulled down behind](doc/images/tour.gif)
+![A walk through the showcase level: a twelve-sided plaza under an open sky, a hall with a climbing roof, a cellar with falling dust, and a garden behind a grille gate](doc/images/tour.gif)
 
-A first-person raycasting engine in OCaml on top of SDL2 (`tsdl`). A world is a
-graph of rooms built from walls at any angle, each authored in its own coordinate
-frame with its own inclined floor and its own ceiling or open sky, joined at
-doorways you both see through and walk through. Walls carry their own heights and
-materials, can be see-through, and can be hung with pictures; sprites stand in
-the world facing the player; and there is mouse look with pitch. The floor,
-ceiling and sky are cast per pixel by a small software renderer and the walls are
-painted over them back to front.
+A first-person raycasting engine in OCaml on SDL2 (`tsdl`). A world is a graph
+of rooms joined at doorways that can be seen through and walked through. Each
+room is authored in its own coordinate frame, with its own inclined floor and
+its own ceiling or open sky. Walls sit at any angle, carry their own heights
+and materials, can be see-through, and can be hung with pictures. Sprites
+stand in the world facing the player, and mouse look includes pitch. A small
+software renderer casts the floor, ceiling and sky per pixel, then paints the
+walls over them back to front.
 
-This repository is the engine and the demos it is written against. Where to
-start depends on what you came for:
+This repository holds the engine and the demos it is written against. Where to
+start:
 
 - **Play the demos** — [Running](#running) below, or download a
   [bundle](#bundles) and install nothing.
@@ -27,16 +27,15 @@ start depends on what you came for:
   from an empty directory to a game, one feature at a time.
 - **Learn how a raycaster draws** —
   [Building the engine from scratch](https://pharick.github.io/camlcast/building-the-engine.html):
-  the picture rebuilt by hand, every derivation written out.
+  every derivation written out.
 - **Hack on the engine itself** — [the modules](#the-engine-in-one-page),
   [Tests](#tests), and [HACKING.md](HACKING.md).
 
 ## What it looks like
 
-<!-- Raw HTML because a markdown table has to have a header row, and this one has
-     nothing to say in it. The widths are attributes rather than a stylesheet
-     because GitHub strips those from a README, and without them a pair of
-     1024-pixel screenshots would size the table past the column. -->
+<!-- Raw HTML: a markdown table requires a header row, and this table has none.
+     Widths are attributes because GitHub strips stylesheets from a README;
+     without them two 1024-pixel screenshots would overflow the column. -->
 <table width="100%">
   <tr>
     <td width="50%"><img src="doc/images/daylight.png" width="100%" alt="An open evening sky over a low wall"></td>
@@ -58,8 +57,8 @@ start depends on what you came for:
 
 ## Running
 
-From a fresh clone, once. The system libraries come first — SDL2 and its image
-codecs are the one dependency opam cannot build for you:
+From a fresh clone, once. SDL2 and its image codecs are system libraries; opam
+cannot build them for you:
 
 ```sh
 sudo apt install libsdl2-dev libsdl2-image-dev   # Debian / Ubuntu
@@ -70,14 +69,12 @@ eval $(opam env --switch=. --set-switch)
 opam install . --deps-only --with-test --with-doc
 ```
 
-**macOS:** add `--no-depexts` to the `opam install` line. Homebrew's `sdl2` is
-an alias for the `sdl2-compat` formula, and opam tests for a system package by
-name against `brew list`, which reports only the formula — so the `sdl2` the
-depext asks for never appears there, and opam calls it missing however many
-times you install it. Installing the libraries yourself and telling opam to
-stop looking is the whole fix. **Windows:** use the MSYS2 environment. Step 0
-of [the guide](https://pharick.github.io/camlcast/making-a-game.html) has the
-longer story on both.
+**macOS:** add `--no-depexts` to the `opam install` line. opam cannot detect
+Homebrew's SDL2, so install the libraries yourself and skip the check;
+[HACKING.md](HACKING.md) explains the cause. **Windows:** use the MSYS2
+environment. Step 0 of
+[the guide](https://pharick.github.io/camlcast/making-a-game.html) covers
+setup on both.
 
 Then:
 
@@ -88,27 +85,25 @@ dune exec camlcast-demo portals            # straight to one of them
 dune test                                  # all suites
 ```
 
-Run with no arguments, `camlcast-demo` opens a menu of every demo, drawn over
-one slowly turning room: the arrow keys move the highlight, Enter (or Space)
-runs it, Escape comes back to the list. Run with a demo's name, it launches
-straight into that demo — Escape then ends the program, because there is no
-menu behind it to come back to. (In a later shell,
-`eval $(opam env --switch=. --set-switch)` from the repository puts the switch
-back on your path.)
+With no arguments, `camlcast-demo` opens a menu of the demos drawn over one
+slowly turning room: the arrow keys move the highlight, Enter or Space runs
+one, Escape returns to the list. With a demo's name it launches that demo
+directly, and Escape then ends the program, since there is no menu behind it.
+In a later shell, `eval $(opam env --switch=. --set-switch)` from the
+repository restores the switch.
 
-The demos that read art from files find it relative to the executable, which
-under dune is `_build/default/assets/` — `dune build` puts it there. Installed,
-it is `share/camlcast-demo/assets/` under the same prefix as the binary: the
-share directory is named after the executable, so a game called `wanderer` reads
+Demos that read art from files look relative to the executable, which under
+dune is `_build/default/assets/`; `dune build` puts it there. Installed, it is
+`share/camlcast-demo/assets/` under the same prefix as the binary. The share
+directory is named after the executable, so a game called `wanderer` reads
 `share/wanderer`. Set `CAMLCAST_ASSETS` to a directory to look there instead,
 and only there.
 
 ## The demos
 
-One small world per engine feature, and one that has all of them at once. Each is
-a single file under `demo/`, short enough to read in a sitting, with the feature
-it demonstrates as the only thing in it — and each spawns you facing the thing it
-is about.
+One small world per engine feature, and one with all of them at once. Each is
+a single file under `demo/` containing only the feature it demonstrates, and
+each spawns the player facing that feature.
 
 | demo       | what it shows                                                  |
 | ---------- | -------------------------------------------------------------- |
@@ -128,24 +123,23 @@ is about.
 | `barred`   | a door and a transom you can see through, and cannot walk past |
 | `targets`  | what the crosshair is on, through the doorway in front of you  |
 | `trail`    | traversal traces: a return route built from the doorways       |
-| `phases`   | `Engine.run`: a phase, a clock, and a light going out          |
+| `phases`   | a component with a phase, a clock, and a light going out       |
 | `overlay`  | drawing over the finished world                                |
 | `controls` | binding keys, press versus hold, and letting go of the mouse   |
 | `text`     | a bitmap font: wrapping, measuring, clipping and colour        |
 | `loading`  | art read from files, beside the generated kind                 |
 | `showcase` | the five-room level, with all of the above at once             |
 
-`demo/catalogue.ml` is the list itself, and `showcase` is `demo/level.ml`. Every
-one of these worlds is checked by `test_demos`: that you can stand where it
-spawns you, that its rooms enclose themselves, that every room is reachable, and
-that no floor steps across a doorway. Adding a demo to `Catalogue.demos` is also
-adding it to that suite.
+`demo/catalogue.ml` is the list itself, and `showcase` is `demo/level.ml`.
+`test_demos` checks every world in the list: the spawn point is standable,
+rooms enclose themselves, every room is reachable, and no floor steps across a
+doorway. Adding a demo to `Catalogue.demos` also adds it to that suite.
 
 ## The libraries
 
-The engine holds no content — not one colour, pattern, picture or room. What it
-has instead are the types those things are values of, so a game supplies its own
-and two games can share an engine without sharing a look.
+The engine ships no content — no colours, patterns, pictures or rooms — only
+the types those things are values of. A game supplies its own, so two games
+can share the engine without sharing a look.
 
 | directory | library         | what it is                                                      |
 | --------- | --------------- | --------------------------------------------------------------- |
@@ -154,28 +148,25 @@ and two games can share an engine without sharing a look.
 | `core/`   | `camlcast.core` | the platform: geometry, ray casting, rendering, SDL              |
 | `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo`  |
 
-A game opens `Camlcast` and nothing else. What is not in that module is the
-platform underneath — `Engine`, `Renderer`, `Framebuffer`, `World`, `Player` —
-which is reachable by adding `camlcast.core` to a dune file and saying so. The
-boundary is a decision with a diff rather than something autocomplete finds for
-you.
+A game opens `Camlcast` and nothing else. The platform underneath — `Engine`,
+`Renderer`, `Framebuffer`, `World`, `Player` — is not in that module; reaching
+it means adding `camlcast.core` to a dune file.
 
-`camlcast.loom` depends on nothing but the standard library and knows nothing of
-walls; `camlcast` is the only library that knows both it and the platform. The
-guides and the demos teach the layer: `camlcast.core` is what a game reaches for
-when it genuinely needs a `World` or a `Renderer`, and the rest of the time it
-is the floor under the room rather than the room.
+`camlcast.loom` depends only on the standard library and knows nothing of
+walls; `camlcast` is the only library that knows both loom and the platform.
+The guides and the demos teach the layer. Reach for `camlcast.core` when a
+game genuinely needs a `World` or a `Renderer`.
 
-Nothing in the engine depends on `demo/`, which is the point: it is content, and
-it lives outside the library it is content for. It stays in this repository
-because between them the demos exercise every corner of the engine — decals,
-see-through walls, sloped floors, the open sky, growth, overlays and input — so a
-change that breaks any of them breaks something you can walk through here.
+Nothing in the engine depends on `demo/`: the demos are content, and they live
+outside the library they are content for (see `demo/catalogue.ml`). They stay
+in this repository because together they exercise every corner of the engine —
+decals, see-through walls, sloped floors, the open sky, growth, overlays and
+input — so a change that breaks one breaks a world you can walk through here.
 
 They are two opam packages for the same reason. `camlcast` is the engine: a
-library that reads no file and puts nothing in a prefix's `share`. `camlcast-demo`
-is `bin/demo.ml` and the pictures it needs, which a program that reads its art
-off the disk has to carry wherever it is installed.
+library that reads no file and puts nothing in a prefix's `share`.
+`camlcast-demo` is `bin/demo.ml` and the pictures it needs, which a program
+that reads its art off the disk must carry wherever it is installed.
 
 ## Using the engine
 
@@ -186,13 +177,13 @@ Pin it, since it is not on opam yet, and add `(libraries camlcast)` to your
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
 ```
 
-(The demos are the second package and depend on the first, so a copy of them
-wants both pinned — `opam install .` from a checkout does that in one step.)
+(The demos are the second package and depend on the first; `opam install .`
+from a checkout pins both in one step.)
 
 A game **describes** its world: it says what the world should be right now,
-every frame, from nothing, and the runtime works out what changed. A level is
-OCaml code rather than a file in some format, so the smallest complete game is
-one room and a call. This is
+every frame, from nothing, and the runtime computes what changed. A level is
+OCaml code rather than a data file, so the smallest complete game is one room
+and a call. This is
 [`examples/step01_room.ml`](examples/step01_room.ml) — step 1 of the guide,
 compiled with the rest of the tree so that it cannot drift from the engine:
 
@@ -255,19 +246,19 @@ let torch =
   P.sprite ~size:0.8 ~image:(if lit then flame else stub) pos
 ```
 
-Components compose by being functions, so a higher-order component that takes
-children and puts something around them is ordinary OCaml.
+Components are functions, so they compose as ordinary OCaml: a higher-order
+component takes children and puts something around them.
 **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
-walks through all of it a feature at a time, with the demo that isolates each
-one. Every step of it is a complete program in [`examples/`](examples/) —
-`step01_room.ml` through `step26_shipping.ml`, each the whole game as that step
-leaves it, all compiled with the tree so none of them can drift.
+walks through the engine one feature at a time, naming the demo that isolates
+each. Every step is a complete program in [`examples/`](examples/) —
+`step01_room.ml` through `step26_shipping.ml`, each the whole game as that
+step leaves it, all compiled with the tree so none of them can drift.
 
 ## Controls
 
-The engine names no key of its own. Walking, looking, fullscreen and leaving the
-run all come out of a `Binding.t` the game hands to `Engine.run`;
-`Binding.default` is what the demos walk on, and it is a default and not a rule.
+The engine names no key of its own. Walking, looking, fullscreen and leaving
+the run all come from a `Binding.t` the game hands to `Engine.run`. The demos
+use `Binding.default`:
 
 | key / device | action                                |
 | ------------ | ------------------------------------- |
@@ -279,16 +270,15 @@ run all come out of a `Binding.t` the game hands to `Engine.run`;
 | `F11`        | toggle fullscreen                     |
 | `Esc`        | leave the run (see below)             |
 
-That last row is the one the engine will not assume. `Binding.default` binds
-_no_ key that ends a run, because a game with screens in it wants `Esc` for
-closing them; `Engine.run_world` adds it itself, since a bare world has nothing
-else to end it with.
+`Binding.default` binds _no_ key that ends a run, because a game with screens
+in it wants `Esc` for closing them. `Engine.run_world` adds `Esc` itself,
+since a bare world has nothing else to end it with.
 
-Rebinding is a value —
+Rebinding is a value.
 [`examples/step23_controls.ml`](examples/step23_controls.ml) walks on `I` and
-`K` beside `W` and `S`, puts the left mouse button to work beside `E`, and says
-Escape again, since a given part replaces the default's rather than adding to
-it:
+`K` beside `W` and `S`, puts the left mouse button to work beside `E`, and
+binds Escape again — a supplied part replaces the default's part rather than
+adding to it:
 
 ```ocaml
 let controls =
@@ -313,23 +303,23 @@ let controls =
     ()
 ```
 
-An axis adds up terms, and the two kinds of term are added differently: a held
-key is a **rate**, summed and paid out at the axis's speed over the frame, while
-the mouse is a **displacement**, added as it stands. That distinction — and the
-seam a gamepad would arrive through — is step 23 of
-[the guide](https://pharick.github.io/camlcast/making-a-game.html).
+An axis sums its terms, and the two kinds of term are summed differently: a
+held key is a **rate**, paid out at the axis's speed over the frame, while the
+mouse is a **displacement**, added as it stands. Step 23 of
+[the guide](https://pharick.github.io/camlcast/making-a-game.html) covers the
+distinction and the seam a gamepad would arrive through.
 
-Some demos bind keys of their own beyond the table: `phases` starts on Space;
-`chalk` marks on `C` and picks the mark with `1` and `2`; `doors`, `targets`
-and the showcase put `E` to work on whatever is at hand; `controls` binds a
-second full set of walking keys and prints them with `Key.name`.
+Some demos bind keys beyond the table: `phases` starts on Space; `chalk` marks
+on `C` and picks the mark with `1` and `2`; `doors`, `targets` and the
+showcase use `E` on whatever is at hand; `controls` binds a second full set of
+walking keys and prints them with `Key.name`.
 
-The mouse is captured in relative mode, so the cursor is hidden and never reaches
+The mouse is captured in relative mode: the cursor is hidden and never reaches
 a screen edge.
 
-The window is resizable and `F11` toggles borderless fullscreen. Reshaping it is
+The window is resizable and `F11` toggles borderless fullscreen. Resizing is
 **Hor+**: the vertical field of view is fixed, so dragging the window wider
-reveals more of the world to the sides instead of magnifying what was already on
+reveals more of the world to the sides instead of magnifying what was on
 screen, and pixels stay square at every shape.
 
 ## Bundles
@@ -337,42 +327,42 @@ screen, and pixels stay square at every shape.
 Pushing a `v*` tag builds a bundle per platform and attaches it to a GitHub
 release: a `.app` for macOS on Apple silicon and on Intel, a tarball for Linux
 x64, a folder for Windows x64. Each carries its own SDL2 and image codecs, so
-nothing has to be installed to run one. `tools/bundle-*.sh` build them, and can
-be run on a laptop against a `dune build` tree.
+nothing has to be installed to run one. `tools/bundle-*.sh` build them, and
+can be run on a laptop against a `dune build` tree.
 
-A bundle opens on the list of demos, since a window that was double-clicked has
-no command line behind it — that is the whole reason the list is drawn as well as
+A bundle opens on the list of demos: a window that was double-clicked has no
+command line to name one. That is also why the list is drawn as well as
 printed.
 
 The Linux tarball needs **glibc 2.39 or newer** (Ubuntu 24.04, Debian 13,
 Fedora 40). The `.app` is signed ad-hoc but not notarized, so a Mac that
-downloaded it refuses the first launch: open System Settings → Privacy &
-Security and choose "Open Anyway" — the Control-click trick that used to work
-was removed in macOS 15 — or, once:
+downloaded it refuses the first launch. Open System Settings → Privacy &
+Security and choose "Open Anyway" (the Control-click bypass was removed in
+macOS 15), or run once:
 
 ```sh
 xattr -dr com.apple.quarantine camlcast-demo.app
 ```
 
-Why the glibc floor is what it is, and how a `.app` decides how old a macOS it
-runs on, is in [HACKING.md](HACKING.md).
+[HACKING.md](HACKING.md) explains how the glibc floor and the `.app`'s
+minimum macOS version are determined.
 
 ## The engine in one page
 
 **`core/`** is twenty-nine modules, each depending only on the ones before it:
 `Config`, `Key` and `Vec` at the bottom, `Room`, `World` and `Ray` in the
 middle, `Renderer`, `Clock` and `Engine` on top. The maths lives in the module
-docs themselves: `Ray` for why the distance it reports is free of fish-eye,
-`Plane` for the equation that casts a sloped floor per pixel, `Viewport` for the
+docs: `Ray` for why the distance it reports is free of fish-eye, `Plane` for
+the equation that casts a sloped floor per pixel, `Viewport` for the
 projection and the resize rules, `Transform` for why linked doorways pair in
 reverse, `World` for the portal machinery.
 
-**`loom/`** is the declarative runtime, and depends on nothing but the standard
-library: `Element` is what a component returns, `Reconcile` matches this frame's
-description against last frame's tree, `Hook` keeps state in a row of slots
-reached through OCaml 5 effect handlers, `Context` hands values down a subtree
-with a `Type.Id` witness instead of a cast, and `Host` is the whole of the seam
-— two types and one function.
+**`loom/`** is the declarative runtime, depending only on the standard
+library: `Element` is what a component returns, `Reconcile` matches this
+frame's description against last frame's tree, `Hook` keeps state in a row of
+slots reached through OCaml 5 effect handlers, `Context` hands values down a
+subtree with a `Type.Id` witness instead of a cast, and `Host` is the whole of
+the seam — two types and one function.
 
 **`lib/`** is what a game opens: `P` for the parts a world is made of, `Check`
 for what is wrong with a level before anyone walks into it, `Aim` for what the
@@ -383,15 +373,15 @@ The annotated list is the
 
 ## Documentation
 
-The modules are documented with odoc comments (`(** ... *)`), and the maths
-derivations live there rather than in this file. Every push to `main` publishes
-them, along with all three guides:
+The modules are documented with odoc comments (`(** ... *)`); the maths
+derivations live there rather than in this file. Every push to `main`
+publishes them, along with all three guides:
 **[pharick.github.io/camlcast](https://pharick.github.io/camlcast/)**.
 
 - **[Making a game on CamlCast](https://pharick.github.io/camlcast/making-a-game.html)**
   — from an empty directory to a game, one feature at a time.
 - **[Building the engine from scratch](https://pharick.github.io/camlcast/building-the-engine.html)**
-  — how the picture is drawn, rebuilt by hand with every derivation written out.
+  — how the picture is drawn, with every derivation written out.
 - **[Building the layer from scratch](https://pharick.github.io/camlcast/building-the-layer.html)**
   — how a description of a world becomes one, and how a component keeps state
   across a frame that rebuilt everything. The second half of the one above.
@@ -405,42 +395,40 @@ python3 tools/pages-site.py  # lays the tree out, and copies doc/images/ in
 open _site/index.html
 ```
 
-`tools/pages-site.py` is what CI publishes from, and it is needed rather than
-optional:
-dune's `documentation` stanza has no way to carry assets, so the screenshots the
-guides are illustrated with reach the site through `tools/pages-site.py` and not
-through `@doc`. Building `@doc` also prints a small **expected** set of
-warnings — one per `@raise` tag naming a standard-library exception;
-[HACKING.md](HACKING.md) has why they cannot be silenced, and why anything else
-in that output is a reference that has gone stale.
+`tools/pages-site.py` is required, not optional: dune's `documentation` stanza
+cannot carry assets, so the screenshots in the guides reach the site through
+the script and not through `@doc`. `dune build @doc` also prints a small
+**expected** set of warnings, one per `@raise` tag naming a standard-library
+exception; [HACKING.md](HACKING.md) explains why they cannot be silenced.
+Anything else in that output is a reference that has gone stale.
 
-The pictures the guides and this file are illustrated with live in `doc/images/`.
+The pictures the guides and this file use live in `doc/images/`.
 
 ## Tests
 
-[Alcotest](https://github.com/mirage/alcotest), a suite per engine module —
-near enough: `Config` is constants, and `Door` and `Framebuffer` are exercised
-through the modules built on them — plus suites for the demo package's own
-machinery, all in `test/`. They share `Support`, a small library of its own in
-the same directory, which holds a hand-checkable 4x4 square room, a pair of
-rooms joined through a doorway, and the custom testables — a failing `Vec`
-check prints `(3, 2.5)` rather than a bare `false`.
+[Alcotest](https://github.com/mirage/alcotest), a suite per engine module,
+except `Config` (constants) and `Door` and `Framebuffer` (exercised through
+the modules built on them), plus suites for the demo package's own machinery,
+all in `test/`. They share `Support`, a small library in the same directory,
+which holds a hand-checkable 4x4 square room, a pair of rooms joined through a
+doorway, and the custom testables — a failing `Vec` check prints `(3, 2.5)`
+rather than a bare `false`.
 
-The suites are two stanzas, one per package, so that each package's tests build
-from that package alone: `dune runtest` runs all of them, and the `-p` build
-opam does runs only the ones belonging to the package it is building.
+The suites are two stanzas, one per package, so that each package's tests
+build from that package alone: `dune runtest` runs all of them, and the `-p`
+build opam does runs only the ones belonging to the package it is building.
 
 ```sh
 dune exec test/test_player.exe -- --verbose   # one suite
 dune exec test/test_ray.exe -- test hits      # one group
 ```
 
-**Nothing here opens a window.** `Framebuffer.offscreen` builds a buffer with no
-streaming texture behind it, and `Renderer.draw_frame` fills a buffer with no SDL
-call in it. So `test_paint` and `test_font` draw and read the pixels back, and
-`test_renderer` renders whole frames: where a billboard lands, what a low wall
-hides of it, and what a doorway trims it to are checked on the pixels rather than
-only in the arithmetic that feeds them.
+**Nothing here opens a window.** `Framebuffer.offscreen` builds a buffer with
+no streaming texture behind it, and `Renderer.draw_frame` fills a buffer with
+no SDL call in it. `test_paint` and `test_font` draw and read the pixels back,
+and `test_renderer` renders whole frames: where a billboard lands, what a low
+wall hides of it, and what a doorway trims it to are checked on the pixels
+rather than only in the arithmetic that feeds them.
 
 `test_level.ml` is the closest thing to an integration test: it checks the
 showcase world the way a player meets it, so an engine change that breaks
@@ -449,8 +437,9 @@ portals, sloped floors or the sky fails there rather than in a unit suite.
 ## Hacking
 
 [HACKING.md](HACKING.md) is the contributor's page: the development setup in
-full, the formatting pin, what CI checks, the expected `@doc` warnings, how the
-release bundles are put together, and the four places a new demo has to appear.
+full, the formatting pin, what CI checks, the expected `@doc` warnings, how
+the release bundles are put together, and the four places a new demo has to
+appear.
 
 ## License
 

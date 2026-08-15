@@ -1,36 +1,40 @@
 (** Every demo the executable can run.
 
-    One small world per engine feature, rather than one world with every feature
-    in it. {!Level} answers "what can this thing do"; these answer "how is that
-    one thing done", and each is a file short enough to read in a sitting with
-    the feature it demonstrates as the only thing in it.
+    One small world per engine feature. {!Level} shows everything at once; each
+    of the others isolates one feature in a single short file.
+
+    The demos are content, not engine: nothing in the engine depends on this
+    package, and installing the engine installs none of it. They stay in this
+    repository because together they exercise every engine feature, so an engine
+    change that breaks one breaks a world you can walk through.
 
     A demo carries the world it starts from as well as the function that runs
-    it, so the test suite can check every one of them without opening a window.
+    it, so the test suite can check every one without opening a window.
 
-    Adding a demo is adding it in four places: its file in this directory, an
-    entry in {!demos} below — which also enrols it in [test_demos] — a row in
-    README.md's table, and a line on [doc/demo/index.mld]. *)
+    Adding a demo means four changes: its file in this directory, an entry in
+    {!demos} below (which also enrols it in [test_demos]), a row in README.md's
+    table, and a line on [doc/demo/index.mld]. *)
 
 (* Not `open Camlcast`: this file names every demo module, and one of them is
-   called Overlay — as is the module in camlcast that turns a described HUD into
-   pixels. Qualifying the two things wanted from it is cheaper than renaming a
-   demo after a collision nobody outside this file will ever have. *)
+   called Overlay, colliding with camlcast's module of that name. Qualifying
+   the two values needed from Camlcast is cheaper than renaming a demo. *)
 open Camlcast_core
 
 type t = {
-  name : string;  (** what you type after [camlcast-demo] *)
-  blurb : string;  (** one line, for the listing *)
+  name : string;  (** the argument to [camlcast-demo] *)
+  blurb : string;
+      (** one line, for the listing. README.md's table and [doc/demo/index.mld]
+          copy it verbatim. *)
   world : World.t Lazy.t;
-      (** what it starts from; [endless] then grows it.
+      (** the starting world; [endless] then grows it.
 
-          Behind a [lazy] because [loading] builds its world out of files, which
-          can fail. Eager, one missing picture would stop [--list] from listing
+          Lazy because [loading] builds its world out of files, which can fail.
+          Forced eagerly, one missing picture would stop [--list] from listing
           anything; deferred, it stops only the demo that needed it. *)
   run : Camlcast.Run.window -> (Camlcast.Run.ending, [ `Msg of string ]) result;
-      (** plays it on the launcher's window, and says how the player left it —
-          {!Menu} shows itself again on that same window after a demo that was
-          [Returned], and stops after one that was [Closed] *)
+      (** plays the demo on the launcher's window and reports how the player
+          left it: {!Menu} shows itself again on the same window after
+          [Returned], and stops after [Closed]. *)
 }
 
 let demos =
@@ -164,9 +168,9 @@ let demos =
     {
       name = "showcase";
       blurb = "the five-room level, with all of the above at once";
-      (* The level at rest, which is what the suites check: [Level.run] starts
-         from this and then has a state, but nothing it does to a world is
-         anything a world could not have been authored as. *)
+      (* The level at rest, which is what the suites check. [Level.run] starts
+         from this and then has a state, but everything it does to the world
+         could have been authored directly. *)
       world = lazy Level.default;
       run = Level.run;
     };
@@ -174,29 +178,27 @@ let demos =
 
 let find name = List.find_opt (fun demo -> demo.name = name) demos
 
-(** Run one demo, turning the only exception its art can raise back into the
-    [`Msg] channel the launcher answers on.
+(** Run one demo, converting {!Reading.Unreadable} — the only exception its art
+    can raise — into the [`Msg] channel the launcher reports on.
 
-    A world read off the disk is forced inside {!t.run} — deep in a frame, where
-    a result would have nowhere to go — so {!Loading}, {!Typeface} and {!Text}
-    raise {!Reading.Unreadable} instead, and
-    {!Camlcast_core.Result_ext.with_resource} deliberately lets an exception
-    through rather than making an [Error] of it. Between the two the launcher
-    had nothing to say: a missing picture printed OCaml's own fatal-error banner
-    and stopped with its exit code, past the [camlcast-demo:] prefix every other
-    failure wears and past the code that goes with it. This is where the raising
-    side ends and the reporting side starts, and it takes a thunk rather than
-    wrapping {!t.run} so that the seam can be tested without a window.
+    A world read off the disk is forced inside {!t.run}, deep in a frame where a
+    [result] has nowhere to go, so {!Loading}, {!Typeface} and {!Text} raise
+    {!Reading.Unreadable}, and {!Camlcast_core.Result_ext.with_resource}
+    deliberately lets exceptions through rather than making an [Error] of them.
+    Without this handler a missing picture printed OCaml's fatal-error banner
+    and stopped with its exit code, bypassing the [camlcast-demo:] prefix and
+    exit code every other failure gets. This is the seam between the raising
+    side and the reporting side; it takes a thunk rather than wrapping {!t.run}
+    so the seam can be tested without a window.
 
-    One exception and ours, so this catches what it meant to. It caught
-    [Failure] while the loaders raised it with [failwith], and [Failure] belongs
-    to nobody: a [List.nth] off the end of a list, anywhere inside a demo's
-    frame, arrived here dressed as a demo whose art could not be read — reported
-    calmly, under a message naming a file that was never the trouble, and with
-    the real mistake nowhere in it. It now goes out as itself.
+    Only {!Reading.Unreadable} is caught, an exception this package owns. An
+    earlier version caught [Failure] (the loaders used [failwith]), and
+    [Failure] belongs to nobody: a [List.nth] off the end of a list, anywhere
+    inside a demo's frame, was reported as unreadable art under a message naming
+    a file that was not the problem.
 
-    [Invalid_argument] is still not caught, and is the other kind of mistake — a
-    world that does not join up, a font atlas the wrong shape. Stopping with one
-    of those named is the honest report of it. *)
+    [Invalid_argument] is deliberately not caught. It marks the other kind of
+    mistake — a world that does not join up, a font atlas the wrong shape — and
+    should stop the program with the exception named. *)
 let attempt f =
   try f () with Reading.Unreadable message -> Error (`Msg message)

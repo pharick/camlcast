@@ -1,13 +1,13 @@
 # Hacking on CamlCast
 
-Notes for working on this repository — the setup in full, what CI holds you to,
-and the corners of the build that are deliberate rather than accidental.
-[README.md](README.md) covers using the thing; this file covers changing it.
+Notes for working on this repository: the setup in full, what CI checks, and
+the corners of the build that are deliberate. [README.md](README.md) covers
+using the engine; this file covers changing it.
 
 ## Setup
 
 SDL2 and its image codecs are system libraries, installed by your package
-manager rather than by opam — `libsdl2-dev libsdl2-image-dev` on Debian or
+manager rather than by opam: `libsdl2-dev libsdl2-image-dev` on Debian or
 Ubuntu, `sdl2 sdl2_image` from Homebrew, the mingw64 packages under MSYS2.
 Then, from the checkout:
 
@@ -18,30 +18,29 @@ opam install . --deps-only --with-test --with-doc --with-dev-setup
 dune build && dune runtest
 ```
 
-`--with-dev-setup` is what brings in the pinned `ocamlformat` and
-`ocaml-lsp-server`; leave it off and the build still works, but `dune fmt`
-will not. On macOS add `--no-depexts` to the install line: Homebrew's `sdl2` is
-an alias for the `sdl2-compat` formula, and opam checks for the depext by name
-against `brew list`, which reports only the formula — so `sdl2` never appears
-there and the check fails whatever you installed. You install the libraries
-yourself and tell opam to stop looking. Upstream: opam-repository#30337.
+`--with-dev-setup` installs the pinned `ocamlformat` and `ocaml-lsp-server`;
+without it the build still works, but `dune fmt` does not.
 
-The engine's floor is OCaml 5.2 — for `-H`, the hidden include that makes
-`(implicit_transitive_deps false)` mean what it says rather than drop the
-directories it means to hide. The code asks for less: `Array.find_index`, which
-`World` uses to resolve a room's name to its index, arrived in 5.1 and is the
-newest thing in the tree. CI builds and tests at the floor as well as at the
-version development happens on, so the bound in `dune-project` is checked rather
-than merely asserted.
+On macOS add `--no-depexts` to the install line. Homebrew's `sdl2` is an alias
+for the `sdl2-compat` formula, and opam checks for the depext by name against
+`brew list`, which reports only the formula. The `sdl2` the depext asks for
+never appears there, so the check fails no matter what is installed. Install
+the libraries yourself and tell opam to stop looking. Upstream:
+opam-repository#30337.
+
+The engine's floor is OCaml 5.2, required for `-H`, the hidden include that
+makes `(implicit_transitive_deps false)` hide directories instead of dropping
+them. The code itself asks for less: the newest feature used is
+`Array.find_index` (5.1), which `World` uses to resolve a room's name to its
+index. CI builds and tests at 5.2 as well as at the development version, so
+the bound in `dune-project` is checked rather than merely asserted.
 
 ## Formatting
 
-`dune build @fmt` is a CI check; `dune fmt` applies it. The version is pinned —
-`.ocamlformat` says `0.29.0` and the opam dev-setup dependency pins the same —
-because ocamlformat's output changes between releases, and an unpinned
-formatter turns "the repository is formatted" into "the repository is formatted
-the way whoever last ran it had installed". A mismatched binary refuses to run
-rather than quietly reflowing the tree.
+`dune build @fmt` is a CI check; `dune fmt` applies it. The version is pinned
+in two places — `.ocamlformat` says `0.29.0` and the opam dev-setup dependency
+pins the same — because ocamlformat's output changes between releases. A
+mismatched binary refuses to run rather than quietly reflowing the tree.
 
 ## The examples
 
@@ -49,17 +48,17 @@ rather than quietly reflowing the tree.
 `step01_room.ml` through `step26_shipping.ml` — each the whole game as that
 step leaves it, the guide quoting only what each step adds. They compile with
 the default build and belong to no package, so `dune build` fails the moment
-the engine moves under them — which is the point: a snippet on a page cannot
-rot while the program it is quoted from still builds. Changing one means
-changing the page that quotes it, and the other way round; a step's number
-lives in exactly three synced places — filename, header comment, guide heading.
+the engine changes under them: a snippet on a page cannot go stale while the
+program it is quoted from still builds. Changing an example means changing the
+page that quotes it, and the other way round. A step's number lives in exactly
+three synced places: filename, header comment, guide heading.
 
 `step01_room.ml` is what README.md quotes, and `step23_controls.ml` is its
 rebinding snippet. Two steps read from `assets/` (`step13_words.ml` onward for
 the font, `step26_shipping.ml` for pictures), which is one more reason the
 default build copies `assets/` into `_build`. `step22_check.ml` proves the
-level without a window — `dune exec examples/step22_check.exe -- --check` — and
-is the guide's worked example of `Check` and `Mount`.
+level without a window — `dune exec examples/step22_check.exe -- --check` —
+and is the guide's worked example of `Check` and `Mount`.
 
 ## The docs and the site
 
@@ -72,40 +71,40 @@ python3 tools/pages-site.py
 open _site/index.html
 ```
 
-`tools/pages-site.py` is needed rather than optional: dune's `documentation`
-stanza has no way to carry assets, so the screenshots the guides are
-illustrated with reach the site through it and not through `@doc`. Opening
-`_build/default/_doc/_html/index.html` directly still works, with every picture
-in it broken.
+`tools/pages-site.py` is required, not optional: dune's `documentation` stanza
+cannot carry assets, so the screenshots in the guides reach the site through
+the script and not through `@doc`. Opening
+`_build/default/_doc/_html/index.html` directly still works, with every
+picture in it broken.
 
 `doc/index.mld` is the landing page and the two guides are `.mld` pages beside
-it; `doc/demo/index.mld` is the demos' own, in its own directory because it
-belongs to the other package — a `.mld` page can only name what its package's
-libraries bring in scope, and the engine does not depend on the demos. Both
-libraries have a public name, which is what makes `@doc` pick their modules up
-(odoc skips private libraries), so odoc writes one directory per package and
-`tools/pages-site.py` roots the site at `camlcast` and carries `camlcast-demo`
-across beneath it.
+it. `doc/demo/index.mld` is the demos' own page, in its own directory because
+it belongs to the other package: a `.mld` page can only name what its
+package's libraries bring in scope, and the engine does not depend on the
+demos. Both libraries have a public name, which is what makes `@doc` pick
+their modules up (odoc skips private libraries). odoc writes one directory per
+package, and `tools/pages-site.py` roots the site at `camlcast` and carries
+`camlcast-demo` across beneath it.
 
 ### The expected `@doc` warnings
 
 `@doc` prints a warning for every `@raise` tag naming a standard-library
-exception — `Invalid_argument` wherever one is refused, and
+exception: `Invalid_argument` wherever one is refused, and
 `Fun.Finally_raised` in `Result_ext`. odoc reads a `@raise` argument as a
 reference, and the classic `@doc` alias puts only this project's packages and
 their direct dependencies on its resolution path, so nothing in `Stdlib` can
-resolve there; writing `Stdlib.Invalid_argument` does not help, and
-`[Invalid_argument]` silences it only by demoting the tag to a code span and
-losing the raise contract with it. The site builds and every link inside it
-resolves. **That set of warnings is the expected output** — anything else in it
-is a real reference that has gone stale. `@doc-new`, the odoc 3 driver alias
-that would put `Stdlib` in scope, does not build in this tree.
+resolve there. Writing `Stdlib.Invalid_argument` does not help, and
+`[Invalid_argument]` silences the warning only by demoting the tag to a code
+span, losing the raise contract with it. The site builds and every link inside
+it resolves. **That set of warnings is the expected output** — anything else
+in it is a real reference that has gone stale. `@doc-new`, the odoc 3 driver
+alias that would put `Stdlib` in scope, does not build in this tree.
 
 ## The demos, and what migrating them found
 
-All twenty-two demos are descriptions. Migrating them was the parity check, and
-it worked as one: five primitives were found by rewriting a demo that had always
-needed them, rather than by design.
+All twenty-two demos are descriptions. Migrating them doubled as a parity
+check: five primitives were added because rewriting a demo needed them, not by
+design.
 
 | found by | what it closed |
 | --- | --- |
@@ -120,18 +119,18 @@ Two more came from the audit before it: `on_use` takes an `Aim.spot`, because
 `trail` builds a route home from the doorways a frame went through and
 `Engine.step` throws those away.
 
-Four tests stopped meaning what they meant, and each says so where it is rather
-than being quietly made to compile:
+Four tests stopped meaning what they meant, and each says so where it is
+rather than being quietly made to compile:
 
 - `dust` asserted that a moving room *shares* the walls of the room it moved
-  from. False now by design; `bench/frame.exe` is why that is affordable.
+  from. False now by design; `bench/frame.exe` shows why that is affordable.
 - `endless` asserted that graph surgery was done right. There is no surgery.
-- `trail` and `menu` read private state. They read what the player sees now — the
-  ticks on the HUD, the row the list highlights.
+- `trail` and `menu` read private state. They now read what the player sees —
+  the ticks on the HUD, the row the list highlights.
 
 `test_menu` also found the one place a component differs visibly from the pure
-`update` it replaced: a handler runs *after* the frame it fired on, so the frame
-a key goes down on still shows what was selected before it.
+`update` it replaced: a handler runs *after* the frame it fired on, so the
+frame a key goes down on still shows what was selected before it.
 
 | demo | what it needs | where |
 | --- | --- | --- |
@@ -153,10 +152,10 @@ a key goes down on still shows what was selected before it.
 | `controls` | binding controls | `Run.play ~controls` |
 | `showcase` | all of the above at once | all of the above |
 
-What the layer is still compared against is not a demo but the guide's one
-room, hand-built against the platform and restated inline in `test_stage.ml`,
-which renders it beside its described twin and compares every pixel. A
-reference has to be something that was not rewritten, and that one was not.
+The layer's reference is not a demo but the guide's one room, hand-built
+against the platform and restated inline in `test_stage.ml`, which renders it
+beside its described twin and compares every pixel. It is a valid reference
+because it was never rewritten.
 
 ## Benchmarks
 
@@ -165,38 +164,38 @@ dune exec bench/frame.exe                    # what a frame costs
 dune exec --profile release bench/frame.exe  # and what it costs shipped
 ```
 
-`bench/` is an executable and not a test: `dune build` compiles it so it cannot
-rot, and `dune runtest` never runs it. A benchmark answers a question somebody
-asked, and spending a minute of every CI run on one nobody reads is how a suite
-comes to be ignored.
+`bench/` is an executable and not a test: `dune build` compiles it so it
+cannot rot, and `dune runtest` never runs it, so CI spends no time on a
+benchmark nobody is reading.
 
-`bench/frame.ml` is the one that settled whether the declarative layer needs to
-cache what it assembles. It does not — describing the largest world this engine
-has costs a seventh of one percent of drawing it — and the file says so with the
-numbers, so the next person to wonder can re-run it rather than re-argue it.
+`bench/frame.ml` settled whether the declarative layer needs to cache what it
+assembles. It does not: describing the largest world this engine has costs a
+seventh of one percent of drawing it. The file records the numbers, so the
+question can be re-run rather than re-argued.
 
 ## Bundles
 
 `tools/bundle-macos.sh`, `bundle-linux.sh` and `bundle-windows.sh` each turn a
 `dune build` tree into something a machine with neither OCaml nor SDL can run:
-the macOS one walks `otool -L` into a `.app` and ad-hoc signs it, the Linux one
-walks `ldd` into a tarball with a launcher that sets `LD_LIBRARY_PATH`, the
-Windows one copies the mingw64 DLLs beside the executable. A `v*` tag runs all
-three on CI and attaches the results to a release.
+the macOS one walks `otool -L` into a `.app` and ad-hoc signs it, the Linux
+one walks `ldd` into a tarball with a launcher that sets `LD_LIBRARY_PATH`,
+the Windows one copies the mingw64 DLLs beside the executable. A `v*` tag runs
+all three on CI and attaches the results to a release.
 
 How old a Mac the `.app` runs on is decided by the machine that built it, not
 chosen: the bundled libraries are Homebrew bottles, built for the runner's own
 macOS. `bundle-macos.sh` reads the answer back out of the finished bundle and
-records it as `LSMinimumSystemVersion`, so the exact version is in the `.app`'s
-`Info.plist` and in the build log, rather than being promised anywhere.
+records it as `LSMinimumSystemVersion`, so the exact version is in the
+`.app`'s `Info.plist` and in the build log rather than promised anywhere.
 
 The Linux tarball has the same question and answers it the other way, by
-choosing. It carries SDL2 and the image codecs but deliberately not glibc or the
-dynamic loader — a binary has to use the loader it was built against — so the
-runner's glibc is the floor for everyone who downloads it. The release job is
-therefore pinned to a runner image rather than tracking the newest one, and the
-tarball needs **glibc 2.39 or newer** (Ubuntu 24.04, Debian 13, Fedora 40). That
-floor moves only when the pin in `.github/workflows/release.yml` does.
+choosing. It carries SDL2 and the image codecs but deliberately not glibc or
+the dynamic loader — a binary must use the loader it was built against — so
+the runner's glibc is the floor for everyone who downloads it. The release job
+is therefore pinned to a runner image rather than tracking the newest one, and
+the tarball needs **glibc 2.39 or newer** (Ubuntu 24.04, Debian 13, Fedora
+40). That floor moves only when the pin in `.github/workflows/release.yml`
+does.
 
 ## Adding a demo
 
@@ -217,8 +216,8 @@ A demo is added in four places, and the suite holds you to the first two:
 Three workflows:
 
 - **CI** (`ci.yml`) — every push to `main` and every pull request: build and
-  test on the development compiler, `dune build @fmt`, `dune build @doc`, and a
-  separate job that builds and tests at OCaml 5.2, the floor. On pushes to
+  test on the development compiler, `dune build @fmt`, `dune build @doc`, and
+  a separate job that builds and tests at OCaml 5.2, the floor. On pushes to
   `main` the built site deploys to GitHub Pages.
 - **Platforms** (`platforms.yml`) — on demand: build and test on macOS (both
   architectures) and Windows.

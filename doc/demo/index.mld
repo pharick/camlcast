@@ -1,23 +1,22 @@
 {0 The demos}
 
-One small world per engine feature, plus the five-room showcase that has all of
-them at once. [camlcast-demo] with no argument lists them; [camlcast-demo <name>]
-runs one. Each is a single file with the feature it demonstrates as the only
-thing in it.
+One small world per engine feature, plus the five-room showcase with all of
+them at once. [camlcast-demo] with no argument lists them;
+[camlcast-demo <name>] runs one. Each is a single file containing only the
+feature it demonstrates.
 
-They are content, and they live outside the library they are content for — that
-is why this is a package of its own, and why installing the engine installs none
-of it. They stay in the same repository because between them they exercise every
-corner of that engine, so a change that breaks any of them breaks something you
-can walk through. The nav above goes back to the engine's own pages.
+The demos are content and live outside the library they are content for; see
+{!Camlcast_demo.Catalogue}. The nav above goes back to the engine's own pages.
 
 - {!Camlcast_demo.Catalogue} — every demo there is, and what each one is for
-- {!Camlcast_demo.Masonry} — materials: one pattern function, applied at several colours
+- {!Camlcast_demo.Masonry} — materials: one pattern function, applied at
+  several colours
 - {!Camlcast_demo.Gallery} — decals on the walls, sprites standing in the room
 - {!Camlcast_demo.Glass} — see-through walls and the translucent pass
 - {!Camlcast_demo.Slopes} — inclined floors and roofs, and a seamless threshold
 - {!Camlcast_demo.Daylight} — the open sky, and two rooms under different ones
-- {!Camlcast_demo.Haze} — atmosphere: the fade into the distance and the light
+- {!Camlcast_demo.Haze} — atmosphere: the fade into fog and where the light
+  falls
 - {!Camlcast_demo.Portals} — doorways: the same room, joined in two places
 - {!Camlcast_demo.Changing} — replacing a room: a sign that moves, rebuilt
   every frame
@@ -29,17 +28,21 @@ can walk through. The nav above goes back to the engine's own pages.
   you see
 - {!Camlcast_demo.Doors} — doors that open and shut, on both sides of the link
   at once
-- {!Camlcast_demo.Barred} — doors you can see through: a grille and a leaded
-  transom, each shut and transparent at once
-- {!Camlcast_demo.Targets} — what the crosshair is on, through a doorway
-- {!Camlcast_demo.Trail} — traversal traces, as a return route
+- {!Camlcast_demo.Barred} — a door and a transom you can see through, and
+  cannot walk past
+- {!Camlcast_demo.Targets} — what the crosshair is on, through the doorway in
+  front of you
+- {!Camlcast_demo.Trail} — traversal traces: a return route built from the
+  doorways
 - {!Camlcast_demo.Endless} — the [extend] hook: a corridor built as you walk it
-- {!Camlcast_demo.Phases} — [run]: a phase, a clock and a light going out
+- {!Camlcast_demo.Phases} — a component with a phase, a clock, and a light
+  going out
 - {!Camlcast_demo.Overlay} — drawing over the finished world
-- {!Camlcast_demo.Controls} — a table of its own, press versus hold, and letting
-  go of the cursor
+- {!Camlcast_demo.Controls} — binding keys, press versus hold, and letting go
+  of the mouse
 - {!Camlcast_demo.Loading} — art read from files, beside the generated kind
-- {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping, colour
+- {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping and
+  colour
 - {!Camlcast_demo.Level} — [showcase]: the five-room level, with all of the
   above at once
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing
