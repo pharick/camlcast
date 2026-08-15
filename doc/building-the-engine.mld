@@ -37,8 +37,9 @@ than by opam, and that is the only step that differs per platform.
 # Debian or Ubuntu — opam resolves the system packages itself
 sudo apt install libsdl2-dev libsdl2-image-dev
 
-# macOS — Homebrew ships sdl2-compat under the name sdl2, which opam cannot
-# detect, so it has to be told to stop looking
+# macOS — brew's sdl2 is an alias for the sdl2-compat formula, and brew list
+# reports only the formula, so opam never sees the depext it asks for and has
+# to be told to stop looking
 brew install sdl2 sdl2_image
 
 # Windows — from the MSYS2 mingw64 shell

@@ -70,11 +70,13 @@ eval $(opam env --switch=. --set-switch)
 opam install . --deps-only --with-test --with-doc
 ```
 
-**macOS:** add `--no-depexts` to the `opam install` line. Homebrew ships
-`sdl2-compat` under the name `sdl2`, which opam's dependency check cannot see;
-installing the libraries yourself and telling opam to stop looking is the whole
-fix. **Windows:** use the MSYS2 environment. Step 0 of
-[the guide](https://pharick.github.io/camlcast/making-a-game.html) has the
+**macOS:** add `--no-depexts` to the `opam install` line. Homebrew's `sdl2` is
+an alias for the `sdl2-compat` formula, and opam tests for a system package by
+name against `brew list`, which reports only the formula — so the `sdl2` the
+depext asks for never appears there, and opam calls it missing however many
+times you install it. Installing the libraries yourself and telling opam to
+stop looking is the whole fix. **Windows:** use the MSYS2 environment. Step 0
+of [the guide](https://pharick.github.io/camlcast/making-a-game.html) has the
 longer story on both.
 
 Then:

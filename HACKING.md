@@ -20,9 +20,11 @@ dune build && dune runtest
 
 `--with-dev-setup` is what brings in the pinned `ocamlformat` and
 `ocaml-lsp-server`; leave it off and the build still works, but `dune fmt`
-will not. On macOS add `--no-depexts` to the install line: Homebrew ships
-`sdl2-compat` under the name `sdl2`, which opam's dependency check cannot see,
-so you install the libraries yourself and tell opam to stop looking.
+will not. On macOS add `--no-depexts` to the install line: Homebrew's `sdl2` is
+an alias for the `sdl2-compat` formula, and opam checks for the depext by name
+against `brew list`, which reports only the formula — so `sdl2` never appears
+there and the check fails whatever you installed. You install the libraries
+yourself and tell opam to stop looking. Upstream: opam-repository#30337.
 
 The engine's floor is OCaml 5.2 — for `-H`, the hidden include that makes
 `(implicit_transitive_deps false)` mean what it says rather than drop the
