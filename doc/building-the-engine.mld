@@ -1,45 +1,44 @@
 {0 Building the engine from scratch}
 
-{b The first of two pages about how this engine is made.} This one is the
-raycaster: rays against wall segments, a floor cast per pixel, portals drawn
-recursively into an opening — everything under the line a game never crosses.
-The second, {{!page-"building-the-layer"} Building the layer from scratch}, is
-what sits over it: how a description of a world becomes one, and how a component
-keeps state across a frame that rebuilt everything.
+{b The first of two pages about how this engine is made.} This page covers the
+raycaster: rays against wall segments, a floor cast per pixel, and portals drawn
+recursively into an opening. The second page,
+{{!page-"building-the-layer"} Building the layer from scratch}, covers what sits
+over it: how a description of a world becomes one, and how a component keeps
+state across a frame that rebuilt everything.
 
-Read them in order if you want the whole thing. Read only this one if what you
-want is to know how the picture is drawn.
+Read both in order for the whole system. Read only this page to learn how the
+picture is drawn.
 
-A step-by-step tutorial for rebuilding this engine by hand, in OCaml on SDL2.
-Each {b phase} ends in something you can run and see, and each {b step} adds one
-idea. Read the concept, write the module, check the checkpoint, move on.
+This is a step-by-step tutorial for rebuilding the engine by hand, in OCaml on
+SDL2. Each {b phase} ends in something you can run and see. Each {b step} adds
+one idea. Read the concept, write the module, check the checkpoint, move on.
 
-By the end you will have: a world of rooms joined at doorways you see through and
-walk through, walls at any angle carrying their own heights and materials, an
+The result: a world of rooms joined at doorways you see through and walk
+through, walls at any angle carrying their own heights and materials, an
 inclined floor and either an inclined ceiling or an open sky, mouse look with
 pitch, a resizable and fullscreen window, see-through walls, wall decals and
 billboarded sprites — all drawn by a small software renderer you wrote.
 
-If instead you want to {e use} this engine rather than rebuild it,
-{{!page-"making-a-game"} Making a game on CamlCast} is the page you want.
+To {e use} this engine rather than rebuild it, read
+{{!page-"making-a-game"} Making a game on CamlCast} instead.
 
 {1 Before you start}
 
 {b What you need to know.} Basic OCaml — modules, records, variants, [let]. A
-little trigonometry. No graphics background is assumed: every projection here is
+little trigonometry. No graphics background is assumed: every projection is
 derived from similar triangles, in full, where it is first used.
 
 {b What you need installed.} An OCaml toolchain and the SDL2 bindings. SDL2
-itself is a system library, so it is installed by your package manager rather
-than by opam, and that is the only step that differs per platform.
+itself is a system library, installed by your package manager rather than by
+opam. That is the only step that differs per platform.
 
 {@sh[
 # Debian or Ubuntu — opam resolves the system packages itself
 sudo apt install libsdl2-dev libsdl2-image-dev
 
-# macOS — brew's sdl2 is an alias for the sdl2-compat formula, and brew list
-# reports only the formula, so opam never sees the depext it asks for and has
-# to be told to stop looking
+# macOS — opam cannot detect Homebrew's SDL2; HACKING.md in the repository
+# explains why
 brew install sdl2 sdl2_image
 
 # Windows — from the MSYS2 mingw64 shell
@@ -55,8 +54,7 @@ opam install dune tsdl        # add --no-depexts on macOS
 dune --version                # you should get 3.21 or later
 ]}
 
-{b How to read this page.} Each {b phase} ends in something you can run and look
-at; each {b step} adds one idea. Every step has the same shape:
+{b How to read this page.} Every step has the same shape:
 
 {ol
 {li {b the concept} — what is being built and why, with the derivation;}
@@ -67,13 +65,12 @@ Do not skip the checkpoints. A raycaster fails silently: a sign error gives you 
 black screen rather than an exception, and it is far easier to find the sign in
 the twenty lines you just wrote than in the four hundred you have by Phase 6.
 
-{b Guiding principles} worth keeping as you go: small self-contained modules,
-readable maths with the derivation written down, and the [Result] monad instead
-of a staircase of error matches.
+{b Guiding principles}: small self-contained modules, readable maths with the
+derivation written down, and the [Result] monad instead of nested error matches.
 
 {1 Words used here}
 
-Worth having in hand before Phase 1, since most of them appear without ceremony.
+Learn these before Phase 1; they appear throughout without further definition.
 
 {ul
 {li {b column} — one vertical line of screen pixels. A raycaster shoots one ray
@@ -116,9 +113,9 @@ Worth having in hand before Phase 1, since most of them appear without ceremony.
 
 {2 Step 0.1 — The toolchain and project layout}
 
-The toolchain is installed by now — see {b Before you start} above. What is left
-is the shape of the project. One library holding the engine, one executable to
-run it, and a test directory that stays empty until Phase 8.
+The toolchain is installed — see {b Before you start} above. Lay out the
+project: one library holding the engine, one executable to run it, and a test
+directory that stays empty until Phase 8.
 
 {[
 camlcast/
@@ -160,9 +157,9 @@ than generate every pattern in code; nothing below needs it.
 (executable (name main) (libraries camlcast))
 ]}
 
-{b Checkpoint.} [dune build] finishes silently. It has nothing to compile yet,
-which is the point: if it complains here it is about the toolchain and not about
-anything you have written.
+{b Checkpoint.} [dune build] finishes silently. There is nothing to compile yet,
+so any complaint here is about the toolchain, not about anything you have
+written.
 
 {b A note on this repository.} Its own executable is [bin/demo.ml], installed as
 [camlcast-demo], because it is a launcher for twenty-odd demos rather than one
@@ -184,7 +181,7 @@ error.
 {2 Step 0.3 — Config: constants in one place}
 
 Put every tunable number in [lib/config.ml] so the rest of the code reads as
-logic, not magic numbers. We will fill it as we go; start with:
+logic, not magic numbers. Fill it as you go; start with:
 
 {@ocaml[
 let window_title = "CamlCast"
@@ -196,8 +193,8 @@ let frame_budget = 1. /. 60.      (* seconds a frame may take ≈ 60 FPS *)
 
 {2 Step 0.4 — A window and a game loop}
 
-Get a blank window that stays open until you press Escape. This also introduces
-[with_resource], the pattern we use so every SDL resource is freed even on error
+Get a blank window that stays open until you press Escape. This introduces
+[with_resource], the pattern that frees every SDL resource even on error
 ([Fun.protect] runs the finaliser no matter what).
 
 {@ocaml[
@@ -237,15 +234,15 @@ window that closes on Escape. From here on, "run it" means this.
 
 {b If nothing opens}, the error is an SDL one and [run] returned it rather than
 raising: print it. If the window opens and then hangs with a spinning cursor, the
-event queue is not being drained — that [while Sdl.poll_event] loop is not
-optional, and an OS that gets no answer decides the program has died.
+event queue is not being drained. That [while Sdl.poll_event] loop is not
+optional: an OS that gets no answer decides the program has died.
 
 {1 Phase 1 — Foundations}
 
 {2 Step 1.1 — Vectors}
 
-The whole world is two-dimensional and flat; the 3-D look is an illusion we
-produce later by choosing how tall to draw each wall. [lib/vec.ml]:
+The whole world is two-dimensional and flat. The 3-D look is an illusion,
+produced later by choosing how tall to draw each wall. [lib/vec.ml]:
 
 {@ocaml[
 type t = { x : float; y : float }
@@ -281,8 +278,8 @@ walls are short. Do that for all columns and the flat world looks 3-D.
 
 Two facts make this cheap and correct:
 
-{b The camera plane.} We don't rotate a ray per column with trigonometry.
-Instead we keep two unit vectors: [dir] (where the player looks) and [right] (a
+{b The camera plane.} Do not rotate a ray per column with trigonometry. Keep
+two unit vectors instead: [dir] (where the player looks) and [right] (a
 quarter-turn from it). The ray for a column is
 
 {[
@@ -294,19 +291,18 @@ where [camera_x] runs from [-half_width] at the left edge of the screen to
 share [dir]; only the [right] term changes — one multiply and one add per
 column.
 
-{b Where a pixel is.} A pixel is its centre: column [c] covers everything from
-[c] up to but not including [c + 1], and is
-sampled at [c + 0.5], so the first column reads half a column in from the left
-edge rather than on it, and the last half a column in from the right. That
-convention has to be the same one the rasteriser uses — a projected extent,
+{b Where a pixel is.} A pixel is its centre: column [c] covers [c] up to but
+not including [c + 1], and is sampled at [c + 0.5]. The first column therefore
+reads half a column in from the left edge, and the last half a column in from
+the right. The rasteriser must use the same convention — a projected extent,
 further down, covers the pixels whose {e centres} fall in it — or the rays and
 the geometry drawn along them sit half a pixel apart. Turning an extent into
 pixels is {!Camlcast_core.Viewport.first_pixel} of where it starts and
-{!Camlcast_core.Viewport.last_pixel} of where it stops, and those are one apart
-rather than the same rounding twice: an extent is half-open, so the pixel its
-far edge lands in belongs to whatever comes next.
+{!Camlcast_core.Viewport.last_pixel} of where it stops. Those are one apart, not
+the same rounding twice: an extent is half-open, so the pixel its far edge lands
+in belongs to whatever comes next.
 
-{b Why distances have no fish-eye.} We measure the hit distance [t] in *units of
+{b Why distances have no fish-eye.} Measure the hit distance [t] in *units of
 that (un-normalised) [ray_direction]*. Project the hit onto the view direction:
 
 {[
@@ -320,16 +316,15 @@ what a flat projection needs; using the true Euclidean distance instead makes
 walls bulge toward you at the screen edges (the classic fish-eye), and this
 formulation removes it with no [cos] correction anywhere.
 
-{b Aside — grids vs segments.} Classic raycasters (Wolfenstein 3D) put walls on a grid and step the ray cell-to-cell with the DDA algorithm. We instead let walls be {b arbitrary line segments}, so rooms can be any shape. The projection maths above is identical either way; only {e how we find [t]} differs. We use segments from the start.
+{b Aside — grids vs segments.} Classic raycasters (Wolfenstein 3D) put walls on a grid and step the ray cell-to-cell with the DDA algorithm. This engine lets walls be {b arbitrary line segments}, so rooms can be any shape. The projection maths above is identical either way; only how [t] is found differs. Use segments from the start.
 
 {1 Phase 2 — A first 3D view (solid walls)}
 
 {2 Step 2.1 — A room as wall segments}
 
 A level is a set of wall segments, plus (later) a floor, a ceiling and sprites.
-Call it a {b room}, because that is what it is: Phase 7 introduces a [World] as a
-graph of these, and starting with the right name saves a rename later.
-[lib/room.ml]:
+Call it a {b room}: Phase 7 introduces a [World] as a graph of these, and
+starting with the right name saves a rename later. [lib/room.ml]:
 
 {@ocaml[
 type wall = {
@@ -378,9 +373,9 @@ s     = (a − origin) × direction / denom
 ]}
 
 The ray meets the wall when [denom ≠ 0] (not parallel), [t > 0] (ahead), and
-[s ∈ [0,1]] (between the endpoints). Because we will later want to see {e over} short
-walls, we keep {b every} wall the ray crosses, sorted {b farthest-first} (the
-order we will paint them). [lib/ray.ml]:
+[s ∈ [0,1]] (between the endpoints). Later phases see {e over} short walls, so
+keep {b every} wall the ray crosses, sorted {b farthest-first} — the order they
+are painted in. [lib/ray.ml]:
 
 {@ocaml[
 type hit = { distance : float; along : float; wall : Room.wall }
@@ -407,7 +402,7 @@ let nearest hits =           (* the closest wall, if any *)
     | Some b when b.distance <= h.distance -> best | _ -> Some h) None hits
 ]}
 
-[along] is the world distance from [a] to the hit — we will thread textures
+[along] is the world distance from [a] to the hit; Phase 3 threads textures
 across the wall with it.
 
 {2 Step 2.3 — The player and the viewport}
@@ -481,9 +476,9 @@ other direction.
 
 {2 Step 2.4 — A software framebuffer}
 
-We render into a CPU pixel buffer and upload it once per frame as a streaming
-texture, then let the GPU scale it to the window. (A software buffer is what
-makes per-pixel floor casting and blending possible later.) [lib/framebuffer.ml]:
+Render into a CPU pixel buffer, upload it once per frame as a streaming texture,
+and let the GPU scale it to the window. A software buffer is what makes
+per-pixel floor casting and blending possible later. [lib/framebuffer.ml]:
 
 {@ocaml[
 open Tsdl
@@ -559,8 +554,8 @@ let draw_frame fb room (player : Player.t) =
 ]}
 
 Wire this into the loop: each frame ask SDL the output size, (re)size the
-framebuffer to match, [draw_frame], [present], [render_present]. (We'll flesh
-the loop out in Phase 8; for now a fixed-size framebuffer created once is fine.)
+framebuffer to match, [draw_frame], [present], [render_present]. Phase 8 fleshes
+the loop out; for now a fixed-size framebuffer created once is fine.
 
 {b Checkpoint — Milestone 2.} You are standing in a shaded room. Walls are solid
 strips, tall up close and short far away, with no fish-eye. It already looks 3-D.
@@ -568,11 +563,11 @@ strips, tall up close and short far away, with no fish-eye. It already looks 3-D
 {{image:images/flat.png}Three untextured pillars of falling height at rising
 distance, in a room with no floor drawn yet}
 
-That picture is the finished engine dressed back down to this point — flat
-materials, and a floor and ceiling of one dark colour standing in for the two
-you have not written yet. Everything in it that matters here is what your own
-code is producing: the strips, their shading, and the fact that the near pillar
-is taller on screen than the far one without either being drawn any differently.
+The picture is the finished engine reduced to this point: flat materials, and
+one dark colour standing in for the floor and ceiling you have not written yet.
+Your own code produces everything that matters here — the strips, their shading,
+and a near pillar taller on screen than the far one without either being drawn
+differently.
 
 {b If the screen is one flat colour}, no ray is hitting anything: check that
 [t > min_distance] and that [s] is being tested against [0..1]. {b If the walls
@@ -588,8 +583,8 @@ independently so hitting a wall at an angle keeps the free component — you sli
 along instead of sticking. Collision treats the player as a small disc of radius
 [Config.collision_padding] and, crucially, tests the {b whole path} and not just
 its endpoint: the step sweeps that disc from [from] to [dest], so a fast step can
-neither tunnel through a thin wall nor clip past the end of one. That is one
-question — how close do the segments [from..dest] and [a..b] come? In [Room]:
+neither tunnel through a thin wall nor clip past the end of one. That reduces to
+one question: how close do the segments [from..dest] and [a..b] come? In [Room]:
 
 {@ocaml[
 let distance_to_segment (p : Vec.t) ~a ~b =
@@ -645,7 +640,7 @@ let walk room player ~forward ~strafe =
 ]}
 
 Read the keyboard as a {e state snapshot} (held keys move continuously) and feed
-[walk]/[turn] in the loop. We build the full [Input] module in Phase 5.
+[walk]/[turn] in the loop. Phase 5 builds the full [Input] module.
 
 {b Checkpoint — Milestone 2.6.} You can walk around the room and slide along
 walls, and cannot get through one by running at it.
@@ -696,8 +691,7 @@ Two dimmers make a flat world read as solid:
 {li {b Distance fog}: full colour up close, blending towards [haze] as it
     recedes, until at [fog_distance] only [min_brightness] of the surface is
     left. {b Blending and not dimming}: what a surface loses to distance goes to
-    the colour of the air, not to black. Cheap, but it gives strong depth — and
-    it is what makes the haze a property worth having at all.}
+    the colour of the air, not to black. Cheap, but it gives strong depth.}
 {li {b Orientation shading}: dim a wall by how squarely its [normal] faces the
     light, in a band so nothing goes black. This one {e is} a multiply, because
     a wall turned away from the light goes dark rather than hazy. This is what
@@ -725,8 +719,8 @@ let face_shading t n = t.ambient +. (t.directional *. Float.abs (Vec.dot n t.lig
 
 [ambient] and [directional] decide together how much a wall's angle matters: all
 ambient and every wall is lit the same, all directional and a wall facing away
-goes black. Those six numbers are most of what tells one place from another, and
-a world carries exactly one of them.
+goes black. A world carries exactly one atmosphere, and its six numbers are most
+of what tells one place from another.
 
 Tint the wall strip with
 [Color.lerp (Color.shade colour (face_shading air normal)) air.haze (1. -. fog air d)]
@@ -737,9 +731,9 @@ is the {e amount} of the blend towards the haze. Putting the fog inside the
 
 {2 Step 3.2 — Wall textures}
 
-A texture is a small square pattern, and {b a texel is a colour}. That is worth
-stating because the tempting alternative — a texel as a {e brightness}, coloured
-at draw time — cannot draw a wall with two colours in it. Brick with grey mortar
+A texture is a small square pattern, and {b a texel is a colour}. The tempting
+alternative — a texel as a {e brightness}, coloured at draw time — cannot draw a
+wall with two colours in it. Brick with grey mortar
 between it is not brick with pale red mortar between it, and a leaded window is
 not tinted glass around tinted glass.
 
@@ -747,9 +741,9 @@ The reuse that a brightness-only texel would have got for free is bought back by
 {b giving a pattern its colours as arguments, before [u] and [v]}. A partial
 application is then a pattern, and one function serves any number of them.
 
-Generate the pattern in code, which is what this tutorial does throughout and
-what keeps it a pure testable function of [u] and [v]; [Texture.load] reads one
-from a PNG or JPEG instead, once you have art to read. [lib/texture.ml]:
+Generate the pattern in code, as this tutorial does throughout; that keeps it a
+pure, testable function of [u] and [v]. [Texture.load] reads one from a PNG or
+JPEG instead, once you have art to read. [lib/texture.ml]:
 
 {@ocaml[
 let default_size = 64                (* what a generator makes unless told otherwise *)
@@ -779,9 +773,9 @@ let column_of_offset off =
 
 {3 What a wall is made of}
 
-A wall should carry its pattern {e by value}, not an index into a table
-somewhere. Wrap it, so that there is somewhere for a surface's other properties
-to go as they arrive. [lib/material.ml]:
+A wall carries its pattern {e by value}, not as an index into a table. Wrap it
+in a record, so a surface's other properties have somewhere to go as they
+arrive. [lib/material.ml]:
 
 {@ocaml[
 type t = { pattern : Texture.t }
@@ -798,9 +792,9 @@ let red = solid (brick ~color:(Color.rgb 200 70 70) ~mortar:(Color.rgb 188 182 1
 let grey = solid (brick ~color:(Color.rgb 120 120 128) ~mortar:(Color.rgb 188 182 172))
 ]}
 
-Two materials, one function, and the engine has no opinion about either: a
-[Texture.generate] takes a function from a texel coordinate to a colour, and that
-is the whole of the interface.
+Two materials from one function, and the engine has no opinion about either:
+[Texture.generate] takes a function from a texel coordinate to a colour, and
+that is the whole interface.
 
 {b Texture mapping a strip.} Horizontally, [u] comes from the hit position along
 the wall: [column_of_offset (frac hit.along)] — this tiles the pattern every
@@ -838,7 +832,7 @@ walk away from a wall: it should turn {e blue}, not black. If it darkens
 instead, the fog is still a multiply.
 
 {{image:images/masonry.png}A tiled green wall and an oak post, one pattern
-function wearing two different colours}
+function at two different colours}
 
 {b If the pattern is stretched rather than tiled}, the [frac] is missing from the
 horizontal lookup. {b If it is upside down}, that [1. -. tile] is why: [v] runs
@@ -849,8 +843,8 @@ down the texture and [z] runs up the world.
 Each wall already has a [height]. Because the eye sits at [eye_z = 0.5], a wall
 shorter than one cell drops below its neighbours and a taller one rises above
 them. For that to {e read} correctly, a ray must {b not stop at the first wall} — a
-low wall must not hide a tall one behind it. We already collect every hit,
-farthest-first; now just paint them in that order (the {b painter's algorithm}):
+low wall must not hide a tall one behind it. Every hit is already collected,
+farthest-first; paint them in that order (the {b painter's algorithm}):
 
 {@ocaml[
 let hits = Ray.cast room ~origin:player.pos ~direction:dir in
@@ -1016,8 +1010,8 @@ In the background pass, an above-horizon pixel in a room whose ceiling is
 
 {b The sky lights nothing.} What lights the walls is the [Atmosphere], which is
 one per world. A room under a dusk sky is as brightly lit as one under noon
-unless the air changes too — which is the right split, because the two are
-genuinely independent.
+unless the air changes too. The split is right because the two are genuinely
+independent.
 
 {b Checkpoint — Milestone 4.} A textured, tilted floor; overhead either a
 textured ceiling or a gradient sky with a sun. Build a bigger level here — an
@@ -1040,15 +1034,15 @@ nearer {e positive} one.
 
 {b Yaw} already rotates [dir]/[right]. {b Pitch} is faked by {e shearing} the whole
 image vertically — a raycaster has no true vertical rotation (that would tilt the
-walls). We already put pitch into the [horizon]: [horizon = height/2 +
+walls). The [Viewport] already puts pitch into the [horizon]: [horizon = height/2 +
 pitch·height]. Everything (the plane casts, every wall) is measured from
 [horizon], so moving it looks up or down for free. Clamp pitch to
 [Config.max_pitch].
 
 Because there is no rotation, the delta is not an angle either: it is the
-fraction of the window height the horizon slides by. Name it so — the label is
+fraction of the window height the horizon slides by. Name it so: the label is
 the only place a reader is told, and calling it [radians] beside a [turn] that
-really is radians is how the mistake at the end of this phase gets made.
+really is radians invites that mistake.
 
 {@ocaml[
 (* Player *)
@@ -1088,12 +1082,11 @@ let motion ~dt =
 
 Enable relative mouse mode once at startup ([Sdl.set_relative_mouse_mode true])
 so the cursor is hidden, pinned, and never hits a screen edge. Turn text input
-off in the same breath ([Sdl.stop_text_input ()]): SDL switches it on for you
-when video starts, on the assumption that a program wanting characters should
-not have to ask twice. A window left as a live text client is one where macOS
-answers a held key with a menu of accented letters instead of repeating it —
-which is not what a game holding [w] to walk forward wants. The engine [step]
-applies the deltas in order — turn, pitch, then walk:
+off at the same time ([Sdl.stop_text_input ()]): SDL switches it on
+automatically when video starts. In a window left as a live text client, macOS
+answers a held key with a menu of accented letters instead of repeating it,
+which breaks holding [w] to walk forward. The engine [step] applies the deltas
+in order — turn, pitch, then walk:
 
 {@ocaml[
 let step world player (m : Input.motion) =
@@ -1112,9 +1105,8 @@ tested without a window. It is also where a gamepad would arrive: a stick is a
 term on an axis like a key is, differing only in that it reports a fraction of
 full speed rather than all or nothing.
 
-Build it the way it is above first. The split is worth making once there is
-something to walk around in, and worth understanding as a split rather than as
-the way input has to look.
+Build it the way it is above first. Make the split once there is something to
+walk around in.
 
 {2 Step 5.2 — Resizing and fullscreen}
 
@@ -1139,9 +1131,8 @@ nothing restored. The renderer notices the new size next frame on its own.
 fullscreen smoothly, and dragging it wider shows more of the room to the sides
 rather than magnifying what was already there.
 
-That last claim is the one worth looking at twice. Both of these are the same
-room from the same spot, and the only difference between them is the shape of
-the window:
+Both screenshots below show the same room from the same spot; the only
+difference is the shape of the window:
 
 {{image:images/hor-narrow.png}A square window: one green wall and the corner of
 a post}
@@ -1165,12 +1156,12 @@ enabling idea is a {b depth buffer}.
 
 {2 Step 6.1 — A per-pixel depth buffer}
 
-To know whether a sprite or a see-through wall is hidden by an opaque wall, we
-need the distance of the nearest opaque wall {b per pixel} — not per column,
-because a {e short} wall only covers the lower part of its column; anything behind
-it should still show its top.
+Deciding whether a sprite or a see-through wall is hidden by an opaque wall
+needs the distance of the nearest opaque wall {b per pixel} — not per column,
+because a {e short} wall only covers the lower part of its column; anything
+behind it should still show its top.
 
-We already added [depth : float array] to the framebuffer and [clear_depth]. When
+The framebuffer already has [depth : float array] and [clear_depth]. When
 drawing an {b opaque} wall, record its distance at each pixel it covers:
 
 {@ocaml[
@@ -1221,12 +1212,11 @@ whatever is behind them is already on screen to show through.
 
 {2 Step 6.3 — Decals (pictures on walls)}
 
-Decals are pictures rather than surfaces, so they use a new {b [Image]} type —
-colour and alpha like a [Texture], but rectangular and indexed by its own two
-sides rather than tiled — a framed painting, a poster. Generate one
-in code as below, or read one with [Image.load]. It is a rectangle rather than
-a square, because a poster is: [height] defaults to [width] when you do not say.
-[lib/image.ml]:
+Decals are pictures rather than surfaces — a framed painting, a poster — so
+they use a new {b [Image]} type: colour and alpha like a [Texture], but
+rectangular and indexed by its own two sides rather than tiled. Generate one in
+code as below, or read one with [Image.load]. It is a rectangle because a poster
+is; [height] defaults to [width] when not given. [lib/image.ml]:
 
 {@ocaml[
 type t = { width : int; height : int; pixels : Color.t array; alpha : int array }
@@ -1247,20 +1237,19 @@ decals this column falls in (and their texture column), then per pixel test the
 height range and {b blend} the image texel over the wall, in the same light as
 the wall.
 
-Which face the viewer is on is the sign of [(eye − wall.a) · wall.normal], and
-since [perp] is a quarter turn to the left and rooms are wound counter-clockwise,
-the normal points {e into} the room. Put that test in the once-per-column half
-rather than the per-pixel one, and put it somewhere the picker can call too — a
-mark you can see and a mark you can aim at must be the same mark, and the surest
-way to keep them the same is for there to be one function that says so.
+Which face the viewer is on is the sign of [(eye − wall.a) · wall.normal];
+since [perp] is a quarter turn to the left and rooms are wound
+counter-clockwise, the normal points {e into} the room. Put that test in the
+once-per-column half rather than the per-pixel one. Put it somewhere the picker
+can call too: a decal you can see and a decal you can aim at must agree, so one
+function decides both.
 
-That function owes one more thing, and it is easy to miss because a symmetric
-picture will not show it. [along] grows from the wall's [a] to its [b], and by
-the winding above that walk runs left to right on screen for a viewer at the
-front and right to left for one at the back. So the offset alone names a column
-of the picture from one side only: {b mirror it for the far face}, or every
-[Back] decal is drawn — and picked — in reverse, which anything with writing in
-it announces immediately.
+One more rule, easy to miss because a symmetric picture will not show it:
+[along] grows from the wall's [a] to its [b]. By the winding above, that runs
+left to right on screen for a viewer at the front and right to left for one at
+the back. The offset alone therefore names a picture column from one side only:
+{b mirror it for the far face}, or every [Back] decal is drawn — and picked — in
+reverse. Anything with writing in it shows the bug immediately.
 
 {2 Step 6.4 — Sprites (billboards)}
 
@@ -1271,8 +1260,8 @@ To draw one:
 
 {ol
 {li Camera-space coordinates: [depth_s = (pos − player.pos) · dir] (perpendicular distance) and [lateral = (pos − player.pos) · right]. Skip if [depth_s ≤ 0] (behind you).}
-{li Screen column of the centre — invert the camera-plane mapping: [camera_x = lateral / (depth_s · half_width)], then [center = (camera_x + 1) · width / 2]. That is a continuous coordinate and deliberately unshifted: it and the two vertical edges below bound an extent, and the pixels covered are the ones whose centres fall in it — [first_pixel] of the near edge through [last_pixel] of the far one, which is the same convention [ray_direction] samples at. Note that the far edge is exclusive: the pixel it lands in is the wall's or the floor's behind, not the billboard's.}
-{li Vertical placement: project the foot at [floor_z + base] and the top a [size] above that, with [project_height]. Measure [base] from the floor rather than absolutely and a sprite rides a slope instead of the ground climbing through it — the same rule a decal's [z] follows. The horizontal extent is [center ± (y_base − y_top)/2 · aspect], where [aspect] is the image's own [width / height]: taking it from the picture is what stops a wide one being squashed into a square, and leaves a square one exactly as it was.}
+{li Screen column of the centre — invert the camera-plane mapping: [camera_x = lateral / (depth_s · half_width)], then [center = (camera_x + 1) · width / 2]. That is a continuous coordinate, deliberately unshifted. It and the two vertical edges below bound an extent; the pixels covered are the ones whose centres fall in it — [first_pixel] of the near edge through [last_pixel] of the far one, the same convention [ray_direction] samples at. The far edge is exclusive: the pixel it lands in belongs to the wall or floor behind, not the billboard.}
+{li Vertical placement: project the foot at [floor_z + base] and the top a [size] above that, with [project_height]. Measure [base] from the floor rather than absolutely, so a sprite rides a slope instead of the ground climbing through it — the same rule a decal's [z] follows. The horizontal extent is [center ± (y_base − y_top)/2 · aspect], where [aspect] is the image's own [width / height]: taking it from the picture stops a wide image being squashed into a square and leaves a square one unchanged.}
 {li For each pixel, sample the image; draw it (blended) {b only where [depth_s < depth.(pixel)]} — nearer than the opaque wall there. Per-pixel is what lets a short wall hide only the sprite's legs, not its head.}
 }
 
@@ -1326,13 +1315,12 @@ window wrote depth: see-through things must not.
 {1 Phase 7 — Rooms and doorways}
 
 Everything so far draws {e one} room. This phase makes a world out of many, and
-it is the phase that separates this engine from a Wolfenstein-style grid: a world
-is a {b graph} of rooms, each authored in its own coordinate frame, joined at
-doorways that you both see through and walk through.
+separates this engine from a Wolfenstein-style grid: a world is a {b graph} of
+rooms, each authored in its own coordinate frame, joined at doorways that you
+both see through and walk through.
 
-The surprise is how little machinery that takes. There is no global coordinate
-system, no scene graph and no transform stack — just a rigid motion per link,
-derived from four points.
+The machinery is small. There is no global coordinate system, no scene graph and
+no transform stack — just a rigid motion per link, derived from four points.
 
 {2 Step 7.1 — Rigid motions between frames}
 
@@ -1381,8 +1369,8 @@ wall. The wall it replaces still has to exist either side of it, and the strip
 above it — the {b lintel} — still has to be drawn, or you see over the top of a
 closed door.
 
-The way to keep a boundary and its openings honest about each other is to never
-author them separately. Cut the doorway {e out of} the wall and return both:
+To keep a boundary and its openings consistent, never author them separately.
+Cut the doorway {e out of} the wall and return both:
 
 {@ocaml[
 type lintel = { top : float; material : Material.t }
@@ -1410,11 +1398,11 @@ let doorway ~name ~width ~opening ~height ~material a b =
    threshold ~name ~height:opening ~lintel:{ top = height; material } p q)
 ]}
 
-Note the three refusals, and that each is written as the {e negation} of the
-passing condition. A [nan] argument answers [false] to every ordered comparison,
-so [not (span > 0.)] catches it where [span <= 0.] would wave it through — and a
+Note the three refusals, each written as the {e negation} of the passing
+condition. A [nan] argument answers [false] to every ordered comparison, so
+[not (span > 0.)] catches it where [span <= 0.] would wave it through. A
 threshold whose coordinates are all [nan] is accepted by everything downstream
-and then draws nothing, which is a miserable bug to find.
+and then draws nothing, which is a hard bug to find.
 
 {2 Step 7.3 — A world of rooms}
 
@@ -1440,13 +1428,13 @@ type t = {
 let make ~rooms ~links ~atmosphere ~spawn = ...
 ]}
 
-[make] is where an unplayable level should die, and it should die loudly —
-[invalid_arg], not a result, because these are bugs in the level rather than
-conditions to handle. Refuse: an unknown room or doorway name; two rooms with the
-same name; two doorways with the same name in one room; a zero-length threshold;
-a doorway linked twice; a doorway nothing links to; and linked doorways that
-differ in length or height. Every one of those makes a link meaningless, and each
-is far cheaper to catch here than to recognise from the wrong picture later.
+[make] is where an unplayable level dies, loudly — [invalid_arg], not a result,
+because these are bugs in the level rather than conditions to handle. Refuse: an
+unknown room or doorway name; two rooms with the same name; two doorways with
+the same name in one room; a zero-length threshold; a doorway linked twice; a
+doorway nothing links to; and linked doorways that differ in length or height.
+Each of those makes a link meaningless, and each is far cheaper to catch here
+than to recognise from the wrong picture later.
 
 {2 Step 7.4 — Drawing through a doorway}
 
@@ -1454,10 +1442,10 @@ An open threshold is a {b portal}: instead of drawing a surface, the renderer
 draws {e the neighbouring room}, seen from the transformed camera, clipped to the
 opening.
 
-Which is less work than it sounds, because the per-column structure already fits.
-A threshold is intersected by exactly the same ray test as a wall — it has the
-same [edge], [length] and [normal] for exactly that reason — so it arrives in the
-same farthest-first sorted stream. When one comes up:
+The per-column structure already fits. A threshold is intersected by the same
+ray test as a wall — it has the same [edge], [length] and [normal] for exactly
+that reason — so it arrives in the same farthest-first sorted stream. When one
+comes up:
 
 {ol
 {li carry the ray's origin and direction through [portal.onto] into the
@@ -1468,22 +1456,22 @@ same farthest-first sorted stream. When one comes up:
     than that distance;}
 {li stop at [Config.max_portal_depth] and fill whatever is left with haze.}}
 
-The distance carried in the first step is the one thing here that is easy to
-leave out and hard to see the need for. The transform lands the camera {e behind}
-the neighbour's own copy of the opening, so a ray cast from there meets anything
-that room has standing on the near side of its own doorway {e before} it reaches
-the doorway at all. In a convex room there is never anything there. In one that
-folds back on itself — a doorway set at the back of a recess — there is, and it
-is in the space the player is really standing in rather than in the picture the
-doorway shows; drawn, it covers the room it was supposed to be a window onto.
+The distance carried in the first step is easy to leave out and hard to see the
+need for. The transform lands the camera {e behind} the neighbour's own copy of
+the opening, so a ray cast from there meets anything that room has standing on
+the near side of its own doorway {e before} it reaches the doorway at all. In a
+convex room there is never anything there. In a room that folds back on itself —
+a doorway set at the back of a recess — there is; that geometry belongs to the
+space the player really stands in, not to the picture the doorway shows, and
+drawn it covers the room the portal should be a window onto.
 
 A single number is enough, and is exact rather than approximate: along one ray,
 which side of the threshold's line a point falls on varies linearly with the
 distance and changes sign exactly where the ray crosses it. Nothing accumulates
 either, since a rigid motion preserves distance and each recursion's cut-off is
 an opening that already cleared the last one. {!Camlcast_core.Sight} cuts its ray at
-the same distance by the same rule, which is what keeps what the crosshair can
-pick the same as what the frame draws.
+the same distance by the same rule, which keeps what the crosshair can pick the
+same as what the frame draws.
 
 The depth cap is what makes a {e cyclic} room graph terminate — and rooms may
 absolutely be cyclic, since nothing checks that the geometry is consistent. Join
@@ -1497,8 +1485,8 @@ angle, or through another doorway.
 {2 Step 7.5 — Walking through one}
 
 A doorway is a {e gap} in the boundary, so nothing in this room stops a step
-taken through it. That has two consequences, and missing either one is a bug you
-will meet within a minute of playing.
+taken through it. That has two consequences; missing either is a bug you meet
+within a minute of playing.
 
 {b Collision must ask the neighbour.} A step that comes near a threshold has to
 be carried into the neighbour's frame and tested there too — otherwise you clip
@@ -1507,20 +1495,20 @@ from [Room] to [World], and [Player.slide] and [Player.walk] take a world from
 here on. [Room.passable] stays, as the single-room question [World.passable] asks
 twice.
 
-Only the part of the step that reaches the neighbour, though — cut where it
-crosses the threshold's plane, with the collision padding of slack because the
-player is a disc. This is the same trap as the distance in Step 7.4, wearing
-different clothes: a room's walls answer for the space that room encloses and no
-other, and a room that folds back on itself has walls of its own on {e this} side
-of its own doorway. Handed the whole step, one of them refuses a clear stride
-towards an open door from right across the room.
+Pass the neighbour only the part of the step that reaches it: cut where the
+step crosses the threshold's plane, with the collision padding of slack because
+the player is a disc. This is the same trap as the distance in Step 7.4: a
+room's walls answer only for the space that room encloses, and a room that folds
+back on itself has walls of its own on {e this} side of its own doorway. Handed
+the whole step, one of those walls refuses a clear stride towards an open door
+from right across the room.
 
-Once a step can report the doorways it went through, [Player.walk] has a choice
-to make about them, and the shipped engine resolves it by not having a [walk] at
-all: {!Camlcast_core.Player.traverse} returns the pose {e and} the crossings, and
+Once a step can report the doorways it went through, [Player.walk] must decide
+what to do with them. The shipped engine has no [walk] at all:
+{!Camlcast_core.Player.traverse} returns the pose {e and} the crossings, and
 {!Camlcast_core.Engine.step} is the one place that drops them. One function that
-answers everything and one caller that asks for less beats two functions that
-have to be kept in step.
+answers everything and one caller that asks for less beats two functions kept in
+step.
 
 {b The pose has to cross mid-step.} Movement resolves one axis at a time, so
 whichever leg goes through the doorway carries the pose into the next room before
@@ -1541,8 +1529,8 @@ type movement = { player : t; crossings : crossing list }
 
 A single frame can cross more than one doorway — round a jamb, out through an
 opening and back in through its twin, or all the way round a loop of rooms and
-back where it started. Comparing the room index before and after calls every one
-of those nothing happening, which is why the list exists.
+back where it started. Comparing the room index before and after reports every
+one of those as nothing happening; that is why the list exists.
 
 {b Checkpoint — Milestone 7.} Two rooms and a doorway. Standing in one, you can
 see into the other through the opening and nowhere else; walking through, nothing
@@ -1569,14 +1557,14 @@ frame started between frames.
 
 {b What the shipped engine does instead.} The nesting is the same, but it ends
 in a {!Camlcast_core.Engine.window} handed to a function rather than in the loop
-itself — {!Camlcast_core.Engine.with_window}, with the loop a separate call played on
-what it opens. That is what lets a launcher show a menu, run a demo and show the
-menu again without the window disappearing twice on the way. The bracket is the
-point and survives the split: a window is still acquired, used and released in
-one expression, and still released on an error or an exception. What changes is
-that the flags the loop carried — [fullscreen], and whether the mouse is
-captured — move onto the window, because they now outlive any one run and SDL
-will not answer for either of them.
+itself — {!Camlcast_core.Engine.with_window}, with the loop a separate call
+played on what it opens. That lets a launcher show a menu, run a demo and show
+the menu again without the window disappearing twice on the way. The bracket
+survives the split: a window is still acquired, used and released in one
+expression, and still released on an error or an exception. The flags the loop
+carried — [fullscreen], and whether the mouse is captured — move onto the
+window, because they now outlive any one run and SDL will not answer for either
+of them.
 
 Pace the loop by measuring, not by assuming: sleep
 only what is {e left} of [Config.frame_budget], and feed the real frame length to
@@ -1620,12 +1608,11 @@ let rec loop ctx ~player ~fullscreen ~previous =
 [Renderer.render] reads the output size, resizes the framebuffer to the internal
 size if needed, [clear_depth], [draw_frame], [present], [render_present].
 
-The three above the loop are the only part of it that never touches a window, so
-in the shipped engine they live apart from one, as {!Camlcast_core.Clock} —
-[frame_time] and [idle_time] under those names, and [seconds] as
-{!Camlcast_core.Clock.now}. That is the whole of what a test can pin about pacing, and
-splitting it out is what lets {!Camlcast_core.Engine} keep an interface with nothing
-in it but a window to play on and the two ways into the loop.
+The three functions above the loop never touch a window, so the shipped engine
+keeps them apart as {!Camlcast_core.Clock} — [frame_time] and [idle_time] under
+those names, and [seconds] as {!Camlcast_core.Clock.now}. They are the whole of
+what a test can pin about pacing. The split lets {!Camlcast_core.Engine} keep an
+interface holding only a window to play on and the two ways into the loop.
 
 {b Checkpoint — Milestone 8, the whole engine.} Everything runs together.
 
@@ -1708,9 +1695,8 @@ using end.
 [max_frame_time] (~0.1 s), and — once Phase 7 exists — [max_portal_depth] (3).
 
 Note what is {e not} here. [fog_distance] and [min_brightness] started life as
-constants and belong on the [Atmosphere] instead: they are properties of a place,
-not of the program, and a world that cannot change its own weather is a world
-where every room looks the same.
+constants and belong on the [Atmosphere] instead: they are properties of a
+place, not of the program.
 
 {2 Hard-won gotchas}
 
@@ -1718,7 +1704,7 @@ where every room looks the same.
 {li {b [update_texture] pitch is bytes for a streaming texture, elements for a static one.} [render_read_pixels] is bytes. A wrong pitch squashes/stripes.}
 {li {b Never read the back buffer after [render_present]} — it's undefined. Render offscreen for screenshots.}
 {li {b Opaque surfaces:} set the alpha byte to 255 or your captures come out blank.}
-{li {b Use [floor], not [int_of_float], to find a cell} if you ever add a grid — truncation folds cells −1 and 0 together. (We use segments and sidestep this.)}
+{li {b Use [floor], not [int_of_float], to find a cell} if you ever add a grid — truncation folds cells −1 and 0 together. (This tutorial uses segments and sidesteps it.)}
 {li {b Collision must sweep the {e path}, not just test the endpoint}, or a fast step tunnels through a thin wall — or slips past the end of one and lands clear.}
 {li {b Never scale motion per frame and then sleep a fixed 16 ms.} The sleep is {e on top of} the render, so speed follows the frame rate. Measure the frame.}
 {li {b [horizon] is a float}; only convert to an int pixel at the last moment.}
@@ -1791,6 +1777,3 @@ for the ray-versus-segment algebra, {!Camlcast_core.Plane} for the casting equat
 {!Camlcast_core.Viewport} for the projection and the resize rules,
 {!Camlcast_core.Transform} for why linked endpoints reverse, and
 {!Camlcast_core.World} for the portal machinery.
-
-Built in the same spirit as the engine it describes: small modules, derivations
-written down, and a picture on screen at the end of every phase. Happy casting.
