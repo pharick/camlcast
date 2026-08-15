@@ -2,7 +2,8 @@
 
 {b The first of two pages about how this engine is made.} This page covers the
 raycaster: rays against wall segments, a floor cast per pixel, and portals drawn
-recursively into an opening. The second page,
+recursively into an opening. All of it sits below the API line a game never
+crosses. The second page,
 {{!page-"building-the-layer"} Building the layer from scratch}, covers what sits
 over it: how a description of a world becomes one, and how a component keeps
 state across a frame that rebuilt everything.
@@ -691,7 +692,8 @@ Two dimmers make a flat world read as solid:
 {li {b Distance fog}: full colour up close, blending towards [haze] as it
     recedes, until at [fog_distance] only [min_brightness] of the surface is
     left. {b Blending and not dimming}: what a surface loses to distance goes to
-    the colour of the air, not to black. Cheap, but it gives strong depth.}
+    the colour of the air, not to black. Cheap, but it gives strong depth, and
+    it is what makes haze worth an {!Camlcast_core.Atmosphere} field at all.}
 {li {b Orientation shading}: dim a wall by how squarely its [normal] faces the
     light, in a band so nothing goes black. This one {e is} a multiply, because
     a wall turned away from the light goes dark rather than hazy. This is what
@@ -1106,7 +1108,8 @@ term on an axis like a key is, differing only in that it reports a fraction of
 full speed rather than all or nothing.
 
 Build it the way it is above first. Make the split once there is something to
-walk around in.
+walk around in. The split is a design choice, not the only shape input can
+take.
 
 {2 Step 5.2 — Resizing and fullscreen}
 
