@@ -1,21 +1,21 @@
-(** What actually arrives in the framebuffer, one pixel at a time.
+(** Tests of what the renderer writes into the framebuffer, per pixel.
 
     {!Renderer.draw_frame} is documented as pure array writes with no SDL calls
-    in it, and {!Framebuffer.offscreen} builds a buffer with no window behind
-    it, so a whole frame renders here headlessly. Everything below is about
+    in it. {!Framebuffer.offscreen} builds a buffer with no window behind it. A
+    whole frame therefore renders here headlessly. Everything below is about
     sprites: where a billboard lands, what hides it, and what trims it. The rest
-    of the renderer is covered through {!Plane}, {!Viewport}, {!Material} and
-    {!Atmosphere}, whose arithmetic it is.
+    of the renderer is the arithmetic of {!Plane}, {!Viewport}, {!Material} and
+    {!Atmosphere}, and is covered through those suites.
 
     {1 How a sprite is found on the screen}
 
-    Not by looking for its colour. What reaches the buffer has been through fog
-    and, behind it, through wall shading, so the number in the pixel is nobody's
-    idea of the colour that went in — and asserting on it would be asserting on
-    {!Atmosphere}, which has its own suite. Instead every test draws the frame
-    {e twice}, once with the sprite and once without, and the sprite is exactly
-    the pixels that differ. That answers "where was it drawn" without any claim
-    about what it was drawn in. *)
+    Not by its colour. A value that reaches the buffer has been through fog and,
+    behind it, through wall shading, so the number in the pixel differs from the
+    colour that went in. Asserting on it would be asserting on {!Atmosphere},
+    which has its own suite. Instead every test draws the frame {e twice}, once
+    with the sprite and once without; the sprite is exactly the pixels that
+    differ. That answers "where was it drawn" without any claim about what it
+    was drawn in. *)
 
 open Camlcast_core
 open Support
@@ -23,10 +23,10 @@ open Support
 let width = 160
 let height = 100
 
-(* A sprite is a picture, and these are the two that matter here: one square and
-   one twice as wide as it is tall, both solid to the edges so that the pixels
-   that change are the whole billboard and not a cut-out inside it. The colour
-   is only ever compared against itself. *)
+(* The two sprite pictures used here: one square, one twice as wide as it is
+   tall. Both are solid to the edges, so the pixels that change are the whole
+   billboard and not a cut-out inside it. The colour is only ever compared
+   against itself. *)
 let solid ?height w =
   Image.make ?height ~width:w (fun ~u:_ ~v:_ -> (Color.rgb 255 0 255, 255))
 
@@ -35,7 +35,7 @@ let wide = solid ~height:8 16
 
 (** The box a sprite covers on screen: the smallest rectangle holding every
     pixel that differs between the two worlds, as [(left, top, right, bottom)],
-    or [None] where the sprite reached nothing at all. *)
+    or [None] if the sprite reached no pixel. *)
 let drawn ?(width = width) ?(height = height) ~with_it ~without player =
   let a = Framebuffer.offscreen ~width ~height
   and b = Framebuffer.offscreen ~width ~height in
@@ -60,9 +60,10 @@ let box ?width ?height ~with_it ~without player =
   | Some b -> b
   | None -> Alcotest.fail "the sprite was not drawn at all"
 
-(* One room, one sprite, and the same room without it. Both are built from the
-   same parts so that the only difference between the two frames is the
-   billboard. [floor] is a plane so that the sloped case is the same fixture. *)
+(* One room with a sprite, and the same room without it. Both are built from
+   the same parts, so the only difference between the two frames is the
+   billboard. [floor] is a plane parameter so the sloped case reuses this
+   fixture. *)
 let hall ?(floor = Plane.horizontal 0.) ?ceiling ?(extra = []) sprites =
   Room.make
     ~floor:{ Room.plane = floor; material = pale }
@@ -95,38 +96,38 @@ let alone ?floor ?extra sprites =
 let looking_east ?(pos = Vec.make 0. 0.) () = Player.make ~room:0 ~pos ~angle:0.
 
 (** The viewport a frame of this size is drawn through, over a floor at
-    [floor_z] — what {!Viewport.sprite_box} has to be asked with if its answer
-    is to be comparable with what landed on the buffer. *)
+    [floor_z]. {!Viewport.sprite_box} must be asked with it for its answer to be
+    comparable with what landed on the buffer. *)
 let viewport ~floor_z =
   Viewport.make ~pitch:0. ~eye_z:(floor_z +. Config.eye_height) ~width ~height
 
-(* Everything else in the family above — a grille, a room through a doorway, the
-   corner of one, a mark on a wall — is picked where it is drawn because both
-   sides read one function. A sprite is the exception, and it is the exception on
-   purpose: {!Sight} asks {!Room.sprite_column} and {!Room.sprite_row} in world
+(* The other cases in this family — a grille, a room through a doorway, the
+   corner of one, a mark on a wall — are picked where they are drawn because
+   both sides read one function. A sprite is the exception, on purpose:
+   {!Sight} asks {!Room.sprite_column} and {!Room.sprite_row} in world
    coordinates, while {!Renderer} inverts them once into a screen rectangle and
    interpolates across it, one divide per column instead of a dot product per
-   pixel. The two are the same map read from opposite ends, and nothing but care
-   was holding them equal.
+   pixel. The two are the same map read from opposite ends, and only care held
+   them equal.
 
-   Care was not enough. {!Sight} passed the sprite's offset from the eye where
-   {!Room.sprite_column} wanted the crosshair's offset from the sprite, so the
-   picking was the mirror image of the drawing — a sprite pickable exactly where
-   it is transparent. Nothing caught it: the width test is on an absolute value,
-   the row is a separate calculation that was always right, and every sprite in
-   the suite was symmetric or solid to its edges.
+   Care failed once. {!Sight} passed the sprite's offset from the eye where
+   {!Room.sprite_column} wanted the crosshair's offset from the sprite. The
+   picking was therefore the mirror image of the drawing: a sprite pickable
+   exactly where it is transparent. Nothing caught it. The width test is on an
+   absolute value, the row is a separate calculation that was always right, and
+   every sprite in the suite was symmetric or solid to its edges.
 
-   So this is the case that could not have been written as a claim about
-   coordinates. It sweeps a lopsided sprite across the view and asks the two
-   questions that must have one answer — did the frame put this sprite under the
-   crosshair, and does the crosshair say it is on it — reading the first from the
-   picture, by rendering the same world with and without it and looking at the
-   one pixel in the middle.
+   So this case cannot be written as a claim about coordinates. It sweeps a
+   lopsided sprite across the view and asks two questions that must have one
+   answer: did the frame put this sprite under the crosshair, and does the
+   crosshair say it is on it. The first is read from the picture, by rendering
+   the same world with and without the sprite and comparing the one pixel in
+   the middle.
 
-   The picture is cut at column 5 of 16 rather than at its middle, which is not
-   fussiness. Dead ahead the crosshair falls on the box's exact centre, and for
-   an even-width picture that is exactly a texel boundary: the renderer reaches
-   that real number through the projection and {!Sight} through
+   The picture is cut at column 5 of 16 rather than at its middle, because dead
+   ahead the crosshair falls on the box's exact centre. For an even-width
+   picture that centre is exactly a texel boundary: the renderer reaches that
+   real number through the projection and {!Sight} through
    {!Room.sprite_half_width}, they agree to about [5e-16], and a [floor] turns
    that into two different columns. Off the middle, the ulp changes nothing. *)
 let a_sprite_is_picked_where_it_is_drawn () =
@@ -167,25 +168,24 @@ let a_sprite_is_picked_where_it_is_drawn () =
            offset drawn)
         drawn picked)
     [ -0.6; -0.5; -0.4; -0.3; -0.2; -0.1; 0.1; 0.2; 0.3; 0.4; 0.5; 0.6 ];
-  (* Both answers have to occur, or a sweep that missed the sprite entirely
-     would agree about nothing and pass. *)
+  (* Both answers must occur, because a sweep that missed the sprite entirely
+     would agree on every case and pass vacuously. *)
   Alcotest.(check bool)
     (Printf.sprintf "the sweep crossed the cut (%d on, %d off)" !seen !unseen)
     true
     (!seen > 0 && !unseen > 0)
 
 (* A material whose colour changes from texel to texel. Everything else in this
-   file is drawn on flat [pale], and against a flat material a cast that lands
-   at the wrong world point shows the very same colour — the only thing left to
-   notice it by is the fog, which is gentle. Graded, a wrong distance is a wrong
-   colour. *)
+   file is drawn on flat [pale]. Against a flat material a cast that lands at
+   the wrong world point shows the same colour, and only the fog, which is
+   gentle, would differ. Graded, a wrong distance is a wrong colour. *)
 let graded blue =
   Material.make
     ~pattern:(Texture.generate (fun ~u ~v -> Color.rgb (u * 3) (v * 3) blue))
 
-(* The hall again, with its floor and roof graded, and given a sloped plane so
-   the gradient term of the cast is doing work rather than falling out of a
-   level one. *)
+(* The hall again, with its floor and roof graded, and with a sloped plane. The
+   slope keeps the gradient term of the cast active; over a level plane it
+   falls out. *)
 let graded_hall floor =
   Room.make
     ~floor:{ Room.plane = floor; material = graded 40 }
@@ -200,24 +200,24 @@ let graded_hall floor =
         (Vec.make (-4.) (-4.));
     ]
 
-(* {!Plane.view_distance} is the engine's written statement of the plane cast,
-   and a background pixel is {!Plane.cast} — the same arithmetic with the
-   hoisting left to the caller. They were two copies for a long time, with
-   renderer.mli claiming the renderer called [view_distance] while it quietly
-   ran its own; this is what makes the claim a thing that can fail rather than a
-   thing that is merely written down.
+(* {!Plane.view_distance} is the engine's written statement of the plane cast.
+   A background pixel is {!Plane.cast}: the same arithmetic with the hoisting
+   left to the caller. They were two copies for a long time. renderer.mli
+   claimed the renderer called [view_distance] while it ran its own copy. This
+   test makes that claim a thing that can fail rather than a thing that is
+   merely written down.
 
-   For every background pixel it reaches, the colour in the buffer must be what
+   For every background pixel checked, the colour in the buffer must be what
    the material shows at the world point [view_distance] puts under that pixel,
-   faded by the fog of that same distance — the blend {!Atmosphere.fog}
-   documents. That is sensitive to the whole formula rather than to its guard: a
-   cast that drifts moves the sample and the fade together, and the grading
-   above is there so the sample moving is visible.
+   faded by the fog of that same distance. That fade is the blend
+   {!Atmosphere.fog} documents. The check is sensitive to the whole formula
+   rather than to its guard: a cast that drifts moves the sample and the fade
+   together, and the grading above makes the moved sample visible.
 
-   Only pixels nearer than the first wall along their own ray are asked about,
-   since past that the background is painted over; the count at the end is so
-   that a fixture which quietly stopped reaching any of them would fail here
-   rather than pass silently. *)
+   Only pixels nearer than the first wall along their own ray are checked,
+   because past that the background is painted over. The count at the end makes
+   a fixture that quietly stopped reaching any such pixel fail here rather than
+   pass silently. *)
 let the_background_is_the_cast_the_engine_exports () =
   let floor_plane = Plane.make ~a:0.06 ~b:(-0.04) ~c:0. in
   let room = graded_hall floor_plane in
@@ -247,10 +247,9 @@ let the_background_is_the_cast_the_engine_exports () =
     in
     for row = 0 to height - 1 do
       let row_factor = Viewport.row_factor view ~row in
-      (* Which plane this row could be showing is the renderer's own question,
-         asked the renderer's own way — below the horizon a floor, above it a
-         roof. [view_distance] does not ask it, answering for whichever plane it
-         is handed. *)
+      (* Which plane a row shows is decided here the way the renderer decides
+         it: below the horizon a floor, above it a roof. [view_distance] makes
+         no such decision and answers for whichever plane it is handed. *)
       let plane, material =
         if row_factor > 0. then (floor, Room.floor_material room)
         else (roof.Room.plane, roof.Room.material)
@@ -284,27 +283,27 @@ let the_background_is_the_cast_the_engine_exports () =
     (!checked > width * height / 4)
 
 (* The drawing half of the cutoff {!Sight} reads. A billboard is scaled by one
-   over its distance, so near enough there is nothing left worth placing and the
-   renderer stops; nearer than {!Config.sprite_near_clip} it reaches no pixel at
-   all. Neither module has a near cutoff of its own, and this is the pair of
-   cases on this side that says so — a sprite the crosshair could pick but the
-   frame does not show is a target the player cannot see. *)
+   over its distance, so near enough there is nothing left worth placing and
+   the renderer stops. Nearer than {!Config.sprite_near_clip} it reaches no
+   pixel at all. Neither module has a near cutoff of its own; this pair of
+   cases pins the drawing side. A sprite the crosshair could pick but the frame
+   does not show would be a target the player cannot see. *)
 let a_sprite_nearer_than_the_clip_is_not_drawn () =
   let at d = alone [ Room.sprite ~size:1.6 ~image:square (Vec.make d 0.) ] in
   let clip = Config.sprite_near_clip in
   (* Just beyond it: [box] is what fails if nothing was drawn. *)
   let with_it, without = at (clip +. 0.01) in
   ignore (box ~with_it ~without (looking_east ()));
-  (* Just inside it, and the two frames are the same frame. *)
+  (* Just inside it: the two frames are identical. *)
   let with_it, without = at (clip -. 0.01) in
   Alcotest.(check bool)
     "one nearer than the clip changes no pixel" true
     (drawn ~with_it ~without (looking_east ()) = None)
 
-(* A sprite standing on the floor is where it always was: on the rectangle
-   Viewport.sprite_box gives, and — its picture being square — as wide as it is
-   tall. This is the case every other demo and every other suite already
-   depends on, so it is the one that says the new field changed nothing. *)
+(* A sprite standing on the floor lands on the rectangle Viewport.sprite_box
+   gives. Its picture is square, so it is as wide as it is tall. Every other
+   demo and every other suite already depends on this case, so it is the one
+   that shows the new field changed nothing. *)
 let a_sprite_on_the_floor_is_where_the_viewport_says () =
   let s = Room.sprite ~size:1.6 ~image:square (Vec.make 5. 0.) in
   let with_it, without = alone [ s ] in
@@ -332,9 +331,9 @@ let a_sprite_on_the_floor_is_where_the_viewport_says () =
    and both edges raised by the rows the projection predicts. Nothing about the
    billboard changes but where its foot is. *)
 let a_base_lifts_it_and_does_nothing_else () =
-  (* Far enough down the hall that the lifted one still fits on the buffer:
-     raised at five cells it would run off the top, and a box cut by the edge
-     is not a box this can compare. *)
+  (* Far enough down the hall that the lifted one still fits on the buffer. At
+     five cells the raised one would run off the top, and a box cut by the edge
+     cannot be compared. *)
   let at base = Room.sprite ~base ~size:1.6 ~image:square (Vec.make 8. 0.) in
   let ground = at 0. and lifted = at 1.2 in
   let with_ground, without = alone [ ground ] in
@@ -354,9 +353,9 @@ let a_base_lifts_it_and_does_nothing_else () =
     true
     (Float.abs (float_of_int (gb - lb) -. rise) <= 1.5)
 
-(* The vertical rule, from the other end: an elevated sprite's foot sits at
-   floor + base, so a sprite lifted clear of the eye is drawn entirely above the
-   horizon — which is where the level view looks. *)
+(* The vertical rule, from the other end. An elevated sprite's foot sits at
+   floor + base, so a sprite lifted clear of the eye is drawn entirely above
+   the horizon. The horizon is where the level view looks. *)
 let a_sprite_high_enough_is_all_above_the_horizon () =
   let s = Room.sprite ~base:2. ~size:0.6 ~image:square (Vec.make 5. 0.) in
   let with_it, without = alone [ s ] in
@@ -429,7 +428,7 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
   (* {!Support.two_rooms} is two 4 x 4 rooms joined by a doorway one cell wide,
      with the transform between them a translation by (-4, 0). So a sprite at
      (6, 2) of the second room's frame stands four cells straight ahead of a
-     player at (2, 2) of the first — and, two and a half cells across, is wider
+     player at (2, 2) of the first. At two and a half cells across, it is wider
      than the opening it is seen through. *)
   let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   let sprite = Room.sprite ~size:2.5 ~image:square (Vec.make 2. 2.) in
@@ -479,11 +478,11 @@ let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
 
 (* {1 Doorways you can see through}
 
-   A leaf or a lintel of a material that carries an alpha is a wall you can see
-   through, and the room beyond has to be drawn behind it or its clear texels
-   show this room's own floor. Both cases below are the same claim from two
-   directions: something that is only in the far room reaches the screen when
-   what stands between is see-through, and reaches nothing when it is solid. *)
+   A leaf or a lintel of a material that carries an alpha is a see-through
+   wall. The room beyond must be drawn behind it, or its clear texels show this
+   room's own floor. Both cases below are the same claim from two directions.
+   Something that is only in the far room reaches the screen when what stands
+   between is see-through, and reaches nothing when it is solid. *)
 
 (* {!Support.joined_rooms}' second room with a roof of a given material over it
    instead of the sky it is authored with. The roof is the one thing varied
@@ -500,9 +499,9 @@ let roofed world material =
          ~ceiling:(Room.Roof { Room.plane = Plane.horizontal 3.; material })
          (List.init (Room.wall_count before) (Room.wall_at before)))
 
-(* Through the bars of a shut grille door, a sprite standing in the next room.
-   Behind a solid leaf the same sprite is not drawn at all — the recursion never
-   happens, which is the whole of why a closed door is cheap. *)
+(* Through the bars of a shut grille door, a sprite standing in the next room
+   is drawn. Behind a solid leaf the same sprite is not drawn at all: the
+   recursion never happens, which is why a closed door is cheap. *)
 let a_see_through_leaf_shows_the_room_behind () =
   let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   let sprite = Room.sprite ~size:2.5 ~image:square (Vec.make 2. 2.) in
@@ -523,9 +522,9 @@ let a_see_through_leaf_shows_the_room_behind () =
    the transom. What is varied is that room's roof and nothing else, so a pixel
    that differs between the two frames is a pixel that came from inside it. *)
 let a_see_through_lintel_shows_the_room_behind () =
-  (* Pitched up, because the eye is half a cell off the floor and the opening is
-     two cells tall: from a level view at this range the strip above it is off
-     the top of the window entirely, and there is nothing to look through. *)
+  (* Pitched up because the eye is half a cell off the floor and the opening is
+     two cells tall. From a level view at this range the strip above it is off
+     the top of the window entirely, leaving nothing to look through. *)
   let looking =
     Player.pitch_by
       (Player.make ~room:0 ~pos:centre ~angle:0.)
@@ -541,13 +540,13 @@ let a_see_through_lintel_shows_the_room_behind () =
     "under a solid lintel, none of it is" true
     (reaches (joined_rooms ~door:(Door.make dim) ()) = None)
 
-(* And with no lintel at all, still none of it. Omitting one says the opening
-   already reaches the top of the wall it was cut into, not that the gap runs on
-   above it: the rows over the head of a two-cell opening in a three-cell room
-   are that room's own ceiling, exactly as they are over a wall that stops short
-   of it — {!Renderer} caps a wall at the ceiling and paints the ceiling above.
-   Recursing through them instead would put the neighbour's roof, or its sky,
-   overhead in this room. *)
+(* And with no lintel at all, still none of it is drawn. Omitting a lintel
+   means the opening already reaches the top of the wall it was cut into, not
+   that the gap runs on above it. The rows over the head of a two-cell opening
+   in a three-cell room are that room's own ceiling, exactly as they are over a
+   wall that stops short of it: {!Renderer} caps a wall at the ceiling and
+   paints the ceiling above. Recursing through those rows instead would put the
+   neighbour's roof, or its sky, overhead in this room. *)
 let a_bare_opening_does_not_show_the_room_above_it () =
   let looking =
     Player.pitch_by
@@ -561,14 +560,14 @@ let a_bare_opening_does_not_show_the_room_above_it () =
     "over a lintel-less opening, the far room's roof is not drawn" true
     (reaches (joined_rooms ~door:(Door.make dim) ~bare:true ()) = None)
 
-(* The two cases above are the same claim about the strip over an opening, and
-   the roof makes it about the opening itself. Drop the ceiling of the room the
-   player is standing in below the doorway's head and those rows are this room's
-   own roof, exactly as the rows over a lintel-less opening are: neither the far
-   room's ceiling nor its sky may be painted through the gap, however tall the
-   gap was cut. The seam is what makes it matter — two rooms whose floors meet
-   need not have their roofs meet, and the neighbour's clip in [draw_planes]
-   only catches the case where they do.
+(* The two cases above are the same claim about the strip over an opening; the
+   roof version makes it about the opening itself. Drop the ceiling of the room
+   the player is standing in below the doorway's head, and those rows are this
+   room's own roof, exactly as the rows over a lintel-less opening are. Neither
+   the far room's ceiling nor its sky may be painted through the gap, however
+   tall the gap was cut. This matters because of the seam: two rooms whose
+   floors meet need not have their roofs meet, and the neighbour's clip in
+   [draw_planes] only catches the case where they do.
 
    Both ways in are checked, because they are two call sites: a transom you can
    see through, and a gap with nothing across it at all. *)
@@ -609,17 +608,17 @@ let the_roof_caps_what_an_opening_shows () =
     "and through an open doorway under one, none of it either" true
     (reaches (joined_rooms ()) = None)
 
-(* And where it {e is} drawn, it does not begin at the top of the window. The
-   camera carried into the far room sits behind that room's copy of the opening,
-   so its roof runs back from there towards the eye and stands, in the rows near
-   the top of the strip, nearer than the doorway itself. Those rows are this
-   room's own ceiling: the ray meets it long before it gets to the wall the
-   transom is set in.
+(* And where the far roof {e is} drawn, it does not begin at the top of the
+   window. The camera carried into the far room sits behind that room's copy of
+   the opening. Its roof runs back from there towards the eye, so in the rows
+   near the top of the strip it stands nearer than the doorway itself. Those
+   rows are this room's own ceiling: the ray meets it long before it gets to
+   the wall the transom is set in.
 
-   Standing further back than the case above, which is the reason that one does
-   not already catch this: from the middle of the room every row of the strip
-   that is on the screen at all already looks past the doorway, and there is
-   nothing left for the clip to take. *)
+   The player stands further back than in the case above, which is the reason
+   that one does not already catch this. From the middle of the room every row
+   of the strip that is on the screen at all already looks past the doorway,
+   and there is nothing left for the clip to take. *)
 let the_far_rooms_ceiling_begins_where_the_doorway_does () =
   let looking =
     Player.pitch_by
@@ -649,22 +648,23 @@ let the_far_rooms_ceiling_begins_where_the_doorway_does () =
 (* {1 What a doorway does not show}
 
    The recursion is entered with the camera carried into the neighbour's frame,
-   which puts it behind that room's own copy of the opening — so a ray cast there
-   passes through whatever the neighbour has standing on {e this} side of its own
-   doorway before it reaches the doorway at all. In a convex room there is never
-   anything there. In one that folds back on itself there is, and it is space the
-   player is standing in rather than anything the doorway can show. *)
+   which puts it behind that room's own copy of the opening. A ray cast there
+   passes through whatever the neighbour has standing on {e this} side of its
+   own doorway before it reaches the doorway at all. In a convex room there is
+   never anything there. In a room that folds back on itself there is, and it
+   is space the player is standing in rather than anything the doorway can
+   show. *)
 
 (* {!Support.recessed} sets the second room's doorway in the back of a blind
-   slot, and [blind:false] takes that slot's back wall away and changes nothing
+   slot. [blind:false] takes that slot's back wall away and changes nothing
    else. Along every ray through the opening that wall stands a cell and a half
-   off, half a cell nearer than the doorway — so the two worlds have to be drawn
-   identically, pixel for pixel.
+   off, half a cell nearer than the doorway. The two worlds must therefore be
+   drawn identically, pixel for pixel.
 
-   Which is a stronger claim than any box: not that the wall is hidden, or
-   trimmed, or drawn dim, but that it is not in this picture at all. Untrimmed it
-   fills the whole of the doorway's columns, being the first thing every one of
-   those rays meets. *)
+   That is a stronger claim than any box: not that the wall is hidden, or
+   trimmed, or drawn dim, but that it is not in this picture at all. Untrimmed
+   it would fill the whole of the doorway's columns, because it is the first
+   thing every one of those rays meets. *)
 let what_stands_in_front_of_a_doorway_is_not_drawn_through_it () =
   let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   Alcotest.(check bool)
@@ -672,9 +672,9 @@ let what_stands_in_front_of_a_doorway_is_not_drawn_through_it () =
     (drawn ~with_it:(recessed ()) ~without:(recessed ~blind:false ()) looking
     = None)
 
-(* A sprite stands on the floor wherever the floor has got to. Over a plane that
+(* A sprite stands on the floor at the floor's local height. Over a plane that
    climbs east, the same sprite at the same place is drawn higher than it is
-   over a level one, by what the plane says the ground has risen. *)
+   over a level one, by the rise the plane gives the ground there. *)
 let a_sloped_floor_carries_it () =
   let s = Room.sprite ~size:1.6 ~image:square (Vec.make 5. 0.) in
   let slope = Plane.make ~a:0.2 ~b:0. ~c:0. in
@@ -702,8 +702,8 @@ let a_sloped_floor_carries_it () =
 
 (* Sprites are composited farthest first, so a near one covers a far one rather
    than showing through it. Both are solid, so where they overlap the near one
-   is the only thing that can be seen — and the frame with both in it is the
-   frame with just the near one, over the far one's remaining pixels. *)
+   is the only thing that can be seen. The frame with both in it is the frame
+   with just the near one, over the far one's remaining pixels. *)
 let a_near_sprite_covers_a_far_one () =
   let near = Room.sprite ~size:1.6 ~image:square (Vec.make 3. 0.)
   and far = Room.sprite ~size:1.6 ~image:square (Vec.make 6. 0.) in
@@ -736,24 +736,24 @@ let a_sprite_behind_the_player_is_not_drawn () =
 (* {1 What distance fades into}
 
    Fog is a blend towards the air's own {!Atmosphere.haze} and not a multiply
-   towards black, and in every fixture above the two are indistinguishable
-   because the haze is nearly black already. The air below is deliberately not:
+   towards black. In every fixture above the two are indistinguishable because
+   the haze is nearly black already. The air below is deliberately different:
    its haze is brighter than anything in the room and a different hue, so the
-   direction of the fade is unambiguous. Under a multiply a receding surface can
-   only lose on every channel; under the blend it moves towards the haze, which
-   here means {e gaining} on two of them. The first three below fail against a
-   multiply, one for each of the three fog sites.
+   direction of the fade is unambiguous. Under a multiply a receding surface
+   can only lose on every channel. Under the blend it moves towards the haze,
+   which here means {e gaining} on two of them. The first three below fail
+   against a multiply, one for each of the three fog sites.
 
    The fourth is here for the opposite mistake, and is the only test that
-   catches it: fog blends and orientation multiplies, and folding the
-   orientation into the blend as well passes all three of the others. *)
+   catches it: fog blends and orientation multiplies. Folding the orientation
+   into the blend as well passes all three of the others. *)
 
 let vivid =
   Atmosphere.make ~haze:(Color.rgb 40 220 255) ~fog_distance:12.
     ~min_brightness:0.05 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
     ~directional:0.4 ()
 
-(** The hall again, under air you can see the colour of. *)
+(** The hall again, under [vivid]'s visibly coloured air. *)
 let hazy ?floor ?ceiling ?extra sprites =
   World.make
     ~rooms:[ ("hall", hall ?floor ?ceiling ?extra sprites) ]
@@ -775,11 +775,11 @@ let from_the_haze (c : Color.t) =
   + abs (c.Color.g - h.Color.g)
   + abs (c.Color.b - h.Color.b)
 
-(* A wall far away is not a dark wall. It is a wall with a lot of air in front
-   of it, and what it moves towards as it recedes is the colour of that air — so
-   at the reach of the fade there is almost nothing of the wall left in the
-   pixel. Multiplying towards black gets the {e brightness} of this right in a
-   world whose haze is nearly black, and the colour wrong in every other one. *)
+(* A wall far away is a wall with a lot of air in front of it, not a dark wall.
+   As it recedes it moves towards the colour of that air, so at the reach of
+   the fade there is almost nothing of the wall left in the pixel. Multiplying
+   towards black gets the {e brightness} of this right in a world whose haze is
+   nearly black, and the colour wrong in every other one. *)
 let a_distant_wall_fades_into_the_haze_and_not_into_the_dark () =
   let world = hazy [] in
   let at away =
@@ -807,18 +807,18 @@ let a_distant_wall_fades_into_the_haze_and_not_into_the_dark () =
     true
     (far.Color.b > near.Color.b)
 
-(* The same claim over a distance that changes with every row. A column of floor
-   is the whole fade in one strip — a cell away at the bottom of the screen and
-   most of the room away near the horizon — so the fade has to arrive at the
-   haze there too. It is the same haze that fills the band {e at} the horizon,
-   where the eye looks past both planes, and a floor fading to black instead
-   would meet that band at a seam. *)
+(* The same claim over a distance that changes with every row. A column of
+   floor is the whole fade in one strip: a cell away at the bottom of the
+   screen, most of the room away near the horizon. So the fade must arrive at
+   the haze there too. The same haze fills the band {e at} the horizon, where
+   the eye looks past both planes; a floor fading to black instead would meet
+   that band at a seam. *)
 let the_floor_fades_into_the_haze_towards_the_horizon () =
   let fb = shot (hazy []) (looking_east ()) in
   let at y = Framebuffer.pixel fb ~x:(width / 2) ~y in
   (* Both rows are below the east wall's foot, which at twelve cells lands a few
      rows under the horizon: row 60 is floor several cells out, row 95 is floor
-     at your feet. *)
+     at the player's feet. *)
   let far = at 60 and near = at 95 in
   Alcotest.(check bool)
     (Printf.sprintf "floor near the horizon is nearer the haze: %d against %d"
@@ -856,19 +856,18 @@ let a_distant_sprite_fades_into_the_haze () =
     true
     (far.Color.b > near.Color.b)
 
-(* And the other thing that darkens a surface, which for a long time reached
-   every wall and no sprite: the room's light. A billboard has no normal, so
-   what lights it is {!Atmosphere.t.ambient} — the model's own name for what a
-   surface facing away from the light gets — and nothing about which way it is
-   turned.
+(* The other thing that darkens a surface: the room's light. For a long time it
+   reached every wall and no sprite. A billboard has no normal, so what lights
+   it is {!Atmosphere.t.ambient} — the model's own name for what a surface
+   facing away from the light gets — and nothing about which way it is turned.
 
-   Two rooms differing in nothing but their ambient, with a wall read in the
-   same frame to compare the sprite against. The wall is what makes this about
-   the room rather than about the picture: both have to come down, and by the
-   same factor, or a sprite is once again the one thing in the world the light
-   does not reach. [directional] is nothing, so every wall reads [ambient] too
-   and the two are directly comparable; the air barely fades over this distance,
-   so what moves is the light and not the fog. *)
+   Two rooms differ in nothing but their ambient, with a wall read in the same
+   frame to compare the sprite against. The wall makes this about the room
+   rather than about the picture. Both must come down, and by the same factor,
+   or a sprite is once again the one thing in the world the light does not
+   reach. [directional] is zero, so every wall reads [ambient] too and the two
+   are directly comparable. The air barely fades over this distance, so what
+   moves is the light and not the fog. *)
 let a_sprite_is_lit_by_the_room_it_stands_in () =
   let grey =
     Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 180 180 180, 255))
@@ -900,8 +899,9 @@ let a_sprite_is_lit_by_the_room_it_stands_in () =
     true
     (dim_sprite < bright_sprite / 2);
   (* By the same factor, which is the whole claim: one light over the room and
-     not a dimming of the billboard's own. A ratio, the two surfaces being
-     different colours, and a twentieth of slack, the readings being bytes. *)
+     not a dimming of the billboard's own. A ratio is used because the two
+     surfaces are different colours. A twentieth of slack is allowed because
+     the readings are bytes. *)
   let ratio a b = float_of_int a /. float_of_int b in
   Alcotest.(check bool)
     (Printf.sprintf "by the room's factor and not one of its own: %.3f to %.3f"
@@ -912,8 +912,8 @@ let a_sprite_is_lit_by_the_room_it_stands_in () =
     < 0.05)
 
 (* {!Room.sprite_light} is {!Room.decal_light} for billboards, so a sprite has
-   the way out of the dark a mark on a wall has, and these two are the sprite
-   spelling of the pair under "marks on walls". A lamp is what wants it:
+   the same way out of the dark a mark on a wall has. These two tests are the
+   sprite spelling of the pair under "marks on walls". The use case is a lamp:
    something the room's light does not account for, drawn in the colours it
    holds however dark the room has become. *)
 let a_glowing_sprite_keeps_its_own_light () =
@@ -954,9 +954,10 @@ let a_glowing_sprite_keeps_its_own_light () =
     true
     (plain_dark < half && half < glowing_dark)
 
-(* And out of the haze with it, for the reason a decal is: a sprite making all
-   of its own light and still wearing the air's colour would not be its own
-   colour at all, and at the far end of a long room it would be the haze. *)
+(* Glow lifts a sprite out of the haze too, for the reason it lifts a decal. A
+   sprite making all of its own light and still taking the air's colour would
+   not be its own colour at all. At the far end of a long room it would be the
+   haze. *)
 let a_glowing_sprite_takes_none_of_the_haze () =
   let white =
     Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
@@ -988,17 +989,16 @@ let a_glowing_sprite_takes_none_of_the_haze () =
     true
     (glowing_far.Color.r > 250 && glowing_far.Color.b > 250)
 
-(* The other half of the rule, and the half a fade towards the haze makes it
-   easy to get wrong: orientation is a multiply and distance is a blend, and the
-   two have to stay apart. A wall turned away from the light has to go
-   {e dark}. Fold the shading into the blend instead and it goes {e hazy} — and
-   with air brighter than the wall, that means the face turned away from the
-   light coming out brighter than the face turned into it, which is the shading
-   inverted.
+(* The other half of the rule, and the half a fade towards the haze makes easy
+   to get wrong. Orientation is a multiply and distance is a blend, and the two
+   must stay apart. A wall turned away from the light must go {e dark}. Fold
+   the shading into the blend instead and it goes {e hazy}. With air brighter
+   than the wall, that means the face turned away from the light comes out
+   brighter than the face turned into it, which is the shading inverted.
 
-   {!Support.room} is a square with the eye at its centre, so all four walls are
-   the same material at the same distance and differ only in which way they
-   face. Two of them, on every channel. *)
+   {!Support.room} is a square with the eye at its centre, so all four walls
+   are the same material at the same distance and differ only in which way they
+   face. Two of them are compared, on every channel. *)
 let orientation_dims_a_wall_rather_than_fogging_it () =
   let square_room =
     World.make
@@ -1022,9 +1022,9 @@ let orientation_dims_a_wall_rather_than_fogging_it () =
     (into.Color.r > away.Color.r
     && into.Color.g > away.Color.g
     && into.Color.b > away.Color.b);
-  (* And brighter by the same amount on all three, which is the sharp form of
-     it: the two walls stand at one distance, so the air's share of them is one
-     colour and cancels, and the whole of the difference is the multiply. *)
+  (* Brighter by the same amount on all three, which is the sharp form of the
+     claim. The two walls stand at one distance, so the air's share of them is
+     one colour and cancels; the whole of the difference is the multiply. *)
   let dr = into.Color.r - away.Color.r
   and dg = into.Color.g - away.Color.g
   and db = into.Color.b - away.Color.b in
@@ -1041,8 +1041,8 @@ let orientation_dims_a_wall_rather_than_fogging_it () =
 
 let mark = Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 0 255 255, 255))
 
-(* Standing at (5, -2) to (5, 2): the edge runs +y, so the normal — a quarter
-   turn to its left — points at -x, and the origin is at its Front. *)
+(* Standing at (5, -2) to (5, 2): the edge runs +y. The normal, a quarter turn
+   to its left, points at -x, so the origin is at its Front. *)
 let partition decals =
   [
     Room.wall ~height:2.5 ~material:mesh ~decals (Vec.make 5. (-2.))
@@ -1083,20 +1083,20 @@ let a_decal_on_the_far_face_is_drawn_from_behind () =
     "and nowhere at all from the front" true
     (drawn ~with_it:(marked Room.Back) ~without:bare (in_front ()) = None)
 
-(* Which way round it is drawn, which the two above say nothing about — they ask
-   whether a mark is there and not what it looks like, and a mirrored picture is
-   as present as an unmirrored one.
+(* Which way round the mark is drawn. The two tests above say nothing about
+   this: they check whether a mark is there and not what it looks like, and a
+   mirrored picture is as present as an unmirrored one.
 
-   [along] runs from the wall's [a] to its [b], and by {!Room}'s winding rule
-   that walk goes left to right on screen for someone at the Front and right to
-   left for someone at the Back. So the offset alone names a column of the
-   picture only from one side. Left unmirrored, every mark on a far face is
-   drawn reversed — invisible on the demos' poster, which is a ring in a border,
-   and unmissable on anything with writing in it.
+   [along] runs from the wall's [a] to its [b]. By {!Room}'s winding rule that
+   walk goes left to right on screen for someone at the Front and right to left
+   for someone at the Back. So the offset alone names a column of the picture
+   only from one side. Left unmirrored, every mark on a far face is drawn
+   reversed. That is invisible on the demos' poster, which is a ring in a
+   border, and unmissable on anything with writing in it.
 
    The mark here has a hand: its left half red and its right half green. Which
-   colour lands on the left of the screen is the whole of the test, and it is
-   asked of both faces, because the claim is not that the two agree with each
+   colour lands on the left of the screen is the whole of the test. It is
+   checked on both faces, because the claim is not that the two agree with each
    other but that both agree with the picture as it was authored. *)
 let handed =
   Image.make ~width:8 (fun ~u ~v:_ ->
@@ -1152,19 +1152,20 @@ let a_mark_is_drawn_the_way_it_was_authored_on_either_face () =
       ("a Back mark from behind", Room.Back, behind ());
     ]
 
-(* And the round-trip, on the pixels this time: aim at a wall, put a mark where
-   Sight says the crosshair is, and it lands on the crosshair — the middle of
-   the screen, which is where {!Viewport.ray_direction} sends the centre column
-   and where {!Paint.crosshair} draws.
+(* The round-trip, on the pixels this time: aim at a wall, put a mark where
+   Sight says the crosshair is, and it must land on the crosshair. The
+   crosshair is the middle of the screen, where {!Viewport.ray_direction} sends
+   the centre column and where {!Paint.crosshair} draws.
 
-   The mark is small — a fifth of a cell either way — so a box around it that
-   still holds the centre pixel is a tight claim about the numbers, not a
+   The mark is small, a fifth of a cell either way. A box around it that still
+   holds the centre pixel is therefore a tight claim about the numbers, not a
    bounding box that would hold anything.
 
-   Run at an odd size as well as an even one, and that is the point of the
-   second: {!Renderer.internal_size} divides the window down by a whole number,
-   so a 1366- or 2560-wide screen produces an odd buffer, and it is there that a
-   convention disagreeing with itself about where a pixel is shows up. *)
+   Run at an odd size as well as an even one; the odd size is the point of the
+   second run. {!Renderer.internal_size} divides the window down by a whole
+   number, so a 1366- or 2560-wide screen produces an odd buffer. An odd buffer
+   is where a convention disagreeing with itself about where a pixel is shows
+   up. *)
 let a_mark_lands_under_the_crosshair () =
   let world = fst (alone []) in
   let aim = looking_east () in
@@ -1197,25 +1198,25 @@ let a_mark_lands_under_the_crosshair () =
         [ (160, 100); (161, 101) ]
   | _ -> Alcotest.fail "expected the wall ahead"
 
-(* The other half of that round trip, and the one a see-through wall can fail:
-   what {!Sight} says the crosshair is on has to be what was drawn there, texel
+(* The other half of that round trip, and the one a see-through wall can fail.
+   What {!Sight} says the crosshair is on must be what was drawn there, texel
    by texel and not material by material. A grille is where the two can part
-   company, because its alpha changes from one texel to the next — the renderer
-   samples the one the column lands on, so a picker judging the whole material
-   names whatever is behind a bar the picture shows no way through.
+   company, because its alpha changes from one texel to the next. The renderer
+   samples the texel the column lands on, so a picker judging the whole
+   material names whatever is behind a bar the picture shows no way through.
 
    Whether the wall covered the crosshair is read off the frame rather than
    asserted about. Draw the hall with a sprite standing behind the screen and
-   again without it, and look at the middle pixel: unchanged means the screen
+   again without it, and compare the middle pixel: unchanged means the screen
    covered it, changed means the sprite showed through. That measurement goes
-   through none of Sight's arithmetic, which is what makes this a comparison
-   between the two modules rather than a restatement of one of them.
+   through none of Sight's arithmetic, which makes this a comparison between
+   the two modules rather than a restatement of one of them.
 
    The screen is placed twice, a tenth of a cell apart, so that one crossing
-   falls on a bar and the other in a hole — and neither module is told which is
-   which. An odd buffer, because there the middle pixel's own ray is exactly
-   [player.dir], the ray Sight traces; at an even size the two straddle the
-   middle by half a pixel and this would be a test about that instead. *)
+   falls on a bar and the other in a hole; neither module is told which is
+   which. An odd buffer is used because there the middle pixel's own ray is
+   exactly [player.dir], the ray Sight traces. At an even size the two straddle
+   the middle by half a pixel, and this would be a test about that instead. *)
 let a_grille_is_picked_where_it_is_drawn () =
   let odd = 161 and tall = 101 in
   (* Four cells of grille across the hall at x = 4, and a sprite four cells
@@ -1248,8 +1249,9 @@ let a_grille_is_picked_where_it_is_drawn () =
         Alcotest.failf "expected the screen or the sprite, got %s"
           (match other with None -> "nothing" | Some _ -> "a doorway")
   in
-  (* The two placements answer differently, or the fixture is not aimed at what
-     this is about and everything below would pass by agreeing on one case. *)
+  (* The two placements must answer differently. Otherwise the fixture does not
+     exercise the distinction, and everything below would pass by agreeing on
+     one case. *)
   Alcotest.(check bool)
     "the two placements land on different texels" true
     (showed_through (-2.) <> showed_through (-2.1));
@@ -1270,14 +1272,14 @@ let a_grille_is_picked_where_it_is_drawn () =
    good many that are not.
 
    The shape is the part worth pinning, because it is the part the interface
-   used to overstate. Both axes divide by one whole number, so the buffer is the
-   window at a clean pixel multiple — and then each floors, so the ratio comes
-   out a little off wherever that number does not go into both. What is asserted
-   is the bound those two truncations imply rather than a figure somebody
-   measured: dividing [w] by [s] loses less than one whole pixel, so the ratio
-   moves by less than one part in each of the buffer's own extents. A test
-   written against a constant would be a test that a particular window is no
-   worse than it happens to be. *)
+   used to overstate. Both axes divide by one whole number, so the buffer is
+   the window at a clean pixel multiple. Each axis then floors, so the ratio
+   comes out a little off wherever that number does not go into both. The
+   assertion is the bound those two truncations imply rather than a figure
+   somebody measured: dividing [w] by [s] loses less than one whole pixel, so
+   the ratio moves by less than one part in each of the buffer's own extents. A
+   test written against a constant would only check that a particular window is
+   no worse than it happens to be. *)
 let the_buffer_is_the_window_at_a_whole_number_of_pixels () =
   let shapes =
     List.concat_map
@@ -1320,24 +1322,24 @@ let the_buffer_is_the_window_at_a_whole_number_of_pixels () =
     shapes
 
 (* The corner a jamb shares with the threshold beside it, aimed at squarely.
-   {!Ray.segment} takes [s] in a closed interval at both ends and has to: a
+   {!Ray.segment} takes [s] in a closed interval at both ends, and must: a
    room's corners are shared between two walls, and the pair does not come out
-   as an exact one and zero but as one and a hair below zero, so a half-open
-   test lets a ray out through the corner of a closed room. What the overlap
-   costs is that a ray through such a corner meets both segments at one
-   distance, and the tie then has to be settled the same way by both readers of
-   that list — the renderer, which paints along it and shows the last, and
-   {!Sight}, which scans it and reports one.
+   as an exact one and zero but as one and a hair below zero. A half-open test
+   would let a ray out through the corner of a closed room. The cost of the
+   overlap: a ray through such a corner meets both segments at one distance.
+   Both readers of that list then have to settle the tie the same way — the
+   renderer, which paints along it and shows the last, and {!Sight}, which
+   scans it and reports one.
 
-   Constructible rather than a matter of luck: the wall runs from (4, -3) to
-   (4, 4), so {!Room.doorway} centres a one-cell opening over [0, 1] and the
-   lower jamb ends at exactly (4, 0). At an odd width the middle column's ray is
-   exactly [player.dir], so a player at the origin looking east aims down the
-   axis and straight through that corner.
+   The aim is constructible rather than a matter of luck. The wall runs from
+   (4, -3) to (4, 4), so {!Room.doorway} centres a one-cell opening over [0, 1]
+   and the lower jamb ends at exactly (4, 0). At an odd width the middle
+   column's ray is exactly [player.dir], so a player at the origin looking east
+   aims down the axis and straight through that corner.
 
-   The picture is the oracle, as it is for the grille above: what the frame
-   shows in that column is read off the frame, by drawing it with the sprite and
-   without and comparing the one pixel, and {!Sight} has to name what was
+   The picture is the oracle, as it is for the grille above. What the frame
+   shows in that column is read off the frame, by drawing it with the sprite
+   and without and comparing the one pixel. {!Sight} must name what was
    shown. *)
 let the_corner_of_a_doorway_is_picked_where_it_is_drawn () =
   let odd = 161 and tall = 101 in
@@ -1389,8 +1391,9 @@ let the_corner_of_a_doorway_is_picked_where_it_is_drawn () =
     Renderer.draw_frame fb w looking;
     Framebuffer.pixel fb ~x:(odd / 2) ~y:(tall / 2)
   in
-  (* The fixture is aimed at what this is about, or everything below agrees by
-     the column showing the jamb and there being no tie to settle. *)
+  (* The fixture must be aimed through the corner. Otherwise the column shows
+     the jamb, there is no tie to settle, and everything below agrees
+     trivially. *)
   Alcotest.(check bool)
     "the middle column shows the room through the opening" true
     (at with_it <> at without);
@@ -1411,13 +1414,13 @@ let the_corner_of_a_doorway_is_picked_where_it_is_drawn () =
         | Some _ -> "a sprite somewhere else")
 
 (* A line of [n] rooms, each the same 4 x 4 square in its own coordinates,
-   joined by bare openings a cell wide in the middle of the wall they share, and
-   [sprites] standing in the last of them. Standing in the first at (2, 2)
-   looking due east puts every opening — and everything beyond them — on one
+   joined by bare openings a cell wide in the middle of the wall they share,
+   with [sprites] standing in the last of them. Standing in the first at (2, 2)
+   looking due east puts every opening, and everything beyond them, on one
    line.
 
-   Not {!Support.joined_rooms}, which is a pair: the whole of what this is for is
-   a chain longer than the renderer will follow to the end of. *)
+   {!Support.joined_rooms} is not used because it is a pair. This exists to
+   build a chain longer than the renderer will follow to the end of. *)
 let chain n sprites =
   let room i =
     let east_jambs, east =
@@ -1459,19 +1462,20 @@ let chain n sprites =
     ~spawn:("0", Vec.make 2. 2.)
 
 (* The third of these round trips, and the one a line of doorways can fail:
-   {!Sight} may not stop looking before the picture does. The renderer follows
-   {!Config.max_portal_depth} doorways in a row, so a ray given any fewer names
+   {!Sight} must not stop looking before the picture does. The renderer follows
+   {!Config.max_portal_depth} doorways in a row. A ray given any fewer names
    the doorway the player is looking straight {e through} while a sprite two
    rooms on fills the middle of their screen.
 
-   Neither side is told that number. The picture is asked whether the sprite
-   reached the crosshair — the with-it-and-without measurement the rest of this
-   file is built on, taken at the one pixel — and {!Sight} is asked what it found
-   there, and the two have to give the same answer at every length of chain. The
-   sweep runs past the budget on purpose: out there the opening is filled with
-   haze, and the answer they have to agree on is that neither can see that far.
+   Neither side is told that number. The picture is checked for whether the
+   sprite reached the crosshair — the with-it-and-without measurement the rest
+   of this file is built on, taken at the one pixel. {!Sight} is then asked
+   what it found there. The two must give the same answer at every length of
+   chain. The sweep runs past the budget on purpose: out there the opening is
+   filled with haze, and the answer they must agree on is that neither can see
+   that far.
 
-   An odd buffer, for the reason the grille above wants one: there the middle
+   An odd buffer, for the reason the grille above uses one: there the middle
    pixel's own ray is exactly [player.dir], the ray Sight traces. *)
 let a_room_is_picked_as_far_in_as_it_is_drawn () =
   let odd = 161 and tall = 101 in
@@ -1495,7 +1499,7 @@ let a_room_is_picked_as_far_in_as_it_is_drawn () =
         (n, drawn, picked))
       (List.init 5 (fun i -> i + 2))
   in
-  (* The sweep has to cross the budget, or every case below agrees by never
+  (* The sweep must cross the budget, or every case below agrees by never
      reaching the far room at all. *)
   Alcotest.(check bool)
     "the far room is reached at some lengths of chain and not others" true
@@ -1513,15 +1517,15 @@ let a_room_is_picked_as_far_in_as_it_is_drawn () =
 
 (* The wall's own share of the light, which nothing else here pins. A pattern's
    texel is what the surface {e is}, and the air is the only thing between that
-   and the screen — so if the light stopped arriving, every wall in the game
-   would come out at full pattern colour with no depth in it whatever, and the
-   two tests below would go on passing, because they are about decals.
+   and the screen. If the light stopped arriving, every wall in the game would
+   come out at full pattern colour with no depth in it whatever, and the two
+   tests below would go on passing, because they are about decals.
 
    The same wall at two distances, head on both times, so the face shading is
-   identical and cancels. What is left is the ratio of the two fog factors —
-   once the air's own colour is taken back out of both readings, because fog
-   fades a surface {e towards the haze} and not towards black, so a far reading
-   is part surface and part air. *)
+   identical and cancels. What is left is the ratio of the two fog factors,
+   once the air's own colour is taken back out of both readings. The
+   subtraction is needed because fog fades a surface {e towards the haze} and
+   not towards black, so a far reading is part surface and part air. *)
 let a_wall_is_lit_by_the_air_it_is_seen_through () =
   let world = fst (alone []) in
   let lit away =
@@ -1538,11 +1542,11 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
     (Printf.sprintf "a wall near is brighter than far: %d against %d" near far)
     true (near > far);
   Alcotest.(check bool) "and neither is black" true (far > 0);
-  (* Not a plain ratio any more: each reading is part surface and part air. Take
-     the air back out — it is a known colour — and the ratio is there exactly. A
-     reading is [texel * face_shading * fog + haze * (1 - fog)], so subtracting
-     the haze leaves [fog * (texel * face_shading - haze)], and that bracket is
-     the same wall at both distances. *)
+  (* Not a plain ratio any more: each reading is part surface and part air.
+     Subtracting the air, a known colour, recovers the ratio exactly. A reading
+     is [texel * face_shading * fog + haze * (1 - fog)], so subtracting the
+     haze leaves [fog * (texel * face_shading - haze)], and that bracket is the
+     same wall at both distances. *)
   let haze = air.Atmosphere.haze.Color.r in
   let expected = Atmosphere.fog air 2. /. Atmosphere.fog air 6. in
   let got = float_of_int (near - haze) /. float_of_int (far - haze) in
@@ -1552,15 +1556,15 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
        expected)
     true
     (Float.abs (got -. expected) < 0.05);
-  (* And the scale of it, which no ratio can reach: a light that was uniformly
-     wrong would keep every ratio in the game intact and darken all of it. The
-     wall is a flat pattern, so the one texel it has — shaded by how squarely
-     this face meets the light, then carried towards the haze by how far away it
-     is — is the whole prediction.
+  (* And the absolute scale, which no ratio can reach: a light that was
+     uniformly wrong would keep every ratio in the game intact and darken all
+     of it. The wall is a flat pattern, so its one texel — shaded by how
+     squarely this face meets the light, then carried towards the haze by how
+     far away it is — is the whole prediction.
 
-     Note where the fog is and is not. It is the {e amount} of the blend and not
-     part of the shade: [Color.shade texel (face_shading *. fog)] followed by a
-     blend would apply it twice. *)
+     Note where the fog is and is not. It is the {e amount} of the blend and
+     not part of the shade: [Color.shade texel (face_shading *. fog)] followed
+     by a blend would apply it twice. *)
   let wall = Room.wall_at (World.room world 0) 1 in
   let texel = Texture.sample wall.Room.material.Material.pattern ~u:0 ~v:0 in
   let predicted =
@@ -1579,14 +1583,14 @@ let a_wall_is_lit_by_the_air_it_is_seen_through () =
     (abs (near - predicted) <= 2)
 
 (* A decal is lit by the same one factor the wall under it is: orientation and
-   fog. It is what the wall is {e made of} that does not reach it — a poster
-   on a red wall is not red — and the two are easy to confuse, so this pins the
-   half that does.
+   fog. What does not reach it is what the wall is {e made of} — a poster on a
+   red wall is not red. The two are easy to confuse, so this pins the half that
+   does reach.
 
    A white picture at two distances, in air that fades over twelve cells. The
-   face shading is the same for both (same wall, same normal), so it cancels,
-   and what is left is the ratio of the two fog factors — once the air's own
-   colour is taken back out of both readings, exactly as for the wall above. *)
+   face shading is the same for both (same wall, same normal), so it cancels.
+   What is left is the ratio of the two fog factors, once the air's own colour
+   is taken back out of both readings, exactly as for the wall above. *)
 let a_decal_is_fogged_like_the_wall_it_is_on () =
   let white =
     Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 255 255 255, 255))
@@ -1628,8 +1632,8 @@ let a_decal_is_fogged_like_the_wall_it_is_on () =
    and a different wall behind it.
 
    This is why a poster on a red wall is not red. It is also why a game that
-   dims a room by repainting its surfaces will find its chalk marks standing
-   out more as it does: the wall goes down twice — its own colour and the fog —
+   dims a room by repainting its surfaces makes its chalk marks stand out more
+   as it does: the wall goes down twice, by its own colour and by the fog,
    where the mark goes down once. *)
 let a_decal_ignores_what_the_wall_is_made_of () =
   let white =
@@ -1681,10 +1685,10 @@ let a_decal_ignores_what_the_wall_is_made_of () =
     (Framebuffer.pixel bright ~x:(width / 2) ~y:30
     <> Framebuffer.pixel dark ~x:(width / 2) ~y:30)
 
-(* [glow] is how a mark stays readable in a room whose light has gone. The two
-   tests above are the default: a decal takes the room's light, and a lamp made
-   out of the atmosphere therefore takes the mark down with everything else.
-   This is the way out of that, and it is per decal.
+(* [glow] keeps a mark readable in a room whose light has gone. The two tests
+   above are the default: a decal takes the room's light, and a lamp made out
+   of the atmosphere therefore takes the mark down with everything else. [glow]
+   is the way out of that, and it is per decal.
 
    The same white picture at the same place, in air that fades over forty
    cells and in air that fades over six, once as paint and once glowing. *)
@@ -1738,16 +1742,16 @@ let a_glowing_decal_keeps_its_own_light () =
     "and glow never darkens" true
     (lit ~glow:0.3 ~fog_distance:40. >= paint_lit)
 
-(* Glow lifts a mark out of the haze as well as out of the dark, and it has to
-   be both: a mark that made all of its own light and still had the air's colour
-   laid over it would not be its own colour at all — at the far end of a long
+(* Glow lifts a mark out of the haze as well as out of the dark, and it must be
+   both. A mark that made all of its own light and still had the air's colour
+   laid over it would not be its own colour at all; at the far end of a long
    room it would be the haze. {!Room.decal_light} is a fraction raised towards
-   [1.] by [glow], and the renderer asks it for the fog factor as well as for
-   the light, so a fully glowing mark takes none of the air.
+   [1.] by [glow]. The renderer reads it for the fog factor as well as for the
+   light, so a fully glowing mark takes none of the air.
 
-   The picture is a saturated red, and deliberately not the white the test above
-   uses: white plus haze saturates back to white, so a white mark cannot tell a
-   mark that took no haze from one that took some and clipped. *)
+   The picture is a saturated red, and deliberately not the white the test
+   above uses. White plus haze saturates back to white, so a white mark cannot
+   tell a mark that took no haze from one that took some and clipped. *)
 let a_glowing_decal_takes_none_of_the_haze () =
   let red = Image.make ~width:8 (fun ~u:_ ~v:_ -> (Color.rgb 200 0 0, 255)) in
   let lit ~glow =
@@ -1783,20 +1787,20 @@ let a_glowing_decal_takes_none_of_the_haze () =
 (* {1 Every pixel of a frame}
 
    Nothing clears the colour buffer. [Framebuffer.clear_depth] resets the depth
-   and there is deliberately no companion for the colour, because the background
-   pass is meant to cover every pixel of every column before anything reads one —
-   so a pixel it skips does not go black, it keeps whatever the {e previous}
-   frame put there.
+   and there is deliberately no companion for the colour, because the
+   background pass is meant to cover every pixel of every column before
+   anything reads one. A pixel the pass skips does not go black; it keeps
+   whatever the {e previous} frame put there.
 
-   No test above could have caught one. They all compare two freshly allocated
-   buffers, a fresh buffer is zeroed, and a pixel neither frame writes reads back
-   as black in both and diffs away to nothing.
+   No test above could have caught a skipped pixel. They all compare two
+   freshly allocated buffers, a fresh buffer is zeroed, and a pixel neither
+   frame writes reads back as black in both and diffs away to nothing.
 
    So draw the same frame twice: once into a buffer seeded with a colour, once
-   into a fresh one. Every pixel the frame writes lands the same in both; a pixel
-   it skips keeps the seed in one and the black in the other. No colour can hide
-   a gap or invent one, because what is being compared is two runs of the same
-   drawing and not a colour anybody predicted. *)
+   into a fresh one. Every pixel the frame writes lands the same in both. A
+   pixel it skips keeps the seed in one and the black in the other. No colour
+   can hide a gap or invent one, because the comparison is between two runs of
+   the same drawing and not against a colour anybody predicted. *)
 let unwritten world player =
   let seeded = Framebuffer.offscreen ~width ~height
   and fresh = Framebuffer.offscreen ~width ~height in
@@ -1816,13 +1820,13 @@ let unwritten world player =
   done;
   !count
 
-(* A roof lower than the eye is authorable: [Plane.above] takes any height and
-   neither [Room.roof] nor [Room.make] has an opinion about it. Such a ceiling
-   casts to a {e negative} distance — behind the eye, and so no surface at all —
-   and above the horizon the floor is not in view either, which makes the band
-   the haze's. Asking whether the raw cast was finite rather than whether it
-   pointed forwards called that a plane the doorway had clipped, left the pixels
-   alone, and what they showed was the frame before. *)
+(* A roof lower than the eye is authorable: [Plane.above] takes any height, and
+   neither [Room.roof] nor [Room.make] rejects it. Such a ceiling casts to a
+   {e negative} distance — behind the eye, and so no surface at all. Above the
+   horizon the floor is not in view either, which makes the band the haze's.
+   Testing whether the raw cast was finite, rather than whether it pointed
+   forwards, treated that as a plane the doorway had clipped. The pixels were
+   left alone, and what they showed was the frame before. *)
 let a_roof_below_the_eye_leaves_nothing_behind () =
   let low = Room.Roof { Room.plane = Plane.horizontal 0.4; material = dim } in
   Alcotest.(check bool)
@@ -1865,26 +1869,26 @@ let every_pixel_of_a_frame_is_written () =
 
    One claim, in the three places the renderer turns a projected extent into
    pixels. A pixel belongs to a surface when its {e centre} falls on it, and an
-   extent is half-open at the far end: a wall runs down to its foot, where the
+   extent is half-open at the far end. A wall runs down to its foot, where the
    floor takes over, so the pixel the foot lands in is the floor's.
 
-   For a wall this is not a rounding error. The per-pixel sampler works from the
-   row's centre rather than from the loop's bounds, so an extra row asks
-   [Texture.row_of_height] for a height {e below} the wall's own foot — and that
-   tiles rather than clamps, so what comes back is the top row of the pattern. A
-   one-pixel line of the tile's top band along the foot of every wall, leaf and
-   lintel strip on screen, over a row of floor, with a row of the wall's depth
-   written into it. *)
+   For a wall this is not a rounding error. The per-pixel sampler works from
+   the row's centre rather than from the loop's bounds, so an extra row passes
+   [Texture.row_of_height] a height {e below} the wall's own foot. That
+   function tiles rather than clamps, so what comes back is the top row of the
+   pattern. The symptom: a one-pixel line of the tile's top band along the foot
+   of every wall, leaf and lintel strip on screen, over a row of floor, with a
+   row of the wall's depth written into it. *)
 
-(* The pixels an extent covers, worked out from the definition rather than
-   asked of {!Viewport}: a pixel is covered when its own centre falls in
-   [\[a, b)], and one whose centre does not is not, however much of it the
-   extent overlaps. The range is clipped to the [n] pixels there are, which is
-   what the renderer's own bounds do and what makes this comparable with them.
+(* The pixels an extent covers, worked out from the definition rather than read
+   from {!Viewport}. A pixel is covered when its own centre falls in [\[a, b)];
+   one whose centre does not is not covered, however much of it the extent
+   overlaps. The range is clipped to the [n] pixels there are, which is what
+   the renderer's own bounds do and what makes this comparable with them.
 
-   Written out here on purpose. Asking [Viewport.first_pixel] and
-   [Viewport.last_pixel] what they thought would agree with the renderer however
-   the pair of them moved, which is a test of nothing. *)
+   Written out here on purpose. Reading [Viewport.first_pixel] and
+   [Viewport.last_pixel] instead would agree with the renderer however the pair
+   of them moved, which is a test of nothing. *)
 let covered ~n a b =
   let inside i =
     let centre = float_of_int i +. 0.5 in
@@ -1899,9 +1903,10 @@ let covered ~n a b =
   done;
   (!first, !last)
 
-(* A pattern whose rows say which end of the tile they came from: its top band
-   red and everything below blue. Nothing else in these fixtures is red, and the
-   two survive fog and shading as an inequality — the haze is neither. *)
+(* A pattern whose rows identify which end of the tile they came from: its top
+   band red and everything below blue. Nothing else in these fixtures is red.
+   The two survive fog and shading as an inequality because the haze is
+   neither. *)
 let banded =
   Material.make
     ~pattern:
@@ -1936,8 +1941,8 @@ let banded_world =
    [Renderer.draw_frame] clears it to infinity and only an opaque wall writes to
    it, so the rows it holds a distance in are exactly the rows of the strip.
 
-   Swept along the hall so the foot lands at a spread of fractional rows — the
-   bug is there at every one of them, but only a sweep says so. *)
+   Swept along the hall so the foot lands at a spread of fractional rows. The
+   bug is present at every one of them, but only a sweep demonstrates that. *)
 let a_wall_stops_where_the_floor_starts () =
   let fb = Framebuffer.offscreen ~width ~height in
   let v = viewport ~floor_z:0. in
@@ -1974,16 +1979,18 @@ let a_wall_stops_where_the_floor_starts () =
         true (c.Color.b > c.Color.r))
     [ 3.; 4.13; 5.27; 6.41; 7.55; 8.69; 9.83 ]
 
-(* The same edge on a doorway, which is the other place a projected foot becomes
-   a row. What a doorway hands to the room behind it — and to the haze that
-   stands in for one that is not built yet — is bounded by the same strip the
-   leaf across it is drawn on, so the three cannot come apart by a row.
+(* The same edge on a doorway, which is the other place a projected foot
+   becomes a row. What a doorway hands to the room behind it, and to the haze
+   that stands in for one that is not built yet, is bounded by the same strip
+   the leaf across it is drawn on. The three therefore cannot come apart by a
+   row.
 
-   [World.open_doorway] is the reachable case and says so itself: between it and
-   the [link] that fills the portal, the doorway "is solid and shows as haze".
-   The fill is written flat, with no fog in it, so an exact match against the
-   haze finds the fill and nothing else — the air here is thin enough that no
-   surface in the room has faded all the way into it. *)
+   [World.open_doorway] is the reachable case, per its own documentation:
+   between it and the [link] that fills the portal, the doorway "is solid and
+   shows as haze". The fill is written flat, with no fog in it. An exact match
+   against the haze therefore finds the fill and nothing else, because the air
+   here is thin enough that no surface in the room has faded all the way into
+   it. *)
 let thin_air =
   Atmosphere.make ~haze:(Color.rgb 255 0 255) ~fog_distance:60.
     ~min_brightness:0.25 ~ambient:0.6 ~directional:0.4 ()
@@ -2053,14 +2060,14 @@ let a_doorway_onto_nothing_stops_where_the_floor_starts () =
         (!highest, !lowest))
     [ 3.; 4.13; 5.27; 6.41; 7.55 ]
 
-(* And a billboard, which is the same rule in both directions at once: its right
-   column and its bottom row are one short of rounding, the same as a wall's
-   foot. Compared against [Viewport.sprite_box] exactly rather than within a
-   pixel, because a pixel is the whole of what this is about.
+(* And a billboard, which is the same rule in both directions at once: its
+   right column and its bottom row are one short of rounding, the same as a
+   wall's foot. Compared against [Viewport.sprite_box] exactly rather than
+   within a pixel, because a pixel is the whole of what this is about.
 
    Swept in both x and y so that each of the four edges crosses a pixel centre
-   over the run — one placement would only say that one rounding came out right.
-*)
+   over the run. One placement would only show that one rounding came out
+   right. *)
 let a_billboard_covers_the_pixels_its_box_holds () =
   let v = viewport ~floor_z:0. in
   List.iter

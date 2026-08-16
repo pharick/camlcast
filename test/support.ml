@@ -20,9 +20,9 @@ let color =
     ( = )
 
 (** Does [haystack] contain [needle]? For the suites that assert an error
-    message is {e useful} — that it names the file, the shape or the directories
-    it looked in — rather than asserting its exact wording, which would make
-    rephrasing one a test failure. *)
+    message is {e useful}: that it names the file, the shape or the directories
+    it looked in. Asserting its exact wording would make rephrasing one a test
+    failure. *)
 let mentions haystack needle =
   let n = String.length needle and h = String.length haystack in
   let rec at i =
@@ -32,10 +32,10 @@ let mentions haystack needle =
 
 (** {1 Fixtures} *)
 
-(* Two materials for the fixtures to wear. They exist only to be told apart —
-   the geometry suites never care what a wall looks like, only that a hit
-   reports the wall it was actually cast at — so they are the simplest thing
-   that is distinguishable: one flat bright, one flat dim. *)
+(* Two materials for the fixtures. They exist only to be told apart: the
+   geometry suites never check what a wall looks like, only that a hit reports
+   the wall it was actually cast at. So they are the simplest thing that is
+   distinguishable: one flat bright, one flat dim. *)
 
 let material brightness =
   Material.make
@@ -47,21 +47,21 @@ let pale = material 230
 let dim = material 90
 
 (* A grille: solid bars three texels wide every eight, in both directions, with
-   clear five-by-five holes between them. Two things want it. The renderer's
-   translucent routing needs something to route, and anything about picking
-   {e through} a surface needs one whose alpha depends on where you look — the
+   clear five-by-five holes between them. It has two uses. The renderer's
+   translucent routing needs something to route. Tests about picking
+   {e through} a surface need a material whose alpha depends on position: the
    bars stop a ray and the holes do not, so a test that moves the crosshair
-   across it can tell the two rules apart. Note that texel 0 of {e u} is bar, so
-   a hit landing squarely on a cell boundary is on a bar and not in a hole.
+   across it can tell the two rules apart. Note that texel 0 of {e u} is bar,
+   so a hit landing squarely on a cell boundary is on a bar and not in a hole.
 
    The bars across are offset by five texels, which is the one arbitrary number
-   here and is chosen rather than left at zero. Every sighting test crosses this
-   material level, at [Config.eye_height] over a flat floor, and
-   {!Texture.row_of_height} turns that half a cell into row 32 of 64 — a
-   multiple of the period, so unoffset it would be bar whatever [u] did, and the
-   fixture would answer the same for every aim across it. Five puts row 32 in
-   the middle of a hole, three rows clear of the bars either side, so those
-   tests turn on [u] — the thing they actually vary — and no rounding at the
+   here and is chosen rather than left at zero. Every sighting test crosses
+   this material level, at [Config.eye_height] over a flat floor, and
+   {!Texture.row_of_height} turns that half a cell into row 32 of 64, a
+   multiple of the period. Unoffset, row 32 would be bar whatever [u] did, and
+   the fixture would answer the same for every aim across it. Five puts row 32
+   in the middle of a hole, three rows clear of the bars either side. Those
+   tests then turn on [u], the thing they actually vary, and no rounding at the
    edge of a texel can flip the answer. *)
 let mesh =
   Material.make
@@ -72,10 +72,10 @@ let mesh =
            else (Color.rgb 0 0 0, 0)))
 
 (* And a pane of glass: partly transparent at every texel and fully solid at
-   none. What that buys is a see-through material with no pattern to aim at, so
-   a test about a see-through {e material} — a glazed door, a transom — says
-   what it means wherever the crosshair happens to land, instead of quietly
-   turning into a test about which texel it landed on. *)
+   none. This gives a see-through material with no pattern to aim at. A test
+   about a see-through {e material} — a glazed door, a transom — then holds
+   wherever the crosshair happens to land, instead of turning into a test about
+   which texel it landed on. *)
 let glass =
   Material.make
     ~pattern:
@@ -135,9 +135,9 @@ let world =
     ~spawn:("room", Vec.make 2. 2.)
 
 (** Two 4 x 4 rooms joined through a doorway one cell wide, each authored in its
-    own coordinates so both rooms occupy [0..4] squared and the link's transform
-    has real work to do. The first is roofed and the second open to the sky, so
-    a test can tell which room a thing came from.
+    own coordinates. Both rooms occupy [0..4] squared, so the link's transform
+    is nontrivial. The first is roofed and the second open to the sky, so a test
+    can tell which room a thing came from.
 
     Both boundaries are wound counter-clockwise and both doorways are cut with
     {!Room.doorway}, which is the winding rule {!Transform.between} relies on;
@@ -156,12 +156,12 @@ let world =
     [lintel] is what the strip of wall over the opening is made of, for the
     suites that need a transom you can see through. {!Room.doorway} gives the
     jambs and the lintel one material, which is exactly what a transom is not,
-    so it is put back afterwards rather than asked for.
+    so the lintel is replaced afterwards rather than requested up front.
 
     [bare] takes the strip away instead of re-materialling it, leaving a
-    threshold with no {!Room.type-lintel} at all — the shape {!Room.doorway}
-    never produces and only a hand-built one has. It overrides [lintel], a
-    transom being a lintel like any other. *)
+    threshold with no {!Room.type-lintel} at all: the shape {!Room.doorway}
+    never produces and only a hand-built one has. It overrides [lintel], because
+    a transom is a lintel like any other. *)
 let joined_rooms ?door ?lintel ?(bare = false) () =
   let over (t : Room.threshold) =
     if bare then Room.with_lintel t None
@@ -209,13 +209,13 @@ let two_rooms = joined_rooms ()
 
 (** The same pair with a leaf hung in the opening, in a given state. A door goes
     to both sides at once because {!World.make} refuses a link whose two
-    thresholds disagree about one — which is the invariant {!World.set_door}
+    thresholds disagree about one. That is the invariant {!World.set_door}
     exists to keep once the world is built. *)
 let two_rooms_with_a_door state = joined_rooms ~door:(Door.make ~state dim) ()
 
 (** Shut, which is what "a door" means unless something has opened it. This is
-    the fixture that puts anything down the door path of {!World.passable} or
-    the renderer. *)
+    the fixture that exercises the door path of {!World.passable} and the
+    renderer. *)
 let two_rooms_closed = two_rooms_with_a_door Door.Closed
 
 (** The same pair again, with a leaf of {!mesh} shut across the opening: a door
@@ -234,23 +234,22 @@ let two_rooms_barred = joined_rooms ~door:(Door.make mesh) ()
     distance a test wants is checkable on paper.
 
     That puts the slot's back wall at [x = 1.5] of the second room's frame,
-    which the link carries to [x = 3.5] of the first — half a cell
-    {e inside the room the player is standing in}. Which is legal, and is the
-    whole of what {!Camlcast_core.World} means by two rooms occupying the same
-    coordinates and still being separate places. It is also the one wall of the
-    second room that must never reach the first: not down a ray through the
-    doorway, where it stands nearer than the doorway itself, and not down a step
-    towards it, which never goes far enough to reach the room it belongs to. A
-    convex neighbour cannot produce it, which is why the rest of the fixtures
-    here do not.
+    which the link carries to [x = 3.5] of the first: half a cell
+    {e inside the room the player is standing in}. That is legal, and is what
+    {!Camlcast_core.World} means by two rooms occupying the same coordinates and
+    still being separate places. It is also the one wall of the second room that
+    must never reach the first. Not down a ray through the doorway, where it
+    stands nearer than the doorway itself. Not down a step towards it, which
+    never goes far enough to reach the room it belongs to. A convex neighbour
+    cannot produce this wall, which is why the rest of the fixtures here do not.
 
     [blind:false] takes that one wall away and changes nothing else, so a test
-    can assert the two worlds are drawn identically — the strongest form of "not
-    seen through the doorway" there is.
+    can assert the two worlds are drawn identically. That is the strongest form
+    of "not seen through the doorway" there is.
 
     The low wall at [(2.2, 2.45) .. (3.2, 2.45)] is the other direction: it
-    stands genuinely beyond the doorway, in the room's own body, and has to go
-    on stopping a step the way {!joined_rooms}' does. *)
+    stands genuinely beyond the doorway, in the room's own body, and must still
+    stop a step the way {!joined_rooms}' does. *)
 let recessed ?(blind = true) () =
   let first_jambs, east =
     Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
@@ -302,16 +301,16 @@ let portal world ~room ~index =
   Option.get (World.portal world ~room ~threshold:index)
 
 (** Every room of a world, in index order. [World.room] answers about one room
-    at a time, and a suite that wants to say something about all of them — that
-    each is walled all round, that some one of them is open to the sky — wants
-    them as a list. Pair it with [List.iteri] where the index is wanted too. *)
+    at a time. A suite asserting over all of them — that each is walled all
+    round, that some one of them is open to the sky — wants them as a list. Pair
+    it with [List.iteri] where the index is wanted too. *)
 let rooms world = List.init (World.room_count world) (World.room world)
 
 (** Every doorway of every room, as [(room, threshold, portal option)]: the
     whole of a world's linkage, flattened. [World.portal] answers about one
-    doorway at a time, and a suite that wants to say something about all of them
-    — how many lead nowhere, that none leads out of range — would otherwise
-    write the same fold over two ranges each time. *)
+    doorway at a time. A suite asserting over all of them — how many lead
+    nowhere, that none leads out of range — would otherwise write the same fold
+    over two ranges each time. *)
 let doorways world =
   List.concat_map
     (fun room ->
@@ -322,13 +321,12 @@ let doorways world =
 (** Two rooms joined twice over, into a loop a single step can go all the way
     round. Room a's east doorway leads into b; b's north doorway leads back into
     a's south one. Both rooms are the same 0..4 square in their own coordinates,
-    so the loop closes on a geometry that could not exist — which is the point:
+    so the loop closes on a geometry that could not exist. That is the point:
     nothing checks it, and a route home is the crossings and not the arithmetic.
 
-    Shared, because a frame that goes out of a room and back into it in one step
-    is the case two suites need: the player's, for the crossings it reports, and
-    the engine's, for the growth hook that would otherwise never hear about it.
-*)
+    Shared because a frame that goes out of a room and back into it in one step
+    is a case two suites need: the player's, for the crossings it reports, and
+    the engine's, for the growth hook that would otherwise never receive it. *)
 let loop =
   let a_east_jambs, a_east =
     Room.doorway ~name:"east" ~width:1. ~opening:2. ~height:3. ~material:pale
