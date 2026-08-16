@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast.World}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.World}; documentation is in the interface. *)
 
 type portal = {
   threshold : Room.threshold;  (** the doorway, in this room's own frame *)
@@ -19,7 +19,7 @@ type t = {
       (** [portals.(i)] runs parallel to [rooms.(i).thresholds], so a ray that
           reports a threshold index can look up its portal directly. [None] is a
           doorway that leads nowhere yet — see {!open_doorway}. *)
-  atmosphere : Atmosphere.t;  (** the air every room of it is seen through *)
+  atmosphere : Atmosphere.t;  (** the atmosphere every room is rendered in *)
   spawn : location;
 }
 
@@ -39,25 +39,24 @@ let spawn t = t.spawn
 let epsilon = 1e-6
 
 (* What the two sides of a link have to agree about: whether a leaf hangs
-    there, and what it is doing. [None] for a bare opening.
-
-    Not what it is made of — see {!pair}. *)
+    there, and its state. [None] for a bare opening. The material is not
+    compared; see {!pair}. *)
 let door_state (t : Room.threshold) =
   Option.map (fun (d : Door.t) -> d.Door.state) t.Room.door
 
-(* The four questions {!pair} asks of a link, each written as what {e passes} so
-    that a caller says [not (…)] to refuse. That shape is the nan handling and
-    not a style: nan answers false to every ordered comparison, so a threshold of
-    length nan fails [has_length] and fails [lengths_agree] with its twin, and is
-    refused by both. Asserting the failure instead — [length <= epsilon] — would
-    let it through each of them. The long note on {!pair} is about this.
+(* The four checks {!pair} makes of a link, each written as what passes, so
+    that a caller says [not (…)] to refuse. That shape is the nan handling,
+    not a style: nan answers false to every ordered comparison, so a threshold
+    of length nan fails [has_length] and fails [lengths_agree] with its twin,
+    and both refuse it. Asserting the failure instead — [length <= epsilon] —
+    would let it through both. The long note on {!pair} covers this.
 
-    Public because {!Check} reads a description for the same mistakes before the
-    world is built, and a checker that models the engine with its own copy of
-    these numbers is a checker that disagrees with it as soon as either moves.
-    It did: it refused a disagreement of 1e-9 that the engine accepts to 1e-6,
-    and it compared whether a door was there rather than what it was doing. One
-    implementation, asked twice. *)
+    Public because {!Check} reads a description for the same mistakes before
+    the world is built. A checker holding its own copy of these numbers
+    disagrees with the engine as soon as either side changes. An earlier
+    checker did: it refused a disagreement of 1e-9 that the engine accepts to
+    1e-6, and it compared whether a door was present rather than its state.
+    Sharing the one implementation prevents that. *)
 let has_length (t : Room.threshold) = t.Room.length > epsilon
 
 let lengths_agree (a : Room.threshold) (b : Room.threshold) =
@@ -81,11 +80,11 @@ let check_names ~who ~room name (r : Room.t) =
   ignore room
 
 (* Refuse two rooms of one world sharing a name, for the same reason as the
-    thresholds above and with a sharper edge: a duplicate name does not collide,
-    it {e shadows}. Rooms are resolved with [Array.find_index], which answers
-    with the first, so a link — or a spawn — written for the second of two rooms
-    named [hall] is silently made against the first. The world is built, it
-    renders, it walks, and it is not the one that was written down. *)
+    thresholds above. The failure mode is worse here: a duplicate name does
+    not collide, it shadows. Rooms are resolved with [Array.find_index], which
+    returns the first match, so a link or a spawn written for the second of
+    two rooms named [hall] is silently made against the first. The world
+    builds, renders and walks, but it is not the one that was written. *)
 let check_room_names ~who names =
   let seen = Hashtbl.create (Array.length names) in
   Array.iter
@@ -95,40 +94,41 @@ let check_room_names ~who names =
       Hashtbl.add seen name ())
     names
 
-(* The two {!portal}s a link makes, each the other's inverse, after refusing
-    everything that would make the link meaningless: a threshold with no length
-    (its transform would collapse the world to a point), two thresholds
-    differing in length or height (the opening would not line up, so the seam
-    would be visible from both sides), and two that disagree about a door (a
-    leaf on one side and an opening on the other would be a door you could see
-    through from behind).
+(* The two {!portal}s a link makes, each the other's inverse, built after
+    refusing everything that would make the link meaningless. A threshold with
+    no length is refused because its transform would collapse the world to a
+    point. Two thresholds differing in length or height are refused because
+    the opening would not line up, so the seam would be visible from both
+    sides. Two that disagree about a door are refused because a leaf on one
+    side and an opening on the other would be a door seen through from behind.
 
-    What is compared is whether a leaf hangs there and what it is doing, not
-    what it is made of: the renderer draws the near side's, so a door that is
+    The door comparison covers whether a leaf hangs there and its state, not
+    its material: the renderer draws the near side's leaf, so a door that is
     oak from the hall and stone from the cellar is a choice and not a mistake.
-    The state is another matter — a door open from one side and closed from the
-    other is one the player could walk through in only one direction, which is
-    not a door. {!set_door} is how it is changed, and it changes both sides at
-    once.
+    The state has to match, because a door open from one side and closed from
+    the other could be walked through in only one direction, which is not a
+    door. {!set_door} is how the state is changed, and it changes both sides
+    at once.
 
     Shared by {!make} and {!link} so a world that grew is held to exactly the
-    same standard as one that was written down.
+    same rules as one that was written down.
 
-    {b Each measurement is refused by negating what would pass}, rather than by
-    asserting what would fail. The two read the same for an ordinary number and
-    differently for [nan], which answers false to every ordered comparison it is
-    given: written the other way round a threshold of length [nan] would be
-    neither long enough to reject nor different enough from its twin to reject,
-    and the world would be built out of a transform that was [nan] throughout.
-    {!Room.doorway} refuses the degenerate wall such a threshold comes from and
-    {!Room.threshold} refuses one built by hand, so what reaches here is always
-    a positive finite number; what this adds is [epsilon], a length too small to
-    be a doorway rather than no length at all. {!Transform.between} refuses it a
-    third time, on its own account: a length of zero is the one thing that would
-    let it hand back something that was not a rotation, so it does not rely on
-    being called from here. What is only checked here is the {e agreement}
-    between the two — lengths, heights, doors — which is a fact about a doorway
-    rather than about a transform. *)
+    Each measurement is refused by negating what would pass, rather than by
+    asserting what would fail. The two read the same for an ordinary number
+    and differently for [nan], which answers false to every ordered
+    comparison. Written the other way round, a threshold of length [nan]
+    would be neither long enough to reject nor different enough from its twin
+    to reject, and the world would be built out of a transform that was [nan]
+    throughout. {!Room.doorway} refuses the degenerate wall such a threshold
+    comes from and {!Room.threshold} refuses one built by hand, so what
+    reaches here is always a positive finite number. What this adds is
+    [epsilon]: a length too small to be a doorway, rather than no length at
+    all. {!Transform.between} refuses a zero length a third time, on its own
+    account, because a length of zero is the one input that would let it hand
+    back something that was not a rotation; it does not rely on being called
+    from here. Only the agreement between the two — lengths, heights, doors —
+    is checked here alone, because agreement is a fact about a doorway rather
+    than about a transform. *)
 let pair ~who ~describe (ia, ja, (a : Room.threshold))
     (ib, jb, (b : Room.threshold)) =
   let length (t : Room.threshold) room =
@@ -219,12 +219,12 @@ let make ~rooms ~links ~atmosphere ~spawn =
     spawn = { room = find_room spawn_room; pos = spawn_pos };
   }
 
-(* Do two thresholds describe the same opening? Not physical equality, because
-    a generator that rebuilds a room from its parts hands back thresholds that
-    are equal without being the same value; and not full structural equality
-    either, because a door may be hung in an opening that is already there. What
-    has to hold is that the {e opening} is unmoved, since that is what a [twin]
-    index and a link's {!Transform} were derived from. *)
+(* Whether two thresholds describe the same opening. Not physical equality,
+    because a generator that rebuilds a room from its parts hands back
+    thresholds that are equal without being the same value. Not full
+    structural equality either, because a door may be hung in an opening that
+    is already there. What has to hold is that the opening is unmoved, since
+    that is what a [twin] index and a link's {!Transform} were derived from. *)
 let same_opening (x : Room.threshold) (y : Room.threshold) =
   String.equal x.Room.name y.Room.name
   && x.Room.a = y.Room.a && x.Room.b = y.Room.b
@@ -407,21 +407,22 @@ let passable t ~room:index ~from ~dest =
   in
   (* The part of the step that is the neighbour's business: what is left of it
      once it is cut where it crosses the threshold's plane. The cut is [limit]
-     short of the plane rather than on it, because the player is a disc and a
+     short of the plane rather than on it, because the player is a disc, and a
      disc whose centre is still this side of an opening can already be touching
-     something through it — and a link reverses the two thresholds, so a point
+     something through it. A link reverses the two thresholds, so a point
      [limit] this side of one is [limit] the far side of the other, which is
      exactly the reach {!Room.passable} then measures with.
 
      [depth] is affine along the step, so what survives is one sub-interval and
      never two. Both ends within it keep the step whole, which is also the
-     parallel case; both beyond leave nothing to ask about, which is what a step
-     running past a doorway without reaching it should cost. Only the two mixed
-     arms divide, and there one end is above [limit] and the other is not, so the
-     denominator cannot be zero and [u] lands in [0..1] without clamping — a
-     clamp here would hide a sign error rather than guard against one. A [nan]
-     coordinate falls through every ordered comparison into the last arm and
-     comes back passable, which is what the whole function did with one before. *)
+     parallel case. Both beyond leave nothing to ask about, which is what a
+     step running past a doorway without reaching it should cost. Only the two
+     mixed arms divide, and there one end is above [limit] and the other is
+     not, so the denominator cannot be zero and [u] lands in [0..1] without
+     clamping. A clamp here would hide a sign error rather than guard against
+     one. A [nan] coordinate falls through every ordered comparison into the
+     last arm and comes back passable, which is what the whole function did
+     with a [nan] before. *)
   let across (threshold : Room.threshold) =
     let limit = Config.collision_padding in
     let d0 = depth threshold from and d1 = depth threshold dest in
@@ -440,11 +441,11 @@ let passable t ~room:index ~from ~dest =
           ~from:(Transform.point portal.onto a)
           ~dest:(Transform.point portal.onto b)
   in
-  (* A doorway that stops a step is a wall as far as standing near one goes, so
-     it is asked the same question a wall is — the one with a way out of the
-     padding in it. That matters here more than it does for a wall: a leaf can
-     be shut on a player who is standing against it and nothing else in the
-     engine will move them, which is what {!set_door} says it does not do.
+  (* A doorway that stops a step counts as a wall for standing near one, so it
+     gets the same test a wall does: the one with the way out of the padding
+     in it. That matters more here than for a wall, because a leaf can be shut
+     on a player who is standing against it, {!set_door} documents that it
+     moves nobody, and nothing else in the engine will move them either.
 
      An open doorway keeps the plain nearness test. Being inside the padding of
      one is not being stuck against anything: the step is the neighbour's

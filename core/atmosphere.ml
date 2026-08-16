@@ -7,20 +7,20 @@ type t = {
   directional : float;
 }
 
-(* The field is documented as a unit vector and {!face_shading} takes its cosine
-   without normalising, so the normalisation below is the only thing holding
-   that up — and a zero light is exactly what {!Vec.normalize} passes through
-   unchanged.
+(* The field is documented as a unit vector and {!face_shading} takes its
+   cosine without normalising, so the normalisation below is the only thing
+   holding that up. A zero light is exactly what {!Vec.normalize} passes
+   through unchanged.
 
    The length is the one number worth checking, because [Float.hypot] folds
    every bad component into it: a [nan] coordinate gives a [nan] length, and an
    infinite one gives an infinite length whose reciprocal is [0.], so
    {!Vec.normalize} would scale by zero and hand back [nan]s that way instead.
-   Both are refused here — the finiteness explicitly, the [nan] by the guard
-   being written as the negation of what would pass rather than as an assertion
-   of what would fail. So is the third case that reasoning misses, a length too
-   small to take a reciprocal of, which {!Vec.normalizable} is where the engine
-   states. *)
+   Both are refused here: the finiteness explicitly, the [nan] by writing the
+   guard as the negation of what would pass rather than as an assertion of what
+   would fail. The third case that reasoning misses, a length too small to take
+   a reciprocal of, is refused too; {!Vec.normalizable} is where the engine
+   states it. *)
 let make ?(haze = Color.rgb 24 24 32) ?(fog_distance = 12.)
     ?(min_brightness = 0.25) ?(light = Vec.make (-0.4) (-0.9)) ?(ambient = 0.6)
     ?(directional = 0.4) () =

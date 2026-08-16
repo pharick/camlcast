@@ -13,19 +13,20 @@ let now () =
 
 (** How long the frame starting at [now] should advance the simulation by, given
     that the previous one started at [previous]. Speeds are quoted per second
-    (see {!Config}), so measuring the frame is what keeps the player walking at
-    the same pace on a machine that renders slowly as on one that races.
+    (see {!Config}), so measuring the frame keeps the player's pace the same on
+    a machine that renders slowly as on a fast one.
 
-    A frame longer than {!Config.max_frame_time} is capped at it. Those come
-    from the program being held up rather than from the world moving — the
-    window was dragged, the machine swapped — and honouring one would move the
+    A frame longer than {!Config.max_frame_time} is capped at it. Such frames
+    come from the program being held up (the window was dragged, the machine
+    swapped) rather than from the world moving. Honouring one would move the
     player further in a single step than any collision test is meant to cope
     with. *)
 let frame_time ~previous ~now =
   Float.min Config.max_frame_time (Float.max 0. (now -. previous))
 
 (** What is left of {!Config.frame_budget} for a frame that has spent [spent]
-    seconds getting here — the time to sleep before starting the next one. A
-    frame that overran its budget gets nothing: it is late already, and
-    {!frame_time} has the simulation keep pace with it rather than slow down. *)
+    seconds getting here: the time to sleep before starting the next one. A
+    frame that overran its budget gets nothing. It is late already, and
+    {!frame_time} makes the simulation keep pace with it rather than slow down.
+*)
 let idle_time ~spent = Float.max 0. (Config.frame_budget -. spent)

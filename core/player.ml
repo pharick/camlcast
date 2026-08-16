@@ -1,8 +1,8 @@
 (** The camera pose: where the player stands and which way they face.
 
     Instead of storing an angle and calling trigonometry once per screen column,
-    we keep two unit vectors — [dir], where the camera looks, and [right], a
-    quarter turn clockwise from it:
+    the pose keeps two unit vectors: [dir], where the camera looks, and [right],
+    a quarter turn clockwise from it.
 
     {v
                   dir
@@ -12,15 +12,14 @@
     v}
 
     {!Viewport} scales [right] by the half width of the projection screen to
-    build the ray for a column, which is where the field of view enters the
-    picture. Turning rotates both vectors, so they stay perpendicular by
-    construction — the property {!Ray} needs to report a distance free of
-    fish-eye distortion.
+    build the ray for a column, which is where the field of view enters. Turning
+    rotates both vectors, so they stay perpendicular by construction. {!Ray}
+    needs that property to report a distance free of fish-eye distortion.
 
-    Looking up and down is a separate matter. A raycaster has no true vertical
-    rotation, so [pitch] is not part of the [dir] / [right] basis at all: it is
-    a fraction that {!Viewport} shears the image by. Keeping it here, clamped,
-    just lets the game loop carry it alongside the rest of the pose. *)
+    Looking up and down is separate. A raycaster has no true vertical rotation,
+    so [pitch] is not part of the [dir] / [right] basis at all: it is a fraction
+    that {!Viewport} shears the image by. It is kept here, clamped, so the game
+    loop carries it alongside the rest of the pose. *)
 
 type t = {
   room : int;
@@ -30,14 +29,15 @@ type t = {
   pitch : float;  (** look up (+) or down (-), as a window-height fraction *)
 }
 
-(* Negated, so a nan fails rather than slipping through. {!Vec} refuses nothing,
-   by design — the refusing belongs where a direction is first promised to be
-   one, and for the camera basis that is here. [Vec.of_angle nan] is a pair of
-   nans, which is not a unit vector, and nothing downstream would ever say so.
+(* The check is negated so a nan fails it rather than passing. {!Vec} refuses
+   nothing, by design: the refusing belongs where a direction is first promised
+   to be one, and for the camera basis that is here. [Vec.of_angle nan] is a
+   pair of nans, which is not a unit vector, and nothing downstream would ever
+   report it.
 
-   The quantity is named by the caller rather than fixed here, because the two
-   look axes are not measured in the same thing and a message that called them
-   both an angle would be the same slip {!pitch_by}'s label used to be. *)
+   The caller names the quantity rather than this function fixing it, because
+   the two look axes are not measured in the same thing. A message calling
+   both an angle would repeat the slip {!pitch_by}'s label used to have. *)
 let finite who what value =
   if not (Float.is_finite value) then
     invalid_arg (Printf.sprintf "%s: the %s has to be finite" who what)
@@ -53,7 +53,7 @@ let spawn ?(angle = 0.) world =
 
 (** Carry the pose into a neighbouring room's frame: the position moves with
     {!Transform.point}, the two basis vectors only rotate
-    ({!Transform.direction} — they carry no position), and the room changes.
+    ({!Transform.direction}; they carry no position), and the room changes.
     [pitch] is untouched, because a rigid motion of the flat world is horizontal
     and cannot tilt the view.
 
@@ -82,11 +82,11 @@ let turn player ~radians =
     {!Config.max_pitch} so it never tips past where the sheared image stops
     looking right.
 
-    The clamp is what makes the finiteness check load-bearing rather than
-    decorative: {!Float.min} and {!Float.max} both {e propagate} a nan, so a nan
-    delta would come out the far side of the clamp as a nan pitch, and the
-    interface's promise that the pitch lies within the limit would be a promise
-    about a number that compares false with everything. *)
+    The clamp is what makes the finiteness check load-bearing: {!Float.min} and
+    {!Float.max} both {e propagate} a nan, so a nan delta would come out the far
+    side of the clamp as a nan pitch. The interface's promise that the pitch
+    lies within the limit would then cover a number that compares false with
+    everything. *)
 let pitch_by player ~fraction =
   finite "Player.pitch_by" "pitch" fraction;
   let limit = Config.max_pitch in
@@ -104,56 +104,57 @@ type crossing = {
 }
 (** One doorway, gone through. Thresholds are given as indices and not as
     values: an index is what survives {!World.replace_room}, and it is already
-    how a portal names its [twin], so a game that wants to lock the door it has
-    just come through has the two numbers it needs to change both sides.
+    how a portal names its [twin]. A game that wants to lock the door it has
+    just come through therefore has the two numbers it needs to change both
+    sides.
 
-    [onto] is what the pose was carried by. A game keeping a return route stacks
-    these and walks them back through {!Transform.inverse}, which is exact — so
-    a route home through a loop that could not exist still arrives. *)
+    [onto] is the transform the pose was carried by. A game keeping a return
+    route stacks these and walks them back through {!Transform.inverse}, which
+    is exact, so a route home through a loop that could not exist still arrives.
+*)
 
 type movement = { player : t; crossings : crossing list }
 (** Where a step ended, and every doorway it went through on the way, in the
     order they were crossed. Most frames cross nothing and the list is empty. *)
 
-(** Whether the step went through a doorway, which is not the same question as
-    whether it ended in a different room. A single step can round a jamb — out
-    through an opening and back in through its twin — and end where it started;
-    so can one that goes all the way round a loop of rooms. Comparing
-    [movement.player.room] against the room it set out from calls both of those
-    nothing happening, and the crossings are the only place they are written
-    down.
+(** Whether the step went through a doorway. Not the same question as whether it
+    ended in a different room: a single step can round a jamb — out through an
+    opening and back in through its twin — and end where it started, and so can
+    one that goes all the way round a loop of rooms. Comparing
+    [movement.player.room] against the room it set out from reports both of
+    those as nothing happening; the crossings are the only record of them.
 
-    That is what this is for: a game that builds its world as it is walked
-    through asks this and not the room index. {!Camlcast.Engine.run_world} asks
-    it on a game's behalf, and a game that has outgrown that wrapper and moved
-    to {!Camlcast.Engine.run} asks it here rather than working it out again. *)
+    A game that builds its world as it is walked through asks this and not the
+    room index. {!Camlcast.Engine.run_world} asks it on a game's behalf, and a
+    game that has outgrown that wrapper and moved to {!Camlcast.Engine.run} asks
+    it here rather than recomputing it. *)
 let crossed movement = movement.crossings <> []
 
-(** Move by [delta] cells, resolving the two axes independently so that walking
-    into a wall at an angle keeps the component that is still free — you slide
-    along the wall instead of sticking to it. {!World.passable} sweeps the
-    player's {!Config.collision_padding} disc along each of the two steps, so it
-    is enough here to take the ones it allows and leave the axis where it was
+(** Move by [delta] cells, resolving the two axes independently, so walking into
+    a wall at an angle keeps the component that is still free: the player slides
+    along the wall instead of stopping. {!World.passable} sweeps the player's
+    {!Config.collision_padding} disc along each of the two steps, so it is
+    enough here to take the steps it allows and leave the axis where it was
     otherwise.
 
     {1 Why a leg is walked and not jumped}
 
     A doorway is a gap in a room's boundary, so nothing of the room a leg starts
-    in stops it once it is through: past the opening this room's walls have
-    nothing left to say about where the leg went, and only the neighbour's do.
-    Asking the neighbour means standing in the neighbour's frame — so a leg is
-    not applied whole and then carried across. It is {e clipped} at the opening
-    it goes through, the world vouches for that much of it, the pose is carried
-    over with {!through}, and what is left of the leg is turned into the frame
-    it has arrived in and walked again from there.
+    in constrains it once it is through: past the opening this room's walls no
+    longer bound where the leg went, and only the neighbour's do. Asking the
+    neighbour means standing in the neighbour's frame, so a leg is not applied
+    whole and then carried across. It is {e clipped} at the opening it goes
+    through, the world vouches for that much of it, the pose is carried over
+    with {!through}, and what is left of the leg is turned into the frame it has
+    arrived in and walked again from there.
 
     Walked, and not merely done twice. A leg long enough to cross a room can
-    reach a second doorway — or a wall, or a shut door, standing just beyond the
-    first — and every one of those lives in a room that the leg's starting room
-    has never heard of. Clipping repeats until the leg runs out, so every part
-    of it is measured against the walls of the room that part of it is actually
-    in. {!Config.max_crossings_per_step} bounds the repetition, because a world
-    may fold back on itself and nothing about its shape would otherwise stop the
+    reach a second doorway, or a wall, or a shut door, standing just beyond the
+    first, and every one of those lives in a room unknown to the leg's starting
+    room. Clipping repeats until the leg runs out, so every part of it is
+    measured against the walls of the room that part of it is actually in.
+    {!Config.max_crossings_per_step} bounds the repetition, because a world may
+    fold back on itself and nothing about its shape would otherwise stop the
     walk.
 
     The leg still to come is carried across too, at every crossing and not only
@@ -161,19 +162,18 @@ let crossed movement = movement.crossings <> []
     left, and one that has been left twice needs turning twice.
 
     A blocked leg leaves the pose where the last opening put it and abandons the
-    rest — the same rule the two axes already follow, applied along a leg rather
-    than across the pair of them.
+    rest. That is the same rule the two axes already follow, applied along a leg
+    rather than across the pair of them.
 
     {1 What comes back}
 
-    Every doorway gone through, in the order they were met. That order is the
-    whole reason this returns a list rather than a count: a game building a
-    route home has to unwind the crossings the way they were made, and a frame
-    that went out and came back — an {e L} that rounds a jamb, or a step all the
-    way round a loop of rooms — has to leave the stack as it found it. The two
-    transforms of a link are inverses, so such a frame lands where it should, in
-    the room it set out from, and the list is what says it went anywhere at all.
-*)
+    Every doorway gone through, in the order they were met. That order is why
+    this returns a list rather than a count: a game building a route home has to
+    unwind the crossings in the order they were made. A frame that went out and
+    came back — an {e L} that rounds a jamb, or a step all the way round a loop
+    of rooms — has to leave that stack as it found it. The two transforms of a
+    link are inverses, so such a frame lands in the room it set out from, and
+    the list is the only sign it went anywhere at all. *)
 let slide world player (delta : Vec.t) =
   (* [leg] is what is left to walk, [pending] the axis not yet started; both are
      in the frame of the room the player is standing in, so both are carried at
@@ -187,7 +187,7 @@ let slide world player (delta : Vec.t) =
     in
     match World.crossing world ~room:player.room ~from ~dest with
     | Some { World.index = slot; portal; at } when budget > 0 ->
-        (* Only as far as the opening: past it this room cannot answer. *)
+        (* Clip at the opening: past it this room's walls no longer apply. *)
         let stop = Vec.add from (Vec.scale leg at) in
         if refuse ~dest:stop then (player, pending, trace)
         else
@@ -208,8 +208,8 @@ let slide world player (delta : Vec.t) =
               :: trace)
             ~budget:(budget - 1)
     | Some _ ->
-        (* Another doorway, and no allowance left to follow it through. Refuse
-           what is left rather than apply it in a room it no longer belongs
+        (* Another doorway, but the crossing budget is spent. Refuse the rest
+           of the leg rather than apply it in a room it no longer belongs
            to. *)
         (player, pending, trace)
     | None ->
@@ -231,18 +231,18 @@ let slide world player (delta : Vec.t) =
     size costs the same distance whichever way it points.
 
     Adding the two outright would make a diagonal step the {e diagonal} of the
-    two — holding forward and strafe together would walk [sqrt 2] times faster
-    than either alone — so the sum is clamped back to the longer of the two
-    axes. A step along one axis alone is left as it is, and half a step still
-    covers half the ground.
+    two: holding forward and strafe together would walk [sqrt 2] times faster
+    than either alone. So the sum is clamped back to the longer of the two axes.
+    A step along one axis alone is left as it is, and half a step still covers
+    half the ground.
 
     A step that went through a doorway comes back from {!slide} already in the
     room on the other side, pose and all, with the doorways it went through
     alongside. *)
 let traverse world player ~forward ~strafe =
-  (* Negated for the usual reason, and here the clamp below is the reason: it is
-     written [length > limit], which is false of a nan, so a nan step would go to
-     {!slide} unclamped and come out as a position that is nowhere. *)
+  (* Negated so a nan fails, as in [finite]. Here the clamp below is the
+     reason: it is written [length > limit], which is false of a nan, so a nan
+     step would go to {!slide} unclamped and come out as a nan position. *)
   if not (Float.is_finite forward && Float.is_finite strafe) then
     invalid_arg "Player.traverse: forward and strafe have to be finite";
   let delta =

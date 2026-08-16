@@ -10,17 +10,17 @@ type t = { width : int; height : int; rgba : Bytes.t }
 
     This is {!Framebuffer.pixel_format} read the other way round, and for the
     same reason: SDL names a packed format by its channels from the most
-    significant byte down, so [ABGR8888] puts red in the lowest bits — and so
-    first in memory — on a little-endian machine, and [RGBA8888] does the same
-    on a big-endian one. Naming the format the byte order asks for saves the
-    loops below from caring which one they are on. *)
+    significant byte down. [ABGR8888] therefore puts red in the lowest bits,
+    and so first in memory, on a little-endian machine; [RGBA8888] does the
+    same on a big-endian one. Choosing the format by byte order means the loops
+    below do not depend on which kind of machine they run on. *)
 let load_format =
   if Sys.big_endian then Sdl.Pixel.format_rgba8888
   else Sdl.Pixel.format_abgr8888
 
-(* Whether SDL_image's codecs have been started, since starting them twice is
-    wasteful and starting them lazily keeps a program that loads nothing from
-    paying for a decoder it never uses. *)
+(* Whether SDL_image's codecs have been started. Starting them twice is
+    wasteful. Starting them lazily means a program that loads nothing never
+    pays for a decoder it does not use. *)
 let started = ref false
 
 let ready () =
@@ -28,10 +28,10 @@ let ready () =
   else
     let wanted = Tsdl_image.Image.Init.(png + jpg) in
     let got = Tsdl_image.Image.init wanted in
-    (* [test] is true when {e any} of the mask is set, which is the check worth
-       making: a build missing one codec should still load the other, and a file
-       in the missing one fails later with its own name attached. Nothing at all
-       means SDL_image is not working, and that is worth saying now. *)
+    (* [test] is true when {e any} of the mask is set, which is the right
+       check: a build missing one codec should still load the other, and a file
+       in the missing format fails later with its own name attached. No codecs
+       at all means SDL_image is not working, so that is reported now. *)
     if Tsdl_image.Image.Init.test got wanted then begin
       started := true;
       Ok ()
@@ -40,22 +40,23 @@ let ready () =
 
 (* Copy a converted surface's pixels out into a fresh [Bytes].
 
-    The copy is not avoidable and not a waste: [Sdl.get_surface_pixels] hands
-    back a view into the surface's own memory, which is freed as soon as we are
-    done with it. The row-by-row loop is because [pitch] — the distance between
-    the starts of two rows — may be larger than the row itself, so a surface's
-    rows are not necessarily one contiguous block. *)
+    The copy is required: [Sdl.get_surface_pixels] hands back a view into the
+    surface's own memory, which is freed as soon as the surface is. The loop
+    goes row by row because [pitch], the distance between the starts of two
+    rows, may be larger than the row itself. A surface's rows are therefore not
+    necessarily one contiguous block. *)
 let pixels path surface =
   let width, height = Sdl.get_surface_size surface in
   let pitch = Sdl.get_surface_pitch surface in
-  (* The one refusal that has to live here, before the allocation it is about:
-     [rgba] holds four channels per pixel, so its ceiling is a quarter of
-     [Sys.max_string_length] — on a 32-bit machine one texel {e under} what a
-     [Color.t array] holds, which is why {!Image.load}'s and {!Texture.load}'s
-     own checks, sitting downstream of this function, could never be reached
-     by a decoded file there: [Bytes.create] raised first, out of a [result].
-     A file is a condition and not an authoring mistake, so a picture past the
-     ceiling comes back as an [Error] like any other file a loader refuses. *)
+  (* This refusal has to live here, before the allocation it is about. [rgba]
+     holds four channels per pixel, so its ceiling is a quarter of
+     [Sys.max_string_length]. On a 32-bit machine that is one texel {e under}
+     what a [Color.t array] holds. That is why {!Image.load}'s and
+     {!Texture.load}'s own checks, downstream of this function, could never be
+     reached by a decoded file there: [Bytes.create] raised first, out of a
+     [result]. A file is a condition and not an authoring mistake, so a picture
+     past the ceiling comes back as an [Error] like any other file a loader
+     refuses. *)
   if
     width > 0 && height > 0
     && not (Extent.fits ~limit:(Sys.max_string_length / 4) ~width ~height)

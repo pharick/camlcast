@@ -15,22 +15,22 @@ type button =
   | Left
   | Middle
   | Right
-      (** The mouse buttons a game may bind. SDL knows about more; these are the
-          three every mouse has. *)
+      (** The mouse buttons a game may bind. SDL supports more buttons; these
+          are the three every mouse has. *)
 
 type control =
   | Key of Key.t
   | Button of button
-      (** Something the player can hold down. Keys are places on the keyboard
-          rather than letters, so a binding stays where it is under a different
-          layout — see {!module-Key}.
+      (** Something the player can hold down. Keys are keyboard positions rather
+          than letters, so a binding stays where it is under a different layout
+          — see {!module-Key}.
 
-          The engine has no opinion about what any of them mean. "Interact",
-          "chalk", "journal" are a game's words for its own table from controls
-          to actions; what the engine owns is the mechanism underneath — when a
-          control went down, when it came up, and how long it was held. Even
-          walking is a game's table now: {!Binding} holds it, and the engine's
-          only part in that is a default. *)
+          The engine assigns no meaning to any control. "Interact", "chalk",
+          "journal" are a game's names in its own table from controls to
+          actions. The engine owns only the mechanism underneath: when a control
+          went down, when it came up, and how long it was held. Walking is a
+          game's table too: {!Binding} holds it, and the engine supplies only a
+          default. *)
 
 type analog =
   | Mouse_x  (** pixels the mouse moved right during this frame *)
@@ -38,20 +38,20 @@ type analog =
 
 type reading =
   | Rate
-      (** a fraction of full speed, in [-1, 1]: a stick pushed halfway asks to
-          walk at half pace. Scaled by the frame's length, exactly as a held
+      (** a fraction of full speed, in [-1, 1]: a stick pushed halfway means
+          walking at half pace. Scaled by the frame's length, exactly as a held
           control is. *)
   | Displacement
-      (** how far the thing has already moved during this frame, in its own
+      (** how far the device has already moved during this frame, in its own
           units. Already a per-frame quantity, so scaling it by the frame's
-          length again would be counting the frame twice. *)
+          length again would count the frame twice. *)
 
 let reads = function Mouse_x | Mouse_y -> Displacement
 
-(* Controls are counted off into one flat range, a contiguous block per device,
-   so that a frame's worth of them is three arrays and an index rather than a
-   lookup structure. Each block begins where the one before it ends, so another
-   device is another offset here and nothing above it moves. *)
+(* Controls are numbered into one flat range, a contiguous block per device, so
+   a frame's worth of them is three arrays and an index rather than a lookup
+   structure. Each block begins where the previous one ends, so adding a device
+   adds an offset here and nothing above it moves. *)
 let buttons = 3
 let first_key = 0
 let first_button = first_key + Key.count
@@ -76,7 +76,8 @@ type actions = {
           and {!Mouse_y} report *)
   pointer : int * int;
       (** where the cursor is. Meaningful only while the game has asked for a
-          free cursor — under mouse look it is pinned and says nothing. *)
+          free cursor; under mouse look the cursor is pinned and the value is
+          meaningless. *)
 }
 
 let untouched =
@@ -118,7 +119,7 @@ let advance ?(tapped = fun _ -> false) previous ~down ~mouse ~pointer ~dt =
         match (now.(i), previous.down.(i)) with
         | true, true -> previous.held.(i) +. dt
         | true, false -> 0.
-        (* Held for as long as it was held, for the frame it comes up on. *)
+        (* On the frame a control comes up, keep its final held duration. *)
         | false, true -> previous.held.(i)
         | false, false -> 0.)
   in
@@ -146,9 +147,10 @@ module Runtime = struct
 
   let drain event =
     let tapped = Array.make controls false in
-    (* SDL is not trusted to report a scancode inside the range the flat array was
-       sized for, for the same reason {!Key.of_scancode} range-checks: the key at
-       [Key.count] would be the left mouse button and would be believed. *)
+    (* Range-check the scancode SDL reports against the flat array's size, for
+       the same reason {!Key.of_scancode} range-checks: a scancode of
+       [Key.count] would index the left mouse button's slot and be recorded as
+       that button. *)
     let mark_key scancode =
       if scancode >= 0 && scancode < Key.count then
         tapped.(first_key + scancode) <- true

@@ -1,7 +1,7 @@
-(** How the window, whatever size it currently is, maps onto the camera.
+(** Maps the window, at its current size, onto the camera.
 
     The window is resizable and can go fullscreen between any two frames, so the
-    projection cannot be baked into constants: each frame asks SDL for the size
+    projection cannot be baked into constants. Each frame asks SDL for the size
     of the drawing surface and builds one of these from it.
 
     Two rules decide what a resize does.
@@ -12,7 +12,7 @@
     in both directions, or the world looks stretched.
 
     - Vertically, a one-cell length at perpendicular distance [d] covers
-      [projection / d] pixels — that is what [projection] means.
+      [projection / d] pixels. That is the definition of [projection].
     - Horizontally, the camera plane spans [2 * half_width] world units at
       distance 1 and is drawn across [width] pixels, so one world unit at
       distance [d] covers [width / (2 * half_width * d)] pixels.
@@ -26,60 +26,61 @@
     A pixel is its centre. Column [c] covers everything from [c] up to but not
     including [c + 1], and is sampled at [c + 0.5]; row [r] likewise.
 
-    Three kinds of function here, and the rule is what joins them.
+    This module has three kinds of function, joined by that rule.
     {!ray_direction} and {!row_factor} take a pixel {e index} and answer for
     that pixel's centre. {!project_height}, {!project_point} and {!sprite_box}
     answer in the {e continuous} coordinates the same numbers live on, and are
-    deliberately not shifted, so that the two are inverse — {!project_point} of
-    {!ray_direction} at column [c] is [c + 0.5], the centre of that very column.
-    {!first_pixel} and {!last_pixel} come back the other way, and are how
-    {!Renderer} turns an extent into rows and columns.
+    deliberately not shifted, so the two are inverse: {!project_point} of
+    {!ray_direction} at column [c] is [c + 0.5], the centre of that column.
+    {!first_pixel} and {!last_pixel} convert back from continuous coordinates,
+    and are how {!Renderer} turns an extent into rows and columns.
 
-    Those two are not the same rounding, and that is the part worth stating
-    plainly, because getting it wrong costs a row rather than a rounding error.
-    An extent is half-open: a wall runs from its top down to its foot, where the
-    floor takes over. So the pixels it covers run from {!first_pixel} of where
-    it starts to {!last_pixel} of where it stops, and those two are one apart.
-    Round both ends alike and the extent claims a pixel whose centre falls past
-    its far edge — a row of wall drawn over the floor and sampled below the
-    wall's own foot, which is somewhere the wall never was.
+    Those two functions round differently, and getting that wrong costs a row
+    rather than a rounding error. An extent is half-open: a wall runs from its
+    top down to its foot, where the floor takes over. So the pixels it covers
+    run from {!first_pixel} of where it starts to {!last_pixel} of where it
+    stops, and those two roundings are one apart. Rounding both ends alike makes
+    the extent claim a pixel whose centre falls past its far edge: a row of wall
+    drawn over the floor and sampled below the wall's own foot, which is
+    somewhere the wall never was.
 
-    Say it the other way, that a pixel is its top-left corner, and half of this
-    module means one thing and half the other: the rays would sample the left
-    edges of their columns while the rasteriser covered their centres, and every
-    sprite would stand half a pixel from the wall behind it, at every window
-    size. The crosshair {!Paint} draws is [width / 2], the pixel containing the
-    middle of the buffer, which is the nearest-centre pixel under this rule —
-    exactly the straight-ahead ray at an odd width, and one of two equally near
-    at an even one, where the middle falls on a boundary and no pixel is the
-    centre.
+    Under the other convention, where a pixel is its top-left corner, half of
+    this module would mean one thing and half the other. The rays would sample
+    the left edges of their columns while the rasteriser covered their centres,
+    and every sprite would stand half a pixel from the wall behind it, at every
+    window size. The crosshair {!Paint} draws is [width / 2], the pixel
+    containing the middle of the buffer, which is the nearest-centre pixel under
+    this rule. At an odd width that is exactly the straight-ahead ray. At an
+    even width the middle falls on a pixel boundary, no pixel contains it, and
+    two pixels are equally near.
 
-    {!Sight} traces the middle itself rather than that pixel, on purpose: its
-    answer is the same whatever size the window has been dragged to. At an even
-    size the two are half a pixel apart, and what that half is worth has grown.
-    Now that picking reads the {e texel} under the crosshair rather than judging
-    a whole material, a ray landing half a pixel to one side can land on the
-    next texel along, so the two can differ by one texel of the pattern at the
-    edge of a grille's bar — where before it took a target narrower than a pixel
-    to notice.
+    {!Sight} deliberately traces the middle itself rather than that pixel, so
+    its answer is the same whatever size the window has been dragged to. At an
+    even size the two rays are half a pixel apart, and that half now matters
+    more than it did. Picking reads the {e texel} under the crosshair rather
+    than judging a whole material, so a ray landing half a pixel to one side can
+    land on the next texel along. The two can therefore differ by one texel of
+    the pattern at the edge of a grille's bar, where before it took a target
+    narrower than a pixel to notice.
 
-    Bounded on the screen, at half a pixel; not bounded in the world, because
-    half a pixel subtends more of a surface the further off it is. At the
-    512x384 an unresized window renders into, the two rays part by 0.0011 cells
-    for every cell of distance — for a 64-texel pattern, one texel at about
-    fourteen cells and two at twenty-eight. What caps it in practice is the haze
-    rather than the arithmetic: an atmosphere with a [fog_distance] in the low
-    tens has taken the pattern away before the disagreement reaches a second
-    texel. Still only at even sizes, and still the price of a crosshair that
+    The gap is bounded on the screen, at half a pixel, but not bounded in the
+    world, because half a pixel subtends more of a surface the further off it
+    is. At the 512x384 an unresized window renders into, the two rays diverge by
+    0.0011 cells per cell of distance: for a 64-texel pattern, one texel at
+    about fourteen cells and two at twenty-eight. In practice the fog caps it
+    before the arithmetic does: an atmosphere with a [fog_distance] in the low
+    tens has removed the pattern before the disagreement reaches a second texel.
+    The gap exists only at even sizes, and is the price of a crosshair that
     means the same thing in every window.
 
     {1 Widening the window reveals more world}
 
     That leaves [projection] free. Anchoring it to the window {e height} fixes
     the vertical field of view, so dragging the window wider shows more to the
-    left and right instead of magnifying what was already there — what a first
-    person camera is expected to do. (Anchoring it to the width instead would do
-    the opposite: a wider window would zoom in and crop the view vertically.)
+    left and right instead of magnifying what was already there, which is what a
+    first person camera is expected to do. (Anchoring it to the width instead
+    would do the opposite: a wider window would zoom in and crop the view
+    vertically.)
 
     {!Config.fov} is therefore read as the horizontal field of view at
     {!Config.reference_aspect}; the vertical angle that implies is what is
@@ -106,14 +107,14 @@ type t = {
   horizon : float;  (** the screen row the eye looks straight along *)
 }
 
-(** Tangent of half the vertical field of view — the constant of the whole
-    module, by the second rule above. *)
+(** Tangent of half the vertical field of view: the constant the whole module
+    holds fixed, per the widening rule above. *)
 let vertical_half_extent =
   Float.tan (Config.fov /. 2.) /. Config.reference_aspect
 
 let make ~pitch ~eye_z ~width ~height =
-  (* A minimised window reports a zero size; clamp so the maths stays finite
-     and the frame is merely pointless rather than full of NaNs. *)
+  (* A minimised window reports a zero size. Clamp to 1 so the arithmetic
+     stays finite; the frame is wasted but produces no NaNs. *)
   let width = Int.max 1 width and height = Int.max 1 height in
   let projection = float_of_int height /. 2. /. vertical_half_extent in
   {
@@ -122,9 +123,9 @@ let make ~pitch ~eye_z ~width ~height =
     projection;
     eye_z;
     half_width = float_of_int width /. 2. /. projection;
-    (* Level, the horizon is the middle row; [pitch] shears it away from there
-       by that fraction of the window height. Looking up (positive pitch) slides
-       it down and reveals more ceiling. *)
+    (* At zero pitch the horizon is the middle row. [pitch] shears it away
+       from there by that fraction of the window height. Positive pitch
+       (looking up) moves the horizon down and reveals more ceiling. *)
     horizon = (float_of_int height /. 2.) +. (pitch *. float_of_int height);
   }
 
@@ -152,17 +153,18 @@ let project_height t ~z ~distance =
 
 (** The first pixel an extent starting at the continuous coordinate [x] covers:
     the first whose centre lies at or past it. A centre sits half a pixel in, so
-    that is [Float.round] — bar an [x] exactly on one, which rounds away from
-    zero: for the non-negative coordinates a screen has, the pixel after, so the
-    extent gives up a boundary it would only have won on an equality between two
-    projected floats. Off screen to the left the tie breaks the other way, and
-    nothing here cares — every caller clamps at the screen's edge first. *)
+    that is [Float.round]. An [x] exactly on a centre rounds away from zero: for
+    the non-negative coordinates a screen has, that is the pixel after, so the
+    extent gives up a boundary it could only have won on an equality between two
+    projected floats. Off screen to the left the tie breaks the other way;
+    nothing here cares, because every caller clamps at the screen's edge first.
+*)
 let first_pixel x = int_of_float (Float.round x)
 
-(** The last pixel an extent stopping at the continuous coordinate [x] covers,
-    which is {!first_pixel} of it less one and not that pixel itself. An extent
-    is half-open — [x] is where the next thing begins — so the pixel whose
-    centre [x] falls inside is the next thing's. *)
+(** The last pixel an extent stopping at the continuous coordinate [x] covers:
+    {!first_pixel} of [x] minus one, not the pixel containing [x]. An extent is
+    half-open, so [x] is where the next extent begins, and the pixel whose
+    centre [x] falls inside belongs to that next extent. *)
 let last_pixel x = first_pixel x - 1
 
 (** The dimensionless [(row + ½ - horizon) / projection] the centre of a screen
@@ -171,8 +173,8 @@ let last_pixel x = first_pixel x - 1
 let row_factor t ~row = (float_of_int row +. 0.5 -. t.horizon) /. t.projection
 
 (** Where a point of the world lands on the screen: [(column, row)] in pixels,
-    or [None] if it is level with the eye or behind it and has no place on the
-    screen at all.
+    or [None] if the point is level with the eye or behind it and so has no
+    screen position.
 
     [point] is where it stands on the floor plan and [z] how high it is, both in
     the frame [pose] is expressed in. The column is the inverse of
@@ -181,7 +183,7 @@ let row_factor t ~row = (float_of_int row +. 0.5 -. t.horizon) /. t.projection
 
     A vertical line in the world projects to a vertical line on the screen, and
     a straight line on a wall to a straight line on the screen, so four corners
-    are enough to outline anything flat — which is what a game wanting to ring a
+    are enough to outline anything flat. That is what a game wanting to ring a
     decal needs, and why this is public. *)
 let project_point t (pose : Player.t) ~point ~z =
   let rel = Vec.sub point pose.Player.pos in
@@ -197,25 +199,25 @@ let project_point t (pose : Player.t) ~point ~z =
 type box = { left : float; top : float; right : float; bottom : float }
 (** Where a sprite lands on the screen: [(left, top, right, bottom)] in pixels.
 
-    A sprite is a billboard facing the view, so [pose] places it — the player
+    A sprite is a billboard facing the view, so [pose] places it: the player
     expressed in the room the sprite is in, since every room has its own
     coordinates. [floor_z] is the elevation of the floor under it and [distance]
     how far ahead it stands along the view.
 
-    Where its foot and its head are is {!Room.sprite_foot} and
-    {!Room.sprite_head}, so a sprite floating above the floor is projected by
-    the same two calls as one resting on it. How wide it is is
-    {!Room.sprite_half_width}, in cells; the screen width here is the screen
-    {e height} scaled by the same ratio, which is the one line that keeps pixels
-    square. [bottom - top] is what [size] cells cover at this distance, so
-    scaling it by width-over-height is what [size * width / height] cells cover
-    — measured vertically, applied horizontally, and correct because this module
-    holds those two the same.
+    Its foot and head come from {!Room.sprite_foot} and {!Room.sprite_head}, so
+    a sprite floating above the floor is projected by the same two calls as one
+    resting on it. Its width is {!Room.sprite_half_width}, in cells. The screen
+    width here is the screen {e height} scaled by that ratio, which is the one
+    line that keeps pixels square: [bottom - top] is what [size] cells cover at
+    this distance, so scaling it by width over height is what
+    [size * width / height] cells cover. Measured vertically, applied
+    horizontally, and correct because this module holds those two scales the
+    same.
 
     {!Renderer} draws sprites with this. It is here, and public, because
-    anything that wants to draw attention to one — an outline around what the
-    player is looking at — has to land on the same rectangle, and there should
-    be one answer to where that is. {!Sight.t} carries the [pose] and the
+    anything that wants to draw attention to a sprite — an outline around what
+    the player is looking at — has to land on the same rectangle, and there
+    should be one answer to where that is. {!Sight.t} carries the [pose] and the
     [distance] it needs. *)
 
 let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
@@ -230,9 +232,9 @@ let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
   { left = centre -. half; top; right = centre +. half; bottom = base }
 
 (** How fast the middle of the screen rises with distance, at a given pitch: the
-    vertical half of the ray the crosshair looks along, as world height gained
-    per cell travelled. Level, it is zero and the crosshair looks along the
-    horizon.
+    vertical component of the ray the crosshair looks along, as world height
+    gained per cell travelled. At zero pitch it is zero and the crosshair looks
+    along the horizon.
 
     It takes a pitch and not a viewport because it does not depend on one.
     Substituting [row = height / 2] into {!project_height} and solving for [z]
@@ -241,6 +243,6 @@ let sprite_box t (pose : Player.t) ~floor_z ~distance (s : Room.sprite) =
     field of view, which is the constant this module holds fixed. A window of
     any size or shape points its crosshair at the same place in the world.
 
-    {!Sight} is what needs this — the renderer works in rows and never has to
+    {!Sight} is what needs this; the renderer works in rows and never has to
     ask. *)
 let centre_rise ~pitch = 2. *. vertical_half_extent *. pitch

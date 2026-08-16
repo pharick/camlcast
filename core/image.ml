@@ -9,8 +9,8 @@ type t = {
   alpha : int array;
 }
 
-(* The ordinary array bound: [pixels] and [alpha] both hold words. What [index]
-   does not check and [sample] reads on its word is the product below. *)
+(* The ordinary array bound: [pixels] and [alpha] both hold words. The product
+   below is what [index] does not check and what [sample] reads trusting. *)
 let fits = Extent.fits ~limit:Sys.max_array_length
 
 let make ~width ?height f =
@@ -41,11 +41,11 @@ let load path =
   let* s = Bitmap.load path in
   let w = s.Bitmap.width and h = s.Bitmap.height in
   (* A file is a run-time failure and not an authoring mistake, so both of the
-     sizes [make] refuses are asked about here and come back as an [Error]
-     rather than as its [Invalid_argument]. Both, and not only the empty one:
-     [load]'s type says a file is a condition, and a [make] reached with a size
-     it will not take is that promise broken from inside — an exception out of a
-     function whose whole signature says there is not going to be one. *)
+     sizes [make] refuses are checked here and come back as an [Error] rather
+     than as its [Invalid_argument]. Both, and not only the empty one: [load]'s
+     type says a file is a condition, and reaching [make] with a size it will
+     not take would raise an exception out of a function whose signature
+     promises there is not going to be one. *)
   if w <= 0 || h <= 0 then
     Error
       (`Msg

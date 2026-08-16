@@ -13,7 +13,7 @@ let count = Sdl.Scancode.num_scancodes
    {!Input} counts keys and mouse buttons off into one flat range with the
    buttons beginning at [count], so a key at [count] would not be an unnamed
    key: it would be the left mouse button, and the rest of the frame would
-   agree with it. *)
+   treat it as one. *)
 let of_scancode scancode =
   if not (scancode >= 0 && scancode < count) then
     invalid_arg "Key.of_scancode: no such place on the keyboard";

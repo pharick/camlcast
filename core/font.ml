@@ -30,8 +30,8 @@ let glyph t c =
   | Some _ as found -> found
   | None -> Option.bind t.fallback (cell t)
 
-(* The lines of [text], split on newlines. What {!measure}, {!wrap} and {!draw}
-   all agree a line is. *)
+(* The lines of [text], split on newlines. {!measure}, {!wrap} and {!draw} all
+   use this as the definition of a line. *)
 let lines text = String.split_on_char '\n' text
 
 let measure t text =
@@ -56,11 +56,10 @@ let wrap t text ~width =
     let current, out =
       List.fold_left
         (fun (current, out) word ->
-          (* A word too long for any line is cut into full lines first; what is
-             left of it then joins the flow like any other word. Cutting it
-             flushes what was accumulated, so [current] is emptied with it —
-             left as it was, the line just flushed would be written out a
-             second time below. *)
+          (* A word too long for any line is cut into full lines first; the
+             remainder then wraps like any other word. Cutting flushes what was
+             accumulated, so [current] is emptied with it. Left as it was, the
+             line just flushed would be written out a second time below. *)
           let word, current, out =
             if String.length word <= per_line then (word, current, out)
             else

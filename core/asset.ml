@@ -15,10 +15,10 @@ let roots ~exe ~override =
            _build/default beside the copied source tree. *)
         above;
         (* An opam or system prefix: the binary in bin/, its art in share/
-           under the binary's own name. One directory up and across, which is
-           the bundle's shape again — and the name comes off the executable
-           rather than being written here, because this module holds no
-           content and knows no package. *)
+           under the binary's own name. One directory up and across, the
+           bundle's shape again. The name comes off the executable rather than
+           being written here because this module holds no content and knows
+           no package. *)
         Filename.concat above
           (Filename.concat "share"
              (Filename.remove_extension (Filename.basename exe)));

@@ -5,24 +5,24 @@ let clipped (fb : Framebuffer.t) ~x ~y ~w ~h =
     Int.min fb.Framebuffer.height (y + h) )
 
 let rect fb ~x ~y ~w ~h ~color ~alpha =
-  (* The colour on the same terms as the alpha below, and for the whole of the
-     same reason. {!Color.rgb} does not clamp — deliberately, so that a value
-     reached by arithmetic can be carried about before it is put back — and
+  (* The colour is clamped on the same terms as the alpha below, for the same
+     reason. {!Color.rgb} does not clamp, deliberately, so a value reached by
+     arithmetic can be carried around before it is put back in range.
      {!Framebuffer.set} takes a channel already in range and stores it in a
      byte, so one that is not does not saturate: it wraps. A red brightened to
-     280 is drawn at 24, which is not a brighter red or a duller one but a
-     colour nobody named, and darker than the one it started from. Hoisted out
-     of the loops, since a rectangle is one colour. *)
+     280 is drawn at 24, a colour nobody named and darker than the one it
+     started from. The clamp is hoisted out of the loops because a rectangle is
+     one colour. *)
   let (c : Color.t) = Color.clamp color in
   let r = c.Color.r and g = c.Color.g and b = c.Color.b in
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w ~h in
-  (* Taken at the nearer end when it falls outside 0 .. 255, on both sides and
-     for the same reason {!sub} reads a picture's own alpha that way: nothing at
-     or below nothing, an outright write at or above solid. Framebuffer.blend
-     weighs the destination with 255 - alpha and stores the result in a byte, so
-     an alpha out of range there does not fade — it wraps, and the panel comes
-     out a colour nobody asked for. This alpha arrives from P.rect, which is to
-     say from a game, and a game is entitled to arrive at it by arithmetic. *)
+  (* The alpha is taken at the nearer end when it falls outside 0 .. 255, on
+     both sides, for the same reason {!sub} reads a picture's own alpha that
+     way: nothing drawn at or below zero, an outright write at or above solid.
+     Framebuffer.blend weighs the destination with 255 - alpha and stores the
+     result in a byte, so an alpha out of range there does not fade: it wraps,
+     and the panel comes out a colour nobody asked for. This alpha arrives from
+     P.rect, that is from a game, and a game may arrive at it by arithmetic. *)
   if alpha > 0 then
     for py = y0 to y1 - 1 do
       for px = x0 to x1 - 1 do
@@ -32,18 +32,17 @@ let rect fb ~x ~y ~w ~h ~color ~alpha =
     done
 
 let sub ?tint fb (img : Image.t) ~x ~y ~sx ~sy ~sw ~sh =
-  (* Once, before the loops, for the reason {!rect} clamps its colour: a tint
-     arrives from a game and is the multiplier of every channel of every pixel
+  (* Clamped once, before the loops, for the reason {!rect} clamps its colour:
+     a tint arrives from a game and multiplies every channel of every pixel
      below, so one out of range carries the whole picture out with it. In range
-     it cannot: a picture's own channels are in range by the time it exists —
-     {!Image.make} clamps what its function hands back and {!Image.load} goes
-     through it — so [c * t / 255] of two bytes is a byte. *)
+     it cannot: a picture's own channels are in range by the time it exists
+     ({!Image.make} clamps what its function hands back, and {!Image.load} goes
+     through it), so [c * t / 255] of two bytes is a byte. *)
   let tint = Option.map Color.clamp tint in
   let x0, y0, x1, y1 = clipped fb ~x ~y ~w:sw ~h:sh in
-  (* And no further into the picture than the picture goes, at either edge. The
-     near one matters as much as the far: [u] is [sx + px - x], so a negative
-     [sx] would read before the row and land in the one above it rather than
-     stopping. *)
+  (* Also clip to the picture itself, at both edges. The near edge matters as
+     much as the far one: [u] is [sx + px - x], so a negative [sx] would read
+     before the row and land in the one above it rather than stopping. *)
   let x0 = Int.max x0 (x - sx)
   and y0 = Int.max y0 (y - sy)
   and x1 = Int.min x1 (x + img.Image.width - sx)
@@ -93,19 +92,19 @@ let line fb ~x0 ~y0 ~x1 ~y1 ~color =
           (Float.round
              (float_of_int i /. float_of_int steps *. float_of_int (to_ - from)))
     in
-    (* Which of the [steps + 1] positions could land on the buffer at all.
-       [steps] and [step] are untouched, so every pixel that was drawn is still
-       drawn at the same place; what goes is the ones [dot] would have clipped
-       away one at a time. The difference is not a nicety: these coordinates
+    (* Work out which of the [steps + 1] positions could land on the buffer at
+       all. [steps] and [step] are untouched, so every pixel that was drawn is
+       still drawn at the same place; what goes is the positions [dot] would
+       have clipped away one at a time. The saving matters: these coordinates
        come from projecting the world, which divides by distance, so a ring
        round something close to the eye is a few pixels of line on a segment
        millions of pixels long.
 
-       An axis constrains [i] to where [from + i * d / steps] stays on the
-       buffer. Solved a whole pixel wide of each edge, which is more than the
-       half-pixel [step]'s rounding can move a point, so no position that would
-       have drawn is cut. An axis that does not move constrains nothing, or
-       rules out the line entirely. *)
+       Each axis constrains [i] to where [from + i * d / steps] stays on the
+       buffer. The bounds are solved a whole pixel wide of each edge, which is
+       more than the half-pixel [step]'s rounding can move a point, so no
+       position that would have drawn is cut. An axis that does not move
+       constrains nothing, or rules out the line entirely. *)
     let range from to_ limit =
       let d = to_ - from in
       if d = 0 then if from < 0 || from >= limit then None else Some (0, steps)

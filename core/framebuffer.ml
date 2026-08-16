@@ -17,20 +17,20 @@ type t = {
 }
 
 (* The [float array] bound and not the ordinary one: it is the tighter of the
-   two this record has to satisfy — [depth] is one float per pixel, while
-   [pixels] is a bigarray, outside the heap, where only memory limits it. Four
-   times it is nowhere near [max_int] at either word size, so a product that
-   fits here cannot wrap when the byte count multiplies it by four either. What
-   [set] and [blend] trust without checking is the product this bounds. *)
+   two this record has to satisfy. [depth] is one float per pixel, while
+   [pixels] is a bigarray, outside the heap, limited only by memory. Four times
+   the bound is nowhere near [max_int] at either word size, so a product that
+   fits here cannot wrap when the byte count multiplies it by four either.
+   [set] and [blend] trust the product this bounds without checking it. *)
 let fits = Extent.fits ~limit:Sys.max_floatarray_length
 
-(* Shared by the two ways in, so that each refusal names the function the caller
-   wrote rather than the private allocator underneath. Positive first, because
-   [fits] is only a check about positive extents: a [width] of zero divides by
-   zero inside the test meant to explain itself, and a negative [height] sails
-   straight through it. Today a pair of negatives is the quiet one — their
-   product is positive, so both buffers allocate, and what comes back reports a
-   size in pixels it has four bytes of. *)
+(* Shared by the two ways in, so that each refusal names the function the
+   caller wrote rather than the private allocator underneath. The positivity
+   check comes first because [fits] only holds for positive extents: a [width]
+   of zero divides by zero inside it, and a negative [height] passes it. A pair
+   of negatives is the quiet failure: their product is positive, so both
+   buffers allocate, and the result reports a size in pixels it has four bytes
+   of. *)
 let extents who ~width ~height =
   if width <= 0 || height <= 0 then
     invalid_arg (who ^ ": a buffer must have positive extents");
@@ -38,10 +38,9 @@ let extents who ~width ~height =
     invalid_arg (who ^ ": a buffer that size does not fit in an array")
 
 (* The buffer itself, zeroed. Rendering a frame covers every pixel before
-    anything reads one, so the clearing is not for the renderer's benefit — it
-    is so that a buffer nobody has drawn into yet is black rather than whatever
-    the allocator had lying there, which is what lets a test say what it
-    expected. *)
+    anything reads one, so the clearing is not for the renderer's benefit. It
+    makes a buffer nothing has drawn into yet black rather than whatever the
+    allocator had lying there, which lets a test state what it expected. *)
 let buffer ~width ~height =
   let pixels =
     Bigarray.(Array1.create int8_unsigned c_layout (width * height * 4))
@@ -55,8 +54,9 @@ let buffer ~width ~height =
     height;
   }
 
-(* Refused before the texture is asked for: inside the [let+] below, the raise
-   would leave a texture nobody holds and nothing will ever [destroy]. *)
+(* Extents are refused before the texture is created: a raise inside the
+   [let+] below would leak a texture that nothing holds and nothing will ever
+   [destroy]. *)
 let make sdl ~width ~height =
   extents "Framebuffer.make" ~width ~height;
   let+ texture =

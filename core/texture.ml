@@ -23,18 +23,19 @@ let column_of_offset t offset =
     (Int.max 0 (int_of_float (offset *. float_of_int t.size)))
 
 (* Reduced to the current tile, flipped so that the bottom of a cell is the
-   bottom row, and clamped. [column_of_offset]'s rule turned on its side: the
-   same scale by [size], so every row owns the same band of a cell. The flip
-   sends [tile = 0] to [size] exactly, which the clamp brings back to the last
-   row — the one case the clamp is load-bearing rather than defensive. *)
+   bottom row, and clamped. This is [column_of_offset]'s rule applied
+   vertically: the same scale by [size], so every row owns the same band of a
+   cell. The flip sends [tile = 0] to [size] exactly, which the clamp brings
+   back to the last row. That is the one case where the clamp is load-bearing
+   rather than defensive. *)
 let row_of_height t height =
   let tile = height -. Float.floor height in
   Int.min (t.size - 1)
     (Int.max 0 (int_of_float ((1. -. tile) *. float_of_int t.size)))
 
-(* A pattern is square, so both extents are [size]; the bound is the ordinary
-   array one, both of the arrays here holding words. See {!Extent.fits} for why
-   it divides. *)
+(* A pattern is square, so both extents are [size]. Both arrays here hold
+   words, so the bound is the ordinary array one. See {!Extent.fits} for why it
+   divides. *)
 let fits size = Extent.fits ~limit:Sys.max_array_length ~width:size ~height:size
 
 let generate ?(size = default_size) f =
@@ -82,9 +83,10 @@ let load path =
   else if w <= 0 then
     Error (`Msg (Printf.sprintf "%s: a pattern must have a positive size" path))
   else if not (fits w) then
-    (* The same reason the size above is an [Error]: a file is a condition, so
-       every size this cannot take is answered for in the type, and none of them
-       reaches the [Array.make] below as an exception out of a [result]. *)
+    (* Same reason the size above is an [Error]: a file is a run-time
+       condition, so every size this cannot take is refused in the type, and
+       none of them reaches the [Array.make] below as an exception out of a
+       [result]. *)
     Error
       (`Msg
          (Printf.sprintf "%s: a pattern of %dx%d does not fit in an array" path
@@ -121,8 +123,8 @@ let noise ~size ~seed ~cell ~u ~v =
     float_of_int
       (hash ((x mod cells) + (seed * 7919)) ((y mod cells) + seed) land 255)
   in
-  (* Smoothstep, so the interpolation arrives at each corner with zero slope and
-     the eye cannot pick out the lattice the values hang on. *)
+  (* Smoothstep: the interpolation reaches each corner with zero slope, which
+     keeps the value lattice underneath from showing. *)
   let smooth t = t *. t *. (3. -. (2. *. t)) in
   let mix a b t = a +. ((b -. a) *. t) in
   let x0 = u / cell and y0 = v / cell in

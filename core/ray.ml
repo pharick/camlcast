@@ -2,9 +2,9 @@
 
     {1 Ray versus segment}
 
-    A grid raycaster steps a ray from cell to cell (the DDA). With arbitrary
-    wall segments there is no grid to step through, so instead we intersect the
-    ray with each wall directly and keep the ones it actually crosses.
+    A grid raycaster steps a ray from cell to cell (the DDA). Arbitrary wall
+    segments have no grid to step through. Instead the ray is intersected with
+    each wall directly, keeping the ones it actually crosses.
 
     Write the ray as [origin + t*direction], [t >= 0], and a wall as
     [a + s*edge] with [edge = b - a] and [s] in [0, 1]. Setting them equal,
@@ -26,19 +26,19 @@
     {1 Why the distance has no fish-eye}
 
     [direction] is deliberately {e not} normalised: {!Viewport.ray_direction}
-    builds it as [dir + right * k] with [dir] the unit view direction. Because
-    [t] is measured in units of [direction], projecting the hit onto [dir]
-    leaves exactly [t] — so [t] is the distance perpendicular to the camera
-    plane, which is what the projection needs and what removes the fish-eye
-    bulge. That argument is unchanged from the grid version; only the way we
-    find [t] is different.
+    builds it as [dir + right * k] with [dir] the unit view direction. [t] is
+    measured in units of [direction], so projecting the hit onto [dir] leaves
+    exactly [t]. [t] is therefore the distance perpendicular to the camera
+    plane. That is the distance the projection needs, and it is what removes the
+    fish-eye bulge. The argument is unchanged from the grid version; only the
+    way [t] is found differs.
 
     {1 Seeing past a wall}
 
     Walls have different heights and the floor and ceiling are sloped, so a near
     wall does not necessarily hide what is behind it. The cast therefore keeps
-    {e every} wall the ray crosses and returns them farthest-first, ready for
-    {!Renderer} to paint back to front. *)
+    {e every} wall the ray crosses and returns them farthest-first, the order
+    {!Renderer} paints in (back to front). *)
 
 type hit = {
   distance : float;  (** perpendicular distance from the camera plane *)
@@ -47,8 +47,8 @@ type hit = {
   wall : Room.wall;
   index : int;
       (** which of the room's walls it was. The wall itself is here for the
-          renderer, which wants its material and its geometry; the index is for
-          anything that has to name the wall afterwards — an index survives a
+          renderer, which needs its material and its geometry. The index is for
+          anything that has to name the wall afterwards: an index survives a
           {!World.replace_room} where a copy of the wall would go stale. *)
 }
 
@@ -58,10 +58,11 @@ type opening = { distance : float; along : float; index : int }
     the hit is turned into a wall height. *)
 let min_distance = 1e-4
 
-(* {!Vec.parallel} scaled by both lengths, which is what turns the cross
-   product below from an area back into a sine — see there for why, and for why
-   the figure is shared with {!Room.segments_cross} rather than written out
-   here. Strict, so that a zero denominator falls out as no crossing at all. *)
+(* The threshold is {!Vec.parallel} scaled by both lengths. The scaling turns
+   the cross product below from an area back into a sine; see {!Vec.parallel}
+   for why, and for why the figure is shared with {!Room.segments_cross}
+   rather than written out here. The comparison is strict, so a zero
+   denominator counts as no crossing at all. *)
 let segment ~origin ~direction ~scale ~a ~edge ~length =
   let denom = Vec.cross direction edge in
   if Float.abs denom < Vec.parallel *. scale *. length then None
@@ -107,43 +108,43 @@ let openings (room : Room.t) ~origin ~direction =
 type step =
   | Wall of hit
   | Opening of opening
-      (** One thing a ray met in a room, of whichever kind. Walls and doorways
-          are found by two separate passes but have to be dealt with in one
-          order, since each can stand in front of the other. *)
+      (** One thing a ray met in a room, of either kind. Walls and doorways are
+          found by two separate passes but must be handled in one distance
+          order, because each can be in front of the other. *)
 
 let step_distance = function Wall h -> h.distance | Opening o -> o.distance
 
 (** Both lists arrive farthest-first, so one merge puts walls and thresholds
     into a single far-to-near stream without sorting either of them again.
 
-    Far-to-near is the renderer's order — it paints back to front — and the
-    reverse of it is what anything asking "what is the first thing out there"
-    wants. Both read this.
+    Far-to-near is the renderer's order; it paints back to front. The reverse is
+    the order for asking what the first thing along the ray is. Both readers use
+    this list.
 
     {b At equal distance the wall goes first, so the opening is painted over
-       it.} Not a detail: a ray through the corner a jamb shares with its
-    threshold meets both, at one distance, and [s] is inclusive at both ends
-    because it has to be — a room's corners are shared between two walls, and
-    the pair does not come out as an exact [1.] and [0.] but as [1.] and a hair
-    below zero, so anything half-open lets a ray out through the corner of a
-    closed room. The overlap is what makes a boundary watertight, and the tie is
-    what it costs.
+       it.} The tie happens: a ray through the corner a jamb shares with its
+    threshold meets both at one distance. [s] is inclusive at both ends because
+    it has to be. A room's corners are shared between two walls, and the pair
+    does not come out as an exact [1.] and [0.] but as [1.] and a hair below
+    zero. Anything half-open therefore lets a ray out through the corner of a
+    closed room. The inclusive overlap makes a boundary watertight; the tie is
+    the cost.
 
-    Which leaves the tie to be settled once, here, rather than by each reader.
-    The opening winning is the same answer the half-open convention gives
-    everywhere else in the engine — an extent owns its near end and not its far
-    one — and it is what the paint order was already doing. A reader that wants
-    the winner has to take this list from the {e far} end of a tied run, which
-    is to say to reverse it; {!Sight} does. Taking the near end would name the
-    jamb while the frame showed the room through the opening.
+    The tie is settled once, here, rather than by each reader. The opening
+    winning matches the half-open convention everywhere else in the engine (an
+    extent owns its near end and not its far one), and it matches what the paint
+    order was already doing. A reader that wants the winner has to take this
+    list from the {e far} end of a tied run, which means reversing it; {!Sight}
+    does. Taking the near end would name the jamb while the frame showed the
+    room through the opening.
 
-    And a reader that sorts afterwards has to sort {e stably}, because by then
-    the tie is the only thing left of this list that the sort cannot work out
-    for itself — the order is recoverable from the distances and the tie is not.
-    {!Sight} does that too, folding its sprites in. Which is also why it merges
-    at all rather than concatenating the two lists: concatenation gives the same
-    answer in one of its two orders and the wrong one in the other, and knowing
-    which is knowing this rule, in a second place. *)
+    A reader that sorts afterwards has to sort {e stably}. The order is
+    recoverable from the distances and the tie is not, so by then the tie is the
+    only information in this list a sort cannot rebuild. {!Sight} does that too,
+    folding its sprites in. The same fact is why this merges rather than
+    concatenating the two lists: concatenation gives the right answer in one of
+    its two orders and the wrong one in the other, and knowing which is knowing
+    this rule in a second place. *)
 let rec merge (walls : hit list) (openings : opening list) =
   match (walls, openings) with
   | [], rest -> List.map (fun o -> Opening o) rest

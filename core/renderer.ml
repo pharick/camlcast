@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast.Renderer}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Renderer}; documentation is in the interface. *)
 
 open Tsdl
 open Result_ext
@@ -15,41 +15,42 @@ let clampi n v = Int.max 0 (Int.min (n - 1) v)
 
 (* Fill one column's background: the floor below, and either a ceiling or the
     open {!Sky} above, depending on whether the level is roofed. Each pixel
-    casts the relevant plane with {!Plane.cast} (one division), then shows its
-    texture in world space, tinted by its colour and traded away for the haze as
-    it recedes; sky pixels come from {!Sky} and depend only on the direction
-    looked in.
+    casts the relevant plane with {!Plane.cast} (one division), then samples
+    its texture in world space, tinted by its colour and blended towards the
+    haze with distance; sky pixels come from {!Sky} and depend only on the
+    direction looked in.
 
-    [near] is the doorway this room is being drawn through, and a plane cast
-    nearer than it is not this room's to show. The case that needs it is the
-    strip above an opening: a transom you can see through recurses for the rows
-    over the doorway's head, and up there the neighbour's {e ceiling} runs back
-    towards the eye and stands nearer than the doorway long before the top of
-    the window. Without the clip its roof — or, over a room open to one, its sky
-    — is painted overhead in the room the player is standing in. The floor wants
-    the same rule for a narrower reason: inside the opening it is already beyond
-    [near] wherever the two rooms' floors meet at the seam, so it only bites
-    where they disagree, which is what {!World.seam_gap} measures.
+    [near] is the distance of the doorway this room is being drawn through,
+    and a plane cast nearer than it is not this room's to show. The case that
+    needs it is the strip above an opening: a see-through transom recurses for
+    the rows over the doorway's head, and up there the neighbour's ceiling
+    runs back towards the eye and stands nearer than the doorway long before
+    the top of the window. Without the clip that roof — or, over a room open
+    to the sky, that sky — is painted overhead in the room the player is
+    standing in. The floor needs the same rule for a narrower reason: inside
+    the opening it is already beyond [near] wherever the two rooms' floors
+    meet at the seam, so the clip only bites where they disagree, which is
+    what {!World.seam_gap} measures.
 
     A pixel whose planes are all clipped away is left as it is rather than
     hazed: inside a portal the room in front has already painted every row of
-    this band. The haze is for the pixel where neither plane is in view at all,
-    which is a fact about the geometry and not about the doorway.
+    this band. The haze is for the pixel where neither plane is in view at
+    all, which is a fact about the geometry and not about the doorway.
 
-    Telling those two apart is a question of direction and not of distance. Only
-    a plane in {e front} of the eye can be the one the doorway clipped, and that
-    is what makes leaving its pixel alone safe — something nearer painted it. A
-    plane behind the eye was never anybody's to paint: it casts to a negative
-    distance, and a negative distance is not a near surface but an absent one, so
-    the band is the haze's.
+    The two cases are told apart by direction, not by distance. Only a plane
+    in front of the eye can be the one the doorway clipped, and that is what
+    makes leaving its pixel alone safe: something nearer painted it. A plane
+    behind the eye was never anybody's to paint. It casts to a negative
+    distance, and a negative distance is not a near surface but an absent one,
+    so the band is the haze's.
 
-    At the top level [near] is zero and the floor is never clipped, the eye
-    standing {!Config.eye_height} above it. A ceiling {e below} the eye is
-    clipped, and is authorable however unlikely it reads: {!Plane.above} takes a
-    negative height, {!Room.roof} has no opinion, and a roof that merely
-    {e converges} on the floor gets there too. Above the horizon neither plane is
-    then in view and the haze fills the band, which is the whole of what keeps
-    the promise the colour buffer is never cleared on. *)
+    At the top level [near] is zero and the floor is never clipped, because
+    the eye stands {!Config.eye_height} above it. A ceiling below the eye is
+    clipped, and can be authored: {!Plane.above} takes a negative height,
+    {!Room.roof} does not check, and a roof that merely converges on the floor
+    gets there too. Above the horizon neither plane is then in view and the
+    haze fills the band, which is what keeps the promise that the colour
+    buffer is never cleared. *)
 let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
     ~first ~last =
   let open Viewport in
@@ -68,10 +69,10 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
      haze, rather than the surface dimmed towards black.
 
      Written out rather than handed to {!Color.lerp} for the same reason the
-     multiply before it was: this is the one fog site where the distance changes
-     with every pixel, so there is nothing to hoist out of the loop, and a
-     colour record per pixel of the background is a record the frame does not
-     need. *)
+     multiply before it was: this is the one fog site where the distance
+     changes with every pixel, so there is nothing to hoist out of the loop,
+     and a colour record per pixel of the background is an allocation the
+     frame does not need. *)
   let surface y d (m : Material.t) =
     let wx = px +. (d *. dx) and wy = py +. (d *. dy) in
     let c = Material.plane_texel m ~x:wx ~y:wy in
@@ -90,9 +91,9 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
      the picture: taken out before the two planes are compared, so that a floor
      clipped away still lets the ceiling behind it be drawn. *)
   let beyond d = if d > near then d else infinity in
-  (* In front of the eye, and so a surface somebody has to show — which is the
-     only kind [beyond] can have taken out. A cast that is finite but negative is
-     a plane behind the eye and no surface at all. *)
+  (* In front of the eye, and so a surface that has to be shown, which is the
+     only kind [beyond] can have taken out. A cast that is finite but negative
+     is a plane behind the eye and no surface at all. *)
   let in_view d = Float.is_finite d && d > 0. in
   match Room.ceiling room with
   | Room.Roof ceiling ->
@@ -126,8 +127,8 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
         else if Float.is_finite dc then surface y dc ceiling.Room.material
         else if not (in_view cast_f || in_view cast_c) then
           (* Neither plane is in view here, so there is no surface to keep any
-             of: the band is the haze at full strength, which is where the two
-             fades either side of it are heading. *)
+             of: the band is the haze at full strength, the value the two
+             fades either side of it approach. *)
           Framebuffer.set fb ~x:column ~y ~r:haze.Color.r ~g:haze.Color.g
             ~b:haze.Color.b
       done
@@ -159,11 +160,11 @@ let draw_planes fb viewport ~air room (player : Player.t) ~column ~dir ~near
 (* Paint one wall of a column over the background already there, and any decals
     hung on it over that.
 
-    The wall stands on the floor at its hit point and rises to its height —
-    capped at the ceiling, if the level has one, so it never draws over the
+    The wall stands on the floor at its hit point and rises to its height,
+    capped at the ceiling if the level has one, so it never draws over the
     ceiling in front of it. Its texture repeats every cell of height and is
     sampled per pixel; where that texel is not solid ({!Texture.alpha}) the
-    wall is blended rather than written, so a grille or a window unveils what is
+    wall is blended rather than written, so a grille or a window shows what is
     behind. Decals — pictures placed by {!Room.along} and height — are blended
     over the wall's own texture, in the same light. *)
 let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
@@ -193,9 +194,9 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
     (* The rows whose centres fall on the wall, which is not the rows it
        touches: the strip is half-open at the foot, where the floor takes over,
        so it stops one row before the one the foot lands in. Rounding both ends
-       alike would draw that row too — and the sampler below, which works from
-       the row's centre rather than from these bounds, would then be asked for a
-       height {e under} the wall's own foot and get the top of the pattern back,
+       alike would draw that row too. The sampler below, which works from the
+       row's centre rather than from these bounds, would then be asked for a
+       height under the wall's own foot and get the top of the pattern back,
        so every wall foot on screen would carry a line of the tile's top band. *)
     let first = Int.max clip_first (Int.max 0 (first_pixel y_top)) in
     let last =
@@ -217,11 +218,11 @@ let draw_wall fb viewport ~air room (player : Player.t) ~column ~dir ~occlude
        brighter than the wall it would come out {e brighter} for facing away. *)
     let fog = Atmosphere.fog air d in
     let light = Atmosphere.face_shading air w.Room.normal *. fog in
-    (* Written out, the pixel is [texel * face_shading * fog + haze * (1 - fog)]
-       — so the factor on the texel is exactly [light], and the rest is one
-       colour that holds all the way down the column. Which is what keeps this
-       loop in integers: the conversion out of floating point still belongs out
-       here, and the whole of the haze is one addition per channel. *)
+    (* Written out, the pixel is [texel * face_shading * fog + haze * (1 - fog)],
+       so the factor on the texel is exactly [light], and the rest is one
+       colour that holds all the way down the column. That is what keeps this
+       loop in integers: the conversion out of floating point stays out here,
+       and the whole of the haze is one addition per channel. *)
     let level = Color.clamp_channel (int_of_float (light *. 255.)) in
     let veil = Color.shade air.Atmosphere.haze (1. -. fog) in
     let pattern = w.Room.material.Material.pattern in
@@ -350,10 +351,10 @@ type mask =
 
 (* Draw one sprite as a billboard: a flat image that always faces the player,
     at perpendicular distance [depth_s]. {!Viewport.sprite_box} says where it
-    lands — foot and head projected against the sloped floor under it, width
-    from the picture's own shape — and it is drawn per pixel only where it
-    stands nearer than the opaque wall noted there, so a wall in front — even a
-    short one — hides just the part of it behind.
+    lands: foot and head projected against the sloped floor under it, width
+    from the picture's own shape. It is drawn per pixel only where it stands
+    nearer than the opaque wall noted there, so a wall in front, even a short
+    one, hides just the part of it behind.
 
     The two loops below interpolate across that rectangle rather than asking
     {!Room.sprite_column} and {!Room.sprite_row} per pixel. That is the same
@@ -372,8 +373,8 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
   let img = s.Room.image in
   let nu = img.Image.width and nv = img.Image.height in
   let fog = Atmosphere.fog air depth_s in
-  (* The room's light and the air in front of it, in the shape {!draw_wall} uses
-     and for the same reasons — a multiply for the light, since a thing in
+  (* The room's light and the air in front of it, in the shape {!draw_wall}
+     uses and for the same reasons: a multiply for the light, since a thing in
      shadow goes dark, and a blend towards the haze for the distance, since a
      thing far off goes the colour of the air.
 
@@ -381,22 +382,22 @@ let draw_sprite fb viewport ~air room (player : Player.t) (s : Room.sprite)
      {!Atmosphere.t.ambient} alone, and {!Room.sprite_light} says why: a
      billboard turns to face the player and has no orientation of its own to
      take a cosine against. Fog is folded in the same way, so the factor on a
-     texel is exactly [light] and the haze is one colour for the whole picture —
-     a billboard stands at one distance, so it is one addition per channel here
-     rather than per pixel.
+     texel is exactly [light] and the haze is one colour for the whole
+     picture. A billboard stands at one distance, so the haze is one addition
+     per channel here rather than per pixel.
 
      [glow] lifts both, as a decal's does: the light out of the dark, and its
-     own fog out of the haze. At [1.] a sprite is drawn in the colours it holds
-     wherever it stands, which is what a lamp needs and what nothing else
-     should ask for. *)
+     own fog out of the haze. At [1.] a sprite is drawn in the colours it
+     holds wherever it stands, which is what a lamp needs; nothing else
+     should ask for it. *)
   let light = Room.sprite_light s ~light:(air.Atmosphere.ambient *. fog) in
   let own_fog = Room.sprite_light s ~light:fog in
   let veil = Color.shade air.Atmosphere.haze (1. -. own_fog) in
   (* Half-open on the right and at the foot, the same as a wall's strip: a
      pixel whose centre falls outside the billboard is not the billboard's,
-     however much of it the picture overlaps. What that costs is a sprite whose
-     box has shrunk under a pixel, which now misses as often as it lands — and
-     what it buys is that missing being the same answer {!Sight} gives, since
+     however much of it the picture overlaps. The cost is that a sprite whose
+     box has shrunk under a pixel misses as often as it lands. The gain is
+     that the miss is the same answer {!Sight} gives, since
      {!Room.sprite_column} refuses a centre ray that falls outside the width. *)
   let col0 = Int.max 0 (Viewport.first_pixel left) in
   let col1 = Int.min (width - 1) (Viewport.last_pixel rightx) in
@@ -463,81 +464,82 @@ type fragment = {
 }
 (* A translucent thing to composite after the opaque geometry: a sprite, or a
     strip of a see-through wall in one column. Both let what is behind show
-    through, so they cannot each be given their own pass — a sprite in front of
-    a window must cover it, one behind it must show through — they have to be
-    sorted together and drawn farthest first. *)
+    through, so they cannot each be given their own pass: a sprite in front of
+    a window must cover it, and one behind it must show through it. They have
+    to be sorted together and drawn farthest first. *)
 
 and fragment_kind =
   | Sprite of Room.sprite
   | See_through of int * Vec.t * Ray.hit
 
-(* Draw one column of one room, and — through any open doorway the column meets
-    — of its neighbours behind it, clipped to [clip] rows.
+(* Draw one column of one room, clipped to [clip] rows, and of its neighbours
+    behind any open doorway the column meets.
 
     Everything the ray meets, wall or threshold, joins one stream ordered
     farthest first, and the painter's algorithm does the rest: a wall beyond a
     doorway is painted before it and gets covered, a wall nearer is painted
     after and covers it. A threshold with a leaf draws as a wall of that
     texture. An open one recurses, after carrying the camera and the ray into
-    the neighbour's frame, with the clip narrowed to the rows the opening covers
-    in this column.
+    the neighbour's frame, with the clip narrowed to the rows the opening
+    covers in this column.
 
-    A leaf or a lintel you can see through recurses {e as well as} drawing: the
-    neighbour fills those rows first and the translucent pass blends the leaf
-    over it. That is what [behind] below is for — the recursion is reached from
-    three places rather than one, and a threshold wearing see-through glass both
-    above and across it pays for it twice in a column, which is the price of the
-    two being separate surfaces.
+    A see-through leaf or lintel recurses as well as drawing: the neighbour
+    fills those rows first and the translucent pass blends the leaf over it.
+    That is what [behind] below is for, because the recursion is reached from
+    three places rather than one. A threshold with see-through glass both
+    above and across it pays for the recursion twice in a column, which is the
+    price of the two being separate surfaces.
 
     The {!Viewport} is deliberately not rebuilt for the nested room. A rigid
     motion is horizontal, so eye height, projection and horizon all carry over
-    unchanged, and — because it also preserves distance — a distance measured
-    three rooms deep is directly comparable with everything already in the
-    shared depth buffer. Only [pos], [dir] and [right] move.
+    unchanged. It also preserves distance, so a distance measured three rooms
+    deep is directly comparable with everything already in the shared depth
+    buffer. Only [pos], [dir] and [right] move.
 
-    [near] is how far away the doorway this room is being drawn through was met,
-    and nothing at or nearer than it is drawn: not a wall, not another opening,
-    not a sprite. It is not an approximation of the doorway but the whole of it.
-    Along one ray, which side of the threshold's line a point falls on is affine
-    in the distance and changes sign exactly where the ray crosses it — and the
-    recursion is only reached when the ray crossed the opening itself — so past
-    [near] is precisely what is beyond the doorway, and the wedge between the
-    jambs collapses, per column, to one number.
+    [near] is how far away the doorway this room is being drawn through was
+    met, and nothing at or nearer than it is drawn: not a wall, not another
+    opening, not a sprite. It is not an approximation of the doorway but the
+    whole of it. Along one ray, which side of the threshold's line a point
+    falls on is affine in the distance and changes sign exactly where the ray
+    crosses it, and the recursion is only reached when the ray crossed the
+    opening itself, so past [near] is precisely what is beyond the doorway,
+    and the wedge between the jambs collapses, per column, to one number.
 
-    Which matters because the camera arrives {e behind} the neighbour's copy of
-    the opening. Everything that room has standing on the near side of its own
+    That matters because the camera arrives behind the neighbour's copy of the
+    opening. Everything that room has standing on the near side of its own
     doorway is therefore in front of the ray, and in the room the player is
-    actually in rather than in the picture the doorway shows. A convex room never
-    has anything there; one that folds back on itself does, and without this
-    drawing it would cover the room it was supposed to be a window onto.
+    actually in rather than in the picture the doorway shows. A convex room
+    never has anything there; one that folds back on itself does, and without
+    this clip it would cover the room it was supposed to be a window onto.
 
-    Nothing accumulates. A rigid motion preserves distance, so every room is on
-    one scale — the same fact the shared depth buffer above rests on — and each
-    recursion's [near] is an opening that already passed the previous one, so it
-    only ever grows.
+    Nothing accumulates. A rigid motion preserves distance, so every room is
+    on one scale — the same fact the shared depth buffer above rests on — and
+    each recursion's [near] is an opening that already passed the previous
+    one, so it only ever grows.
 
     [entered] is the threshold this room was reached through, which must be
-    ignored. Stepping through a doorway lands the camera {e behind} the
+    ignored. Stepping through a doorway lands the camera behind the
     neighbour's own copy of it — that is what standing in a doorway looking in
-    means — so the ray meets that opening again immediately, and without this
-    the recursion would bounce straight back where it came from and spend its
-    whole budget going nowhere. Kept as well as [near], which stands at exactly
-    that threshold's distance: taking it out that way would rest on an equality
-    between two floats that have been through a transform.
+    means — so the ray meets that opening again immediately. Without this the
+    recursion would bounce straight back where it came from and spend its
+    whole budget going nowhere. It is kept as well as [near], which stands at
+    exactly that threshold's distance, because filtering it out by distance
+    would rest on an equality between two floats that have been through a
+    transform.
 
     Rooms may form a cycle, so it is [budget] and nothing else that ends the
     recursion; when it runs out the opening is filled with the world's
-    {!Atmosphere.haze}, the same colour the planes already fade into. A doorway
-    onto a room that has not been built yet takes the same fill, so a world
-    still being grown renders rather than raising. *)
+    {!Atmosphere.haze}, the same colour the planes already fade into. A
+    doorway onto a room that has not been built yet takes the same fill, so a
+    world still being grown renders rather than raising. *)
 let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
     ~clip:(top, bottom) ~near ~budget ~entered ~translucent =
   let current = World.room world room in
   let air = World.atmosphere world in
   draw_planes fb viewport ~air current pose ~column ~dir ~near ~first:top
     ~last:bottom;
-  (* One wall strip: painted straight over the column if it is opaque, held back
-     for the translucent pass if you can see through it. *)
+  (* One wall strip: painted straight over the column if it is opaque, held
+     back for the translucent pass if it is see-through. *)
   let paint ~first ~last (hit : Ray.hit) =
     if Material.opaque hit.Ray.wall.Room.material then
       draw_wall fb viewport ~air current pose ~column ~dir ~occlude:true ~first
@@ -553,11 +555,11 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
         }
         :: !translucent
   in
-  (* A threshold drawn as though it were a wall — the leaf of a door, or the
+  (* A threshold drawn as though it were a wall: the leaf of a door, or the
      lintel above an opening, which is the strip of the surrounding wall left
      standing over the gap. [index] is the threshold's own, since that is what
      this stands for; nothing on this path reads it, but a hit has to carry
-     something and a wall index would be a lie. *)
+     some index and a wall index would be wrong. *)
   let as_wall threshold ~index ~height ~material ~distance ~along =
     let wall = Room.threshold_wall threshold ~height ~material in
     { Ray.distance; along; wall; index }
@@ -571,11 +573,12 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
          [List.filter] would allocate a copy of it every column. *)
       | Ray.Wall hit when hit.Ray.distance <= near -> ()
       | Ray.Wall hit -> paint ~first:top ~last:bottom hit
-      (* The doorway we are already looking through. *)
+      (* The doorway already being looked through. *)
       | Ray.Opening opening when entered = Some opening.Ray.index -> ()
-      (* An opening in front of the doorway goes the same way, and the whole arm
-         of it: no lintel, no leaf, no recursion — and no [nothing_behind]
-         either, which would blank rows that belong to the room in front. *)
+      (* An opening in front of the doorway is skipped the same way, and the
+         whole arm of it: no lintel, no leaf, no recursion, and no
+         [nothing_behind] either, which would blank rows that belong to the
+         room in front. *)
       | Ray.Opening opening when opening.Ray.distance <= near -> ()
       | Ray.Opening opening ->
           let threshold = Room.threshold_at current opening.Ray.index in
@@ -614,8 +617,8 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
             done
           in
           (* The neighbour, in the rows this much of the opening covers. Reached
-             from three places: a threshold with nothing across it, and a leaf
-             or a lintel you can see through, which have to have something drawn
+             from three places: a threshold with nothing across it, and a
+             see-through leaf or lintel, which have to have something drawn
              behind them or their clear texels show this room's own floor. *)
           let behind ~first ~last =
             match World.portal world ~room ~threshold:opening.Ray.index with
@@ -658,13 +661,13 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
                   ~entered:(Some portal.World.twin) ~translucent
             | Some _ | None -> nothing_behind ~first ~last
           in
-          (* The wall above the opening — the strip that is what you meet over
-             the top of a closed door. No lintel means no strip: the gap already
-             runs the full height of the wall it was cut into, so there is
-             nothing here to draw and the rows above it keep the ceiling
-             [draw_planes] has already put there. A band with no rows in it is
-             skipped rather than handed on: [paint] would draw nothing anyway,
-             but [behind] would cast a whole ray to do it. *)
+          (* The wall above the opening: the strip met over the top of a closed
+             door. No lintel means no strip: the gap already runs the full
+             height of the wall it was cut into, so there is nothing here to
+             draw and the rows above it keep the ceiling [draw_planes] has
+             already put there. A band with no rows in it is skipped rather
+             than handed on: [paint] would draw nothing anyway, but [behind]
+             would cast a whole ray to do it. *)
           Option.iter
             (fun (l : Room.lintel) ->
               let last = Int.min bottom (head - 1) in
@@ -686,17 +689,17 @@ let rec draw_room_column fb viewport world ~room ~pose ~column ~dir
               end)
             threshold.lintel;
           if head <= foot then begin
-            (* The opening's head, or the ceiling where that hangs below it. A
-               gap in a wall is no way past the roof over it. *)
+            (* The opening's head, or the ceiling where that hangs below it: a
+               gap in a wall gives no view past the roof over it. *)
             let mouth =
               Int.max head (row (under_roof (floor_z +. threshold.height)))
             in
             match Room.leaf threshold with
             | Some material ->
-                (* A leaf you can see through is a wall you can see through: the
-                   room beyond has to be there for its clear texels to show, and
-                   [paint] holds the leaf itself back for the translucent pass,
-                   which blends it over what this just drew. *)
+                (* A see-through leaf is a see-through wall: the room beyond has
+                   to be there for its clear texels to show, and [paint] holds
+                   the leaf itself back for the translucent pass, which blends
+                   it over what this just drew. *)
                 if (not (Material.opaque material)) && mouth <= foot then
                   behind ~first:mouth ~last:foot;
                 paint ~first:head ~last:foot

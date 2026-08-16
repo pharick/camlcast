@@ -1,4 +1,4 @@
-(* Implementation of {!Camlcast.Room}; the interface carries the prose. *)
+(* Implementation of {!Camlcast.Room}; documentation is in the interface. *)
 
 type surface = { plane : Plane.t; material : Material.t }
 
@@ -18,26 +18,26 @@ type decal = {
 
 let decal ?(facing = Front) ?(glow = 0.) ~along ~z ~half_width ~half_height
     image =
-  (* Negated, so a nan is refused with the zeroes and the negatives, and finite
-     with it, so an infinity goes the same way — the terms {!wall} and
+  (* Negated, so a nan is refused with the zeroes and the negatives; and
+     finite, so an infinity is refused too — the terms {!wall} and
      {!threshold} are already held to.
 
-     All four numbers, and not only the two that divide. A decal is read by
-     subtracting where it is from the point being asked about and seeing whether
-     what is left falls inside its extent, and the two readers below are written
-     to answer {e unless} it falls outside. A nan falls outside nothing: it is
-     less than no bound and greater than none, so the test that should have
-     rejected the point passes it, [int_of_float] takes the nan that follows to
-     zero, and the decal answers for every point on its wall at texel column
-     zero. That is not an invisible decal or a misplaced one. It is a smear
-     across the whole wall, which the renderer draws and {!Sight} picks in front
-     of whatever is really there.
+     All four numbers are checked, not only the two that divide. A decal is
+     read by subtracting where it is from the point being asked about and
+     testing whether what is left falls inside its extent, and the two readers
+     below are written to answer unless it falls outside. A nan falls outside
+     nothing: it is less than no bound and greater than none, so the test that
+     should have rejected the point passes it, [int_of_float] takes the nan
+     that follows to zero, and the decal answers for every point on its wall
+     at texel column zero. That is not an invisible decal or a misplaced one.
+     It is a smear across the whole wall, which the renderer draws and
+     {!Sight} picks in front of whatever is really there.
 
-     An infinite half-width arrives at the same place by a different road: the
-     extent swallows the wall, and the offset divided by it is a nan again. An
-     infinite [along] is the one unreal number the readers do refuse on their
-     own, the offset coming out infinite rather than nan and failing the bound
-     honestly — which is not a reason to let it in. *)
+     An infinite half-width arrives at the same place by a different route:
+     the extent swallows the wall, and the offset divided by it is a nan
+     again. An infinite [along] is the one non-finite value the readers do
+     refuse on their own, the offset coming out infinite rather than nan and
+     failing the bound; that is still not a reason to let it in. *)
   if not (Float.is_finite along) then
     invalid_arg "Room.decal: a decal has to be somewhere along its wall";
   if not (Float.is_finite z) then
@@ -72,19 +72,19 @@ let decal_column d ~seen_from ~along =
           (Int.min (n - 1) (int_of_float (off /. width *. float_of_int n)))
       in
       (* [along] runs from the wall's [a] to its [b], and which way round that
-         is on screen is the whole of what the winding rule above decides: the
-         normal is [perp edge], so standing on the Front the walk from [a] to
-         [b] goes left to right, and standing on the Back it goes right to left.
-         The offset alone therefore names a column of the picture only from one
+         is on screen is decided by the winding rule above: the normal is
+         [perp edge], so standing on the Front the walk from [a] to [b] goes
+         left to right, and standing on the Back it goes right to left. The
+         offset alone therefore names a column of the picture only from one
          side, and from the other it names its mirror.
 
-         So the far face reads back to front. The extent is untouched — the
-         decal covers the same stretch of wall from either side, because that is
-         where the paint is — and only the picture within it is turned round,
-         which is what makes [along] a place on the wall rather than a place in
-         the image. Written here rather than in the renderer because {!Sight}
-         reads this too, and a mark drawn mirrored and picked unmirrored would
-         be a mark whose left half answered for its right. *)
+         So the far face samples the picture reversed. The extent is
+         untouched, because the decal covers the same stretch of wall from
+         either side — that is where the paint is. Only the picture within it
+         is reversed, which is what makes [along] a place on the wall rather
+         than a place in the image. Done here rather than in the renderer
+         because {!Sight} reads this too, and a mark drawn mirrored but picked
+         unmirrored would have its left half answering for its right. *)
       Some (match seen_from with Front -> u | Back -> n - 1 - u)
 
 let decal_row d ~above =
@@ -181,12 +181,12 @@ type threshold = {
   normal : Vec.t;
 }
 
-(* A lintel is the strip of wall above an opening, so one that does not reach the
-   opening it stands over describes a wall that cannot be drawn. Written here
-   rather than inside [threshold] because [with_lintel] hangs one on a threshold
-   that has already been built and has to hold it to the same terms: a private
-   type earns nothing from a check every route to it does not make. [who] is
-   whichever of the two was called, so the message names it. *)
+(* A lintel is the strip of wall above an opening, so one that does not reach
+   the opening it stands over describes a wall that cannot be drawn. Written
+   here rather than inside [threshold] because [with_lintel] hangs one on a
+   threshold that has already been built and has to apply the same check; the
+   check only protects the private type if every route to it makes it. [who]
+   is whichever of the two was called, so the message names it. *)
 let check_lintel ~who ~name ~height lintel =
   Option.iter
     (fun (l : lintel) ->
@@ -227,10 +227,11 @@ let ceiling_plane t = Option.map (fun s -> s.plane) (ceiling_surface t)
 let sky t = match t.ceiling with Open s -> Some s | Roof _ -> None
 
 let threshold_wall (t : threshold) ~height ~material : wall =
-  (* The geometry is safe by construction — every derived field is copied from a
-     threshold that already passed the same test [wall] would apply — but the
-     height arrives from outside, so it is held to [wall]'s terms here. Without
-     it this is the one route to a [wall] the checks below do not guard. *)
+  (* The geometry is safe by construction: every derived field is copied from
+     a threshold that already passed the same test [wall] would apply. The
+     height arrives from outside, so it is held to [wall]'s terms here.
+     Without this check it would be the one route to a [wall] the checks below
+     do not guard. *)
   if not (Float.is_finite height && height > 0.) then
     invalid_arg "Room.threshold_wall: the wall has to rise above the floor";
   {
@@ -244,30 +245,31 @@ let threshold_wall (t : threshold) ~height ~material : wall =
     normal = t.normal;
   }
 
-(* The length is enough to check on its own, the way Transform.between explains:
-   Vec.length folds every bad coordinate into it, so a nan end gives a nan
-   length and an infinite one a length whose reciprocal is 0. Negated, so both
-   are refused with the coincident ends. What the check buys is the normal —
-   Vec.normalize hands a zero vector back unchanged, so a wall of no length
-   would carry one that is neither a unit vector nor perpendicular to anything,
-   and Atmosphere.face_shading, side_of and every decal placed along it read
-   exactly that. Nothing downstream refuses it a second time: Ray.segment finds
-   no intersection with a zero edge and distance_to_segment degrades to a point,
-   so it would stand there as an invisible collision blocker.
+(* The length is enough to check on its own, the way Transform.between
+   explains: Vec.length folds every bad coordinate into it, so a nan end gives
+   a nan length and an infinite one a length whose reciprocal is 0. Negated,
+   so both are refused with the coincident ends. What the check protects is
+   the normal: Vec.normalize hands a zero vector back unchanged, so a wall of
+   no length would carry a normal that is neither a unit vector nor
+   perpendicular to anything, and Atmosphere.face_shading, side_of and every
+   decal placed along it read exactly that. Nothing downstream refuses it a
+   second time: Ray.segment finds no intersection with a zero edge and
+   distance_to_segment degrades to a point, so it would stand there as an
+   invisible collision blocker.
 
-   The height buys the same thing at the other end of the wall.
-   Renderer.draw_wall works out a top of floor_z +. height and draws nothing at
-   all unless it clears the floor, while blocked and passable never read the
-   height in the first place — so a wall that does not rise is the same
-   invisible blocker by another route, and a nan one is too, that comparison
-   being false as well.
+   The height check protects the same thing at the other end of the wall.
+   Renderer.draw_wall works out a top of floor_z +. height and draws nothing
+   at all unless it clears the floor, while blocked and passable never read
+   the height. So a wall that does not rise is the same invisible blocker by
+   another route, and a nan height is too, that comparison being false as
+   well.
 
-   Vec.normalizable rather than is_finite && > 0., because those two are not the
-   whole of what normalising needs: a length below about 5.6e-309 is both, and
-   its reciprocal is still infinity. The normal then comes back (infinity, nan)
-   — not a unit vector, not perpendicular, and read as it stands by the three
-   things named above. side_of answers Back for every point, the dot product
-   being a nan that fails the comparison. *)
+   Vec.normalizable rather than is_finite && > 0., because those two are not
+   the whole of what normalising needs: a length below about 5.6e-309 is both,
+   and its reciprocal is still infinity. The normal then comes back
+   (infinity, nan): not a unit vector, not perpendicular, and read as it
+   stands by the three things named above. side_of answers Back for every
+   point, the dot product being a nan that fails the comparison. *)
 let wall ~height ~material ?(decals = []) a b =
   let edge = Vec.sub b a in
   let length = Vec.length edge in
@@ -340,8 +342,8 @@ let add_decal t ~wall decal =
 
 (* Shortest distance from a point to the segment a..b: project the point onto
    the line, clamp to the segment's ends, and measure to that nearest point.
-   Not in the interface — the two measurements built on it are what anything
-   outside wants, and neither of them is this one under another name. *)
+   Not in the interface: outside callers want the two measurements built on
+   it, and neither of them is this one under another name. *)
 let distance_to_segment (p : Vec.t) ~a ~b =
   let edge = Vec.sub b a in
   let length2 = Vec.dot edge edge in
@@ -361,24 +363,25 @@ let blocked t (p : Vec.t) =
     (fun w -> distance_to_wall w p < Config.collision_padding)
     t.walls
 
-(* {!Vec.parallel} scaled by both lengths, which is the same figure and the same
-   reasoning as {!Ray.segment} — see {!Vec.parallel} for both, and for why the
-   two share it rather than each keeping a copy with a comment about the other.
-   What is at stake on this side is a step rather than a ray: {!Player.slide}
-   clips a leg where it crosses a doorway and asks again about the remainder,
-   which can be a whisker, and a remainder that came out parallel is a doorway
-   {!World.crossing} does not report, a room the player never enters, and a walk
-   on out through the wall it was cut into.
+(* {!Vec.parallel} scaled by both lengths: the same figure and the same
+   reasoning as {!Ray.segment}. See {!Vec.parallel} for both, and for why the
+   two share it rather than each keeping a copy with a comment about the
+   other. What is at stake on this side is a step rather than a ray:
+   {!Player.slide} clips a leg where it crosses a doorway and asks again about
+   the remainder, which can be very short, and a remainder that came out
+   parallel is a doorway {!World.crossing} does not report, a room the player
+   never enters, and a walk on out through the wall it was cut into.
 
    Inclusive where Ray's is strict, so that a [b1..b2] of no length keeps the
    branch it has always taken: its [denom] is zero and so is its scaled
    tolerance, and a strict test would send it to the crossing branch to divide
    by that zero and come back false through a nan.
 
-   [collinear] is neither of those and stays here: it is not an area and is not
-   scaled by both. Divided by [length], the cross product it is tested against
-   is the offset of [b1] from the line of [a1..a2] — a distance in world units,
-   which compares to one, and which nothing else in the engine measures. *)
+   [collinear] is neither of those and stays here: it is not an area and is
+   not scaled by both. Divided by [length], the cross product it is tested
+   against is the offset of [b1] from the line of [a1..a2] — a distance in
+   world units, which compares to one, and which nothing else in the engine
+   measures. *)
 let collinear = 1e-9
 
 let segments_cross ~a1 ~a2 ~b1 ~b2 =
@@ -411,37 +414,37 @@ let distance_between_segments ~a1 ~a2 ~b1 ~b2 =
    because only the sign is read. *)
 let side ~a ~b p = Vec.cross (Vec.sub b a) (Vec.sub p a)
 
-(* May a step be taken with this segment — a wall, or a doorway that stops
-   one — as near as it is?
+(* Whether a step may be taken with this segment — a wall, or a doorway that
+   stops one — as near as it is.
 
    The ordinary rule is the swept disc, and the first line is the whole of it:
-   the player is a circle of {!Config.collision_padding}, so a step that brings
-   that circle against the segment anywhere along its length is refused. Testing
-   the sweep rather than the destination is what stops a long step tunnelling
-   through a thin wall.
+   the player is a circle of {!Config.collision_padding}, so a step that
+   brings that circle against the segment anywhere along its length is
+   refused. Testing the sweep rather than the destination is what stops a
+   long step tunnelling through a thin wall.
 
-   The rest is the way out of a state that rule on its own has no exit from. A
-   player can be inside the padding without having walked there — {!World.set_door}
-   shuts a leaf and deliberately moves nobody, {!World.replace_room} can grow a
-   wall beside them, and a description that reshapes a room around a pose it
-   keeps does the same. Once there every step is refused, whichever way it
-   points, because the swept segment starts where the player is standing: the
-   step {e away} fails the same test as the step into it. The player is held
-   there until the game undoes what it did, and a game closing a door behind
-   someone who has just walked through it has no reason to think it did
-   anything.
+   The rest is the exit from a state the first rule alone cannot leave. A
+   player can be inside the padding without having walked there:
+   {!World.set_door} shuts a leaf and deliberately moves nobody,
+   {!World.replace_room} can grow a wall beside them, and a description that
+   reshapes a room around a pose it keeps does the same. Once there, every
+   step is refused whichever way it points, because the swept segment starts
+   where the player is standing, so the step away fails the same test as the
+   step into it. The player would be held there until the game undid what it
+   did, and a game closing a door behind someone who has just walked through
+   it has no reason to think it did anything.
 
    So a step that does not decrease the separation is allowed. It cannot make
-   the state worse, and it is the only thing that ends it — one step out and the
-   ordinary rule has the player again.
+   the state worse, and it is the only thing that ends it: one step out and
+   the ordinary rule applies again.
 
-   Passing through is still refused, and that test reads the {e sign} of the
-   offset rather than whether the two segments touch. Touching is the case that
-   matters here: a crossing leaves the player on the threshold line itself, an
-   offset of exactly zero, and a test that refused a step from there would leave
-   the commonest way into this state as the one way it could not be left. Zero
-   is on neither side, so it passes, and only a step that starts one side and
-   ends the other through the segment is turned back. *)
+   Passing through is still refused, and that test reads the sign of the
+   offset rather than whether the two segments touch. Touching is the case
+   that matters here: a crossing leaves the player on the threshold line
+   itself, an offset of exactly zero, and a test that refused a step from
+   there would make the commonest way into this state the one way it could
+   not be left. Zero is on neither side, so it passes, and only a step that
+   starts on one side and ends on the other through the segment is refused. *)
 let clears_segment ~from ~dest ~a ~b =
   distance_between_segments ~a1:from ~a2:dest ~b1:a ~b2:b
   >= Config.collision_padding
@@ -468,10 +471,10 @@ let path ?(closed = false) ~height ~material points =
   if not (Float.is_finite height && height > 0.) then
     invalid_arg "Room.path: the walls have to rise above the floor";
   let last = if closed then n - 1 else n - 2 in
-  (* Refused here rather than left to {!wall}, so that the habit a closed path
-     invites — repeating the first point at the end to shut the loop — is
-     refused under the name the caller wrote and not under one they never
-     called. Negated, so a nan point is refused with the repeated ones. *)
+  (* Refused here rather than left to {!wall}. A closed path invites repeating
+     the first point at the end to shut the loop, and that mistake should be
+     refused under the name the caller wrote, not under one they never called.
+     Negated, so a nan point is refused with the repeated ones. *)
   for i = 0 to last do
     let step = Vec.length (Vec.sub arr.((i + 1) mod n) arr.(i)) in
     if not (Vec.normalizable step) then
@@ -481,18 +484,18 @@ let path ?(closed = false) ~height ~material points =
     (Int.max 0 (last + 1))
     (fun i -> wall ~height ~material arr.(i) arr.((i + 1) mod n))
 
-(* Guarded by the caller, not here — bar the one refusal at the bottom that
-   only the arithmetic can make: {!doorway} and {!P.opening} each refuse the
-   degenerate cases in their own words, and this is the arithmetic they share
-   once those have passed. Same shape as {!Extent.fits}.
+(* Guarded by the caller, not here, except for the one refusal at the bottom
+   that only the arithmetic can make: {!doorway} and {!P.opening} each refuse
+   the degenerate cases in their own words, and this is the arithmetic they
+   share once those have passed. Same shape as {!Extent.fits}.
 
    Halved and then divided, not divided by the doubled span: the doubling is
-   the one step here that could overflow, and past it the fraction came out 0
-   and the cut a full-span threshold nobody asked for — silently, where every
-   other wrong cut is refused out loud. Two divisions round once, exactly as
-   the one did — the halving is exact — so nothing else moves; at
-   [width = span] the numerator is exactly zero either way, and a full-width
-   doorway still cancels exactly. *)
+   the one step here that could overflow, and past overflow the fraction came
+   out 0 and the cut was a full-span threshold nobody asked for — silently,
+   where every other wrong cut is refused with an error. Two divisions round
+   once, exactly as the one division did, because the halving is exact, so
+   nothing else moves; at [width = span] the numerator is exactly zero either
+   way, and a full-width doorway still cancels exactly. *)
 let cut_points ~width a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
@@ -531,12 +534,12 @@ let doorway ~name ?door ~width ~opening ~height ~material a b =
   if not (opening > 0. && opening <= height) then
     invalid_arg ("Room.doorway: the opening has to fit under the wall: " ^ name);
   let p, q = cut_points ~width a b in
-  (* A doorway exactly as wide as its wall is allowed above, and leaves no jamb
-     at either end. Those ends are dropped rather than built whenever {!wall}
-     would refuse them — no length, or a length too fine to normalize, which a
-     cut a few ulps short of the whole span leaves behind at the bottom of the
-     float range. Nothing is lost in the dropping: a jamb that thin was never
-     going to stop a ray or a step. *)
+  (* A doorway exactly as wide as its wall is allowed above, and leaves no
+     jamb at either end. Those ends are dropped rather than built whenever
+     {!wall} would refuse them: no length, or a length too fine to normalize,
+     which a cut a few ulps short of the whole span leaves behind at the
+     bottom of the float range. Dropping them loses nothing, because a jamb
+     that thin could never stop a ray or a step. *)
   let jamb (x, y) =
     if Vec.normalizable (Vec.length (Vec.sub y x)) then
       Some (wall ~height ~material x y)
@@ -606,8 +609,9 @@ let regular_polygon ~center ~radius ~sides ~rotation ~height ~material =
   let corners =
     corners_at ~who:"Room.regular_polygon" ~center ~radius ~sides ~rotation
   in
-  (* After the corners, which is where it was: the shape is refused before the
-     height so that a caller who got both wrong hears about the shape. *)
+  (* Checked after the corners, keeping the original order: the shape is
+     refused before the height, so a caller who got both wrong hears about
+     the shape. *)
   if not (Float.is_finite height && height > 0.) then
     invalid_arg "Room.regular_polygon: the walls have to rise above the floor";
   path ~closed:true ~height ~material corners
