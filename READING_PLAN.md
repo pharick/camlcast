@@ -78,7 +78,7 @@ Hold those two, and every file below is a detail of one or the other.
   shows the module used honestly, and shows what the author considered the
   edge cases. Nothing in `test/` opens a window, so every suite is also
   runnable while you read: `dune exec test/test_ray.exe -- --verbose`.
-- **Keep the guides beside the clusters.** The three `.mld` pages under
+- **Keep the guides beside the clusters.** The three guides under
   `doc/` (published at [pharick.github.io/camlcast](https://pharick.github.io/camlcast/))
   were written against this exact code. Where a phase below says "guide:
   Phase 4", that is `doc/building-the-engine.mld`'s Phase 4, and it derives
