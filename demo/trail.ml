@@ -1,32 +1,28 @@
-(** {b Traversal traces.} Every doorway a step went through, in the order it
-    went through them.
+(** {b Traversal traces.} Every doorway a step went through, in order.
 
     {!Camlcast_core.Player.traverse} returns where the player ended up {e and} a
     list of crossings, each naming the room and threshold it left by, the room
-    and threshold it arrived at, and the transform applied on the way.
-    {!Camlcast_core.Engine.move} is the same thing for a whole frame, with the
-    turn applied first; {!Camlcast_core.Engine.step} is that with the list
-    dropped, which is what every other demo here uses.
-    {!Camlcast_core.Player.crossed} answers only whether the list is empty,
-    which is all a world that grows needs.
+    and threshold it arrived at, and the transform applied.
+    {!Camlcast_core.Engine.move} is the same for a whole frame, with the turn
+    applied first; {!Camlcast_core.Engine.step} is that with the list dropped,
+    which every other demo here uses. {!Camlcast_core.Player.crossed} answers
+    only whether the list is empty, which is all a world that grows needs.
 
-    A frame can cross more than one doorway. Movement resolves its two axes one
+    A frame can cross more than one doorway: movement resolves its two axes one
     after the other, and each leg can go through an opening of its own — so the
-    list, and its order, are the answer rather than a count.
+    list and its order are the answer, not a count.
 
-    What this demo builds from them is the thing the list exists for: a return
-    route. Each crossing is pushed onto a stack unless it is the exact reverse
-    of the one on top, in which case that one is popped. Walk east through the
-    doorways and the ticks along the bottom of the screen accumulate; walk back
-    and they come off one at a time. The row of ticks is where you would have to
-    walk to get home.
+    This demo builds a return route from the crossings. Each crossing is pushed
+    onto a stack unless it is the exact reverse of the one on top, which is
+    popped instead. Walking east through the doorways accumulates ticks along
+    the bottom of the screen; walking back removes them one at a time. The row
+    of ticks is the route home.
 
-    That it is exact matters more than it sounds. The rooms here are laid out in
-    a line, but nothing in the engine says they must be — a link is derived from
-    two thresholds and from nothing else, so a corridor can return you somewhere
-    it could not possibly go. A route home built from the crossings still
-    arrives, because it is a record of what was walked and not a guess from the
-    geometry. *)
+    Exactness matters. The rooms here are laid out in a line, but the engine
+    does not require that: a link is derived from two thresholds and from
+    nothing else, so a corridor can return the player somewhere it could not
+    physically go. A route home built from the crossings still arrives, because
+    it records what was walked rather than guessing from the geometry. *)
 
 open Camlcast
 
@@ -36,9 +32,8 @@ let depth = 8.
 let rooms = 5
 let named index = Printf.sprintf "chamber-%d" index
 
-(* One chamber of the corridor, with a doorway back the way you came and one on,
-   except at the two ends. Alternating coats, so it is obvious you have gone
-   through something. *)
+(* One chamber of the corridor, with a doorway back and a doorway on, except at
+   the two ends. Coats alternate so crossings are visible. *)
 let chamber ~index =
   let sw = Vec.make 0. (-.width)
   and se = Vec.make depth (-.width)
@@ -70,13 +65,13 @@ let chamber ~index =
         ]
       else []))
 
-(** Is this crossing the undoing of that one — the same doorway, gone through
-    the other way? Both sides are compared, because a room can be reached by
-    more than one of its doorways and only one of them is the way back.
+(** Whether crossing [a] undoes crossing [b]: the same doorway, gone through the
+    other way. Both sides are compared, because a room can be reached by more
+    than one of its doorways and only one of them is the way back.
 
-    By name rather than by index, which is what a description deals in: the same
-    comparison, and one that would still be right if the rooms were written down
-    in another order. *)
+    Compared by name rather than by index: names are what a description deals
+    in, and the result stays right if the rooms are written down in another
+    order. *)
 let undoes (a : Events.crossing) (b : Events.crossing) =
   a.Events.from_room = b.Events.to_room
   && a.Events.from_doorway = b.Events.to_doorway

@@ -1,20 +1,18 @@
-(** {b Drawing over the world.} The overlay hook runs after the world has been
+(** {b Drawing over the world.} The overlay hook runs after the world is
     rendered into the framebuffer and before the buffer reaches the screen, so
-    what it draws is in front of everything and clipped by nothing.
+    its output is in front of everything and clipped by nothing.
 
-    Three things are drawn here, all in {!Camlcast_core.Paint}: a crosshair in
-    the middle, a meter along the bottom that fills over ten seconds and starts
-    again, and a translucent panel behind the meter. The panel is drawn with
+    Three things are drawn, all in {!Camlcast_core.Paint}: a central crosshair,
+    a meter along the bottom that fills over ten seconds and repeats, and a
+    translucent panel behind the meter. The panel uses
     {!Camlcast_core.Framebuffer.blend} rather than
-    {!Camlcast_core.Framebuffer.set} — walk up to a wall and it tints the wall
-    rather than replacing it.
+    {!Camlcast_core.Framebuffer.set}, so it tints a nearby wall rather than
+    replacing it.
 
-    Note what the coordinates are. The overlay draws into the framebuffer, which
-    is a whole-number fraction of the window (see
-    {!Camlcast_core.Renderer.internal_size}), not into the window itself. Resize
-    the window and the crosshair stays in the middle and the meter stays the
-    width of the screen, because both are measured from the buffer it is handed.
-*)
+    The coordinates are framebuffer coordinates — a whole-number fraction of the
+    window (see {!Camlcast_core.Renderer.internal_size}), not window
+    coordinates. On resize the crosshair stays centred and the meter stays
+    screen-wide, because both are measured from the buffer handed in. *)
 
 open Camlcast
 
@@ -26,12 +24,11 @@ let se = Vec.make 7. (-7.)
 let ne = Vec.make 7. 7.
 let nw = Vec.make (-7.) 7.
 
-(** The layer, as a function of how far round the cycle it is and how big the
-    buffer turned out to be.
+(** The layer, as a function of the cycle fraction and the buffer size.
 
     The old version drew this with a callback handed the framebuffer. It is part
-    of the description now, and {!Camlcast.Events.use_viewport} is how it still
-    knows the size — which is not the window's: the engine renders at whatever
+    of the description now, and {!Camlcast.Events.use_viewport} supplies the
+    size — which is not the window's: the engine renders at whatever
     whole-number fraction of it stays under [max_render_height] and stretches
     the result. *)
 let meter ~fraction ~viewport:(width, height) =

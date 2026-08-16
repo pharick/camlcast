@@ -1,38 +1,35 @@
 (** {b Stateful doors.} A leaf hung in a doorway is [Open] or [Closed], and that
-    decides both what you see and what you can walk through.
+    decides both what is drawn and what can be walked through.
 
     Three doorways along one wall, all the same size, differing only in what
     hangs in them:
 
-    - the {b left} one is a bare opening — no door at all, and the room beyond
-      is drawn through it;
-    - the {b middle} one has an oak door: press {b E} beside it to open or shut
+    - {b left}: a bare opening — no door, and the room beyond is drawn through
       it;
-    - the {b right} one has an iron door that this demo will not open. Press E
-      beside it and the meter flashes red instead.
+    - {b middle}: an oak door. Press {b E} beside it to open or shut it;
+    - {b right}: an iron door this demo will not open. Pressing E beside it
+      flashes the meter red instead.
 
     An open door draws nothing and stops nothing, so it is indistinguishable
     from the bare opening beside it. A closed one draws as a leaf of its own
-    material and refuses the step — walking into a shut door is how you find out
-    it is shut.
+    material and refuses the step — a shut door is discovered by walking into
+    it.
 
     {b The third door is the point.} The engine has no notion of a locked door;
     it knows [Open] and [Closed] and nothing else. "Locked" is this demo's word
-    for a door it declines to open, and the whole of that rule is {!locked}
-    below — a list of the doorways it will not touch. An engine that carried a
-    [Locked] state would have treated it exactly as [Closed] anyway, so the rule
-    would have lived here regardless; this way it is written where it is
-    decided.
+    for a door it declines to open, and the whole rule is {!locked} below — a
+    list of the doorways it will not touch. An engine that carried a [Locked]
+    state would have treated it exactly as [Closed] anyway, so the rule would
+    have lived here regardless; this way it is written where it is decided.
 
-    What the division costs is visible in {!locked} too: it has {e two} entries
-    for one door, because a door has two sides and a game's record of it has to
-    agree with itself just as the engine's does. {!Camlcast_core.World.set_door}
-    keeps the engine's two sides in step for you — open the middle door, walk
-    through, look back, and it is open from there — but only for the part the
-    engine knows about.
+    Both sides of a doorway share one name, so the game's record and the
+    engine's cannot disagree about a door's state — the bookkeeping
+    {!Camlcast_core.World.set_door} used to do. Open the middle door, walk
+    through, look back: it is open from there too.
 
-    The meter along the bottom is the nearest door: empty when it is open, full
-    when it is shut, red for a moment when this demo refuses to work it. *)
+    The meter along the bottom is the door under the crosshair: empty when it is
+    open, full when it is shut, red for a moment when this demo refuses to work
+    it. *)
 
 open Camlcast
 
@@ -49,8 +46,8 @@ let flat = Plane.horizontal 0.
     so there is one name for one door and nothing to keep in step. *)
 let locked = [ "sealed" ]
 
-(* The hall you arrive in: a wide room whose east wall is three doorways. All
-   three cut south to north, so the wall's winding is unbroken. *)
+(* The arrival hall: a wide room whose east wall is three doorways. All three
+   cut south to north, so the wall's winding is unbroken. *)
 let hall_sw = Vec.make (-10.) (-7.)
 let hall_se = Vec.make 0. (-7.)
 let hall_ne = Vec.make 0. 7.
@@ -69,8 +66,8 @@ let leaf ~opened name =
   | "sealed" -> Some (Door.make iron)
   | _ -> None
 
-(* What is behind each of them: the same small chamber three times over, each
-   with its own way back, and its own copy of whatever hangs in it. *)
+(* Behind each doorway: the same small chamber three times over, each with its
+   own way back and its own copy of whatever hangs in it. *)
 let chamber =
   Element.declare ~name:"chamber" @@ fun (name, door, reacts) ->
   let sw = Vec.make 0. (-3.)

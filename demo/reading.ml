@@ -1,35 +1,30 @@
 (** The one exception the demos raise, for art they cannot read.
 
-    Every loader in the engine answers with a [result], and everything in these
-    demos that can wait for an answer takes it that way. What cannot wait is a
-    world forced inside a frame: {!Loading}, {!Typeface} and {!Text} each hold
-    theirs behind a [lazy] so that a missing file does not stop
-    [camlcast-demo --list] from listing anything, and by the time one is forced
-    there is nowhere for an [Error] to go. So they raise, and
-    {!Catalogue.attempt} turns the raise back into the [`Msg] the launcher
-    reports on.
+    Engine loaders return [result], and demo code that can propagate an answer
+    does so. A world forced inside a frame cannot: {!Loading}, {!Typeface} and
+    {!Text} hold theirs behind a [lazy] so a missing file does not stop
+    [camlcast-demo --list] from listing, and by the time one is forced there is
+    nowhere for an [Error] to go. They raise, and {!Catalogue.attempt} turns the
+    raise back into the [`Msg] the launcher reports.
 
-    This is here so that the catching side can name what it is catching. It used
-    to catch [Failure], which those three raised with [failwith] — and [Failure]
-    is not theirs: any [List.nth] off the end of a list, anywhere inside a
-    demo's frame, arrived at the launcher dressed as a demo whose art could not
-    be read, with a message about a file having nothing to do with it. One
-    exception of our own costs a module of four lines and means the seam catches
-    what it meant to.
+    A dedicated exception costs a module of four lines and lets the catching
+    side name what it catches. The previous code caught [Failure], which those
+    three raised with [failwith] — but any [List.nth] off the end of a list
+    inside a demo's frame also raises [Failure], and arrived at the launcher as
+    an unreadable-art report naming an unrelated file.
 
-    [Invalid_argument] is deliberately still not caught, and is the other kind
-    of mistake: a world that does not join up, a font atlas the wrong shape.
-    Stopping with one of those named is the honest report of it. *)
+    [Invalid_argument] is deliberately still not caught: it signals the other
+    kind of mistake — a world that does not join up, a font atlas the wrong
+    shape — and should stop the program with its name. *)
 
 exception Unreadable of string
 
-(** [or_raise what result] is the value, or [Unreadable] saying [what] and what
-    the loader said about it.
+(** [or_raise what result] is the value, or raises [Unreadable] with [what] and
+    the loader's message.
 
-    [what] names the thing that could not be read, because the message is the
-    whole of what survives the trip to the launcher — the point of raising
-    rather than crashing is that a player is told which file to go and look at.
-*)
+    [what] names the thing that could not be read, because the message is all
+    that reaches the launcher — the point of raising rather than crashing is
+    telling the player which file to check. *)
 let or_raise what = function
   | Ok value -> value
   | Error (`Msg message) -> raise (Unreadable (what ^ ": " ^ message))

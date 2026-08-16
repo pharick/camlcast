@@ -1,29 +1,26 @@
 (** The showcase level's wall patterns: masonry, joinery, tile and glazing.
 
-    Each is a pure function of [u] and [v] — which is what makes every one of
-    them testable — handed to {!Camlcast_core.Texture.generate}. That is one of
-    the two ways in: the {!Loading} demo reads its patterns from files with
-    {!Camlcast_core.Texture.load} instead. Two of them, {!bars} and {!glass}, go
-    through {!Camlcast_core.Texture.generate_masked} and so carry an alpha; a
-    {!Camlcast_core.Material} wearing either is see-through, which is the whole
-    mechanism behind the renderer's translucent pass.
+    Each is a pure function of [u] and [v] — which is what makes each testable —
+    handed to {!Camlcast_core.Texture.generate}. That is one of the two ways in:
+    the {!Loading} demo reads its patterns from files with
+    {!Camlcast_core.Texture.load} instead. {!bars} and {!glass} go through
+    {!Camlcast_core.Texture.generate_masked} and so carry an alpha; a
+    {!Camlcast_core.Material} wearing either is see-through, the mechanism
+    behind the renderer's translucent pass.
 
     {1 Colour is an argument}
 
-    Every one of these takes its colours {e before} [u] and [v], so a partial
-    application is a pattern and the same function serves any number of them.
-    {!Surfaces} is where that is collected: {!checker} is applied twice, once
-    for a yellow tiled floor and once for a grey-brown one, and the two are one
-    function apart.
+    Every pattern takes its colours {e before} [u] and [v], so a partial
+    application is a pattern and one function serves any number of them.
+    {!Surfaces} collects these: {!checker} is applied twice, once for a yellow
+    tiled floor and once for a grey-brown one.
 
-    Two of them take {e two} colours, because two is what the thing has:
-    {!brick}'s mortar is not tinted brick, and the lead of a leaded window is
-    not tinted glass. Those are the patterns that a texture carrying only a
-    brightness could not have drawn, however it was dressed afterwards — the
+    Two patterns take {e two} colours, because the material has two: {!brick}'s
+    mortar is not tinted brick, and the lead of a leaded window is not tinted
+    glass. A texture carrying only a brightness could not have drawn those — the
     mortar would have been pale red between red bricks. Everywhere else a single
-    colour through {!Camlcast_core.Color.level} is the honest answer, because a
-    bevel and a plank shadow really are the same material with less light on
-    them. *)
+    colour through {!Camlcast_core.Color.level} suffices, because a bevel and a
+    plank shadow are the same material with less light on them. *)
 
 open Camlcast_core
 
@@ -31,8 +28,7 @@ let hash = Texture.hash
 
 (** Running bond masonry: courses 16 texels high, every other one shifted by
     half a brick so the vertical joints never line up between courses. The
-    mortar is its own colour, and a paler, flatter one — it is the thing you can
-    see the wall was built out of. *)
+    mortar is its own colour, a paler and flatter one. *)
 let brick ~color ~mortar ~u ~v =
   let course = v / 16 in
   let u = (u + if course land 1 = 0 then 0 else 16) mod Texture.default_size in

@@ -1,68 +1,62 @@
-(** {b Marking a wall.} Aim at one, press {b C}, and a chalk symbol is on it —
-    where the crosshair was, on the face you were looking at, and there for the
-    rest of the run.
+(** {b Marking a wall.} Aim at one, press {b C}, and a chalk symbol appears
+    where the crosshair was, on the face being looked at, for the rest of the
+    run.
 
-    {!Camlcast_core.Sight.look} already said what the crosshair is on. A wall
+    {!Camlcast_core.Sight.look} already says what the crosshair is on. A wall
     hit reports four numbers, and they are exactly the four a
     {!Camlcast_core.Room.type-decal} is made of: [index] is which wall, [along]
     and [z] are that wall's own coordinates, and [facing] is the face being
-    looked at. Nothing is converted between the two ends — the mark is put where
+    looked at. Nothing is converted between the two ends — the mark lands where
     the crosshair was because those are the same numbers.
 
     {b Marks are on one side.} A chalk stroke is paint, and paint is on one face
-    of a wall. The free-standing partition across the middle of the hall is the
-    only place you can check that: mark it, walk round an end, and there is
-    nothing on the back. The rest of the hall is its own boundary, and the far
-    face of that is not somewhere you can get to.
+    of a wall. The free-standing partition across the hall is the only place to
+    check: mark it, walk round an end, and the back is bare. The rest of the
+    hall is its own boundary, whose far face is unreachable.
 
-    {b Marks survive the room being rebuilt.} The hall is built again from its
-    parts every frame — every wall, both planes, all new values. The chalk is
-    not part of that room. It is a list this demo keeps, re-applied with
-    {!Camlcast_core.Room.add_decal} after the rebuild, which is the only thing
-    that makes it persistent: the engine has no memory of a mark, and a game
-    that dropped its list would lose them all.
+    {b Marks survive the room being rebuilt.} The hall is rebuilt from its parts
+    every frame — every wall, both planes, all new values. The chalk is not part
+    of that room: it is a list this demo keeps, re-applied with
+    {!Camlcast_core.Room.add_decal} after the rebuild. That alone makes it
+    persistent — the engine has no memory of a mark, and a game that dropped its
+    list would lose them all.
 
-    {b What is the game's, not the engine's.}
+    {b What is the game's, not the engine's:}
 
-    - {b Eight strokes.} How many marks there may be is a rule with no engine
-      opinion behind it. The counter is in this file.
+    - {b Eight strokes.} The mark limit is a rule with no engine opinion behind
+      it. The counter is in this file.
     - {b Two symbols,} an arrow and a cross, on {b 1} and {b 2}. What a mark
-      means is the player's business and nothing else here reads it. They are
-      also chalked with different [glow]s — see below.
-    - {b Your own room only.} You can see a wall through the doorway and
-      {!Camlcast_core.Sight} will name it, but chalking it would be reaching
-      through a wall. {!markable} is where "not through a doorway" is written
-      down, in one line, off [crossed].
+      means is the player's business and nothing else here reads it. They also
+      carry different [glow]s — see below.
+    - {b The current room only.} {!Camlcast_core.Sight} names a wall seen
+      through the doorway, but chalking it would be reaching through a wall.
+      {!markable} writes "not through a doorway" in one line, off [crossed].
     - {b Within arm's reach.} §6 has chalk placed "directly on" a wall, so a
-      wall further than {!reach} away is named but not markable — walk up to the
-      one you mean. That is one comparison against the [distance]
-      {!Camlcast_core.Sight} already reports.
+      wall further than {!reach} away is named but not markable. One comparison
+      against the [distance] {!Camlcast_core.Sight} already reports.
 
-    The crosshair says which of those you are up against: {b white} for nothing,
-    {b amber} for a wall you cannot mark, and {b chalk} for one you can. Where
-    there is something to be done about it — walk closer, turn round, find more
-    chalk — {!refusal} puts the word under the crosshair.
+    The crosshair reports the case: {b white} for nothing, {b amber} for a wall
+    that cannot be marked, {b chalk} for one that can. Where the player can act
+    on the reason — walk closer, turn round, find more chalk — {!refusal} puts
+    the word under the crosshair.
 
     {b The lamp is the atmosphere, and one of the two chalks glows against it.}
-    A failing lamp here closes {!Camlcast_core.World.atmosphere} in and touches
-    nothing else — a single record update per frame, no room rebuilt for it, and
-    what a game should want a lamp to be.
+    A failing lamp closes {!Camlcast_core.World.atmosphere} in and touches
+    nothing else — a single record update per frame, no room rebuilt for it.
 
     That would take plain chalk with it. A decal is lit by exactly the same
     orientation-and-fog factor as the wall under it, so paint fades into the
-    dark along with what it is painted on — correct for a poster, and useless
-    for the marks a player left to find their way back by. Which is what
-    {!Camlcast_core.Room.type-decal}'s [glow] is for, and why the two symbols
-    here carry different ones.
+    dark with what it is painted on — correct for a poster, useless for marks
+    left as wayfinding. That is what {!Camlcast_core.Room.type-decal}'s [glow]
+    is for, and why the two symbols carry different ones.
 
-    Chalk a wall with an arrow and a cross side by side and watch the lamp go
-    down. Both dim, because a glow lifts a decal towards its own colours rather
-    than pinning it there. But the arrow dims {e with} the wall and the cross
-    hardly does: across the swing the wall falls to 0.39 of its brightness and
-    the arrow to 0.39 with it, while the cross keeps 0.86. §6's "faintly
-    phosphorescent" is that one number, it is per mark rather than per room, and
-    it does not change as the light does — a material that glows glows the same
-    whatever the lamp is doing. *)
+    With an arrow and a cross side by side, both dim as the lamp falls, because
+    a glow lifts a decal towards its own colours rather than pinning it there.
+    But the arrow dims {e with} the wall and the cross hardly does: across the
+    swing the wall falls to 0.39 of its brightness, the arrow to 0.39 with it,
+    and the cross keeps 0.86. §6's "faintly phosphorescent" is that one number;
+    it is per mark rather than per room, and it does not change as the light
+    does — a material that glows glows the same whatever the lamp is doing. *)
 
 open Camlcast
 
@@ -72,19 +66,19 @@ let lamp_period = 9.
 
 (** How far away a wall may be and still be chalkable, in cells.
 
-    §6 has the player place chalk "directly on" a wall, so this is close enough
-    to be an arm's length and no more: walk up to the wall you mean. Collision
-    stops the player {!Camlcast.Config.collision_padding} short of one, so every
-    wall in this hall can be reached. *)
+    §6 has the player place chalk "directly on" a wall, so this is an arm's
+    length and no more. Collision stops the player
+    {!Camlcast.Config.collision_padding} short of a wall, so every wall in this
+    hall can be reached. *)
 let reach = 2.
 
 (** {1 The symbols}
 
-    Two marks, drawn cut out against {!Camlcast.Image.clear} so a stroke is a
-    stroke and not a white tile on the wall. They are values in this file, made
-    once when it loads, for the same reason every animation frame in this
-    library is: a mark is placed while the game is running and nothing is going
-    to generate a picture then. *)
+    Two marks, cut out against {!Camlcast.Image.clear} so a stroke is a stroke
+    and not a white tile on the wall. They are values in this file, made once at
+    load, for the same reason every animation frame in this library is: a mark
+    is placed while the game is running, and no picture should be generated
+    then. *)
 
 let chalk = Color.rgb 236 233 222
 
@@ -123,14 +117,13 @@ let cross =
 
     They differ deliberately. The {b arrow} is plain chalk: a
     {!Camlcast_core.Room.type-decal} with no [glow], lit by the room like the
-    wall it is on, so it goes into the dark with everything else. The {b cross}
-    is the phosphorescent kind. Mark a wall with one of each, let the lamp go
-    down, and one of them is still there.
+    wall it is on, so it goes dark with everything else. The {b cross} is the
+    phosphorescent kind, still visible when the lamp is down.
 
-    A constant, and not something that rises as the light fails: a material that
-    glows glows the same whatever else is happening, and a glow tuned to cancel
-    the lamp exactly would leave the mark pinned at one brightness, which reads
-    as a sticker rather than a surface. *)
+    The glow is a constant, not something that rises as the light fails: a
+    material that glows glows the same whatever else is happening, and a glow
+    tuned to cancel the lamp exactly would pin the mark at one brightness, which
+    reads as a sticker rather than a surface. *)
 let symbols = [| ("arrow", arrow, 0.); ("cross", cross, 0.7) |]
 
 (** {1 The world} *)
@@ -144,11 +137,10 @@ type mark = {
 }
 (** One chalk stroke.
 
-    The old version of this kept a room and a wall by {e index}, and said so:
-    "the only terms that survive a room being rebuilt". A description has better
-    terms. A wall has a name here because the description gave it one, and a
-    name survives a great deal more than an index does — including the rooms
-    being written down in another order, which an index does not. *)
+    The old version kept a room and a wall by {e index} — "the only terms that
+    survive a room being rebuilt". A wall has a name here because the
+    description gave it one, and a name also survives the rooms being written
+    down in another order, which an index does not. *)
 
 let flat = Plane.horizontal 0.
 let hall_sw = Vec.make (-6.) (-5.)
@@ -174,13 +166,13 @@ let hall_gate = P.opening ~width hall_se hall_ne
 let back_gate = P.opening ~width back_nw back_sw
 let this_demos_lintel : lintel = { top = height; material = Surfaces.brick }
 
-(** The marks on one wall, oldest first, so the newest ends up on top of the
-    pile — which is the order {!Camlcast.Aim} reads them back in.
+(** The marks on one wall, oldest first, so the newest ends up on top — the
+    order {!Camlcast.Aim} reads them back in.
 
     Each takes the [glow] its symbol was given, so the two kinds behave
-    differently in the same room and under the same lamp. Nothing here depends
-    on the brightness: the glow is a property of the chalk, and the lamp is a
-    property of the air. *)
+    differently in the same room under the same lamp. Nothing here depends on
+    the brightness: the glow is a property of the chalk, the lamp a property of
+    the air. *)
 let chalked ~marks name =
   List.filter_map
     (fun m ->
@@ -198,8 +190,7 @@ let lamp elapsed =
   +. (0.65 *. ((1. +. cos (elapsed /. lamp_period *. 2. *. Float.pi)) /. 2.))
 
 (** The air at that brightness, and the whole of the lamp: fog closing in and
-    less of everything reaching you. Nothing else in the room changes with it.
-*)
+    every light level falling with it. Nothing else in the room changes. *)
 let air ~lamp =
   Atmosphere.make ~haze:(Color.rgb 18 18 24)
     ~fog_distance:(2.5 +. (11. *. lamp))
@@ -209,10 +200,10 @@ let air ~lamp =
     ~directional:0.4 ()
 
 (** This demo's rule about what may be chalked, and the whole of it: a wall, in
-    the room you are standing in, within {!reach}, with a stroke left.
+    the current room, within {!reach}, with a stroke left.
 
-    An {!Camlcast.Aim.spot} carries the [distance] already — it is how far the
-    ray went to find what it found — so "too far away" costs a comparison and no
+    An {!Camlcast.Aim.spot} carries the [distance] already — how far the ray
+    went to find what it found — so "too far away" costs a comparison and no
     engine support at all. *)
 let markable ~left (spot : Aim.spot) =
   match spot.Aim.where with
@@ -221,9 +212,9 @@ let markable ~left (spot : Aim.spot) =
   | _ -> false
 
 (** Why the crosshair's target cannot be chalked, in a word, or [None] where it
-    can be or where saying so would not help. Only the reasons the player can do
-    something about are worth a word: walk closer, or turn round and use one of
-    your own walls. *)
+    can be or where saying so would not help. Only reasons the player can act on
+    are worth a word: walk closer, or turn round and use a wall of the current
+    room. *)
 let refusal ~left (aim : Aim.spot option) =
   match aim with
   | _ when left = 0 -> Some "no chalk left"
@@ -233,9 +224,9 @@ let refusal ~left (aim : Aim.spot option) =
       else None
   | _ -> None
 
-(* Shared with the menu, and with nothing to teach here: this demo is about
-   marking a wall, and the words over it are only there to say why it will not.
-   Text still builds its own, because there the font is the lesson. *)
+(* The font is shared with the menu: this demo is about marking a wall, and
+   the words over it only say why it will not. {!Text} still builds its own,
+   because there the font is the subject. *)
 let panel ~selected ~left ~aim ~font ~across ~down =
   let can = match aim with Some spot -> markable ~left spot | None -> false in
   let color =
@@ -282,17 +273,17 @@ let panel ~selected ~left ~aim ~font ~across ~down =
 
 let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
     =
-  (* What makes a wall chalkable: named, so a mark can say which one it is on,
-     and told, so it can take one. *)
+  (* What makes a wall chalkable: it is named, so a mark can record which wall
+     it is on, and given a handler, so it can take one. *)
   let takes_a_mark name spot =
     match spot.Aim.where with
     | Aim.On_wall { along; z; facing; _ } when markable ~left spot ->
         mark { wall = name; along; z; facing; symbol = selected }
     | _ -> ()
   in
-  (* The boundary walls, as legs of a {!P.boundary}, which winds itself — which is
-     what this demo used to give up by writing every wall out. A leg carries
-     everything P.wall does, which it has to — the jambs are brick where the
+  (* The boundary walls, as legs of a {!P.boundary}, which winds itself — what
+     this demo used to give up by writing every wall out. A leg carries
+     everything P.wall does, which it has to: the jambs are brick where the
      rest is stone. *)
   let chalk_leg ?material name p =
     P.corner ?material ~key:name ~decals:(chalked ~marks name)
@@ -326,10 +317,10 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
               ];
             threshold ~name:"onward" ~height:clearance ~lintel:this_demos_lintel
               hall_p hall_q;
-            (* The one wall with two faces you can get to. Chalk it and walk
-               round an end: the far side is bare. It is opaque, and has to be —
-               a bare wall you can see through is one Sight looks through, so
-               the crosshair never lands on it and the first mark could never be
+            (* The one wall with two reachable faces: chalk it, walk round an
+               end, and the far side is bare. It is opaque, and has to be — a
+               see-through wall is one Sight looks through, so the crosshair
+               would never land on it and the first mark could never be
                placed. *)
             chalkable ~material:Surfaces.panel ~tall:2.4 "partition"
               (Vec.make (-1.5) 1.) (Vec.make 2.5 1.);

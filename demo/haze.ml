@@ -1,16 +1,13 @@
-(** {b Atmosphere.} The air a world is seen through, and the light that falls in
-    it: two numbers for the fade and three for the shading.
+(** {b Atmosphere.} The air a world is seen through and the light that falls in
+    it: two numbers for the fade, three for the shading.
 
-    A long colonnade, deliberately longer than you can see the end of. The
+    A long colonnade, deliberately longer than the visible range. The
     {!Camlcast.Atmosphere} here has a short [fog_distance], so the far pillars
     are lost in the haze colour while the near ones are not, and a low
     [min_brightness], so the fade goes nearly the whole way down. The pillars
-    are hexagonal, which means each presents six faces at six angles to the
-    light: [directional] is how much of the shading depends on which way a wall
-    turns, [ambient] is how much does not, and [light] is where it comes from.
-
-    Walk the length of it. The pillar that was a silhouette resolves into six
-    lit faces as you reach it, and the one behind takes its place. *)
+    are hexagonal, so each presents six faces at six angles to the light:
+    [directional] is how much of the shading depends on wall orientation,
+    [ambient] is how much does not, and [light] is the light's direction. *)
 
 open Camlcast
 
@@ -18,8 +15,8 @@ let height = 6.
 let length = 90.
 
 (** Thick, cold air with the light low from one side: a short fade to a
-    blue-grey, and most of the shading directional, so the six faces of a pillar
-    read as six different greys. *)
+    blue-grey, and mostly directional shading, so a pillar's six faces read as
+    six different greys. *)
 let fog =
   Atmosphere.make ~haze:(Color.rgb 38 44 58) ~fog_distance:13.
     ~min_brightness:0.15 ~light:(Vec.make (-0.5) (-0.85)) ~ambient:0.35
@@ -36,8 +33,8 @@ let level =
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
-          (* The colonnade runs east, which is the way you are facing when you
-             arrive. A plain box boundary, so four corners say all of it. *)
+          (* The colonnade runs east, the spawn's facing direction. A plain box
+             boundary: four corners. *)
           (boundary ~height ~material:Surfaces.stone
              (corners
                 [

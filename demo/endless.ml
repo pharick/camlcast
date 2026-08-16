@@ -1,27 +1,26 @@
-(** {b Growing a world.} A corridor that does not exist until you walk down it.
+(** {b Growing a world.} A corridor built ahead of the player as they walk.
 
-    A world that grows is a description with more in it than it had last frame,
-    and nothing besides. One number of state says how many segments have been
-    built; {!Camlcast.Events.use_crossings} says which doorways the frame before
-    this one went through, so the deepest of them is how far the player has got;
-    and when that comes close enough to the end, the number goes up and the next
-    description has another segment in it.
+    A world that grows is a description with more in it than last frame, and
+    nothing besides. One number of state says how many segments have been built;
+    {!Camlcast.Events.use_crossings} says which doorways the previous frame went
+    through, so the deepest of them is how far the player has got; when that
+    comes close enough to the end, the number goes up and the next description
+    has another segment.
 
-    What that replaced is worth naming, because this is the clearest case in the
-    demos of the layer paying for itself. Growing a world used to mean surgery
-    on one — {!Camlcast_core.World.open_doorway} to give a dead end a way on,
+    This is the clearest case in the demos of the layer paying for itself.
+    Growing a world used to mean surgery on one:
+    {!Camlcast_core.World.open_doorway} to give a dead end a way on,
     {!Camlcast_core.World.add_room} for what lay beyond it,
     {!Camlcast_core.World.link} to join the two, and a search for whether a room
-    already had a way on so that none of it was done twice, every step of it
-    careful to append and never move so that the indices things were holding
-    stayed valid. None of that is here. The segments described again are matched
-    against last frame's and kept, the new one is mounted, and the indices are
-    whatever assembling this frame's description happened to produce.
+    already had a way on so none of it was done twice — every step appending and
+    never moving, so held indices stayed valid. None of that is here. Segments
+    described again are matched against last frame's and kept, the new one is
+    mounted, and the indices are whatever this frame's assembly produced.
 
-    It builds {!Camlcast_core.Config.max_portal_depth} segments ahead, which is
-    exactly as deep as the renderer looks through doorways, so the end of the
-    corridor is never in shot. Segments alternate brick and stone so you can
-    count how far you have gone. *)
+    It builds {!Camlcast_core.Config.max_portal_depth} segments ahead — exactly
+    as deep as the renderer looks through doorways — so the end of the corridor
+    is never in shot. Segments alternate brick and stone to make distance
+    countable. *)
 
 open Camlcast
 
@@ -31,8 +30,8 @@ let depth = 9.
 
 (** How far ahead of the player the corridor is kept. The renderer looks through
     {!Camlcast.Config.max_portal_depth} doorways and no further, so building
-    that many beyond wherever they have got to is exactly enough for the end
-    never to be in shot. *)
+    that many beyond the player is exactly enough to keep the end out of shot.
+*)
 let ahead = Config.max_portal_depth
 
 let named index = Printf.sprintf "segment-%d" index
@@ -44,16 +43,15 @@ let index_of name =
         (String.sub name (dash + 1) (String.length name - dash - 1))
   | None -> None
 
-(** One segment: a rectangle with a doorway back the way you came and, unless it
-    is the last one built, another one on.
+(** One segment: a rectangle with a doorway back and, unless it is the last one
+    built, another one on.
 
     The coat is taken from the segment's own number rather than from a counter,
-    so that a segment which grows a way on is the same colour it was a moment
-    ago. A room that changed colour as you stepped into it would be a strange
-    thing to watch. *)
+    so a segment that grows a way on keeps the colour it had a moment ago rather
+    than changing as the player steps in. *)
 let segment ~index ~back ~onward =
-  (* Each segment runs east, which is the way you are facing when you arrive in
-     it, so the corridor is straight ahead from the moment it starts. *)
+  (* Each segment runs east, the arrival facing direction, so the corridor is
+     straight ahead from the start. *)
   let sw = Vec.make 0. (-.width)
   and se = Vec.make depth (-.width)
   and ne = Vec.make depth width
@@ -81,8 +79,8 @@ let segment ~index ~back ~onward =
     walked into, and a link joining each to the next.
 
     Written out from a number every frame, because a description does not modify
-    a world — it says what the world is, and saying it with one more segment in
-    it {e is} growing the corridor. *)
+    a world — it says what the world is, and saying it with one more segment
+    {e is} growing the corridor. *)
 let corridor ~built =
   P.(
     world ~atmosphere:Surfaces.air
@@ -98,7 +96,7 @@ let walking =
   let crossings = Events.use_crossings () in
   Events.use_frame (fun ~dt:_ ->
       (* Every doorway the frame went through, because a single step can cross
-         several. The deepest of them is where the player has got to. *)
+         several; the deepest is where the player has got to. *)
       let deepest =
         List.fold_left
           (fun deepest (c : Events.crossing) ->

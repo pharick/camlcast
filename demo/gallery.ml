@@ -1,21 +1,18 @@
-(** {b Decals and sprites.} Two ways of putting a picture in a room, and the
-    difference between them.
+(** {b Decals and sprites.} Two ways of putting a picture in a room.
 
     A {b decal} is fixed to a wall: it has a position along that wall, a height
-    up it, and a size, and it is drawn as part of the wall in the same pass —
-    turn side-on to it and it foreshortens with the masonry it is painted over.
+    up it, and a size, and is drawn as part of the wall in the same pass, so it
+    foreshortens with the wall when viewed side-on.
 
-    A {b sprite} stands in the room instead of on a wall. It has a position on
-    the floor and a size, it always faces you, and it is composited by depth
-    after the walls are done, so it goes behind what is in front of it and in
-    front of what is not.
+    A {b sprite} stands in the room: it has a floor position and a size, always
+    faces the camera, and is composited by depth after the walls, so it goes
+    behind what is in front of it and in front of what is not.
 
-    Both carry an {!Camlcast_core.Image}, which is colour and alpha at whatever
-    shape it was drawn — unlike a {!Camlcast_core.Texture}, which is square and
-    tiles a world cell because it is part of a surface rather than a thing in
-    its own right. The sprites here are cut out against
-    {!Camlcast_core.Image.clear}, so only the figure is drawn and not the box it
-    came in. *)
+    Both carry an {!Camlcast_core.Image} — colour and alpha at whatever shape it
+    was drawn — unlike a {!Camlcast_core.Texture}, which is square and tiles a
+    world cell because it is part of a surface rather than a thing in its own
+    right. The sprites here are cut out against {!Camlcast_core.Image.clear}, so
+    only the figure is drawn and not the box around it. *)
 
 open Camlcast
 
@@ -28,8 +25,8 @@ let nw = Vec.make (-7.) 5.
 
 let level =
   P.(
-    (* Facing the hung wall down the length of the room, with the sprites
-       between you and it. *)
+    (* Spawn faces the hung wall down the length of the room, sprites in
+       between. *)
     world ~atmosphere:Surfaces.air
       ~spawn:("room", Vec.make (-5.) 0.)
       [
@@ -39,10 +36,10 @@ let level =
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
           [
             wall ~height ~material:Surfaces.brick sw se;
-            (* The hung wall, and its pictures written inside it. [along] is
-               measured from the wall's first endpoint and [z] up from the
-               floor, so a decal is placed in the wall's own terms and stays put
-               if the room around it moves. *)
+            (* The hung wall with its decals. [along] is measured from the
+               wall's first endpoint and [z] up from the floor, so a decal is
+               placed in the wall's own terms and stays put if the room around
+               it moves. *)
             wall ~height ~material:Surfaces.panel se ne
               ~decals:
                 [
@@ -53,8 +50,8 @@ let level =
                 ];
             wall ~height ~material:Surfaces.brick ne nw;
             wall ~height ~material:Surfaces.brick nw sw;
-            (* Two of them one behind the other, to be walked around: the near
-               one hides the far one and neither is ever seen edge-on. *)
+            (* Two figures one behind the other: the near one hides the far
+               one, and neither is ever seen edge-on. *)
             sprite ~key:"near" ~size:1.8 ~image:Pictures.figure
               (Vec.make 0. 1.8);
             sprite ~key:"far" ~size:1.8 ~image:Pictures.figure

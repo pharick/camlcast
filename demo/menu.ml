@@ -1,18 +1,16 @@
-(** {b The list of demos, on screen.} What a bundled copy opens with, because a
-    window that was double-clicked has no command line behind it and the
-    executable's printed catalogue is somewhere nobody will look.
+(** {b The list of demos, on screen.} What a bundled copy opens with: a
+    double-clicked window has no command line behind it, and the executable's
+    printed catalogue would go unseen.
 
-    The list is drawn over one room, turning slowly, and the same room whichever
-    entry is under the cursor. Showing the highlighted demo's own world instead
-    would mean building a world on every press of an arrow key, which is a
-    stutter in the one place the program should feel immediate. The backdrop is
-    built once, before the window opens.
+    The list is drawn over one slowly turning room, the same room whichever
+    entry is highlighted. Showing the highlighted demo's own world would build a
+    world on every arrow-key press — a stutter in the one place the program
+    should feel immediate. The backdrop is built once, before the window opens.
 
-    Leaving is two different things and the menu has to tell them apart. Escape
-    and Enter both end this run, and so does closing the window; {!choose}
-    reports the difference back through {!Camlcast_core.Engine.ending} so that
-    the launcher can show the list again after a demo but stop altogether when
-    the player has shut the window. *)
+    Escape, Enter and closing the window all end this run, and the menu must
+    tell them apart: {!choose} reports the difference back through
+    {!Camlcast_core.Engine.ending}, so the launcher shows the list again after a
+    demo but stops altogether when the window was shut. *)
 
 open Camlcast
 open Camlcast_core.Result_ext
@@ -25,7 +23,7 @@ let turn_rate = 0.25
 
 (** The one room the list is drawn over. Nothing in it is read from a file — the
     three surfaces are generated from {!Patterns} — so unlike a demo's world it
-    cannot fail to be built, and the menu has nothing to fall back to. *)
+    cannot fail to build, and the menu has nothing to fall back to. *)
 let backdrop ~angle ~taken ~over =
   let height = 4. in
   let flat = Plane.horizontal 0. in
@@ -47,25 +45,23 @@ let backdrop ~angle ~taken ~over =
                    Vec.make (-4.) 4.;
                  ]);
           ];
-        (* The eye is the description's here rather than the runtime's: the
-           backdrop turns on its own and the controls are the list's, so a walk
-           nobody asked for would be a walk fighting the arrow keys. *)
+        (* The camera is the description's rather than the runtime's: the
+           backdrop turns on its own and the controls belong to the list, so
+           player movement would fight the arrow keys. *)
         camera ~room:"room" ~pos:(Vec.make 0. 0.) ~angle ();
         hud over;
-        (* Chosen: the frame it was chosen on is drawn, and then the run stops.
-           Which is what ~finished used to say, said the way everything else
-           here is said. *)
+        (* Chosen: the frame it was chosen on is still drawn, then the run
+           stops. This states what ~finished used to. *)
         (if taken then finish else Element.empty);
       ])
 
-(** Where the list opens. [None] is the top, which is where a launcher starts.
-    [Some demo] is that demo's own row, so that coming back from one lands on
-    what was just played rather than sending the player down the list again to
-    find their place.
+(** Where the list opens. [None] is the top, where a launcher starts.
+    [Some demo] is that demo's own row, so coming back from one lands on what
+    was just played.
 
     A demo the catalogue does not name opens at the top. Nothing can hand one
     over that it did not first take from {!Camlcast_demo.Catalogue.demos}, so
-    this is a total function rather than a case anybody has to think about. *)
+    this is a total function. *)
 let row_of = function
   | None -> 0
   | Some (demo : Catalogue.t) ->
@@ -76,13 +72,12 @@ let row_of = function
       in
       find 0
 
-(** The list, over a curtain dark enough to read against whatever world is
-    turning behind it.
+(** The list, over a curtain dark enough to read against the turning backdrop.
 
     Only as many rows as the buffer has room for are drawn, and the window
     slides to keep the selection inside it. The framebuffer is a fraction of the
-    window ({!Camlcast_core.Renderer.internal_size}) and shrinks with it, so
-    "they all fit" is true at the size this opens at and not a thing to rely on.
+    window ({!Camlcast_core.Renderer.internal_size}) and shrinks with it, so all
+    rows fitting holds at the opening size only and is not to be relied on.
 
     Not (width, height): a local open of P puts a wall's height in scope. *)
 let listing font ~selected ~viewport:(across, down) =
@@ -143,9 +138,9 @@ let listing font ~selected ~viewport:(across, down) =
              (Key.name Key.escape));
       ])
 
-(** The list itself. [chosen] is where it puts what was picked: a run says how
-    it ended and not what it decided, so a description that decides something
-    hands it back the way any OCaml value does. *)
+(** The list itself. [chosen] receives what was picked: a run says how it ended,
+    not what it decided, so a description that decides something hands it back
+    through an ordinary OCaml value. *)
 let list =
   Element.declare ~name:"list" @@ fun (font, from, chosen) ->
   let selected, set_selected = Hook.use_state (row_of from) in
@@ -169,8 +164,8 @@ let list =
 (** Show the list on [window] and wait. [None] means the player wants no demo at
     all — Escape, or the window shut — and either way the launcher stops.
 
-    [from] is the demo just played, if there was one: the list opens on it. See
-    {!row_of}. *)
+    [from] is the demo just played, if any: the list opens on it. See {!row_of}.
+*)
 let choose ?from window =
   let* font = Typeface.load () in
   let chosen = ref None in

@@ -1,44 +1,41 @@
 (** {b Sprites off the floor, and frames chosen rather than made.} A sprite
-    stands at a point on the floor plan and is a picture tall; two numbers
-    decide where that picture actually goes.
+    stands at a point on the floor plan and is a picture tall; two numbers place
+    that picture.
 
-    [base] is how far its foot floats above the floor under it. Zero is
-    something resting on the ground, which is every sprite in every other demo.
-    Anything else lifts it, and — like a decal's [z] — the lift is measured from
-    the floor and not from an absolute height, so over the sloping floor here a
-    cloud of dust rides up with the ground instead of the ground climbing
-    through it.
+    [base] is how far its foot floats above the floor under it. Zero rests it on
+    the ground, which is every sprite in every other demo. Like a decal's [z],
+    the lift is measured from the floor and not from an absolute height, so over
+    the sloping floor here a cloud of dust rides up with the ground instead of
+    the ground climbing through it.
 
-    Its width is not [size]. A billboard is as wide as its picture says it is,
-    so the clouds are drawn as clouds: their image is three times as wide as it
-    is tall and they come out that shape. The barrel and the figure are square
-    pictures and are unchanged by that rule, which is the point of taking the
-    aspect from the art rather than from a field somebody has to fill in.
+    Width is not [size]. A billboard is as wide as its picture says, so the
+    clouds draw at their image's shape — three times as wide as tall. The barrel
+    and the figure are square pictures and unchanged by the rule; the aspect
+    comes from the art rather than from a field somebody has to fill in.
 
-    Five things to look at:
+    Five things shown:
 
-    - the {b stack of dust} on the left: three clouds over the same spot on the
-      floor, so the only thing that separates them is the [base] each was given;
-    - the {b two barrels} side by side, the same picture and the same [size],
-      one on the ground and one lifted a cell and a half;
+    - the {b stack of dust} on the left: three clouds over the same floor spot,
+      separated only by the [base] each was given;
+    - the {b two barrels}: the same picture and the same [size], one on the
+      ground and one lifted a cell and a half;
     - the {b partition} on the right, with a cloud behind and above it: its top
-      falls between the cloud's foot and its head, so it cuts the bottom off and
+      falls between the cloud's foot and head, so it cuts off the bottom and
       leaves the rest — a sprite is depth-tested per pixel, not accepted or
       rejected whole;
-    - the {b doorway} ahead, with a cloud floating in the room beyond, trimmed
-      to the opening's own outline;
+    - the {b doorway} ahead, with a cloud in the room beyond, trimmed to the
+      opening's own outline;
     - the {b one that moves}, drifting up the hall and back down.
 
-    That last one is the other half of this. It rises and changes picture every
-    frame, and no picture is made while it does: {!Pictures.motes} is twelve
-    images built once when that module loaded, and each frame picks one by
-    index. What is rebuilt is the sprite array alone —
-    {!Camlcast_core.Room.with_sprites} hands back this room with the walls, the
-    thresholds and both planes it already had — and
+    The moving one rises and changes picture every frame, and no picture is made
+    while it does: {!Pictures.motes} is twelve images built once when that
+    module loaded, and each frame picks one by index. Only the sprite array is
+    rebuilt — {!Camlcast_core.Room.with_sprites} hands back this room with the
+    walls, thresholds and both planes it already had — and
     {!Camlcast_core.World.replace_room} puts it in place. Compare {!Changing},
     which rebuilds a room from its parts every frame because everything in it is
-    moving, and {!Dust}, which is this one sprite turned into seventy and is
-    where the cost of doing it is worth reading. *)
+    moving, and {!Dust}, which turns this one sprite into seventy and is where
+    the cost of doing it is worth reading. *)
 
 open Camlcast
 
@@ -64,16 +61,15 @@ let annex_floor =
 let cloud ?base ~key pos =
   P.sprite ~key ?base ~size:0.8 ~image:Pictures.motes.(0) pos
 
-(** Everything in the hall that does not move. The drifting one is written
-    beside these; where the old version rebuilt the sprite list to make that
-    cheap, a description simply says both and the reconciler works out that only
-    one of them changed. *)
+(** Everything in the hall that does not move. The drifting sprite is written
+    beside these; where the old version rebuilt the sprite list to keep that
+    cheap, a description says both and the reconciler works out that only one
+    changed. *)
 let still =
   P.
     [
-      (* Stacked one above another over the same spot, so what separates them is
-         the base and nothing else. The floor under them is climbing, and all
-         three ride it. *)
+      (* Stacked over the same spot, so only the base separates them. The floor
+         under them climbs, and all three ride it. *)
       cloud ~key:"low" ~base:0.4 (Vec.make 6.2 (-2.2));
       cloud ~key:"middle" ~base:1.5 (Vec.make 6.2 (-2.2));
       cloud ~key:"high" ~base:2.6 (Vec.make 6.2 (-2.2));
@@ -109,8 +105,8 @@ let at ~phase =
                (corners [ hall_ne; hall_nw; hall_sw; hall_se ]);
              doorway ~name:"onward" ~width ~opening:3.4 ~height
                ~material:Surfaces.brick hall_se hall_ne;
-             (* A partition that stops well short of the roof, standing across
-                the line between you and the cloud beyond it. *)
+             (* A partition well short of the roof, standing across the
+                sightline to the cloud beyond it. *)
              wall ~height:2.2 ~material:Surfaces.panel (Vec.make 9. 1.8)
                (Vec.make 9. 5.5);
              sprite ~key:"drifting" ~size:0.8

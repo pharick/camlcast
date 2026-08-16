@@ -1,15 +1,14 @@
-(** {b The demos' controls.} One record, shared by all of them, because they all
-    want the same thing: walk with WASD and the mouse, work a door with E, F3
-    for the map, and Escape to hand the player back to the launcher's list.
+(** {b The demos' controls.} One record shared by all demos: WASD and the mouse
+    to walk, E to work a door, F3 for the map, Escape back to the launcher's
+    list.
 
-    Which is {!Camlcast.Controls.default} exactly, and it is written out here
-    all the same. A demo is a file you read, and the line that says what it
-    answers to is worth having in it — a demo that wanted its own way out, or
-    the map on another key, would change this one line and nothing else.
+    This equals {!Camlcast.Controls.default}, written out here so the demo
+    source states its own bindings; a demo wanting a different exit key or map
+    key would change this one line and nothing else.
 
-    That is also the whole of what a game does to rebind anything: state a
-    record once and pass it wherever it starts a run. {!Camlcast_demo.Controls}
-    does the larger version, with the walking keys moved. *)
+    Rebinding in a game works the same way: state a record once and pass it
+    wherever a run starts. {!Camlcast_demo.Controls} is the larger version, with
+    the walking keys moved. *)
 
 open Camlcast
 

@@ -1,11 +1,11 @@
-(** The showcase level's pictures: two decals to hang on walls, two sprites to
-    stand in the world, and a strip of frames for one that drifts.
+(** Pictures for the showcase level: two wall decals, two standing sprites, and
+    a strip of frames for an animated one.
 
-    Unlike a {!Camlcast_core.Texture}, which is square and tiles a world cell
-    because it is part of a surface, an {!Camlcast_core.Image} is drawn once at
-    whatever shape it was authored in. The decals are opaque within their frame;
-    the sprites are cut out against {!Camlcast_core.Image.clear} so only the
-    object itself is drawn. *)
+    A {!Camlcast_core.Texture} is square and tiles a world cell because it is
+    part of a surface; an {!Camlcast_core.Image} is drawn once at whatever shape
+    it was authored in. The decals are opaque within their frame; the sprites
+    are cut out against {!Camlcast_core.Image.clear} so only the object itself
+    is drawn. *)
 
 open Camlcast_core
 
@@ -54,23 +54,23 @@ let mote_width = 144
 let mote_height = 48
 
 (** One frame of a drifting cloud of dust: {!mote_count} specks of a pixel or
-    two each, scattered across a picture three times as wide as it is tall and
-    swinging up and down out of step with one another.
+    two each, scattered across a picture three times as wide as it is tall, each
+    swinging vertically out of phase with the others.
 
-    The only picture here that is not square, and deliberately. A sprite is as
-    wide as its own image says — {!Camlcast_core.Room.sprite_half_width} — so
-    this one is drawn as a wide, thin drift rather than stretched across a box.
+    The only non-square picture here, deliberately: a sprite is as wide as its
+    own image says — {!Camlcast_core.Room.sprite_half_width} — so this one is
+    drawn as a wide, thin drift rather than stretched across a box.
 
-    Where each speck sits comes from its index and nothing else, so the same
-    cloud comes back every run: there is no RNG to seed and no state to carry,
-    and the whole picture is a function of [frame].
+    Each speck's position is a function of its index alone, so the same cloud
+    comes back every run: no RNG to seed, no state to carry, and the whole
+    picture is a function of [frame].
 
     The five steps below are all irrational and none is a rational multiple of
-    another, which is the part that has to be got right. Take two that add to
-    one — the golden ratio's 0.618 and 0.382, say — and the fractional parts run
-    exactly opposite, so every speck lands on the same diagonal and the cloud
-    comes out as a set of ruled lines. These are the two-dimensional golden
-    ratio for the position and three unrelated surds for the rest. *)
+    another, which has to be got right: two steps that add to one — the golden
+    ratio's 0.618 and 0.382, say — have fractional parts that run exactly
+    opposite, so every speck lands on the same diagonal and the cloud comes out
+    as ruled lines. These are the two-dimensional golden ratio for the position
+    and three unrelated surds for the rest. *)
 let mote ~frame =
   let turn = float_of_int frame /. float_of_int mote_frames *. 2. *. Float.pi in
   let fraction step k = Float.rem (float_of_int k *. step) 1. in
@@ -91,9 +91,8 @@ let mote ~frame =
       let x = float_of_int u +. 0.5 and y = float_of_int v +. 0.5 in
       (* The brightest speck covering this pixel, faded across most of its own
          radius rather than only at the rim. Sampling is nearest-neighbour, so a
-         speck two texels across is several screen pixels across when you walk
-         up to it; a gradient that wide is what keeps it a speck rather than a
-         square. *)
+         speck two texels across is several screen pixels across at close range;
+         a gradient that wide is what keeps it a speck rather than a square. *)
       let lit =
         List.fold_left
           (fun best (cx, cy, radius, bright) ->

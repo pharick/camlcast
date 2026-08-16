@@ -5,39 +5,38 @@
 
     - {b plaza}, open to an afternoon sky: a twelve-sided ring of tall walls
       around the spawn, six pillars of differing heights and materials, a
-      gallery wall hung with a painting and a poster on the front and a lit sign
-      on the back, a steel grille and a leaded window to look through, and
-      sprites standing about. Three doorways lead out of it, cut into three
-      different sides of the ring so none of them is axis aligned — the
-      transforms between the plaza and its neighbours are genuine rotations, not
-      just translations.
+      gallery wall with a painting and a poster on the front and a lit sign on
+      the back, a steel grille and a leaded window to look through, and standing
+      sprites. Its three doorways are cut into three different sides of the
+      ring, so none is axis aligned — the transforms to the neighbours are
+      genuine rotations, not just translations.
     - {b hall}, roofed: a rectangle with a bench, a corner pillar and a barrel,
       open to the plaza on one side and joined to the cellar by a doorway with
-      an oak door in it. Its roof climbs faster than its floor does, so the
-      headroom grows as you cross it.
+      an oak door. Its roof climbs faster than its floor, so headroom grows
+      across it.
     - {b nook}, roofed and low: a triangle closed off but for its one doorway.
     - {b garden}, open to a sky of its own — a later one than the plaza's, which
       is the whole of what two rooms under two skies takes: a winding low wall
-      you look over, a tall monolith, two sprites held clear of the ground, and
-      a grille gate with a brick transom over it.
-    - {b cellar}, roofed and low: a small dark room with a figure in it and dust
-      turning in the air, reached only through the hall's door.
+      to look over, a tall monolith, two sprites held clear of the ground, and a
+      grille gate with a brick transom over it.
+    - {b cellar}, roofed and low: a small dark room with a figure and turning
+      dust, reached only through the hall's door.
 
     Every room's floor is the same gently tilted surface seen from its own
-    frame, derived with {!Camlcast_core.Plane.through} so that
+    frame, derived with {!Camlcast_core.Plane.through}, so
     {!Camlcast_core.World.seam_gap} is zero at every doorway by construction
     rather than by arithmetic luck.
 
     {1 A world, and then a game}
 
-    {!default} is the world at rest and is all the tests need: a value, built
-    once with {!Camlcast.Mount.build}, with nothing shut and nothing moving.
-    What {!run} adds is the part a world cannot hold by itself — {b E} works the
-    door you are nearest, the dust in the cellar is re-made every frame, and a
-    crosshair says what you are looking at. That split is the layer's own: a
-    description is a value either way, and mounting one is what gives the
-    components in it somewhere to keep what they remember. This level is small
-    enough to show the difference and large enough to need it. *)
+    {!default} is the world at rest and all the tests need: a value, built once
+    with {!Camlcast.Mount.build}, nothing shut and nothing moving. {!run} adds
+    the part a world cannot hold by itself — {b E} works the door under the
+    crosshair, the cellar's dust is re-made every frame, and a crosshair reports
+    what is aimed at. That split is the layer's own: a description is a value
+    either way, and mounting one gives the components in it somewhere to keep
+    what they remember. This level is small enough to show the difference and
+    large enough to need it. *)
 
 open Camlcast
 
@@ -48,21 +47,19 @@ let roofed plane = P.roof ~plane ~material:Surfaces.soffit
 
 (** The two leaves in the level, both hung open at rest.
 
-    Open is what they are at rest, not what they are for: the {b E} key works
-    whichever you are looking at, and a leaf that is shut is drawn and walked
-    into like any other wall. Starting them open is what keeps the level
-    walkable end to end before anyone has touched anything — shutting yourself
-    out of somewhere is a thing you should have to do on purpose.
+    The {b E} key works whichever leaf is under the crosshair, and a shut leaf
+    is drawn and collides like any other wall. Starting them open keeps the
+    level walkable end to end before anything is touched — shutting an area off
+    should take a deliberate act.
 
     The oak one is between the hall and the cellar. The garden's is a steel
     grille, so shutting it leaves the plaza in plain sight through the bars and
-    entirely out of reach: {!Camlcast.Material} decides what you can see through
-    and {!Camlcast.Door} decides what you can walk through, and this is the one
+    entirely out of reach: {!Camlcast.Material} decides what can be seen through
+    and {!Camlcast.Door} decides what can be walked through, and this is the one
     place in the level where those two answers differ.
 
     Both sides of a link ask this with the same name, so they cannot disagree —
-    which is what World.set_door used to have to keep in step and now nobody
-    does. *)
+    what World.set_door used to have to keep in step and now nobody does. *)
 let leaf material ~shut =
   Door.make ~state:(if shut then Door.Closed else Door.Open) material
 
@@ -130,9 +127,9 @@ let mote ~t k =
 (** {1 The level} *)
 
 (** A crosshair that says what it is on, and nothing else. The colours are the
-    {!Targets} demo's, because a reader who has seen that one should not have to
-    learn a second vocabulary: a doorway reads blue, a hung picture violet, a
-    plain wall amber, a sprite green, and the open sky white. *)
+    {!Targets} demo's, so a reader of that one learns no second vocabulary: a
+    doorway reads blue, a hung picture violet, a plain wall amber, a sprite
+    green, and the open sky white. *)
 let tint ~refused (aim : Aim.spot option) =
   match aim with
   | _ when refused > 0. -> Color.rgb 235 80 70
@@ -177,9 +174,8 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
                 wall ~height:7. ~material:Surfaces.stone (plaza_corner k)
                   (plaza_corner ((k + 1) mod 12)))
               [ 1; 2; 4; 5; 7; 8; 9; 10; 11 ]
-          (* Six square pillars ringed around the spawn, each a different height
-             and material, so you weave between them and see over the low
-             ones. *)
+          (* Six square pillars ringed around the spawn, each a different
+             height and material; the low ones can be seen over. *)
           @ List.init 6 (fun k ->
               let angle = float_of_int k *. Float.pi /. 3. in
               boundary
@@ -195,13 +191,13 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
                    ~center:(Vec.make (6. *. cos angle) (6. *. sin angle))
                    ~radius:0.6 ~sides:4 ~rotation:0.6))
           @ [
-              (* A brick wall hung on both sides: a painting and a poster facing
-                 the spawn, and on the back of it a lit sign.
+              (* A brick wall hung on both sides: a painting and a poster
+                 facing the spawn, a lit sign on the back.
 
                  The sign is the only decal in the level that is neither Front
-                 nor unlit. Back hangs it on the far face, so walking round the
-                 wall is what finds it; glow lifts it clear of the light the
-                 rest of the wall is under. *)
+                 nor unlit. Back hangs it on the far face, found by walking
+                 round the wall; glow lifts it clear of the light the rest of
+                 the wall is under. *)
               wall ~height:3.2 ~material:Surfaces.brick (Vec.make (-3.) (-4.))
                 (Vec.make 3. (-4.))
                 ~decals:
@@ -233,11 +229,11 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
             ]);
         room ~name:"hall"
           ~floor:(ground hall_floor)
-            (* Not Plane.above, which is the floor's own slope carried up bodily
-             and so a ceiling of fixed headroom. This one has a slope of its
-             own, steeper than the floor's, so the two diverge: the hall is 4
-             cells high where you come in and rather more of that by the far
-             wall. Nothing else in the level does this. *)
+            (* Not Plane.above, which carries the floor's own slope up bodily
+             for a ceiling of fixed headroom. This one has a steeper slope of
+             its own, so the two diverge: the hall is 4 cells high at the
+             entrance and rather more by the far wall. Nothing else in the
+             level does this. *)
           ~ceiling:
             (roofed
                (Plane.make
@@ -254,7 +250,7 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
               (Vec.make 6. (-5.));
             wall ~height:4.5 ~material:Surfaces.brick (Vec.make 6. 5.)
               (Vec.make 0. 5.);
-            (* A low bench you see over. *)
+            (* A low bench, seen over. *)
             wall ~height:0.5 ~material:Surfaces.panel (Vec.make 3. (-4.))
               (Vec.make 5. (-4.));
             boundary ~height:4.5 ~material:Surfaces.tile
@@ -280,13 +276,13 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
              and it lights both. *)
           ~ceiling:(open_sky Surfaces.dusk)
           [
-            (* The garden's side of the gate is written by hand rather than cut,
-               for the one thing P.doorway will not do: a lintel of a material
-               other than the wall's. The strip left standing over this opening
-               is brick where the wall either side of it is stone, which is what
-               makes it read as a transom rather than as more wall. The plaza's
-               side is a plain doorway, so the two rooms disagree about what is
-               over the opening — as two rooms built by different hands would. *)
+            (* The garden's side of the gate is written by hand rather than
+               cut, for the one thing P.doorway will not do: a lintel of a
+               material other than the wall's. The strip over this opening is
+               brick where the wall either side is stone, which makes it read
+               as a transom rather than more wall. The plaza's side is a plain
+               doorway, so the two rooms disagree about what is over the
+               opening. *)
             wall ~height:7. ~material:Surfaces.stone (Vec.make 0. (-5.))
               garden_p;
             wall ~height:7. ~material:Surfaces.stone garden_q (Vec.make 0. 5.);
@@ -303,7 +299,7 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
             (* A lone tall monolith. *)
             wall ~height:6. ~material:Surfaces.brick (Vec.make (-6.) (-3.5))
               (Vec.make (-4.5) (-4.5));
-            (* A winding low wall you look over into the sky beyond. *)
+            (* A winding low wall, seen over into the sky beyond. *)
             boundary ~closed:false ~height:0.5 ~material:Surfaces.panel
               (corners
                  [

@@ -1,19 +1,17 @@
 (** {b Inclined floors and ceilings.} A floor is a {!Camlcast_core.Plane} — an
-    elevation [z = ax + by + c] over the room — and so is a roof, so both tilt,
-    and independently of each other.
+    elevation [z = ax + by + c] over the room — and so is a roof; both tilt,
+    independently of each other.
 
-    Two rooms, joined by a doorway. The hall's floor climbs away from you and
-    its roof climbs half again as fast, so the room opens up ahead as you walk
-    into it. The room beyond is authored in its own coordinate frame, as every
-    room is, and its floor is not written out by hand: it is the hall's floor
-    put through the transform of the doorway between them, with
-    {!Camlcast_core.Plane.through}. The same surface, in the other room's terms.
+    Two rooms, joined by a doorway. The hall's floor climbs and its roof climbs
+    half again as fast. The room beyond is authored in its own coordinate frame,
+    as every room is, and its floor is not written out by hand: it is the hall's
+    floor put through the transform of the doorway between them, with
+    {!Camlcast_core.Plane.through} — the same surface in the other room's terms.
 
-    That is what makes the threshold seamless. Two planes written out separately
-    with the numbers that look right differ by a few thousandths where they
-    meet, which reads as a step you walk into; derive the second from the first
-    and {!Camlcast_core.World.seam_gap} is zero by construction. There is a test
-    that says so, for this world and for {!Level}'s. *)
+    That makes the threshold seamless. Two planes written out separately differ
+    by a few thousandths where they meet, which reads as a step; derive the
+    second from the first and {!Camlcast_core.World.seam_gap} is zero by
+    construction. A test asserts this for this world and for {!Level}'s. *)
 
 open Camlcast
 
@@ -32,10 +30,10 @@ let hall_floor = Plane.make ~a:0.11 ~b:0. ~c:0.
 let hall_roof = Plane.make ~a:0.17 ~b:0. ~c:height
 let width = 2.6
 
-(* Both surfaces are carried through the doorway rather than restated. Two rooms
-   have no coordinates in common, so an upper floor written by hand to look
-   right is one that will drift; derived, it cannot, and Check finds no step in
-   the floor at the threshold. *)
+(* Both surfaces are carried through the doorway rather than restated. Two
+   rooms have no coordinates in common, so an upper floor written by hand will
+   drift; derived, it cannot, and Check finds no step in the floor at the
+   threshold. *)
 let from = P.opening ~width hall_se hall_ne
 let into = P.opening ~width up_nw up_sw
 let up_floor = P.through ~from ~into hall_floor
@@ -54,8 +52,8 @@ let level =
               (corners [ hall_ne; hall_nw; hall_sw; hall_se ]);
             doorway ~name:"onward" ~width ~opening:3.2 ~height
               ~material:Surfaces.brick hall_se hall_ne;
-            (* Standing on the slope: a sprite's feet are on the floor wherever
-               the floor has got to. *)
+            (* On the slope: a sprite's feet sit on the floor at whatever
+               height it has reached. *)
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
               (Vec.make 6. (-2.));
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel

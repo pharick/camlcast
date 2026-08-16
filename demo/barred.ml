@@ -1,25 +1,25 @@
-(** {b Doors you can see through.} A steel grille across one doorway, a leaded
-    transom over another, and the room behind each of them.
+(** {b See-through doors.} A steel grille across one doorway, a leaded transom
+    over another, and a room behind each.
 
     A leaf hung in a doorway is drawn from its own material, and a material is
-    see-through when the pattern it wears carries an alpha — exactly as for a
-    wall. So a door can be shut and transparent at once, and the two halves of
-    that are answered separately: the renderer draws the room beyond behind the
-    leaf and composites the leaf over it, while {!Camlcast_core.Room.shut} goes
-    on refusing the step. Walk into either of these and you stop against a door
-    you are looking through.
+    see-through when its pattern carries an alpha — exactly as for a wall. A
+    door can therefore be shut and transparent at once, and the two halves are
+    answered separately: the renderer draws the room beyond behind the leaf and
+    composites the leaf over it, while {!Camlcast_core.Room.shut} goes on
+    refusing the step — walking into either door stops against a door being
+    looked through.
 
-    - The {b left} doorway has a grille hung in it. The bars are solid and the
-      gaps between them are not, so the chamber behind — and the figure standing
-      in it — is there to be seen through a door that is shut.
-    - The {b right} doorway has a solid oak door with a {b transom} over it: a
-      strip of leaded glass in the wall above the opening. The door hides its
-      chamber and the glass does not, and that chamber is open to the sky.
+    - The {b left} doorway hangs a grille: the bars are solid and the gaps are
+      not, so the chamber behind, and the figure in it, is visible through a
+      shut door.
+    - The {b right} doorway hangs a solid oak door with a {b transom}: a strip
+      of leaded glass in the wall above the opening. The door hides its chamber
+      and the glass does not; that chamber is open to the sky.
 
     The transom is why the wall above an opening carries a material of its own.
     {!Camlcast_core.Room.doorway} cuts a wall and gives the jambs and the strip
-    it leaves standing overhead the same one, which is the common case and not
-    this one, so {!cut} below does the cutting instead. *)
+    left overhead the same material — the common case, not this one — so {!cut}
+    below does the cutting instead. *)
 
 open Camlcast
 
@@ -35,14 +35,13 @@ let flat = Plane.horizontal 0.
 
 (** A doorway with a leaf in it and a lintel of its own material — everything
     {!Camlcast.P.doorway} does, except that the strip above the opening is not
-    made of the wall it was cut into. Which is the one thing doorway will not
-    do, and the reason {!Camlcast.P.threshold} exists.
+    made of the wall it was cut into. That is the one thing doorway will not do,
+    and the reason {!Camlcast.P.threshold} exists.
 
     {!Camlcast.P.opening} works out where the two ends land, so the arithmetic
     that places an opening is written once, in the engine, and read back here
-    rather than restated. The wall is split about its middle so that both jambs
-    keep the boundary's winding, which is what the link between two rooms is
-    derived from. *)
+    rather than restated. The wall is split about its middle so both jambs keep
+    the boundary's winding, which the link between two rooms is derived from. *)
 let cut ~name ~door ~transom a b =
   let p, q = P.opening ~width a b in
   P.
@@ -60,9 +59,9 @@ let hall_ne = Vec.make 0. 7.
 let hall_nw = Vec.make (-12.) 7.
 let middle = Vec.make 0. 0.
 
-(* What is behind each of them. Both sides of a link must agree about the door,
-   so each chamber hangs its own copy of whatever the hall hangs — and wears the
-   same transom, so that the view back out is the view in. *)
+(* What is behind each doorway. Both sides of a link must agree about the
+   door, so each chamber hangs its own copy of whatever the hall hangs — and
+   wears the same transom, so the view back out matches the view in. *)
 let chamber =
   Element.declare ~name:"chamber"
   @@ fun (name, door, transom, ceiling, sprites) ->
@@ -89,8 +88,8 @@ let level =
     world ~atmosphere:Surfaces.air
       ~spawn:("hall", Vec.make (-7.) 0.)
       [
-        (* The hall you arrive in, its east wall cut twice: the grille to the
-           south, the glazed door to the north. Cut south to north so the wall's
+        (* The arrival hall, its east wall cut twice: the grille to the south,
+           the glazed door to the north. Cut south to north so the wall's
            winding is unbroken. *)
         room ~name:"hall"
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
@@ -109,8 +108,8 @@ let level =
             grille,
             Surfaces.brick,
             roofed,
-            (* Close to the bars, and so out of the fog: the point of this room
-               is that you can see what is standing in it. *)
+            (* Close to the bars, and so out of the fog: the room exists to
+               make its occupant visible. *)
             [ sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2. 0.) ] );
         (* Open to the sky, which is what the glass over the door shows and the
            door itself does not. *)

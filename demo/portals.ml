@@ -1,23 +1,21 @@
-(** {b Doorways.} How two rooms are joined, and what a link really is.
+(** {b Doorways.} How two rooms are joined, and what a link is.
 
     A hexagonal hub with doorways cut into two of its slanted sides, and a room
-    beyond each. The two rooms beyond are {e the same room} — the identical
-    rectangle, built once and used twice, standing at the origin facing north in
-    its own coordinates. What puts one of them off to the right and the other
-    off to the left, each turned to meet the wall it opens onto, is the doorway
-    and nothing else.
+    beyond each. The two rooms beyond are {e the same room} — one rectangle,
+    built once and used twice, standing at the origin facing north in its own
+    coordinates. The doorway alone puts one to the right and one to the left,
+    each turned to meet the wall it opens onto.
 
-    That is the whole idea. A room is authored in its own frame and knows
-    nothing of where it sits; a link between two thresholds is a rigid transform
-    derived from the four endpoints, and there is no global frame for any of it
-    to disagree with. Which is also why a world can be folded into a shape that
-    could not exist — join a room to one four doorways behind it and the
-    corridor returns you somewhere it could not possibly go, and nothing in the
-    engine objects.
+    A room is authored in its own frame and knows nothing of where it sits; a
+    link between two thresholds is a rigid transform derived from the four
+    endpoints, and there is no global frame to disagree with. This also allows
+    impossible topology — join a room to one four doorways behind it and the
+    corridor returns somewhere it could not physically go; nothing in the engine
+    objects.
 
-    Look through one doorway from the middle of the hub: the renderer follows
-    the ray into the next room, transformed, up to
-    {!Camlcast_core.Config.max_portal_depth} doorways deep. *)
+    Looking through a doorway, the renderer follows the ray into the next room,
+    transformed, up to {!Camlcast_core.Config.max_portal_depth} doorways deep.
+*)
 
 open Camlcast
 
@@ -35,10 +33,9 @@ let se = Vec.make 3.5 0.
 let ne = Vec.make 3.5 9.
 let nw = Vec.make (-3.5) 9.
 
-(* A component, because there are two of them and they are the same room. Given
-   different names, they are two rooms of one shape — which is exactly what the
-   old version said by calling a function twice, in a form the runtime can also
-   tell apart. *)
+(* A component, because the two chambers are the same room. Given different
+   names, they are two rooms of one shape — what the old version said by
+   calling a function twice, in a form the runtime can also tell apart. *)
 let chamber =
   Element.declare ~name:"chamber" @@ fun name ->
   P.(
@@ -55,8 +52,8 @@ let chamber =
 
 let level =
   P.(
-    (* Standing back from the middle, so that both doorways are ahead of you and
-       the same room can be seen through each. *)
+    (* Spawn is set back from the middle, so both doorways are ahead and the
+       same room is visible through each. *)
     world ~atmosphere:Surfaces.air
       ~spawn:("hub", Vec.make (-6.) 0.)
       [

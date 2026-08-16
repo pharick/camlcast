@@ -1,16 +1,14 @@
-(** {b See-through walls.} A steel grille and a leaded window, each with someone
-    standing behind it.
+(** {b See-through walls.} A steel grille and a leaded window, each with a
+    figure standing behind it.
 
-    A wall is see-through when the pattern its material wears carries an alpha —
+    A wall is see-through when the pattern its material wears carries an alpha:
     {!Patterns.bars} and {!Patterns.glass} are built with
     {!Camlcast_core.Texture.generate_masked}, and nothing else here is. The
-    renderer draws the opaque walls first and then composites the translucent
-    ones back to front along with the sprites, which is why the figure behind
-    the grille is seen through it and the barrel in front of it is not.
-
-    Walk up to the grille: the bars are opaque and the gaps are not, so one wall
-    is doing both at once. Then walk through the gap between the two halves and
-    look back through them from the other side. *)
+    renderer draws the opaque walls first, then composites the translucent ones
+    back to front along with the sprites — which is why the figure behind the
+    grille is seen through it and the barrel in front of it is not. In the
+    grille, the bars are opaque and the gaps are not, so one wall does both at
+    once. *)
 
 open Camlcast
 
@@ -37,15 +35,14 @@ let level =
                    Vec.make (-8.) 6.;
                  ]);
             (* A screen across the room in two halves, bars on one side and
-               leaded glass on the other, with a gap between them to walk
-               through. It stands square across the way you are facing when you
-               arrive. *)
+               leaded glass on the other, with a walkable gap between them. It
+               stands square across the spawn's facing direction. *)
             wall ~height:2.6 ~material:Surfaces.grille (Vec.make 0. (-6.))
               (Vec.make 0. (-1.6));
             wall ~height:2.6 ~material:Surfaces.window (Vec.make 0. 1.6)
               (Vec.make 0. 6.);
-            (* One behind each half of the screen, and one in front of it: the
-               three are seen through bars, through glass, and plainly. *)
+            (* One sprite behind each half of the screen and one in front: seen
+               through bars, through glass, and directly. *)
             sprite ~key:"barred" ~size:1.8 ~image:Pictures.figure
               (Vec.make 4. (-3.5));
             sprite ~key:"glazed" ~size:1.8 ~image:Pictures.figure

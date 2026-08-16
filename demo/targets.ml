@@ -1,59 +1,54 @@
-(** {b Looking through a doorway.} What the crosshair is on, named — including
-    when it is in the room next door.
+(** {b Looking through a doorway.} Names what the crosshair is on, including
+    when it is in the next room.
 
     {!Camlcast_core.Sight.look} traces the middle of the view through every open
     doorway the frame was drawn through, carrying it into each next room's
     frame, and reports what it meets first: which room, and which wall, sprite
-    or threshold of it. Everything that stops the eye stops it — a nearer
+    or threshold of it. Everything that stops the eye stops the trace — a nearer
     sprite, an opaque wall, a shut door, the lintel over an opening — so what
-    can be picked is what can be seen. There is one doorway to look through
-    here; the rule holds however many there are in a line.
+    can be picked is what can be seen. There is one doorway here; the rule holds
+    for any number in a line.
 
-    Stand in this room and look through the opening at the three barrels beyond
-    it. The crosshair tells you what it has found:
+    The crosshair colour reports the hit:
 
     - {b white} — nothing;
-    - {b amber} — something in the room you are standing in;
+    - {b amber} — something in the current room;
     - {b blue} — a doorway, or the wall over one;
-    - {b green} — a barrel in the room beyond, which you may collect.
+    - {b green} — a barrel in the room beyond, collectible.
 
-    Press {b E} on a green one and it is recorded: a tick appears along the
-    bottom, and that barrel cannot be recorded twice. Walk into the far room and
-    the barrels turn amber — they are in {e your} room now, and this demo will
-    not take them. That rule is the demo's, not the engine's:
-    {!Camlcast_core.Sight} reports how many doorways it looked through and
-    {!may_take} is where the "at least one" is written down. The engine has no
-    notion of a thing worth collecting, only of the sprite that happens to be
-    one.
+    Pressing {b E} on a green one records it: a tick appears along the bottom,
+    and that barrel cannot be recorded twice. Inside the far room the barrels
+    turn amber — they are in the current room now, and this demo will not take
+    them. That rule is the demo's, not the engine's: {!Camlcast_core.Sight}
+    reports how many doorways it looked through and {!may_take} is where the "at
+    least one" is written down. The engine has no notion of a thing worth
+    collecting, only of the sprite that happens to be one.
 
-    Whatever is targeted is {b ringed}, from the same numbers the renderer drew
-    it with — so the ring lands on it exactly, even through the doorway and in
-    the far room's own coordinates. {!Camlcast_core.Sight.t} carries the pose to
-    work that out from.
+    The target is {b ringed} from the same numbers the renderer drew it with, so
+    the ring lands on it exactly, even through the doorway and in the far room's
+    own coordinates. {!Camlcast_core.Sight.t} carries the pose to work that out
+    from.
 
-    There is a {b picture hung on the far wall} too. Aim at it and the crosshair
-    says so: a wall hit reports which of its decals is under the crosshair, by
-    the same rule that drew it, alpha and all. Aim at the wall an inch beside
-    the frame and it is a bare wall again.
+    A {b picture hangs on the far wall}. A wall hit reports which of its decals
+    is under the crosshair, by the same rule that drew it, alpha and all; an
+    inch beside the frame the wall reports bare.
 
-    The two rings are not the same shape, and that is the point. A sprite faces
-    you, so it rings as a rectangle. A picture is flat on a wall, and a wall
-    recedes — so its far edge is shorter than its near one and the ring is a
-    trapezoid. Stand square on to the picture and it squares up; step to one
-    side and watch it lean.
+    The two rings are deliberately different shapes. A sprite faces the camera,
+    so it rings as a rectangle. A picture is flat on a receding wall, so its far
+    edge is shorter than its near one and the ring is a trapezoid; it squares up
+    only when viewed square on.
 
-    Two more things worth trying. Walk so one barrel is behind another — the
-    near one wins, and the far one cannot be taken. And aim at the gap between a
-    barrel's outline and the corner of its box: the crosshair goes white,
-    because a sprite is a cut-out and the pick is asked of the texel rather than
-    the box. *)
+    Two more cases: with one barrel behind another the near one wins and the far
+    one cannot be taken; and the gap between a barrel's outline and the corner
+    of its box reads white, because a sprite is a cut-out and the pick is asked
+    of the texel rather than the box. *)
 
 open Camlcast
 
 let height = 4.
 
-(** Clearer air than the other demos use. What is being looked at here is in the
-    next room and a good way off, and the point is to be able to see it. *)
+(** Clearer air than the other demos use: the targets are in the next room and a
+    good way off, and must stay visible. *)
 let air =
   Atmosphere.make ~haze:(Color.rgb 26 26 34) ~fog_distance:22.
     ~min_brightness:0.4 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.65
@@ -63,13 +58,12 @@ let flat = Plane.horizontal 0.
 let ground = P.floor ~plane:flat ~material:Surfaces.ground
 let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
 
-(** Three of them, spread across the doorway's view: one square on, one to each
+(** Three barrels spread across the doorway's view: one square on, one to each
     side, so turning the head picks a different one.
 
-    Each is keyed by a name, and that name is what it is recorded under — where
-    the old version recorded a room and a sprite index, which are numbers
-    assembling a description happens to produce and not anything the demo meant.
-*)
+    Each is keyed by a name, and that name is what it is recorded under — the
+    old version recorded a room and a sprite index, numbers that assembling a
+    description happens to produce rather than anything the demo meant. *)
 let barrels =
   [
     ("straight", Vec.make 3. 0.);
@@ -78,22 +72,20 @@ let barrels =
   ]
 
 (** This demo's rule about what may be recorded, and the whole of it: a barrel,
-    in a room the eye reached through at least one doorway, that has not been
-    recorded already.
+    in a room the eye reached through at least one doorway, not recorded
+    already.
 
-    The [crossed] test is the "from safety" part — you may study the next room
-    without standing in it, and what you are already standing among does not
-    count. Nothing in the engine says so. *)
+    The [crossed] test is the "from safety" part — the next room may be studied
+    without standing in it, and the current room's contents do not count.
+    Nothing in the engine says so. *)
 let may_take ~collected name (spot : Aim.spot) =
   spot.Aim.crossed >= 1 && not (List.mem name collected)
 
-(** What colour to ring and aim in, which is the demo saying what it thinks of
-    what you are looking at.
+(** The ring and crosshair colour: the demo's verdict on the target.
 
-    Two questions are asked of two different things, because they are two
-    different questions. What {e kind} of thing it is comes from
-    {!Camlcast.Events.use_aim}, which answers about the crosshair; {e which}
-    barrel it is comes from the barrel, which was told by [on_gaze]. *)
+    Two questions go to two different sources. What {e kind} of thing it is
+    comes from {!Camlcast.Events.use_aim}, which answers about the crosshair;
+    {e which} barrel it is comes from the barrel, told by [on_gaze]. *)
 let tint ~collected ~aimed (aim : Aim.spot option) =
   match (aim, aimed) with
   | Some { Aim.where = Aim.On_sprite; crossed; _ }, Some name
@@ -130,9 +122,8 @@ let at ~collected ~aimed ~aim ~take ~look ~viewport:(_, down) =
           ];
         room ~name:"far" ~floor:ground ~ceiling:roofed
           ([
-             (* One down the far room's side wall, which the doorway only ever
-                shows you at an angle — the ring round this one is a
-                trapezoid. *)
+             (* One on the far room's side wall, which the doorway only ever
+                shows at an angle — the ring round this one is a trapezoid. *)
              wall ~height ~material:Surfaces.stone (Vec.make 0. (-6.))
                (Vec.make 9. (-6.))
                ~decals:

@@ -1,28 +1,26 @@
 (** {b The open sky.} A room with no roof shows a {!Camlcast_core.Sky} instead:
-    a gradient from a horizon colour to a zenith colour, with a sun somewhere in
-    it.
+    a gradient from a horizon colour to a zenith colour, with a sun in it.
 
-    The sky belongs to the room and not to the world, so two rooms can be under
-    different ones. Walk through the doorway ahead and the light overhead
-    changes while everything under it stays as it was — the sun swings round
-    behind you and drops to the horizon, and the gradient tightens into it.
+    The sky belongs to the room, not the world, so two rooms can be under
+    different ones: through the doorway the sky changes while everything under
+    it stays the same.
 
-    Nothing about the sky lights the walls, though. What lights those is the
-    world's {!Camlcast_core.Atmosphere}, which is one per world and is the
-    subject of the {!Haze} demo instead. That is why the ground in the second
-    yard is as bright as in the first, however low its sun has got. *)
+    The sky does not light the walls. That is the world's
+    {!Camlcast_core.Atmosphere}, one per world and the subject of the {!Haze}
+    demo — which is why the ground in the second yard is as bright as in the
+    first, however low its sun is. *)
 
 open Camlcast
 
-(* Low walls and a wide yard, so that most of what you can see is sky. *)
+(* Low walls and a wide yard, so most of the view is sky. *)
 let height = 2.4
 
 (** Noon: a pale horizon deepening to a blue zenith, the sun high in the west.
-    This is {!Surfaces.day}, the sky the showcase level stands under. *)
+    This is {!Surfaces.day}, the showcase level's sky. *)
 let noon = Surfaces.day
 
-(** Dusk: the same sky wound on a few hours. A warmer, tighter gradient, and a
-    bigger, redder sun sitting on the horizon behind you. *)
+(** Dusk: the same sky a few hours later. A warmer, tighter gradient, and a
+    bigger, redder sun on the horizon behind the spawn. *)
 let dusk =
   Sky.make ~horizon:(Color.rgb 236 152 96) ~zenith:(Color.rgb 28 30 78)
     ~sun:(Color.rgb 255 214 150) ~sun_azimuth:2.7 ~sun_height:0.06
@@ -34,8 +32,8 @@ let se = Vec.make 17. (-8.)
 let ne = Vec.make 17. 8.
 let nw = Vec.make 0. 8.
 
-(* A walled yard, open overhead, with a doorway in the wall you face on the way
-   in. Something tall stands in it to catch the light against the sky.
+(* A walled yard, open overhead, with a doorway in the wall faced on entry and
+   a tall column to catch the light against the sky.
 
    Three sides run as a path and the fourth is cut, which together close the
    boundary: an outline of all four AND a doorway along one of them would be a
