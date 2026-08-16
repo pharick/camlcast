@@ -1,13 +1,13 @@
 (** The primitives a world is described with — this engine's [div] and [span].
 
     Every one of these is an inert description: what to build, never a built
-    thing that something is holding on to. {!Host.assemble} is what turns a
-    frame's worth of them into a {!Camlcast_core.World.t}, and a game never sees
-    that happen.
+    thing that something is holding on to. {!Host.assemble} turns a frame's
+    worth of them into a {!Camlcast_core.World.t}, and a game never sees that
+    happen.
 
-    They carry parameters rather than assembled pieces wherever a child affects
-    how the piece is made — a {!Wall} keeps its endpoints because the decals
-    hung on it arrive as its children and have to be there when
+    A primitive carries parameters rather than assembled pieces wherever a child
+    affects how the piece is made. A {!Wall} keeps its endpoints because the
+    decals hung on it arrive as its children, and they have to be present when
     {!Camlcast_core.Room.val-wall} is finally called. Where nothing nests, the
     assembled value is carried directly, because there is nothing left to
     decide.
@@ -28,8 +28,8 @@ type reacts = {
 
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 (** Where a description says the eye is. Its own record rather than an inline
-    one, because {!Host} resolves it after the world exists and wants to pass it
-    about while it does. *)
+    one, because {!Host} resolves it after the world exists and passes it about
+    while it does. *)
 
 type t =
   | World of { atmosphere : Atmosphere.t; spawn : string * Vec.t }
@@ -71,11 +71,11 @@ type t =
   | Highlight of Color.t
   | Crosshair of Color.t
   | Cursor
-      (** the description asking for the pointer. Present in a frame, the mouse
-          is loose and does not turn the camera. *)
+      (** the description asking for the pointer. While one is present in a
+          frame, the mouse is loose and does not turn the camera. *)
   | Finish
-      (** the description saying it is over. Present in a frame, the run ends
-          after it. *)
+      (** the description saying it is over. When one is present in a frame, the
+          run ends after that frame. *)
   | Link of { here : string * string; there : string * string }
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)
@@ -85,39 +85,40 @@ val describe : t -> string
 
 val inside : t -> string
 (** Where this primitive's children are, said as a phrase: ["in a world"],
-    ["on a wall"], ["on the hud"]. What a complaint about one of them ends with.
-*)
+    ["on a wall"], ["on the hud"]. A complaint about one of them ends with this
+    phrase. *)
 
 val misplaced : child:t -> parent:t -> string
 (** What to say about a nesting {!may_contain} refused:
-    ["a sprite (0,0) cannot go in a world"]. {!describe} for the thing and
-    {!inside} for the place, with the one sentence they go in.
+    ["a sprite (0,0) cannot go in a world"]. {!describe} names the thing,
+    {!inside} names the place, and this supplies the one sentence they go in.
 
-    Here for the reason the rule below is, and it is the same reason a third
-    time. {!Host.assemble} raised ["… does not belong in a world"] and
-    {!Check.report} reported ["a … cannot go in a world"], which is one offence
-    with two names — so a game developer who met the checker's wording and then
-    the engine's had no way to tell they had been told the same thing twice. The
-    nouns were already shared and only the verb was not, which is how it went
-    unnoticed: every part of the sentence anyone thought to share was shared. *)
+    The sentence lives here for the reason the rule below does — the same
+    reason, a third time. {!Host.assemble} raised
+    ["… does not belong in a world"] and {!Check.report} reported
+    ["a … cannot go in a world"]: one offence with two names. A game developer
+    who met the checker's wording and then the engine's had no way to tell they
+    had been told the same thing twice. The drift went unnoticed because the
+    nouns were already shared and only the verb was not: every part of the
+    sentence anyone thought to share was shared. *)
 
 val not_a_world : t -> string
 (** What to say about a description whose one root is something else:
-    ["a wall (0,0)-(1,0) is not a world"]. The same sentence for the same
-    reason, which the two readers had come within an article of agreeing on. *)
+    ["a wall (0,0)-(1,0) is not a world"]. The same sentence shared for the same
+    reason; the two readers had come within an article of agreeing on it. *)
 
 val may_contain : parent:t -> child:t -> bool
 (** Whether that nesting means anything.
 
-    One statement of it, because there are two readers and they must not drift:
-    {!Host.assemble} raises on the first thing that is out of place, and
+    One statement of the rule, because there are two readers and they must not
+    drift. {!Host.assemble} raises on the first thing that is out of place;
     {!Check.report} collects every one of them with the component that wrote it.
     Those are two different jobs and one rule, and the rule is here.
 
     {b Sharing the rule is not enough on its own.} Both readers also have to ask
-    it about the same nodes, with the same parent for each — and once they did
-    not, which is how they came to disagree about descriptions that only
-    [Element] and this module can build. They now walk a description through one
-    traversal, which is internal and answers to this. Asking [may_contain] while
-    doing something else, at whichever nodes that something else happens to
-    reach, is what produced the drift; it is not the way to read this rule. *)
+    it about the same nodes, with the same parent for each. Once they did not,
+    and they came to disagree about descriptions that only [Element] and this
+    module can build. They now walk a description through one traversal, which
+    is internal to the library and governed by this rule. Asking [may_contain]
+    while doing something else, at whichever nodes that something else happens
+    to reach, is what produced the drift; do not read the rule that way. *)

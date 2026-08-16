@@ -1,11 +1,10 @@
 (** Matching this frame's description against last frame's tree.
 
-    A game hands over a whole {!Element.t} every frame. Somewhere behind it is a
-    tree of instances that has been alive since the frame each of its parts
-    first appeared, holding everything that has to outlive a description. This
-    is what puts the two together: it walks them in step, decides at each place
-    whether the thing described is the thing already there, and keeps or
-    replaces accordingly.
+    A game hands over a whole {!Element.t} every frame. Behind it is a tree of
+    instances, alive since the frame each of its parts first appeared, holding
+    everything that must outlive a description. The reconciler walks the two in
+    step, decides at each place whether the thing described is the thing already
+    there, and keeps or replaces accordingly.
 
     {1 What counts as the same thing}
 
@@ -29,19 +28,19 @@
     {1 Children}
 
     Among one parent's children, a keyed element is matched to last frame's by
-    its key wherever either of them has moved to, and an unkeyed one is matched
-    against whatever stood at its own index — and only if that was unkeyed too.
-    Position is the whole of an unkeyed child's identity, which is exactly what
-    {!Path} says; the two have to agree, or a child could keep its state across
-    a move that changed the name everything else knows it by.
+    its key wherever either of them has moved to. An unkeyed one is matched
+    against whatever stood at its own index, and only if that was unkeyed too.
+    Position is the whole of an unkeyed child's identity, exactly as {!Path}
+    states it. The two must agree, or a child could keep its state across a move
+    that changed the name everything else knows it by.
 
     {b One parent's keys are unique}, and a repeat raises
     {!Element.Duplicate_key}. See {!Element} for why an ambiguous path is not a
     question worth answering.
 
-    A fragment is matched by key like anything else, which is what lets a helper
-    that returns several primitives at once — with no single one of them to hang
-    a key on — be rearranged with everything under it intact.
+    A fragment is matched by key like anything else. That lets a helper that
+    returns several primitives at once — with no single one of them to hang a
+    key on — be rearranged with everything under it intact.
 
     Leftovers are unmounted in the order they were declared, so that a trace of
     a frame reads the same way twice. *)
@@ -53,9 +52,9 @@ module Make (H : Host.HOST) : sig
   type t
   (** A mounted root: the instance tree, and everything hanging off it.
 
-      Made once and rendered into repeatedly. Two roots share nothing, which is
-      what lets a test drive several in one process — and, later, what lets a
-      launcher hold a menu and a world at the same time. *)
+      Made once and rendered into repeatedly. Two roots share nothing. That lets
+      a test drive several in one process, and later lets a launcher hold a menu
+      and a world at the same time. *)
 
   val create : unit -> t
   (** An empty root. The first {!render} into it mounts everything. *)
@@ -66,22 +65,22 @@ module Make (H : Host.HOST) : sig
       assembled from it.
 
       Effects run last, after the scene has been assembled — see {!Hook} for why
-      that is the only time they may — and cleanups run before setups, so a
-      component leaving and a component arriving in the same frame never overlap
-      on whatever they both hold. One of them raising does not cancel the rest:
+      that is the only time they may. Cleanups run before setups, so a component
+      leaving and a component arriving in the same frame never overlap on
+      whatever they both hold. One of them raising does not cancel the rest:
       everything owed runs, and the first exception comes back out once nothing
       is left owing. See {!Hook.Runtime.flush}.
 
       A render that raises commits nothing. The description is assembled before
       anything is committed, so a host that refuses one — {!Host.HOST.assemble}
       is the last thing that can — leaves the tree from the frame before exactly
-      where it stood, starts no effect and runs no cleanup, and a frame that had
+      where it stood, starts no effect and runs no cleanup. A frame that had
       already been asked for is still asked for afterwards.
 
-      What it cannot do is take back what the render itself wrote. A component
-      runs before the host has had its say, and what it did while it ran stands:
-      a {!Hook.use_ref} it wrote stays written, because that box is the
-      component's own and is the same box physically every render; a
+      What a raising render cannot do is take back what the render itself wrote.
+      A component runs before the host has had its say, and what it did while it
+      ran stands: a {!Hook.use_ref} it wrote stays written, because that box is
+      the component's own and is physically the same box every render; a
       {!Hook.use_memo} may have recomputed, which costs a recompute and nothing
       else; a setter called during a render has already written its slot. The
       [trace] events are not unsaid either — a trace records what the reconciler
@@ -93,7 +92,7 @@ module Make (H : Host.HOST) : sig
       not merely partial: a component reported unmounted by the refused frame is
       reported {e updated} by the next one, and those two lines cannot both be
       true of a tree. They are both true of the walk, which is what a trace is
-      of, and this is the line that says so.
+      of, and {!Trace.Refused} is the line that says so.
 
       [trace], if given, is called with every mount, update and unmount as they
       happen, in the order they happen. Left out, nothing is recorded and
@@ -105,14 +104,15 @@ module Make (H : Host.HOST) : sig
       Cleared at the start of every {!render} and set by {!Hook.use_state}'s
       setter, wherever it was called from — an effect, an event handler, a
       timer. A game that renders every frame regardless can ignore it; a menu
-      that would rather not rebuild a scene nothing has changed can ask.
+      that would rather not rebuild an unchanged scene can ask.
 
-      By a setter belonging to a component that is {e in} the tree, which is the
-      part that matters to a loop driven by this rather than by the clock. One
-      whose component has left says nothing, and after {!destroy} every setter
-      there ever was has left — so this cannot be stuck true by a timer that
-      outlived the mount, which would be a loop rendering forever for a
-      component that is not there, or reviving a root that was torn down. *)
+      Only a setter belonging to a component that is {e in} the tree sets it,
+      which is the part that matters to a loop driven by this rather than by the
+      clock. A setter whose component has left says nothing, and after
+      {!destroy} every setter there ever was has left. So this cannot be stuck
+      true by a timer that outlived the mount — which would mean a loop
+      rendering forever for a component that is not there, or reviving a root
+      that was torn down. *)
 
   val destroy : ?trace:(H.prim Trace.event -> unit) -> t -> unit
   (** Unmount everything this root holds and run what that owes.
@@ -124,15 +124,15 @@ module Make (H : Host.HOST) : sig
       later render.
 
       One cleanup raising does not keep the others from running, so a teardown
-      that goes wrong is still a teardown that let go of everything it could.
-      The exception arrives afterwards.
+      that goes wrong still lets go of everything it could. The exception
+      arrives afterwards.
 
       The root is empty afterwards rather than spent — rendering into it again
       mounts everything fresh — and destroying it twice owes nothing the second
       time.
 
-      Why this and not [render root Element.empty], which unmounts a tree just
-      as thoroughly: that needs a scene, and a host is entitled to refuse to
-      assemble one from nothing. Releasing what a root holds is not something a
-      host should get a say in. *)
+      This exists instead of [render root Element.empty], which unmounts a tree
+      just as thoroughly, because that form needs a scene, and a host is
+      entitled to refuse to assemble one from nothing. Releasing what a root
+      holds is not something a host should get a say in. *)
 end
