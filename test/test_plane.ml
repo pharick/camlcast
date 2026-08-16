@@ -61,12 +61,13 @@ let the_ceiling_is_only_above_the_horizon () =
     (args 0.5 = None)
 
 (* [view_distance] is [cast] plus a judgement, and the renderer wants the half
-   without it: a raw distance whose sign it reads itself, and [infinity] — not
-   an option — for the ray that never meets the plane. Both halves are load
-   bearing over there. The sign is how [draw_planes] tells a plane behind the
-   eye, which it leaves to the haze, from one a doorway clipped, which it leaves
-   alone; and [infinity] is what lets it compare a floor's cast against a
-   ceiling's with [<=] and take the nearer without opening two boxes a pixel. *)
+   without the judgement: a raw distance whose sign it reads itself, and
+   [infinity] — not an option — for a ray that never meets the plane. Both are
+   load bearing in the renderer. The sign is how [draw_planes] distinguishes a
+   plane behind the eye, which it leaves to the haze, from one a doorway
+   clipped, which it leaves alone. [infinity] lets it compare a floor's cast
+   against a ceiling's with [<=] and take the nearer without unwrapping two
+   options per pixel. *)
 let cast_answers_before_it_judges () =
   let floor = Plane.horizontal 0. in
   let cast row_factor =
@@ -87,12 +88,12 @@ let cast_answers_before_it_judges () =
        ~dir:(Vec.make 1. 0.) ~row_factor:(-0.5)
     = None);
   (* Parallel: infinity rather than the enormous finite number the division
-     would otherwise give, which is the whole reason for the epsilon.
+     would otherwise give, which is the reason the epsilon exists.
 
      Bracketed with {!Plane.parallel} itself rather than with the two literals
-     this used to name. They were 1e-12 and 1e-8, chosen to sit either side of a
-     1e-9 written somewhere else, and they would have gone on passing while
-     testing nothing if that number had moved between them. *)
+     this used to name. Those were 1e-12 and 1e-8, chosen to sit either side of
+     a 1e-9 written elsewhere; if that number had moved between them, the test
+     would have kept passing while testing nothing. *)
   Alcotest.(check bool)
     "along the horizon, infinitely far" true
     (cast 0. = infinity);
@@ -105,29 +106,29 @@ let cast_answers_before_it_judges () =
   Alcotest.(check bool)
     "while just outside it the division is allowed to happen" true
     (Float.is_finite (cast (Plane.parallel *. 1.01)));
-  (* And the sign does not enter into it: a plane the ray is running along is
-     the same non-answer from either side of the horizon. *)
+  (* The sign does not affect it: a plane the ray runs along gives the same
+     infinity from either side of the horizon. *)
   Alcotest.(check bool)
     "and the same on the other side of zero" true
     (cast (-.Plane.parallel *. 0.99) = infinity
     && Float.is_finite (cast (-.Plane.parallel *. 1.01)))
 
-(* The bracket above is written in terms of the figure, so it holds wherever the
-   figure is put — which is what makes it useless for saying the figure is
-   right. Both sides of that, then.
+(* The bracket above is written in terms of the figure, so it holds wherever
+   the figure is put. That makes it useless for showing the figure is right, so
+   this pins the figure from both sides.
 
-   Below: a row that is a real row. [row_factor] is a screen row's offset from
-   the horizon over the projection, so the nearest row to the horizon of a very
-   tall buffer is around [1e-3] and one of a buffer taller than any machine will
-   render is still far above [1e-6]. A tolerance that swallowed [1e-6] would
-   blank a band of pixels either side of the horizon that the floor and the
-   ceiling really do reach.
+   Lower bound: a real row. [row_factor] is a screen row's offset from the
+   horizon over the projection, so the nearest row to the horizon of a very
+   tall buffer is around [1e-3], and one of a buffer taller than any machine
+   will render is still far above [1e-6]. A tolerance that swallowed [1e-6]
+   would blank a band of pixels either side of the horizon that the floor and
+   the ceiling really do reach.
 
-   Above: what the arithmetic leaves behind. The denominator is a sum of two
-   dimensionless quantities of order one, so a genuinely parallel row computes
-   to a few times the epsilon of one rather than to zero, and a tolerance down
-   there would divide by it and call the result a surface — a floor at [1e15]
-   cells, which is a fogged texel where the haze belongs. *)
+   Upper bound: what the arithmetic leaves behind. The denominator is a sum of
+   two dimensionless quantities of order one, so a genuinely parallel row
+   computes to a few times the epsilon of one rather than to zero. A tolerance
+   below that would divide by it and call the result a surface: a floor at
+   [1e15] cells, a fogged texel where the haze belongs. *)
 let plane_parallel_is_between_a_real_row_and_rounding () =
   Alcotest.(check bool)
     "a row a tall buffer really has still casts" true

@@ -1,15 +1,14 @@
-(* The reconciler, against a host made of strings.
+(* The reconciler, tested against a mock host made of strings.
 
-   This suite links camlcast_loom and nothing else — no camlcast, no SDL, not
-   even Support, which is built on the engine's types. That is the point of the
-   split stated as a test: if the runtime can be exercised this thoroughly with
-   the engine absent, then the engine is genuinely absent from it.
+   This suite links camlcast_loom and nothing else: no camlcast, no SDL, and no
+   Support, which is built on the engine's types. Exercising the runtime this
+   thoroughly with the engine absent shows the runtime does not depend on the
+   engine.
 
-   A host is two types and one function, so here it is: a primitive is a string
-   and a scene is the forest drawn as an indented tree. Everything the
-   reconciler decides is then readable as text — the scene says what was built,
-   and the trace says what was kept, made and destroyed to get there, which is
-   the claim that cannot be checked by looking at a picture. *)
+   A host is two types and one function. Here a primitive is a string and a
+   scene is the forest printed as an indented tree. Every reconciler decision is
+   then readable as text: the scene says what was built, and the trace says what
+   was kept, made, and destroyed, which the scene alone cannot show. *)
 
 open Camlcast_loom
 
@@ -31,9 +30,10 @@ module R = Reconcile.Make (Mock)
 
 exception Refused
 
-(* The same host, given the one thing every real host has and Mock does not: a
-   description it will not build. Assembling is the last thing that can refuse a
-   frame, and what a refusal leaves behind is only visible through one. *)
+(* Mock plus the one thing every real host has and Mock does not: a description
+   it refuses to build. Assembling is the last step that can refuse a frame, and
+   what a refusal leaves behind is only observable through a host that
+   refuses. *)
 module Fragile = struct
   include Mock
 
@@ -46,7 +46,7 @@ end
 
 module F = Reconcile.Make (Fragile)
 
-(* Render, and keep what the reconciler said it was doing while it did it. *)
+(* Render and record the trace events emitted during the render. *)
 let run root element =
   let log = ref [] in
   let trace event = log := Trace.to_string Fun.id event :: !log in
@@ -67,8 +67,8 @@ let taking_down root =
 let scene = Alcotest.string
 let log = Alcotest.(list string)
 
-(* Two components that differ in nothing but identity, which is the only thing
-   the reconciler judges them by. *)
+(* Two components that differ only in identity. Identity is the only thing the
+   reconciler compares them by. *)
 let torch = Element.declare ~name:"torch" (fun () -> Element.prim "flame")
 let lamp = Element.declare ~name:"lamp" (fun () -> Element.prim "glow")
 let room children = Element.prim ~children "room"
@@ -76,9 +76,9 @@ let wall = Element.prim "wall"
 
 exception Broken
 
-(* A component that will not let go quietly. Its cleanup raises, which is the
-   one thing a flush has to carry on past: the work queued behind it is owed by
-   a tree that is already standing. *)
+(* A component whose cleanup raises. A flush must continue past the raise
+   because the work queued behind it is owed by a tree that is already
+   committed. *)
 let brittle =
   Element.declare ~name:"brittle" @@ fun () ->
   Hook.use_effect ~deps:() (fun () -> Some (fun () -> raise Broken));
@@ -138,8 +138,8 @@ let keeping =
           (log_of root (lamp ())));
   ]
 
-(* The reason keys exist. Each of these rearranges a list and asks whether the
-   things in it were recognised where they ended up. *)
+(* Why keys exist. Each case rearranges a list and checks that its entries were
+   recognised at their new positions. *)
 let keys =
   let keyed key = Element.prim ~key key in
   let unkeyed = Element.prim in
@@ -158,9 +158,8 @@ let keys =
     case "an unkeyed list only matches by position" (fun () ->
         let root = R.create () in
         ignore (run root (room [ unkeyed "a"; unkeyed "b" ]));
-        (* Nothing is unmounted — but "b" has been updated into the place "a"
-           held, which is exactly the state-follows-the-wrong-row bug that keys
-           are there to prevent. *)
+        (* Nothing is unmounted, but "b" is updated into the place "a" held.
+           This is the state-follows-the-wrong-row bug that keys prevent. *)
         Alcotest.check log "matched where they stand, not by what they are"
           [ "update   #0 : room"; "update   #0/#0 : b"; "update   #0/#1 : a" ]
           (log_of root (room [ unkeyed "b"; unkeyed "a" ])));
@@ -205,10 +204,10 @@ let keys =
             "update   #0/torch[one]/#0 : flame";
           ]
           (log_of root (room [ two (); one () ])));
-    (* An unkeyed child is its position and nothing else, so it is claimed at
-       its own index rather than from what is left over after the keyed ones
-       have been dealt with. Compacting instead would keep this wall's state
-       across a move its path did not survive. *)
+    (* An unkeyed child is identified by position only, so it is claimed at its
+       own index rather than from the leftovers after keyed children are
+       matched. Compacting instead would keep this wall's state across a move
+       its path did not survive. *)
     case "an unkeyed child is claimed where it stands" (fun () ->
         let root = R.create () in
         ignore (run root (room [ keyed "a"; unkeyed "b" ]));
@@ -244,22 +243,21 @@ let keys =
           (fun () -> ignore (run root (room [ keyed "a"; keyed "a" ]))));
   ]
 
-(* The property the whole design rests on: for a description that keeps no
-   state, reconciling is an optimisation and never a change of meaning. However
-   much a root has been through, rendering a stateless description into it
-   leaves the same scene as rendering it into a root that has been through
-   nothing.
+(* The property the design rests on: for a description that keeps no state,
+   reconciling is an optimisation and never a change of meaning. Whatever a
+   root's history, rendering a stateless description into it leaves the same
+   scene as rendering it into a fresh root.
 
-   The qualifier is the point and not a weakness. With state the property is
-   deliberately false — a root that has been counted up to seven is supposed to
-   differ from a fresh one, and that difference is the whole reason instances
-   outlive descriptions. So the generator below builds from stateless parts,
-   and what is being checked is that reconciling adds nothing of its own on
-   top: no leftover child, no dropped sibling, no order the history invented. *)
-(* Sibling keys have to be unique, and a generator drawing them from a pool of
-   four will repeat one soon enough. The repeat is dropped rather than re-keyed,
-   because what this property is about is the shapes reconciling can be handed
-   and not which keys they were built with. *)
+   The stateless qualifier is deliberate. With state the property is false by
+   design: a root counted up to seven is supposed to differ from a fresh one,
+   and that difference is why instances outlive descriptions. The generator
+   below therefore builds only from stateless parts. The check is that
+   reconciling adds nothing of its own: no leftover child, no dropped sibling,
+   no order invented by history. *)
+(* Sibling keys must be unique, and a generator drawing them from a pool of
+   four will repeat one. A repeat is dropped rather than re-keyed because this
+   property is about the shapes handed to reconciling, not which keys they were
+   built with. *)
 let distinct_keys children =
   let seen = Hashtbl.create 8 in
   List.filter
@@ -320,18 +318,18 @@ let history_does_not_show =
       let from_scratch = R.render (R.create ()) second in
       String.equal after_history from_scratch)
 
-(* A counter that hands its setter out through its props, since a test has no
-   input layer to press a key on yet. *)
+(* A counter that exposes its setter through its props, because the test has no
+   input layer yet. *)
 let counter =
   Element.declare ~name:"counter" @@ fun (latch : (int -> unit) ref) ->
   let count, set = Hook.use_state 0 in
   latch := set;
   Element.prim ("n=" ^ string_of_int count)
 
-(* A component that keeps a child while its own state says so, and a child that
-   calls whatever it was handed on its way out. Between them: a cleanup reaching
-   a setter that belongs to somebody else, which is the case a liveness flag
-   kept on the root rather than on the component would get wrong. *)
+(* [nest] keeps a child while its own state says so; [farewell] calls the
+   function it was handed from its cleanup. Together they make a cleanup call a
+   setter belonging to a different component. A liveness flag kept on the root
+   rather than on the component gets this case wrong. *)
 let farewell =
   Element.declare ~name:"farewell" @@ fun (tell : unit -> unit) ->
   Hook.use_effect ~deps:() (fun () -> Some tell);
@@ -357,8 +355,8 @@ let state =
         Alcotest.check scene "mounts at the initial value" "n=0"
           (scene_of root (counter latch));
         !latch 3;
-        (* The scene on screen is still the old one. Nothing re-enters a render
-           that has already answered; the change shows up next frame. *)
+        (* The scene on screen is still the old one. A render that has already
+           completed is not re-entered; the change shows up next frame. *)
         Alcotest.check scene "and the next frame is where it shows" "n=3"
           (scene_of root (counter latch)));
     case "the root reports having work to do" (fun () ->
@@ -371,10 +369,10 @@ let state =
         Alcotest.(check bool) "clean again" false (R.dirty root));
     case "a setter kept past its component asks for nothing" (fun () ->
         (* A setter is a value, and a game may hand one to a timer or a
-           subscription that lets go of it late or never. Called then, it writes
-           a slot nothing will read again — and must not ask for a frame on its
-           way, because a loop driven by {!R.dirty} would render one for a
-           component that is not there. *)
+           subscription that releases it late or never. Called after the
+           component is gone, it writes a slot nothing will read again. It must
+           not mark the root dirty, because a loop driven by {!R.dirty} would
+           render a frame for a component that is not there. *)
         let root = R.create () and latch = ref ignore in
         ignore (run root (room [ counter latch ]));
         ignore (run root (room []));
@@ -384,10 +382,11 @@ let state =
         Alcotest.(check bool)
           "and the stale setter did not stir it" false (R.dirty root));
     case "nor does one kept past the root itself" (fun () ->
-        (* The same fact where it has teeth. A root that has been destroyed
-           renders no more frames on its own, so a setter that marked it would
-           mark it for good: {!R.dirty} answering yes for ever, and a loop
-           polling it rebuilding a description it had just let go of. *)
+        (* The same rule for a destroyed root, where the stakes are higher. A
+           destroyed root renders no more frames on its own, so a setter that
+           marked it would mark it permanently: {!R.dirty} would answer yes
+           forever, and a polling loop would rebuild a description it had just
+           released. *)
         let root = R.create () and latch = ref ignore in
         ignore (run root (counter latch));
         R.destroy root;
@@ -395,17 +394,17 @@ let state =
         !latch 2;
         Alcotest.(check bool)
           "a destroyed root stays clean" false (R.dirty root);
-        (* And it is empty rather than spent, so the setter the fresh mount
-           hands out is a live one again. *)
+        (* A destroyed root is empty rather than spent, so the setter a fresh
+           mount hands out is live again. *)
         ignore (run root (counter latch));
         Alcotest.(check bool) "clean after the remount" false (R.dirty root);
         !latch 3;
         Alcotest.(check bool) "and this one is heard" true (R.dirty root));
     case "a parent's setter still wakes it, called on a child's way out"
       (fun () ->
-        (* Which is why liveness is the component's and not the root's. A child
-           leaving may hand something back to a parent that is staying, and the
-           frame that asks for is a frame the parent will be in. *)
+        (* Why liveness belongs to the component and not the root: a departing
+           child's cleanup may call a setter of a parent that stays, and the
+           frame that requests is a frame the parent will be in. *)
         let root = R.create () and latch = ref ignore in
         ignore (run root (nest latch));
         Alcotest.(check bool) "settled" false (R.dirty root);
@@ -474,11 +473,11 @@ let memo =
         Alcotest.check scene "five doubled" "10" (scene_of root (doubler 5));
         Alcotest.check scene "six doubled" "12" (scene_of root (doubler 6));
         Alcotest.(check int) "once per distinct dep" 2 !computed);
-    (* A hook's work is done in the effect handler, which runs outside the fiber
-       the component is suspended in — so a raise from there is not, without
-       care, a raise from the component. These three are that care: the failure
-       is walked back to the point the hook was written, and everything that
-       follows from being an ordinary expression follows from that. *)
+    (* A hook's work runs in the effect handler, outside the fiber the component
+       is suspended in, so a raise there is not automatically a raise from the
+       component. These three cases check the failure is re-raised at the hook
+       call site, which is what makes the hook behave as an ordinary
+       expression. *)
     case "a compute that raises raises where it was called" (fun () ->
         let guarded =
           Element.declare ~name:"guarded" @@ fun () ->
@@ -491,9 +490,9 @@ let memo =
         Alcotest.check scene "the component's own try took it" "caught"
           (scene_of (R.create ()) (guarded ())));
     case "and a finaliser in the render body still runs" (fun () ->
-        (* The one a raise past the fiber cannot do anything about: an abandoned
-           fiber is not an unwound one, so a component holding something while
-           it describes itself would never give it back. *)
+        (* The case a raise that bypassed the fiber could not handle: an
+           abandoned fiber is not an unwound one, so a component holding a
+           resource during its render would never release it. *)
         let released = ref false in
         let protecting =
           Element.declare ~name:"protecting" @@ fun () ->
@@ -505,11 +504,11 @@ let memo =
         Alcotest.(check bool)
           "and what it was holding was given back" true !released);
     case "and a refusal from inside one names its component" (fun () ->
-        (* {!Element.Render_refused} is put on by a [try] around the component's
-           own call, which is inside the fiber — so a refusal arriving past it
-           would be an [Invalid_argument] with nothing to attach it to. The two
-           spellings below are the same mistake written in two places and have
-           to read alike. *)
+        (* {!Element.Render_refused} is attached by a [try] around the
+           component's own call, inside the fiber. A refusal that arrived past
+           that [try] would be a bare [Invalid_argument] with no component to
+           attach it to. The two spellings below are the same mistake written in
+           two places and have to produce the same message. *)
         let named describe =
           match scene_of (R.create ()) (describe ()) with
           | scene -> "built " ^ scene
@@ -529,10 +528,10 @@ let memo =
         Alcotest.(check string)
           "and so does the body, the same way" "choosy#0: no"
           (named in_the_body));
-    (* Being an ordinary expression includes being caught, and a catch on the
-       {e mount} render is the case worth pinning: the slot the compute was
-       filling has to exist afterwards, empty, or the row settles one short of
-       the component's own hook calls and every later render is one hook too
+    (* An ordinary expression can be caught, and a catch on the {e mount} render
+       is the case to pin. The slot the compute was filling has to exist
+       afterwards, empty. Otherwise the row settles one slot short of the
+       component's own hook calls and every later render is one hook too
        many. *)
     case "a compute caught on the mount render is asked again" (fun () ->
         let tries = ref 0 in
@@ -559,7 +558,7 @@ let memo =
     case "and does not shift its neighbour's slot" (fun () ->
         (* The sharper half of the same claim: with a second memo after the
            caught one, a row settled one slot short would hand the second
-           memo's value back to the first — at the first's type. *)
+           memo's value back to the first, at the first's type. *)
         let tries = ref 0 in
         let pair =
           Element.declare ~name:"pair" @@ fun () ->
@@ -580,8 +579,8 @@ let memo =
           (scene_of root (pair ())));
   ]
 
-(* Effects are the seam where a component may reach outside itself, and the
-   whole of what makes them safe is when they run and in what order. *)
+(* Effects are where a component may reach outside itself. Their safety depends
+   entirely on when they run and in what order. *)
 let effects =
   let journal = ref [] in
   let note line = journal := line :: !journal in
@@ -593,10 +592,10 @@ let effects =
         Some (fun () -> note ("stop " ^ tag)));
     Element.prim tag
   in
-  (* The same, except that it will not start under one particular tag. A setup
-     that raises is the awkward case because of when it raises: the cleanup of
-     the run before it has already been called, at the top of this same flush,
-     so what the slot is holding at that moment is a cleanup nobody owes. *)
+  (* Same as [watcher], except the setup raises under one particular tag. A
+     setup that raises is the awkward case because of when it raises: the
+     previous run's cleanup has already been called, at the top of this same
+     flush, so at that moment the slot holds a cleanup nobody owes. *)
   let balky =
     Element.declare ~name:"balky" @@ fun (tag : string) ->
     Hook.use_effect ~deps:tag (fun () ->
@@ -660,10 +659,10 @@ let effects =
           "every cleanup before any setup"
           [ "start a"; "stop a"; "start b" ]
           (read ()));
-    (* The queue is emptied before any of it runs, so a flush that stopped at
-       the first raise would leave the rest owed with nothing holding them. The
-       tree these belong to is already committed, which is what makes them owed
-       rather than optional. *)
+    (* The queue is emptied before any entry runs, so a flush that stopped at
+       the first raise would abandon the entries still owed. The tree they
+       belong to is already committed, which is what makes them owed rather
+       than optional. *)
     case "a cleanup that raises does not cancel what is queued behind it"
       (fun () ->
         let root = R.create () in
@@ -684,17 +683,17 @@ let effects =
           "everything owed ran: the cleanups either side, then the new setup"
           [ "stop a"; "stop c"; "start d" ]
           (read ()));
-    (* A setup can go wrong too, and it leaves a subtler mess than a cleanup
-       does. The cleanup it replaces has already run by then, so a slot still
-       holding it is holding something owed to nobody. *)
+    (* A setup can raise too, with a subtler consequence than a cleanup
+       raising: the cleanup it replaces has already run by then, so a slot
+       still holding that cleanup holds something owed to nobody. *)
     case "a setup that raises leaves no cleanup behind it" (fun () ->
         let root = R.create () in
         journal := [];
         ignore (run root (balky "a"));
         Alcotest.check_raises "the one that would not start says so" Balked
           (fun () -> ignore (run root (balky "no")));
-        (* "stop a" ran on the way in to that flush. Taking the root down must
-           not run it again — it would be a second close of one open thing. *)
+        (* "stop a" ran on the way in to that flush. Destroying the root must
+           not run it again: that would close the same open resource twice. *)
         R.destroy root;
         Alcotest.check
           Alcotest.(list string)
@@ -705,10 +704,10 @@ let effects =
         ignore (run root (balky "a"));
         Alcotest.check_raises "once" Balked (fun () ->
             ignore (run root (balky "no")));
-        (* The same deps, so there is nothing new to try: the raise came back
+        (* Same deps, so there is nothing new to try: the raise already came
            out of the render that flushed it, and that was the report. A slot
-           left holding the old deps would read this as a change and take the
-           spent cleanup out again. *)
+           left holding the old deps would read this render as a change and run
+           the spent cleanup again. *)
         ignore (run root (balky "no"));
         Alcotest.check
           Alcotest.(list string)
@@ -724,9 +723,9 @@ let effects =
           "so there is nothing to give back" [] (read ()));
   ]
 
-(* The other end of a mount. A root that is only ever rendered into runs a
-   cleanup when the component it belongs to goes away — and a root that is let
-   go of while everything is still in it used to run none at all. *)
+(* Destroying a root. A root that is only ever rendered into runs a cleanup
+   when its component unmounts. A root released while components were still
+   mounted used to run no cleanups at all. *)
 let destroying =
   let journal = ref [] in
   let note line = journal := line :: !journal in
@@ -770,7 +769,7 @@ let destroying =
         R.destroy root;
         R.destroy root;
         (* The cleanup is read out of its slot without being cleared, so a row
-           walked twice would put it out twice. *)
+           walked twice would run it twice. *)
         Alcotest.check
           Alcotest.(list string)
           "out once" [ "lit a"; "out a" ] (read ()));
@@ -797,9 +796,10 @@ let destroying =
           "and everything either side of it was still given back"
           [ "out a"; "out c" ] (read ()));
     case "and does not leave a torn-down root asking for a frame" (fun () ->
-        (* The flush re-raises what a cleanup raised, and clearing [dirty] on
-           the line after would be skipped on that path — a root stuck
-           answering yes with every row silenced and nothing left to render. *)
+        (* The flush re-raises what a cleanup raised, so clearing [dirty] on
+           the line after the flush would be skipped on that path. The root
+           would then report dirty forever with every row silenced and nothing
+           left to render. *)
         let root = R.create () in
         let ask = ref (fun () -> ()) in
         let keeper =
@@ -817,9 +817,9 @@ let destroying =
           "and the root is quiet, not stuck" false (R.dirty root));
   ]
 
-(* Assembling is the last thing that can refuse a frame, and it happens after
-   every component in it has run and queued whatever it wanted done. What a
-   refusal must not do is leave any of that lying about for the next frame. *)
+(* Assembling is the last step that can refuse a frame, and it happens after
+   every component has run and queued its effects. A refusal must not leave any
+   of that queued work behind for the next frame. *)
 let refusing =
   let journal = ref [] in
   let note line = journal := line :: !journal in
@@ -883,13 +883,13 @@ let refusing =
           [ "update   lantern#0"; "update   lantern#0/#0 : n=4" ]
           (List.rev !kept));
     case "and says so, so its own trace can be read" (fun () ->
-        (* The events of a refused render are what the reconciler was doing when
-           it walked into the refusal, which is worth having. What they are not
-           is tree history, and read as tree history they contradict the frame
-           after: below, [torch] is unmounted by the refused render and updated
-           by the next, and an update is the reconciler's promise that the state
-           carried over. Both are true of the walk. The last line is what tells
-           a reader — and the suite above — which of the two it is reading. *)
+        (* The events of a refused render record what the reconciler was doing
+           when it hit the refusal, which is useful. They are not tree history:
+           read as tree history they contradict the frame after. Below, [torch]
+           is unmounted by the refused render and updated by the next, and an
+           update means the state carried over. Both are true of the walk. The
+           trailing "refused" line tells a reader, and the suite above, which
+           of the two records it is reading. *)
         let root = F.create () in
         let seen = ref [] in
         let watch event = seen := Trace.to_string Fun.id event :: !seen in
@@ -933,10 +933,10 @@ let refusing =
         Alcotest.(check bool)
           "the setter's frame outlives the render that failed" true
           (F.dirty root));
-    (* The other side of that promise, and the reason it is worded the way it
-       is. A refusal rolls back the tree and the effects; it cannot roll back
-       what the component did to a box it was handed, because the box is the
-       same box every render and taking the write back would mean it was not. *)
+    (* The other side of that promise, and why it is worded as it is. A refusal
+       rolls back the tree and the effects. It cannot roll back a write to a
+       ref, because the ref is the same box every render; undoing the write
+       would mean it was not. *)
     case "what a refused render wrote to a ref stays written" (fun () ->
         let root = F.create () in
         ignore (F.render root (tally false));
@@ -1037,9 +1037,9 @@ let context =
           (scene_of (R.create ()) (Element.provide depth 9 [ wall ])));
   ]
 
-(* A store of the shape a game would actually keep. Two numbers rather than one,
-   so that a selector can be swapped for another of the same type and the swap
-   be the only thing that changed. *)
+(* A store shaped like one a game would actually keep. Two numbers rather than
+   one, so a selector can be swapped for another of the same type with the swap
+   as the only change. *)
 type game = { score : int; bonus : int; paused : bool }
 type action = Scored of int | Bonus of int | Toggle_pause
 
@@ -1060,10 +1060,9 @@ let pause_light =
   let paused = Store.use_selector game (fun s -> s.paused) in
   Element.prim (if paused then "paused" else "running")
 
-(* A component that dispatches from its effect, which {!Store.dispatch} says is
-   a thing an effect may do. Described before the scoreboard below, so its setup
-   runs first — while the scoreboard has read the store but not yet subscribed
-   to it. *)
+(* A component that dispatches from its effect, which {!Store.dispatch} permits.
+   Described before the scoreboard below, so its setup runs first, while the
+   scoreboard has read the store but not yet subscribed to it. *)
 let bell =
   Element.declare ~name:"bell" @@ fun (game : (game, action) Store.t) ->
   Hook.use_effect ~deps:game ~equal:( == ) (fun () ->
@@ -1079,11 +1078,11 @@ let dial =
   let n = Store.use_selector game select in
   Element.prim ("dial=" ^ string_of_int n)
 
-(* A pair for the one moment a subscription could be leaked. The saboteur springs
+(* A pair for the one moment a subscription could be leaked. The saboteur sets
    the tripwire from an effect, the way the bell above dispatches from one, and
-   is described first so that its setup runs first; the brittle component's
-   selector is then still fine for the render that reads it and raises on the
-   comparison its own setup makes on the way in. *)
+   is described first so its setup runs first. The brittle component's selector
+   then still succeeds for the render that reads it, and raises on the
+   comparison its own setup makes while subscribing. *)
 let saboteur =
   Element.declare ~name:"saboteur" @@ fun (tripwire : bool ref) ->
   Hook.use_effect ~deps:tripwire ~equal:( == ) (fun () ->
@@ -1134,9 +1133,10 @@ let store =
     case "a dispatch made while a selector is still subscribing is not lost"
       (fun () ->
         let game = fresh () and root = R.create () in
-        (* Setups run one at a time, and the bell's is ahead of the
-           scoreboard's. So this dispatch is made to a list the scoreboard is
-           not on yet: the notification it would have woken on never comes. *)
+        (* Setups run one at a time, and the bell's runs before the
+           scoreboard's. This dispatch therefore reaches a subscriber list the
+           scoreboard is not on yet: the notification that would have woken it
+           never comes. *)
         Alcotest.check scene "the frame shows what the render read"
           "room\n  bell\n  score=0"
           (scene_of root (room [ bell game; scoreboard game ]));
@@ -1240,11 +1240,10 @@ let store =
 (* {1 Debug paths tell places apart}
 
    to_debug_string exists so that a trace, a Hook_order_changed and a
-   Duplicate_key can each name one place and mean one place. That is a promise
-   about every pair of paths, and it was false for the commonest pair there is:
-   a named step printed as its bare name, so [torch (); torch ()] — two of a
-   thing, written the ordinary way — printed alike. A trace saying [mount torch]
-   twice says nothing about which. *)
+   Duplicate_key each name exactly one place. That must hold for every pair of
+   paths, and it was false for the commonest pair: a named step printed as its
+   bare name, so [torch (); torch ()] — two instances written the ordinary way —
+   printed alike. A trace saying [mount torch] twice does not say which. *)
 let a_debug_path_names_one_place () =
   let named i = Path.child ~name:"torch" Path.root i
   and bare i = Path.child Path.root i
@@ -1259,11 +1258,11 @@ let a_debug_path_names_one_place () =
   differs "two keyed siblings" (keyed "north") (keyed "south");
   differs "a named step and an unnamed one at the same index" (named 0) (bare 0);
   differs "a keyed step and an unkeyed one" (keyed "north") (named 0);
-  (* Nested, so the separator is doing its job as well as the steps. *)
+  (* Nested, so the separator is tested as well as the steps. *)
   differs "siblings one level down"
     (Path.child ~name:"flame" (named 0) 0)
     (Path.child ~name:"flame" (named 1) 0);
-  (* And the shapes, which are what a reader actually has to recognise. *)
+  (* The concrete shapes, which are what a reader has to recognise. *)
   Alcotest.(check string)
     "a named unkeyed step carries its index" "torch#1"
     (Path.to_debug_string (named 1));

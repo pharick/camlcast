@@ -33,13 +33,13 @@ let normalize () =
 
 (* The gap [is_finite l && l > 0.] leaves, and the reason normalizable exists.
 
-   A length can be finite, and above zero, and still too small to take a
-   reciprocal of: below [1. /. Float.max_float] — about [5.6e-309], which is
-   subnormal — the reciprocal overflows to infinity and normalize scales by it,
-   handing back an infinity on one axis and a nan on the other. That was enough
-   to put a nan cos and sin into Transform.t, whose private type exists to say
-   it cannot hold one, through Room.across; and a nan normal onto a Room.wall,
-   which side_of and the shading read as they stand. *)
+   A length can be finite, above zero, and still too small to take a reciprocal
+   of. Below [1. /. Float.max_float], about [5.6e-309], which is subnormal, the
+   reciprocal overflows to infinity and normalize scales by it, returning an
+   infinity on one axis and a nan on the other. That put a nan cos and sin into
+   Transform.t, whose private type exists to say it cannot hold one, through
+   Room.across; and a nan normal onto a Room.wall, which side_of and the
+   shading read unchecked. *)
 let normalizable_covers_the_reciprocal () =
   let yes l =
     Alcotest.(check bool)
@@ -53,16 +53,16 @@ let normalizable_covers_the_reciprocal () =
   List.iter yes [ 1.; 1e-6; 1e-300; 1e-308; Float.min_float ];
   List.iter no
     [ 0.; -1.; Float.nan; Float.infinity; Float.neg_infinity; 1e-320; 1e-310 ];
-  (* Where the boundary falls exactly is not worth asserting and not worth
-     knowing: [1. /. Float.max_float] is not itself a length this admits,
-     because a subnormal has too few bits to invert back and its reciprocal
-     rounds past [Float.max_float] again. Which is the argument for testing the
-     reciprocal rather than comparing against a constant.
+  (* Where the boundary falls exactly is not worth asserting:
+     [1. /. Float.max_float] is not itself a length this admits, because a
+     subnormal has too few bits to invert back and its reciprocal rounds past
+     [Float.max_float] again. That is the argument for testing the reciprocal
+     rather than comparing against a constant.
 
      What is worth asserting is that the predicate and the function agree,
-     wherever the boundary is: everything normalizable admits comes back a unit
-     vector, and everything it refuses does not. Swept across the region where
-     the reciprocal gives out. *)
+     wherever the boundary is: everything normalizable admits comes back a
+     unit vector, and everything it refuses does not. Swept across the region
+     where the reciprocal gives out. *)
   List.iter
     (fun l ->
       let n = Vec.normalize (Vec.make l 0.) in
@@ -128,29 +128,30 @@ let perp_is_a_quarter_turn () =
     (Vec.rotate v (Float.pi /. 2.))
     (Vec.perp v)
 
-(* The figure itself, and not only the way callers scale it. Every test that
-   touches Vec.parallel today — Ray's wall far shorter than a pixel, Room's step
-   far shorter than a pixel — is about the scaling: that a short pair at a real
-   angle is not mistaken for a parallel one. All of them go on passing with this
-   number moved ten orders of magnitude in either direction, because a real
-   angle stays a real angle. So the value is pinned here, from both sides.
+(* The figure itself, not only the way callers scale it. Every test that
+   touches Vec.parallel today — Ray's wall far shorter than a pixel, Room's
+   step far shorter than a pixel — is about the scaling: a short pair at a real
+   angle must not be mistaken for a parallel one. All of them keep passing with
+   this number moved ten orders of magnitude in either direction, because a
+   real angle stays a real angle. So the value is pinned here, from both sides.
 
-   Below: the smallest angle the engine has to treat as a genuine crossing. A
-   tenth of a degree is far finer than anything a level is authored at and far
-   coarser than anything float arithmetic gets wrong, and a tolerance above its
-   sine would call a real grazing hit parallel — a wall a ray slides past
-   instead of meeting, or a doorway a step is not reported as crossing.
+   Lower bound: the smallest angle the engine has to treat as a genuine
+   crossing. A tenth of a degree is far finer than anything a level is
+   authored at and far coarser than anything float arithmetic gets wrong. A
+   tolerance above its sine would call a real grazing hit parallel: a wall a
+   ray slides past instead of meeting, or a doorway a step is not reported as
+   crossing.
 
-   Above: the rounding it exists to swallow. Two unit vectors that are parallel
-   in exact arithmetic have a computed cross product of a few times the epsilon
-   of one, so a tolerance at or below that catches nothing and the parallel
-   branch becomes unreachable. *)
+   Upper bound: the rounding it exists to swallow. Two unit vectors that are
+   parallel in exact arithmetic have a computed cross product of a few times
+   the epsilon of one, so a tolerance at or below that catches nothing and the
+   parallel branch becomes unreachable. *)
 let parallel_is_between_a_grazing_angle_and_rounding () =
   let grazing = sin (0.1 *. Float.pi /. 180.) in
   Alcotest.(check bool)
     (Printf.sprintf "below the sine of a tenth of a degree (%g)" grazing)
     true (Vec.parallel < grazing);
-  (* Measured rather than asserted: the worst computed cross product over a
+  (* Measured rather than assumed: the worst computed cross product over a
      sweep of exactly-parallel unit pairs is what the figure has to clear. *)
   let worst = ref 0. in
   for i = 0 to 720 do

@@ -1,9 +1,9 @@
 open Camlcast_core
 open Support
 
-(* Where a step ends up, with the doorways it went through dropped. The engine
+(* Where a step ends up, discarding the doorways it went through. The engine
    walks through {!Player.traverse} and reads the crossings; most of the suite
-   below only cares where the player landed, so it says so once here. *)
+   below only needs where the player landed, so that is extracted once here. *)
 let walk world player ~forward ~strafe =
   (Player.traverse world player ~forward ~strafe).Player.player
 
@@ -53,14 +53,15 @@ let pitch_tips_within_a_limit () =
    >= -.Config.max_pitch -. 1e-9)
 
 (* What [~fraction] is a fraction {e of}. The label used to say [~radians], and
-   nothing here disagreed with it: the test above only checks that the number
-   comes back out again, and {!Viewport}'s own pitch test only checks which way
-   the horizon moved. So the whole suite passed with a [tan] in the middle of
-   this, which is what believing the old label would put there.
+   nothing here contradicted it: the test above only checks that the number
+   comes back out, and {!Viewport}'s own pitch test only checks which way the
+   horizon moved. The whole suite therefore passed with a [tan] in the middle,
+   which is what taking the old label literally would insert.
 
-   The claim is that the number is measured in window heights, and the one place
-   that is cashed out is the horizon, two modules away. Hence the reach across:
-   asking {!Player} alone can only ever get the number back that was put in. *)
+   The claim is that the number is measured in window heights, and the one
+   place that has an observable effect is the horizon, two modules away. Hence
+   the cross-module check: asking {!Player} alone can only get back the number
+   that was put in. *)
 let a_tip_is_a_fraction_of_the_window () =
   let height = 600 in
   let horizon_at pitch =
@@ -75,11 +76,12 @@ let a_tip_is_a_fraction_of_the_window () =
         (horizon_at tipped.Player.pitch))
     [ 0.1; -0.25; Config.max_pitch ]
 
-(* The private record promises a unit basis and a pitch inside the limit, and a
-   non-finite number keeps neither promise while breaking no type: [Vec.of_angle
-   nan] is a pair of nans, and the pitch clamp propagates one rather than pinning
-   it, because that is what Float.min and Float.max do. So the numbers are
-   refused where they come in, the way every other float the library takes is. *)
+(* The private record promises a unit basis and a pitch inside the limit. A
+   non-finite number keeps neither promise while breaking no type:
+   [Vec.of_angle nan] is a pair of nans, and the pitch clamp propagates a nan
+   rather than pinning it, because Float.min and Float.max do. So non-finite
+   numbers are refused at the entry points, like every other float the library
+   takes. *)
 let refused what message build =
   Alcotest.check_raises what (Invalid_argument message) (fun () ->
       ignore (build ()))
@@ -105,9 +107,9 @@ let turning_by_nothing_real_is_refused () =
           Player.turn (facing_east ()) ~radians))
     unreal
 
-(* The clamp would let this one through: [Float.min] and [Float.max] both hand a
-   nan straight back, so the pitch would come out of the limit as a nan and
-   compare false with either end of it. *)
+(* The clamp would let this through: [Float.min] and [Float.max] both return a
+   nan unchanged, so the pitch would come out of the limit as a nan and compare
+   false with either end of it. *)
 let tipping_by_nothing_real_is_refused () =
   List.iter
     (fun fraction ->
@@ -173,11 +175,11 @@ let a_blocked_axis_does_not_block_the_other () =
     (Vec.make 3.7 (2. +. (0.5 /. Float.sqrt 2.)))
     (walk world player ~forward:0.5 ~strafe:0.5).Player.pos
 
-(* A diagonal step through a doorway has to resolve its second leg in the room it
-   has arrived in. The first leg carries it far enough through that the second no
-   longer comes anywhere near the opening, so nothing in the first room can
-   vouch for where it goes — and what it would otherwise finish inside is the low
-   wall standing just inside the second. *)
+(* A diagonal step through a doorway has to resolve its second leg in the room
+   it arrived in. The first leg carries it far enough through that the second
+   leg no longer comes near the opening, so nothing in the first room can check
+   where it goes. Unresolved, it would finish inside the low wall standing just
+   inside the second room. *)
 let a_diagonal_through_a_doorway_lands_clear () =
   let start = Player.make ~room:0 ~pos:(Vec.make 3.8 2.2) ~angle:0. in
   let moved = walk two_rooms start ~forward:0.5 ~strafe:0.3 in
@@ -194,9 +196,9 @@ let spawn_uses_the_world () =
   Alcotest.check vec "spawn point" (World.spawn two_rooms).World.pos
     (Player.spawn two_rooms).Player.pos
 
-(* The initial facing used to be a hardcoded zero; now it is spawn's to take
-   and the player's to choose. Facing 0. stays the default, so a game that
-   never says one starts exactly as it always did. *)
+(* The initial facing used to be a hardcoded zero; now spawn takes it as a
+   parameter. Facing 0. stays the default, so a game that never passes one
+   starts exactly as it always did. *)
 let spawn_faces_where_it_is_told () =
   Alcotest.check vec "the default faces along +x" (Vec.of_angle 0.)
     (Player.spawn two_rooms).Player.dir;
@@ -237,20 +239,20 @@ let rounding_a_jamb_is_not_a_crossing () =
 
 (* {1 Traversal traces}
 
-   A movement reports the doorways it went through, in order. What reads that
-   list is a game locking the door it has just come through, counting the rooms
-   it has seen, and keeping a route home it can walk backwards — so the order
-   and the identities have to be exact, not merely the count. *)
+   A movement reports the doorways it went through, in order. That list is read
+   by a game locking the door it just came through, counting the rooms it has
+   seen, or keeping a route home to walk backwards. The order and the
+   identities therefore have to be exact, not merely the count. *)
 
-(* The world is named at each call site because that is what makes the helper
-   read as "a player at this spot in that world", and is not needed to build
-   one: [Player.make] takes the room index and the position and nothing else. *)
+(* The world parameter exists so call sites read as "a player at this spot in
+   that world". It is not needed to build one: [Player.make] takes the room
+   index and the position and nothing else. *)
 let at _world ~room ~pos = Player.make ~room ~pos ~angle:0.
 
-(* Most frames go through no doorway at all, and the list has to be empty rather
-   than approximately empty. *)
-(* The diagonal clamp is written [length > limit], which is false of a nan, so an
-   unrefused nan step would arrive at [slide] unclamped and end nowhere. *)
+(* Most frames go through no doorway at all, and the list has to be exactly
+   empty. *)
+(* The diagonal clamp is written [length > limit], which is false of a nan, so
+   an unrefused nan step would arrive at [slide] unclamped and end nowhere. *)
 let a_step_of_nothing_real_is_refused () =
   let message = "Player.traverse: forward and strafe have to be finite" in
   List.iter
@@ -289,8 +291,8 @@ let one_crossing_names_both_sides_of_the_doorway () =
 
 (* One axis-resolved frame is an L, and each of its two legs can go through a
    doorway of its own. The first leg carries far enough into the second room
-   that the second leg starts nowhere near the opening it came in by — and there
-   meets a different one. *)
+   that the second leg starts nowhere near the opening it came in by, and meets
+   a different one. *)
 let one_frame_can_cross_two_doorways () =
   let start = at loop ~room:0 ~pos:centre in
   let moved = Player.slide loop start (Vec.make 4. 2.5) in
@@ -310,10 +312,9 @@ let one_frame_can_cross_two_doorways () =
       Alcotest.(check int) "at a's south doorway" 1 second.Player.to_threshold
   | other -> Alcotest.failf "expected two crossings, got %d" (List.length other)
 
-(* Going round the loop comes back to the room it started in — by a route whose
-   two ends do not agree about where that room is. The crossings are what says
-   it happened at all: the room index alone would look like a step that never
-   left. *)
+(* Going round the loop returns to the starting room by a route whose two ends
+   disagree about where that room is. The crossings are the only record that it
+   happened: the room index alone would look like a step that never left. *)
 let a_loop_returns_to_the_room_it_left () =
   let start = at loop ~room:0 ~pos:centre in
   let moved = Player.slide loop start (Vec.make 4. 2.5) in
@@ -327,10 +328,10 @@ let a_loop_returns_to_the_room_it_left () =
     "having gone through two doorways to get there" 2
     (List.length moved.Player.crossings)
 
-(* What a return route is: the crossings walked backwards through the inverse of
-   each transform. Every link's two portals carry a transform and its inverse
-   exactly, so unwinding the list lands on the pose it started from — however
-   impossible the loop it went round. *)
+(* A return route is the crossings walked backwards through the inverse of each
+   transform. Every link's two portals carry a transform and its exact inverse,
+   so unwinding the list lands on the pose it started from, however impossible
+   the loop it went round. *)
 let the_crossings_unwind_to_where_it_started () =
   let start = at loop ~room:0 ~pos:centre in
   let moved = Player.slide loop start (Vec.make 4. 2.5) in
@@ -353,9 +354,9 @@ let the_crossings_unwind_to_where_it_started () =
 
 (* Two rooms joined at an angle: room b's side of the doorway is room a's,
    carried through a rotation and reversed, so the link's transform is a real
-   rotation rather than the translation every other fixture here happens to
-   have. Room b is the carried jambs and nothing else, so nothing of its own can
-   refuse a step and what a walk through it finds is the doorway alone. *)
+   rotation rather than the translation every other fixture here has. Room b is
+   the carried jambs and nothing else, so nothing of its own can refuse a step,
+   and a walk through it meets the doorway alone. *)
 let angled radians =
   let carry (v : Vec.t) =
     Vec.add (Vec.rotate v radians) (Vec.make 1.37 (-2.11))
@@ -395,15 +396,15 @@ let angled radians =
 (* Going through a doorway once has to mean going through it once, whatever
    angle the two rooms meet at.
 
-   A leg is walked opening by opening, so the part of it left over after a
-   crossing sets out standing on the twin of the doorway it just came through —
-   at a point that got there by being carried through the link's rotation, and
-   which therefore sits on that opening's line only to within a bit or two
-   either way. Ask whether that leg goes through the twin by whether its two
-   ends fall on different sides and the answer is decided by which way the last
-   bit rounded: half the angles throw the player straight back where they came
-   from. Ask it by where the leg {e ends} — which is most of an opening's width
-   from the line — and the rounding cannot reach the answer. *)
+   A leg is walked opening by opening, so the remainder after a crossing starts
+   standing on the twin of the doorway it just came through. That point got
+   there by being carried through the link's rotation, so it sits on the
+   opening's line only to within a bit or two of rounding. Testing whether the
+   remainder goes through the twin by whether its two ends fall on different
+   sides lets that rounding decide the answer: half the angles throw the player
+   straight back where they came from. Testing by where the leg {e ends}, which
+   is most of an opening's width from the line, keeps the rounding out of the
+   answer. *)
 let a_crossing_does_not_double_back_however_the_rooms_meet () =
   List.iter
     (fun radians ->
@@ -421,16 +422,16 @@ let a_crossing_does_not_double_back_however_the_rooms_meet () =
 
 (* {1 A leg that clears a whole room}
 
-   Three rooms in a line, the middle one narrower than a single step can be, so
-   that one leg of a frame passes clean through it and out the far side. That is
-   the shape a leg applied in one jump cannot get right: past the first opening
-   the room it set out from has nothing left to say about where it went, and
-   whatever stands beyond the second — a wall, a shut leaf — is in a room that
-   room has never heard of.
+   Three rooms in a line, the middle one narrower than a single step, so one
+   leg of a frame passes clean through it and out the far side. A leg applied
+   in one jump cannot get this shape right: past the first opening the starting
+   room has no geometry for where the leg went, and whatever stands beyond the
+   second opening — a wall, a shut leaf — is in a room the starting room has no
+   reference to.
 
    [beyond] stands walls inside the third room; [door] hangs a leaf in the
-   second doorway, on both sides at once, since a world refuses a link whose two
-   sides disagree about one. *)
+   second doorway, on both sides at once, since a world refuses a link whose
+   two sides disagree about a door. *)
 let corridor ?door ?(beyond = []) () =
   let gap = 0.3 in
   let cut ?door ~name ~material a b =
@@ -483,13 +484,14 @@ let corridor ?door ?(beyond = []) () =
 
 (* Both doorways have to be applied, not just the nearest. Applying only the
    nearest leaves the player holding the middle room's index at a position past
-   the far room's doorway — standing in a room they were never carried into, and
-   which nothing has measured their step against.
+   the far room's doorway: standing in a room they were never carried into,
+   with the step measured against nothing.
 
-   It is also where an opening the step merely touches must not hide one it
-   genuinely goes through. The walk's second part sets out standing on the
-   middle room's west threshold, which is nearer than its east one and is not a
-   crossing at all; ranked, it would swallow the crossing that is. *)
+   This is also where an opening the step merely touches must not hide one it
+   genuinely goes through. The walk's second part starts standing on the middle
+   room's west threshold, which is nearer than its east one and is not a
+   crossing at all. Ranked by distance, it would swallow the crossing that
+   is. *)
 let a_leg_clears_a_room_and_keeps_going () =
   let world = corridor () in
   let start = at world ~room:0 ~pos:(Vec.make 3.8 2.) in
@@ -502,10 +504,10 @@ let a_leg_clears_a_room_and_keeps_going () =
   Alcotest.check vec "just inside its doorway" (Vec.make 0.3 2.)
     moved.Player.player.Player.pos
 
-(* A wall standing inside the third room is in a room the first two thirds of
-   the leg were never in. It still has to stop the step: the part of the leg
-   that is in that room is measured against that room's walls, and refusing it
-   leaves the player in the doorway rather than through the wall. *)
+(* A wall inside the third room is in a room the first two thirds of the leg
+   were never in. It still has to stop the step: the part of the leg inside
+   that room is measured against that room's walls, and refusing it leaves the
+   player in the doorway rather than through the wall. *)
 let a_wall_beyond_the_second_doorway_stops_the_step () =
   let world =
     corridor
@@ -527,17 +529,16 @@ let a_wall_beyond_the_second_doorway_stops_the_step () =
     "and never inside it" false
     (Room.blocked (World.room world ended.Player.room) ended.Player.pos)
 
-(* The door shut behind a player who has just walked through it, which is the
-   thing a game does with the crossing it was handed. World.set_door moves
-   nobody — deliberately, and it says so — so the player is left standing
-   against the leaf, closer to it than the padding. Under the swept rule alone
-   every step from there was refused, the one deeper into the room they had just
-   entered along with the rest, and the game had to open the door again to let
-   them go. *)
+(* A door shut behind a player who has just walked through it, which is what a
+   game does with the crossing it was handed. World.set_door moves nobody,
+   deliberately and documentedly, so the player is left standing against the
+   leaf, closer to it than the padding. Under the swept rule alone every step
+   from there was refused, including the one deeper into the room they had just
+   entered, and the game had to reopen the door to release them. *)
 let a_door_shut_behind_the_player_does_not_trap_them () =
-  (* Standing open, so there is a leaf to shut. A doorway with no door in it
-     cannot be given one by set_door, which is the world's shape and not a
-     state. *)
+  (* Standing open, so there is a leaf to shut. set_door cannot give a doorway
+     a door it does not have: which doorways carry doors is the world's shape,
+     not a state. *)
   let world = corridor ~door:(Door.make ~state:Door.Open dim) () in
   let start = at world ~room:1 ~pos:(Vec.make 0.2 2.) in
   let moved = Player.slide world start (Vec.make 0.2 0.) in
@@ -561,10 +562,9 @@ let a_door_shut_behind_the_player_does_not_trap_them () =
   Alcotest.check vec "but not back through the leaf" ended.Player.pos
     back.Player.player.Player.pos
 
-(* The same again for a shut leaf, which nothing in the first room can see:
-   collision looks one room ahead, and one room ahead of the first is the
-   middle. Only resolving the rest of the leg while standing in the middle room
-   finds it. *)
+(* The same for a shut leaf, which nothing in the first room can see: collision
+   looks one room ahead, and one room ahead of the first is the middle. Only
+   resolving the rest of the leg from inside the middle room finds it. *)
 let a_shut_door_beyond_the_first_doorway_stops_the_step () =
   let world = corridor ~door:(Door.make ~state:Door.Closed dim) () in
   let start = at world ~room:0 ~pos:(Vec.make 3.8 2.) in

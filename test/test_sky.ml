@@ -1,7 +1,7 @@
 open Camlcast_core
 open Support
 
-(* A sky is a value now, so the suite brings its own rather than reaching for
+(* A sky is a value now, so the suite defines its own rather than depending on
    whichever one some level happens to use. *)
 let day =
   Sky.make ~horizon:(Color.rgb 176 196 222) ~zenith:(Color.rgb 40 62 126)
@@ -12,7 +12,7 @@ let color = Sky.color day
 let sun_azimuth = day.sun_azimuth
 let sun_height = day.sun_height
 
-(* The default is the noon above — pinned so that a change to it is a decision
+(* The default is the noon above, pinned so that a change to it is a decision
    and not a drift. *)
 let the_default_is_the_settled_noon () =
   Alcotest.(check bool) "default is the suite's own day" true (Sky.default = day)

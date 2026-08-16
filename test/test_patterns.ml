@@ -2,9 +2,9 @@ open Camlcast_core
 open Camlcast_demo
 open Support
 
-(* The colours these are tested at. They are the showcase's own, because the
-   assertions below about what is red and what is grey are assertions about a
-   wall somebody will actually walk past. *)
+(* The colours these are tested at. They are the showcase's own colours,
+   because the assertions below about what is red and what is grey concern
+   walls a player will actually walk past. *)
 let clay = Color.rgb 200 70 70
 let lime = Color.rgb 188 182 172
 let slate = Color.rgb 160 160 160
@@ -30,7 +30,7 @@ let patterns =
   ]
 
 (* Mortar is a flat level of a flat colour, so it is one exact value and a test
-   can say "this texel is mortar" rather than "this texel is darker". *)
+   can assert "this texel is mortar" rather than "this texel is darker". *)
 let mortar_texel = Color.level lime 210
 
 let brick_has_mortar_courses () =
@@ -56,10 +56,10 @@ let brick_courses_stagger () =
   Alcotest.check color "its joint has moved half a brick along" mortar_texel
     (brick ~u:16 ~v:24)
 
-(* The thing a pattern carrying only a brightness could not have said. Mortar is
-   lime and brick is clay, so the joint reads as a different material and not as
-   a paler brick — which is what it would have had to be if the wall's one
-   colour had arrived from the material afterwards. *)
+(* What a pattern carrying only a brightness could not express. Mortar is lime
+   and brick is clay, so the joint reads as a different material and not as a
+   paler brick. A paler brick is all it could have been if the wall's single
+   colour had been applied by the material afterwards. *)
 let mortar_is_its_own_colour () =
   let joint = brick ~u:0 ~v:0 and body = brick ~u:8 ~v:8 in
   Alcotest.(check bool)
@@ -84,10 +84,10 @@ let glass_has_lead_and_pane () =
     "where the lead is near neutral" true
     (abs (lead.Color.b - lead.Color.r) < 20)
 
-(* Colour goes in before [u] and [v], so a pattern is reused by applying it
-   again rather than by dressing it afterwards. The shape has to survive that:
-   the same function at two colours must put its light and dark texels in the
-   same places, or "the same pattern in another colour" is not what happened.
+(* Colour is applied before [u] and [v], so a pattern is reused by applying it
+   again rather than by recolouring it afterwards. The shape has to survive
+   that: the same function at two colours must put its light and dark texels in
+   the same places, or the result is not the same pattern in another colour.
    Surfaces relies on exactly this for its two chequered floors. *)
 let one_pattern_serves_many_colours () =
   let yellow = Patterns.checker ~color:(Color.rgb 220 200 90)

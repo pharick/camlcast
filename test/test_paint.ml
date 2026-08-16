@@ -1,16 +1,15 @@
 (** Drawing over a finished frame, asserted at the pixel.
 
     These are the first tests in the project to read a framebuffer back.
-    {!Framebuffer.offscreen} is what makes them possible: the streaming SDL
-    texture was the only part of a buffer that needed a window, so it is the
-    only part that is optional, and the pixels and the depth are the same ones
-    the renderer writes.
+    {!Framebuffer.offscreen} makes that possible: the streaming SDL texture was
+    the only part of a buffer that needed a window, so it is the only optional
+    part, and the pixels and the depth are the same ones the renderer writes.
 
-    What is being checked is almost entirely the {e clipping}.
-    {!Framebuffer.set} and {!Framebuffer.blend} do not check where they are
-    writing — the renderer's loops have clipped long before they call them — so
-    every guard against writing off the buffer lives in this module, and a
-    missing one is a silently corrupted neighbouring row rather than a crash. *)
+    Almost everything checked here is the {e clipping}. {!Framebuffer.set} and
+    {!Framebuffer.blend} do not check where they are writing, because the
+    renderer's loops clip before calling them. Every guard against writing off
+    the buffer therefore lives in this module, and a missing guard corrupts a
+    neighbouring row silently rather than crashing. *)
 
 open Camlcast_core
 open Support
@@ -19,8 +18,8 @@ let black = Color.rgb 0 0 0
 let white = Color.rgb 255 255 255
 let buffer () = Framebuffer.offscreen ~width:10 ~height:8
 
-(* A fresh buffer is black rather than whatever the allocator had lying there,
-   which is what lets everything below say what it expected. *)
+(* A fresh buffer is black rather than uninitialised allocator memory, which is
+   what lets every test below state its expected pixels. *)
 let a_fresh_buffer_is_black () =
   let fb = buffer () in
   for y = 0 to 7 do
@@ -32,17 +31,17 @@ let a_fresh_buffer_is_black () =
     done
   done
 
-(* A buffer is refused where it is allocated rather than where it is written to.
-   The record keeps the extents it was asked for while the pixels and the depth
-   are only as long as their product came out — and that product is the whole of
-   the arithmetic {!Framebuffer.set} does without checking, so a buffer whose
-   extents and allocation disagree writes outside its own memory on the first
-   call every test in this file makes. Two negatives multiply to a positive
-   product, which is how one used to get built.
+(* A buffer is refused at allocation rather than at the first write. The record
+   keeps the extents it was asked for while the pixels and the depth arrays are
+   only as long as their product. That product is the only arithmetic
+   {!Framebuffer.set} does, unchecked, so a buffer whose extents and allocation
+   disagree writes outside its own memory on the first call every test here
+   makes. Two negative extents multiply to a positive product, which is how one
+   used to get built.
 
-   {!Framebuffer.make} refuses the same pairs on the same terms, before it asks
-   SDL for the texture it would otherwise leave behind, but a live renderer is
-   exactly what nothing here has. *)
+   {!Framebuffer.make} refuses the same pairs on the same terms, before asking
+   SDL for the texture it would otherwise leak, but nothing here has a live
+   renderer to exercise it. *)
 let a_buffer_of_no_size_is_refused () =
   List.iter
     (fun (width, height) ->
@@ -52,12 +51,12 @@ let a_buffer_of_no_size_is_refused () =
         (fun () -> ignore (Framebuffer.offscreen ~width ~height)))
     [ (0, 8); (10, 0); (0, 0); (-1, -1); (10, -8) ]
 
-(* Positive extents are not on their own enough: it is [width * height] that the
-   depth array is as long as, and past the longest array that product wraps
-   instead of growing — [max_int] by [max_int] is [1] — so without the check a
-   buffer would come back reporting extents with a single pixel behind them.
-   Only the refusing is asserted; the pair just inside the limit is one no
-   machine should be asked to allocate to prove a point. *)
+(* Positive extents are not enough on their own. The depth array is
+   [width * height] long, and past the longest array that product wraps instead
+   of growing: [max_int] by [max_int] is [1]. Without the check a buffer would
+   come back reporting extents with a single pixel behind them. Only the
+   refusing is asserted; allocating a pair just inside the limit is too
+   expensive to test. *)
 let a_buffer_too_big_for_an_array_is_refused () =
   List.iter
     (fun (width, height) ->
@@ -78,12 +77,12 @@ let a_rectangle_fills_what_it_covers () =
   Alcotest.check color "and the row below" black
     (Framebuffer.pixel fb ~x:2 ~y:5)
 
-(* Off each edge in turn, and off a corner. The part that is on the buffer is
-   drawn and the part that is not is not — the alternative is writing into the
-   next row, which no test could see and every user would. *)
+(* Off each edge in turn, and off a corner. The part on the buffer is drawn and
+   the part off it is not. The alternative is writing into the next row, which
+   is invisible to a test that does not look and visible to every user. *)
 let a_rectangle_is_clipped_to_the_buffer () =
-  (* Written out rather than looped, because each edge fails differently and the
-     pixel worth checking afterwards is different for each. *)
+  (* Written out rather than looped because each edge fails differently, and
+     the pixel worth checking afterwards differs for each. *)
   let over_left = buffer () in
   Paint.rect over_left ~x:(-3) ~y:2 ~w:5 ~h:2 ~color:(Color.rgb 255 255 255)
     ~alpha:255;
@@ -106,7 +105,7 @@ let a_rectangle_is_clipped_to_the_buffer () =
   Alcotest.check color "off the right: the last column is drawn" white
     (Framebuffer.pixel over_right ~x:9 ~y:2);
   (* If the clip were missing, the overflow would land at the start of the next
-     row down — which is exactly the pixel to check. *)
+     row down, so that is the pixel to check. *)
   Alcotest.check color "off the right: and nothing wrapped onto the next row"
     black
     (Framebuffer.pixel over_right ~x:0 ~y:3);
@@ -164,12 +163,13 @@ let alpha_blends_with_what_is_underneath () =
   Alcotest.check color "alpha 0 changes nothing" (Color.rgb 200 100 0)
     (Framebuffer.pixel fb ~x:3 ~y:3)
 
-(* An alpha out of 255 that overshoots the range saturates rather than wrapping,
-   the way Image and Texture clamp the alpha a generator hands them. It matters
-   here because P.rect passes a game's own arithmetic straight through: a fade
-   worked out as a countdown goes negative one frame past the end, and
-   Framebuffer.blend weighs the destination with 255 - alpha into a byte, so a
-   negative alpha there comes out as a colour rather than as nothing. *)
+(* An alpha out of 255 that overshoots the range saturates rather than
+   wrapping, the same way Image and Texture clamp the alpha a generator hands
+   them. This matters because P.rect passes a game's own arithmetic straight
+   through: a fade computed as a countdown goes negative one frame past the
+   end, and Framebuffer.blend weighs the destination with 255 - alpha into a
+   byte, so an unclamped negative alpha comes out as a colour rather than as
+   nothing. *)
 let an_alpha_that_overshoots_is_clamped () =
   let fb = buffer () in
   Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4 ~color:(Color.rgb 200 100 0) ~alpha:255;
@@ -182,18 +182,17 @@ let an_alpha_that_overshoots_is_clamped () =
     (Color.rgb 0 0 200)
     (Framebuffer.pixel fb ~x:2 ~y:2)
 
-(* And the colour beside it, which is the same argument the comment above
-   [rect]'s alpha makes, word for word, about the three channels it used not to
-   apply it to. {!Color.rgb} does not clamp — deliberately, so that a value
-   reached by arithmetic can be carried about before it is put back — and
+(* The same argument as the alpha case above, applied to the three colour
+   channels it used not to cover. {!Color.rgb} does not clamp, deliberately, so
+   a value reached by arithmetic can be carried around before being stored.
    {!Framebuffer.set} stores a byte, so a channel outside 0 .. 255 does not
    saturate there: it takes the low eight bits.
 
-   Written as {e asking for more never gives less}, which is what a wrap breaks
-   and what a game writing [base + boost] is relying on, rather than as
-   agreement with {!Color.clamp} — a test that asked the clamp what it thought
-   would go on passing if both moved together. The sweep runs well past both
-   ends, in steps that cross 256 and 0 rather than landing on them. *)
+   The property tested is "asking for more never gives less", which a wrap
+   breaks and which a game writing [base + boost] relies on. It is not written
+   as agreement with {!Color.clamp}, because a test asking the clamp what it
+   expects would keep passing if both moved together. The sweep runs well past
+   both ends, in steps that cross 256 and 0 rather than landing on them. *)
 let asking_for_more_of_a_channel_never_gives_less () =
   let painted through v =
     let fb = buffer () in
@@ -221,8 +220,8 @@ let asking_for_more_of_a_channel_never_gives_less () =
             true
             (c.Color.r >= 0 && c.Color.r <= 255))
         asked got;
-      (* Rising on the red, falling on the green, and every step of both in the
-         direction it was asked in. A wrap shows up as one step the other way. *)
+      (* Red rises and green falls, and every step of both must move in the
+         direction asked for. A wrap shows up as one step the other way. *)
       ignore
         (List.fold_left2
            (fun (v0, (was : Color.t)) v (c : Color.t) ->
@@ -241,8 +240,8 @@ let asking_for_more_of_a_channel_never_gives_less () =
            (List.hd asked, List.hd got)
            (List.tl asked) (List.tl got)))
     [ ("solid", solid); ("blended", blended); ("tinted", tinted) ];
-  (* The concrete case the report named, worth pinning on its own: a red
-     brightened past full used to come out a dark teal. *)
+  (* The concrete case the report named, pinned on its own: a red brightened
+     past full used to come out a dark teal. *)
   let fb = buffer () in
   Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4
     ~color:(Color.rgb (200 + 80) 40 40)
@@ -268,12 +267,12 @@ let an_image_keeps_its_own_transparency () =
     (Color.rgb 40 40 40)
     (Framebuffer.pixel fb ~x:3 ~y:1)
 
-(* A glyph is a rectangle of an atlas, so sub has to take the rectangle asked
-   for and no other — and clip it on the destination without sliding the source
-   under it. *)
+(* A glyph is a rectangle of an atlas, so sub has to take exactly the rectangle
+   asked for, and clip it on the destination without sliding the source under
+   it. *)
 let a_sub_rectangle_takes_what_it_was_asked_for () =
-  (* Each pixel's red channel is its own column, so what lands says where it
-     came from. *)
+  (* Each pixel's red channel encodes its column, so a landed pixel says which
+     column it came from. *)
   let img =
     Image.make ~height:4 ~width:8 (fun ~u ~v:_ -> (Color.rgb (u * 10) 0 0, 255))
   in
@@ -292,7 +291,7 @@ let a_sub_rectangle_takes_what_it_was_asked_for () =
   Alcotest.check color "clipping moves the source with the destination"
     (Color.rgb 40 0 0)
     (Framebuffer.pixel fb ~x:0 ~y:0);
-  (* And it never reads past the picture, however much is asked for. *)
+  (* It never reads past the picture, however much is asked for. *)
   let fb = buffer () in
   Paint.sub fb img ~x:0 ~y:0 ~sx:6 ~sy:0 ~sw:6 ~sh:6;
   Alcotest.check color "the last column of the picture" (Color.rgb 70 0 0)
@@ -300,17 +299,16 @@ let a_sub_rectangle_takes_what_it_was_asked_for () =
   Alcotest.check color "and nothing past it" black
     (Framebuffer.pixel fb ~x:2 ~y:0)
 
-(* A rectangle that starts before the picture does. The far edge has always
-   stopped at the picture; the near one has to as well, and for a worse reason
-   than running off the end: a negative [sx] makes [u] negative, and a negative
-   [u] is only out of bounds on the first row. On every row after it,
-   [v * width + u] is a perfectly good index into the row above — so what a
-   missing near-edge clip costs is not a crash but a picture quietly wound one
-   row back. *)
+(* A source rectangle that starts before the picture does. The far edge has
+   always stopped at the picture; the near one has to as well, for a worse
+   reason than running off the end. A negative [sx] makes [u] negative, and a
+   negative [u] is only out of bounds on the first row. On every later row,
+   [v * width + u] is a valid index into the row above, so a missing near-edge
+   clip costs not a crash but a picture silently shifted one row back. *)
 let a_sub_rectangle_before_the_picture_is_clipped_too () =
-  (* Column in the red channel and row in the green, both off by one so that
-     the first of either is not black and cannot be mistaken for a pixel that
-     was never drawn. *)
+  (* Column in the red channel and row in the green, both offset by one so the
+     first of either is not black and cannot be mistaken for a pixel that was
+     never drawn. *)
   let img =
     Image.make ~height:4 ~width:8 (fun ~u ~v ->
         (Color.rgb ((u + 1) * 10) ((v + 1) * 10) 0, 255))
@@ -339,7 +337,7 @@ let a_sub_rectangle_before_the_picture_is_clipped_too () =
   Alcotest.check color "and the row below it is the second, not the first"
     (Color.rgb 10 20 0)
     (Framebuffer.pixel fb ~x:0 ~y:2);
-  (* And one wholly before the picture draws nothing, exactly as one wholly
+  (* A rectangle wholly before the picture draws nothing, exactly as one wholly
      past it does, rather than raising. *)
   let fb = buffer () in
   Paint.sub fb img ~x:0 ~y:0 ~sx:(-20) ~sy:(-20) ~sw:4 ~sh:4;
@@ -373,15 +371,16 @@ let a_line_is_clipped_too () =
   Alcotest.check color "and nothing wrapped to the row below" black
     (Framebuffer.pixel fb ~x:0 ~y:1)
 
-(* And clipped before it is walked, not while. A ring round something close to
-   the eye is placed by dividing by its distance, so an endpoint can be millions
-   of pixels off the buffer for a line whose visible part is a few pixels long.
-   Walking the whole of that and throwing away each pixel in turn is correct and
-   unusable; the range that could land is worked out first.
+(* Clipped before it is walked, not while. A ring round something close to the
+   eye is placed by dividing by its distance, so an endpoint can be millions of
+   pixels off the buffer for a line whose visible part is a few pixels long.
+   Walking the whole line and discarding each off-buffer pixel is correct but
+   unusable, so the range that could land is worked out first.
 
-   The assertion is the same pixels as above — the narrowing must not move them
-   — and, in the completing at all, that the walk is the length of what is on
-   screen. Without that it is a thousand million iterations. *)
+   The assertion covers the same pixels as above, because the narrowing must
+   not move them. Completing at all asserts that the walk is only as long as
+   what is on screen; without the narrowing it is a thousand million
+   iterations. *)
 let a_line_from_far_off_the_buffer_is_still_cheap () =
   let fb = buffer () in
   Paint.line fb ~x0:0 ~y0:0 ~x1:1_000_000_000 ~y1:0
@@ -406,19 +405,20 @@ let a_line_passing_across_the_buffer_draws_the_crossing () =
   Alcotest.check color "but not beside it" black
     (Framebuffer.pixel fb ~x:0 ~y:7)
 
-(* A line that never touches the buffer draws nothing, and says so by not
-   raising: the range the two axes leave is empty rather than reversed. *)
+(* A line that never touches the buffer draws nothing and does not raise: the
+   range the two axes leave is empty rather than reversed. *)
 let a_line_entirely_off_the_buffer_draws_nothing () =
   let fb = buffer () in
   Paint.line fb ~x0:100 ~y0:0 ~x1:200 ~y1:0 ~color:(Color.rgb 255 255 255);
   Paint.line fb ~x0:0 ~y0:50 ~x1:9 ~y1:50 ~color:(Color.rgb 255 255 255);
   Alcotest.check color "nothing arrived" black (Framebuffer.pixel fb ~x:0 ~y:0)
 
-(* The crosshair's own claim: two arms crossing on the pixel that holds the
-   middle of the buffer. Which pixel that is matters to more than this module —
+(* The crosshair's claim: two arms crossing on the pixel that holds the middle
+   of the buffer. Which pixel that is matters beyond this module, because
    {!Viewport} casts the straight-ahead ray through it and {!Sight} answers
-   about that ray — but that the arms meet there at all is Paint's, and was
-   asserted nowhere. An odd buffer, so the middle is one pixel and not two. *)
+   about that ray. That the arms meet there at all is Paint's responsibility
+   and was previously asserted nowhere. An odd-sized buffer, so the middle is
+   one pixel and not two. *)
 let a_crosshair_crosses_in_the_middle () =
   let fb = Framebuffer.offscreen ~width:9 ~height:7 in
   Paint.crosshair fb ~color:(Color.rgb 255 255 255);
@@ -434,9 +434,9 @@ let a_crosshair_crosses_in_the_middle () =
   Alcotest.check color "and so is the far corner" black
     (Framebuffer.pixel fb ~x:8 ~y:6)
 
-(* Eleven-pixel arms on a buffer of one pixel: every span is clipped away to
-   nothing but the one that holds the middle, which is the whole buffer. A
-   minimised window is exactly this. *)
+(* Eleven-pixel arms on a buffer of one pixel: every span is clipped away
+   except the one holding the middle, which is the whole buffer. A minimised
+   window is exactly this case. *)
 let a_crosshair_survives_a_single_pixel () =
   let fb = Framebuffer.offscreen ~width:1 ~height:1 in
   Paint.crosshair fb ~color:(Color.rgb 255 255 255);

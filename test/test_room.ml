@@ -27,11 +27,11 @@ let a_wall_can_wear_decals () =
   Alcotest.(check bool) "a plain wall has none" true (plain.Room.decals = [])
 
 (* [decal_column] indexes the image by its width and [decal_row] by its height,
-   and between them they are the only statement of "is this point on that
-   decal" — the renderer and Sight both read them, so what can be picked stays
-   exactly what is drawn. A square image would agree with itself under the two
-   swapped over, so the picture here is deliberately not square: 12 wide and 3
-   high, hung in a space four times as wide as it is tall. *)
+   and together they are the only statement of "is this point on that decal".
+   The renderer and Sight both read them, so what can be picked stays exactly
+   what is drawn. A square image would agree with itself with the two swapped,
+   so the picture here is deliberately not square: 12 wide and 3 high, hung in
+   a space four times as wide as it is tall. *)
 let a_decal_is_indexed_by_width_across_and_height_down () =
   let image =
     Image.make ~height:3 ~width:12 (fun ~u ~v -> (Color.rgb u v 0, 255))
@@ -57,11 +57,11 @@ let a_decal_is_indexed_by_width_across_and_height_down () =
     "the two extents are not the same number" true
     (image.Image.width <> image.Image.height)
 
-(* Which side of a wall a point is on, and the claim the whole facing rule rests
-   on: for a room wound the way every room here is wound, Front is the inside.
+(* Which side of a wall a point is on, and the claim the facing rule rests on:
+   for a room wound the way every room here is wound, Front is the inside.
    [Vec.perp] is a quarter turn to the left and a counter-clockwise boundary
    keeps its interior on the left, so the normal points in. Nothing else in the
-   engine states that, and an author writing a decal is trusting it. *)
+   engine states that, and an author writing a decal relies on it. *)
 let front_is_the_side_the_normal_points_to () =
   let w =
     Room.wall ~height:2. ~material:pale (Vec.make 0. 0.) (Vec.make 4. 0.)
@@ -81,16 +81,17 @@ let front_is_the_side_the_normal_points_to () =
     (List.for_all
        (fun w -> Room.side_of w centre = Room.Front)
        (List.init (Room.wall_count room) (Room.wall_at room)));
-  (* Which is what makes [Front] the right default: it is where you stand. *)
+  (* This is what makes [Front] the right default: it is the side the player
+     stands on. *)
   Alcotest.(check bool)
     "and a decal says so unless told otherwise" true
     ((Room.decal ~along:1. ~z:1. ~half_width:0.5 ~half_height:0.5 poster)
        .Room.facing = Room.Front)
 
-(* A mark is on one face. Asked from the other, the rule that says where it is
-   says it is nowhere — and it is [decal_column] that says so, the same call
-   that decides whether the point is within its width, so the renderer and Sight
-   cannot disagree about it. *)
+(* A mark is on one face. Asked from the other face, it is nowhere. It is
+   [decal_column] that answers, the same call that decides whether the point is
+   within the decal's width, so the renderer and Sight cannot disagree about
+   it. *)
 let a_decal_is_only_on_the_face_it_was_drawn_on () =
   let front = Room.decal ~along:2. ~z:1. ~half_width:1. ~half_height:1. poster
   and back =
@@ -108,23 +109,23 @@ let a_decal_is_only_on_the_face_it_was_drawn_on () =
     (at back Room.Back <> None);
   Alcotest.(check (option int))
     "the back one, from the front" None (at back Room.Front);
-  (* And the vertical half knows nothing about faces, which is the point of
-     putting the test in the horizontal one: it is asked once per column rather
-     than once per pixel. *)
+  (* The vertical half has no facing test. The facing test lives in the
+     horizontal half because that is asked once per column rather than once per
+     pixel. *)
   Alcotest.(check bool)
     "the row is answered either way" true
     (Room.decal_row back ~above:1. <> None)
 
-(* And which way round it reads on the face it is on. [along] runs from the
-   wall's [a] to its [b], and by the winding rule that walk goes left to right
-   for someone standing at the Front and right to left for someone at the Back —
-   so the same offset has to name opposite columns of the picture from the two
+(* Which way round a mark reads on the face it is on. [along] runs from the
+   wall's [a] to its [b]. By the winding rule that walk goes left to right for
+   someone standing at the Front and right to left for someone at the Back, so
+   the same offset has to name opposite columns of the picture from the two
    sides, or a sign hung on the far face is drawn in reverse.
 
-   Stated as the direction the reading moves in rather than as an arithmetic on
+   Stated as the direction the reading moves in rather than as arithmetic on
    the column, because the direction is the claim: walking [along] the wall
    walks {e forwards} through a Front picture and {e backwards} through a Back
-   one. The mirror falls out of that and is checked with it. *)
+   one. The mirror follows from that and is checked with it. *)
 let a_mark_on_the_far_face_reads_back_to_front () =
   let place facing =
     Room.decal ~facing ~along:2. ~z:1. ~half_width:1. ~half_height:1. poster
@@ -146,9 +147,8 @@ let a_mark_on_the_far_face_reads_back_to_front () =
     "and backwards through the far face's"
     (List.rev (List.sort compare seen_from_back))
     seen_from_back;
-  (* Which is the mirror, and the two ends say it plainest: the end of the
-     extent nearer [a] is the picture's left edge from the front and its right
-     edge from behind. *)
+  (* The mirror, stated at the two ends: the end of the extent nearer [a] is
+     the picture's left edge from the front and its right edge from behind. *)
   Alcotest.(check (pair int int))
     "the a end of it, from either side"
     (0, n - 1)
@@ -188,8 +188,8 @@ let a_decal_can_be_added_to_a_wall () =
     (List.length (Room.wall_at twice 1).Room.decals);
   Alcotest.check close "and on the end, which is the top of the pile" 3.
     (List.nth (Room.wall_at twice 1).Room.decals 1).Room.along;
-  (* Nothing else is rebuilt: the other three walls are the very same values,
-     and the room it came from never gained anything. *)
+  (* Nothing else is rebuilt: the other three walls are the same values, and
+     the room it came from gained nothing. *)
   Alcotest.(check bool)
     "the untouched walls are the same values" true
     (Room.wall_at after 0 == Room.wall_at before 0
@@ -205,8 +205,8 @@ let a_decal_can_be_added_to_a_wall () =
 
 (* The sprite half of the same idea. [sprite_column] and [sprite_row] are what
    Viewport.sprite_box is built from and what Sight.touches asks, so they are
-   where a billboard's width and its two vertical bounds are decided once. The
-   picture is again deliberately not square. *)
+   the single place a billboard's width and its two vertical bounds are
+   decided. The picture is again deliberately not square. *)
 let a_sprite_is_indexed_by_width_across_and_height_down () =
   let image =
     Image.make ~height:4 ~width:16 (fun ~u ~v -> (Color.rgb u v 0, 255))
@@ -247,13 +247,13 @@ let a_base_lifts_a_sprite_off_the_floor_it_is_given () =
     (Room.sprite_foot lifted ~floor_z:0.);
   Alcotest.check close "and the head still a size above that" 3.5
     (Room.sprite_head lifted ~floor_z:0.);
-  (* Over a floor that has climbed, both move with it. On a slope a sprite
-     rides the ground rather than the ground riding through it. *)
+  (* Over a raised floor, both bounds move with it. On a slope the sprite
+     follows the ground rather than the ground passing through it. *)
   Alcotest.check close "the floor carries the foot" 2.5
     (Room.sprite_foot lifted ~floor_z:1.);
   Alcotest.check close "and the head" 4.5 (Room.sprite_head lifted ~floor_z:1.);
-  (* Which is the same thing said twice: raising the floor and raising the base
-     put the picture in the same place. *)
+  (* The same fact stated twice: raising the floor and raising the base put the
+     picture in the same place. *)
   Alcotest.(check (option int))
     "so a point on one is the same row of the other"
     (Room.sprite_row lifted ~floor_z:0. ~z:2.)
@@ -261,9 +261,9 @@ let a_base_lifts_a_sprite_off_the_floor_it_is_given () =
   Alcotest.check close "a sprite with no base starts on the ground" 0.
     ground.Room.base
 
-(* Sprites are the only part of a room that a game changes every frame, so the
-   cheap way of doing it has to keep everything else exactly as it was — not
-   equal to it, the same. *)
+(* Sprites are the only part of a room a game changes every frame, so the cheap
+   replacement has to keep everything else physically the same, not merely
+   equal. *)
 let replacing_the_sprites_keeps_the_rest () =
   let image = Image.make ~width:8 (fun ~u ~v -> (Color.rgb u v 0, 255)) in
   let before =
@@ -281,10 +281,11 @@ let replacing_the_sprites_keeps_the_rest () =
   Alcotest.(check int) "the new sprites are there" 2 (Room.sprite_count after);
   Alcotest.check close "and are the ones asked for" 2.
     (Room.sprite_at after 0).Room.base;
-  (* The walls are the very same values, one by one — which is what sharing
-     means from outside, the array itself no longer being anybody's to compare.
-     A [with_sprites] that rebuilt them would cost a {!Room.wall} per wall per
-     frame, each one normalizing a vector to arrive back where it started. *)
+  (* The walls are the same values, checked one by one. That is what sharing
+     means from outside, since the array itself is no longer accessible to
+     compare. A [with_sprites] that rebuilt them would cost a {!Room.wall} per
+     wall per frame, each normalizing a vector only to reproduce the same
+     value. *)
   Alcotest.(check bool)
     "the walls are the very same values" true
     (Room.wall_count after = Room.wall_count before
@@ -324,10 +325,10 @@ let blocked_within_the_padding () =
     "a whisker outside the padding is clear" false
     (Room.blocked room (Vec.make (4. -. (Config.collision_padding *. 2.)) 2.))
 
-(* A step taken straight along a wall is parallel to it, so the cross product
-   that finds an ordinary crossing has nothing to find. Collinear overlap has to
-   be caught on its own, or a long enough step walks the whole length of a wall
-   and comes out the far side. *)
+(* A step straight along a wall is parallel to it, so the cross product that
+   finds an ordinary crossing finds nothing. Collinear overlap has to be caught
+   separately, or a long enough step walks the whole length of a wall and comes
+   out the far side. *)
 let collinear_segments_still_cross () =
   let a1 = Vec.make 0. 0. and a2 = Vec.make 4. 0. in
   let crosses b1 b2 = Room.segments_cross ~a1 ~a2 ~b1 ~b2 in
@@ -344,13 +345,13 @@ let collinear_segments_still_cross () =
     "nor does a parallel one off to the side" false
     (crosses (Vec.make 0. 1.) (Vec.make 4. 1.))
 
-(* The parallel test is an area — both lengths times the sine between them — so
-   scaled by neither it holds for a crossing at any angle, provided one of the
-   two segments is short enough. The one that gets short is the step: movement
+(* The parallel test is an area, both lengths times the sine between them, so
+   scaled by neither length it holds for a crossing at any angle provided one
+   segment is short enough. The segment that gets short is the step: movement
    clips a leg where it meets a doorway and asks again about the remainder,
-   which lands here as a whisker. A tenth of a picometre is far past anything a
-   player could walk on purpose; the point is that no length is short enough to
-   break the test. *)
+   which arrives here as a whisker. A tenth of a picometre is far past anything
+   a player could walk on purpose; the point is that no length is short enough
+   to break the test. *)
 let a_step_far_shorter_than_a_pixel_still_crosses () =
   let b1 = Vec.make 2. 0. and b2 = Vec.make 2. 4. in
   let crosses a1 a2 = Room.segments_cross ~a1 ~a2 ~b1 ~b2 in
@@ -388,10 +389,10 @@ let distance_between_two_segments () =
   Alcotest.check close "crossing segments are no distance apart" 0.
     (d (Vec.make 0. 0.) (Vec.make 4. 0.) (Vec.make 2. (-1.)) (Vec.make 2. 1.))
 
-(* The step sweeps the player's padding disc along the path, so it also catches
-   what a test at the destination cannot see: a step that slips past the end of
-   a wall close enough to have brushed it, ending clear of every wall on the far
-   side without its centre line ever crossing one. *)
+(* The step sweeps the player's padding disc along the path, so it catches what
+   a test at the destination cannot: a step that slips past the end of a wall
+   close enough to have brushed it, ending clear of every wall on the far side
+   without its centre line ever crossing one. *)
 let a_step_clipping_a_wall_end_is_refused () =
   let level =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
@@ -409,16 +410,15 @@ let a_step_clipping_a_wall_end_is_refused () =
        ~from:(Vec.make (-2.) (1. -. (Config.collision_padding *. 2.)))
        ~dest:(Vec.make 2. (1. -. (Config.collision_padding *. 2.))))
 
-(* Getting out of the padding, which normal movement cannot put you in and two
-   engine calls can. World.set_door shuts a leaf without moving anybody and
-   replace_room can grow a wall beside a standing player, and under the swept
-   rule alone every step from there was refused — the step away sweeps the same
-   disc through the same place as the step in, so the player was held until the
-   game undid it.
+(* Getting out of the padding. Normal movement cannot put a player inside it;
+   two engine calls can. World.set_door shuts a leaf without moving anybody and
+   replace_room can grow a wall beside a standing player. Under the swept rule
+   alone every step from there was refused, because the step away sweeps the
+   same disc through the same place as the step in, so the player was held
+   until the game undid the change.
 
-   What must not have loosened with it is everything the sweep is for. Both
-   halves are asserted here because the second is what the first could have
-   cost. *)
+   The fix must not have loosened anything the sweep is for. Both halves are
+   asserted here because the second is what the first could have cost. *)
 let a_step_that_does_not_close_the_gap_is_allowed () =
   let level =
     Room.make ~floor:flat_floor ~ceiling:flat_ceiling
@@ -438,17 +438,17 @@ let a_step_that_does_not_close_the_gap_is_allowed () =
   Alcotest.(check bool)
     "but not further in" false
     (step ~from:(at 0. (inside *. 2.)) ~dest:(at 0. inside));
-  (* The commonest way into this state, and so the one that has to have a way
-     out: a crossing leaves the player on the line of the doorway itself. *)
+  (* The commonest way into this state, so the one that has to have a way out:
+     a crossing leaves the player on the line of the doorway itself. *)
   Alcotest.(check bool)
     "off a wall it is standing exactly on" true
     (step ~from:(at 0. 0.) ~dest:(at 0. inside));
-  (* Either way off it, which is the one place the through-test does not apply:
-     a point exactly on a wall is on neither side of it, so there is no side to
-     have left. It is also unreachable by walking — the padding keeps a step a
-     tenth of a cell clear of ever ending here — and reachable only by having a
-     wall arrive where you stand, where being able to move at all is the whole
-     of what matters. *)
+  (* Either direction off the wall, the one place the through-test does not
+     apply: a point exactly on a wall is on neither side of it, so there is no
+     side to have left. The state is unreachable by walking, because the
+     padding keeps a step a tenth of a cell clear of ever ending here. It is
+     reachable only by a wall arriving where the player stands, and there being
+     able to move at all is what matters. *)
   Alcotest.(check bool)
     "and the far way off it too, there being no near side to stay on" true
     (step ~from:(at 0. 0.) ~dest:(at 0. (-.inside)));
@@ -507,8 +507,8 @@ let regular_polygon_has_a_wall_per_side () =
     hexagon
 
 (* A doorway has to leave the wall it is cut into and the threshold that fills
-   the gap agreeing with each other: same line, same winding, and a lintel
-   recording the wall that still stands above the opening. *)
+   the gap in agreement: same line, same winding, and a lintel recording the
+   wall that still stands above the opening. *)
 let a_doorway_splits_the_wall_it_is_cut_into () =
   let jambs, t =
     Room.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:4. ~material:dim
@@ -533,13 +533,13 @@ let a_doorway_splits_the_wall_it_is_cut_into () =
         (l.Room.material == dim)
 
 (* A doorway is cut by dividing by the length of the wall it is cut into, so a
-   wall of no length hands back a threshold whose every coordinate is [nan] —
-   and [nan] is refused by nothing downstream, because every ordered comparison
-   it is given answers false. A world would be built out of it, and its
-   transform would be [nan] throughout. The other two are the same kind of
-   mistake caught at the same moment: an opening of no width is not one, and one
-   wider than its wall leaves the jambs wound backwards, which is the winding
-   every transform derived from the opening depends on. *)
+   wall of no length produces a threshold whose every coordinate is [nan].
+   Nothing downstream refuses a [nan], because every ordered comparison on one
+   answers false: a world would be built out of it, with a transform that is
+   [nan] throughout. The other two are the same kind of mistake caught at the
+   same moment. An opening of no width is not an opening, and one wider than
+   its wall leaves the jambs wound backwards — the winding every transform
+   derived from the opening depends on. *)
 let a_doorway_that_could_not_be_cut_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
@@ -553,8 +553,8 @@ let a_doorway_that_could_not_be_cut_is_refused () =
   let no_wall = "Room.doorway: no wall to cut a doorway into: gate" in
   raises "a wall with no length" no_wall
     (cut ~width:1. (Vec.make 2. 2.) (Vec.make 2. 2.));
-  (* An infinite end used to pass this and surface from [threshold] instead,
-     under a name the caller never wrote. *)
+  (* An infinite end used to pass this check and raise from [threshold]
+     instead, under a name the caller never wrote. *)
   raises "a wall running off to infinity" no_wall
     (cut ~width:1. (Vec.make 0. 0.) (Vec.make Float.infinity 0.));
   raises "an opening with no width"
@@ -570,7 +570,7 @@ let a_doorway_that_could_not_be_cut_is_refused () =
     (cut ~width:1. ~opening:4. ~height:3. a b);
   raises "a nan opening" no_fit (cut ~width:1. ~opening:Float.nan a b);
   (* An opening exactly as tall as its wall is allowed, and leaves a lintel of
-     no depth — the same way a doorway as wide as its wall leaves no jamb. *)
+     no depth, the same way a doorway as wide as its wall leaves no jamb. *)
   let _, threshold =
     Room.doorway ~name:"gate" ~width:1. ~opening:3. ~height:3. ~material:pale a
       b
@@ -579,10 +579,10 @@ let a_doorway_that_could_not_be_cut_is_refused () =
     "an opening flush with the top of its wall is allowed" 3.
     threshold.Room.height
 
-(* A doorway exactly as wide as the wall it is cut into is allowed — a whole
-   side of a room that is one opening — and leaves nothing standing either side
-   of it. Those ends are dropped rather than handed back as walls of no length,
-   which {!Room.wall} refuses. *)
+(* A doorway exactly as wide as the wall it is cut into is allowed: a whole
+   side of a room that is one opening, with nothing standing either side of it.
+   The ends are dropped rather than returned as walls of no length, which
+   {!Room.wall} refuses. *)
 let a_doorway_as_wide_as_its_wall_leaves_no_jamb () =
   let jambs, t =
     Room.doorway ~name:"whole" ~width:4. ~opening:2. ~height:3. ~material:pale
@@ -596,17 +596,17 @@ let a_doorway_as_wide_as_its_wall_leaves_no_jamb () =
 (* A wall or an opening too short to have a direction.
 
    [Float.is_finite l && l > 0.] admits a length like 1e-320, whose reciprocal
-   overflows — so Vec.normalize scaled by an infinity and handed back a normal
-   of (nan, infinity). That is not a unit vector and is perpendicular to
-   nothing, and side_of, the face shading and every decal placed along the wall
-   read it as it stands: side_of answers Back for every point in the world,
-   the dot product being a nan that fails its comparison. Through
-   Room.threshold and Room.across it reached Transform.between and put a nan
-   cos and sin into the one type whose privacy promises it cannot hold them.
+   overflows, so Vec.normalize scaled by an infinity and returned a normal of
+   (nan, infinity). That is not a unit vector and is perpendicular to nothing,
+   and side_of, the face shading, and every decal placed along the wall read it
+   unchecked: side_of answers Back for every point in the world, because the
+   dot product is a nan that fails its comparison. Through Room.threshold and
+   Room.across it reached Transform.between and put a nan cos and sin into the
+   one type whose privacy promises it cannot hold them.
 
-   Refused now by Vec.normalizable, which is that question asked in one place.
-   The controls matter as much as the refusals: a length just above the
-   boundary is a perfectly good wall and has to stay one. *)
+   Refused now by Vec.normalizable, which asks the question in one place. The
+   controls matter as much as the refusals: a length just above the boundary is
+   a valid wall and has to stay one. *)
 let a_segment_too_short_to_have_a_direction_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
@@ -630,11 +630,10 @@ let a_segment_too_short_to_have_a_direction_is_refused () =
             (Room.doorway ~name:"hair" ~width:bad ~opening:1. ~height:2.
                ~material:pale o far)))
     [ 1e-320; 1e-310; 5.5e-309 ];
-  (* Above the boundary is still a wall, and its normal is still a unit vector —
-     the whole point of drawing the line where normalising stops working rather
-     than somewhere rounder. A wall 1e-300 across is absurd and is not the
-     engine's business to have an opinion about; one whose normal is a nan
-     is. *)
+  (* Above the boundary is still a wall, and its normal is still a unit vector.
+     That is why the line is drawn where normalising stops working rather than
+     at a rounder number. A wall 1e-300 across is absurd but not the engine's
+     business to refuse; one whose normal is a nan is. *)
   List.iter
     (fun good ->
       let w = Room.wall ~height:2. ~material:pale o (Vec.make good 0.) in
@@ -645,20 +644,21 @@ let a_segment_too_short_to_have_a_direction_is_refused () =
 
 (* The same claim, on coordinates whose arithmetic does not cancel by luck.
    [(0,0)-(4,0)] above is exact in binary, so it left nothing standing however
-   the cut points were worked out; the pairs below do not, and they did.
+   the cut points were computed; the pairs below are not exact, and they left
+   jambs standing.
 
-   Measuring out from the middle — [(a + b) / 2 +- edge * (width / 2 span)] —
-   is the same number on paper and a different one in floating point, so at
+   Measuring out from the middle, [(a + b) / 2 +- edge * (width / 2 span)], is
+   the same number on paper and a different one in floating point. At
    [width = span] the ends came back a few times [1e-17] away from where they
-   started and a jamb that long survived being dropped. Nothing draws such a
-   wall, because it is far too short for a ray to meet; [blocked] measures to
-   the nearest point of it all the same, which makes it an invisible disc of
+   started, and a jamb that long survived being dropped. Nothing draws such a
+   wall, because it is far too short for a ray to meet. [blocked] still
+   measures to the nearest point of it, making it an invisible disc of
    collision_padding at the corner of an opening meant to be walked through.
-   And it takes a wall index, which is what Sight reports and what add_decal
+   It also takes a wall index, which is what Sight reports and what add_decal
    counts from.
 
-   The endpoints are compared exactly rather than with [vec], whose tolerance is
-   1e-9 and would not see the difference this is about. *)
+   The endpoints are compared exactly rather than with [vec], whose tolerance
+   is 1e-9 and would not see the difference this is about. *)
 let a_full_width_doorway_cancels_exactly () =
   let same what (x : Vec.t) (y : Vec.t) =
     Alcotest.(check bool) what true (x.Vec.x = y.Vec.x && x.Vec.y = y.Vec.y)
@@ -685,13 +685,13 @@ let a_full_width_doorway_cancels_exactly () =
       (Vec.make (-0.3) 0.9, Vec.make 0.45 (-1.1));
     ]
 
-(* The cut arithmetic at the ends of the float range, where the mistakes it
-   could make are silent ones: a doubled span that overflowed read back as a
-   full-span threshold whatever width was asked; a width so far under its span
-   that the two insets round past each other and the threshold comes out wound
-   backwards; a jamb too fine for [wall]'s own guard, raised under a name the
-   caller never wrote. None of these scales can be authored, which is exactly
-   why they must refuse or degrade out loud rather than lie. *)
+(* The cut arithmetic at the ends of the float range, where its possible
+   mistakes are silent. A doubled span that overflowed read back as a full-span
+   threshold whatever width was asked. A width far enough under its span that
+   the two insets round past each other leaves the threshold wound backwards.
+   A jamb too fine for [wall]'s own guard raised under a name the caller never
+   wrote. None of these scales can be authored, which is exactly why they must
+   refuse or degrade loudly rather than produce a wrong result. *)
 let a_cut_too_fine_for_its_scale_is_refused () =
   let refused =
     Invalid_argument
@@ -702,7 +702,7 @@ let a_cut_too_fine_for_its_scale_is_refused () =
       (Room.doorway ~name:"fine" ~width ~opening:2. ~height:3. ~material:pale a
          b)
   in
-  (* On these coordinates the two roundings land the cut points crossed:
+  (* On these coordinates the two roundings leave the cut points crossed:
      refused, rather than built wound backwards. *)
   let a = Vec.make 0.1 0.2 and b = Vec.make 0.7 1.3 in
   let span = Vec.length (Vec.sub b a) in
@@ -722,9 +722,9 @@ let a_jamb_too_fine_to_be_a_wall_is_dropped () =
       ~width:(span *. (1. -. 1e-4))
       ~opening:2. ~height:3. ~material:pale a b
   in
-  (* Each end is ~5e-309 long: longer than nothing, and too fine for [wall],
-     so building it raised out of a function the caller never named. Dropped,
-     it costs nothing — a jamb that thin never stopped a ray or a step. *)
+  (* Each end is ~5e-309 long: longer than nothing but too fine for [wall], so
+     building it raised out of a function the caller never named. Dropping it
+     costs nothing, because a jamb that thin never stopped a ray or a step. *)
   Alcotest.(check int) "no jamb survives" 0 (List.length jambs);
   Alcotest.(check bool)
     "and the opening itself still stands" true
@@ -766,13 +766,13 @@ let a_partial_doorway_still_splits_evenly () =
     ]
 
 (* The same argument as the doorway above, one type down. A decal of no width
-   and a sprite of no size both survive being written and both fail later,
+   and a sprite of no size both survive construction and both fail later,
    inside a frame: {!Room.decal_column} divides by twice the half width,
    {!Room.sprite_half_width} divides by the picture's height, and
-   {!Viewport.sprite_box} divides by the size. Every one of those answers [nan],
-   and [nan] is refused by nothing downstream — so it is refused here. Each test
-   is the negation of the passing condition, which is what catches the [nan]
-   that was handed in rather than derived. *)
+   {!Viewport.sprite_box} divides by the size. Each of those answers [nan], and
+   nothing downstream refuses a [nan], so it is refused here. Each test is the
+   negation of the passing condition, which is what catches a [nan] that was
+   handed in rather than derived. *)
 let a_decal_or_sprite_of_no_size_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
@@ -794,8 +794,8 @@ let a_decal_or_sprite_of_no_size_is_refused () =
     (mark ~glow:1.5 ~half_width:1. ~half_height:1. ());
   raises "glow under zero" "Room.decal: glow is a fraction from 0 to 1"
     (mark ~glow:(-0.5) ~half_width:1. ~half_height:1. ());
-  (* Both ends of the range are in it, since paint and phosphorescence are the
-     two decals anyone writes down on purpose. *)
+  (* Both ends of the range are allowed, since glow 0 (paint) and glow 1
+     (phosphorescence) are the two decals authored on purpose. *)
   List.iter
     (fun glow ->
       ignore
@@ -821,15 +821,15 @@ let a_decal_or_sprite_of_no_size_is_refused () =
     (mote ~glow:Float.nan ());
   List.iter (fun glow -> mote ~glow () ()) [ 0.; 1. ]
 
-(* Where a decal is, and not only how big it is.
+(* Where a decal is, not only how big it is.
 
-   An unreal placement is worse than an unreal extent, and worse than it looks.
-   decal_column and decal_row answer for a point unless it falls outside, and a
-   nan falls outside nothing — so a decal placed at nan does not vanish and does
+   An unreal placement is worse than an unreal extent. decal_column and
+   decal_row answer for a point unless it falls outside, and a nan falls
+   outside nothing. A decal placed at nan therefore does not vanish and does
    not land somewhere odd: it answers for every point of its wall, at texel
-   column zero, and is drawn as a smear across the whole of it and picked by
+   column zero, is drawn as a smear across the whole wall, and is picked by
    Sight in front of what is really there. An infinite half-width reaches the
-   same place, the extent swallowing the wall and the division coming back nan.
+   same state, the extent swallowing the wall and the division returning nan.
    Both were accepted, in the module that states the rule they break. *)
 let a_placement_has_to_be_a_real_number () =
   let raises what message body =
@@ -852,8 +852,8 @@ let a_placement_has_to_be_a_real_number () =
         (Printf.sprintf "a decal placed at height %f" bad)
         "Room.decal: a decal has to be at some height" (placed ~z:bad ()))
     [ Float.nan; Float.infinity; Float.neg_infinity ];
-  (* The extents were nan-safe and not infinity-safe, which is the same hole
-     reached by the other road. *)
+  (* The extents were nan-safe but not infinity-safe: the same hole reached by
+     the other route. *)
   raises "a decal infinitely wide" "Room.decal: a decal has to have a width"
     (placed ~half_width:Float.infinity ());
   raises "a decal infinitely tall" "Room.decal: a decal has to have a height"
@@ -869,9 +869,9 @@ let a_placement_has_to_be_a_real_number () =
     [ Float.nan; Float.infinity ]
 
 (* The other half of the same guard. The fields are real by the time a decal
-   exists, but the point being asked about comes from the renderer and from
-   Sight, which work it out from a ray — so the bound tests have to be the kind
-   a nan fails rather than the kind it slips through. *)
+   exists, but the queried point comes from the renderer and from Sight, which
+   derive it from a ray. The bound tests therefore have to be the kind a nan
+   fails rather than the kind it slips through. *)
 let an_unreal_point_is_on_no_decal () =
   let poster =
     Image.make ~width:4 (fun ~u:_ ~v:_ -> (Color.rgb 200 200 200, 255))
@@ -917,10 +917,10 @@ let a_doorway_can_hang_a_door () =
     | Some d -> d.Door.state = Door.Closed
     | None -> false)
 
-(* A door's state decides two things, and they turn out to be one thing: what is
-   drawn across the opening, and what stops a step. Both are asked of pure
-   helpers rather than of the renderer, which is what makes them testable
-   without a window — and is the reason the two can never drift apart. *)
+(* A door's state decides two things that must stay one thing: what is drawn
+   across the opening, and what stops a step. Both are asked of pure helpers
+   rather than of the renderer, which makes them testable without a window and
+   is why the two can never drift apart. *)
 let a_doors_state_decides_what_is_seen_and_what_is_felt () =
   let bare = opening () in
   Alcotest.(check bool)
@@ -936,12 +936,12 @@ let a_doors_state_decides_what_is_seen_and_what_is_felt () =
     (match Room.leaf closed with Some m -> m == mesh | None -> false);
   Alcotest.(check bool) "and stops a step" true (Room.shut closed)
 
-(* [with_thresholds] is public, so a game can reach it even though a room cannot
+(* [with_thresholds] is public, so a game can call it even though a room cannot
    be built by hand. A room outlives the call that made it and the array handed
-   in does not have to, so the room takes its own copy: otherwise a threshold
-   moved afterwards would slip past {!World.replace_room}, which matches a
-   doorway by where it is, and leave a portal describing an opening that is no
-   longer there. *)
+   in need not, so the room takes its own copy. Otherwise a threshold moved
+   afterwards would slip past {!World.replace_room}, which matches a doorway by
+   position, and leave a portal describing an opening that is no longer
+   there. *)
 let with_thresholds_keeps_a_copy () =
   let jambs, threshold =
     Room.doorway ~name:"gate" ~width:1. ~opening:2. ~height:3. ~material:pale
@@ -955,10 +955,10 @@ let with_thresholds_keeps_a_copy () =
     Array.init (Room.threshold_count before) (Room.threshold_at before)
   in
   let after = Room.with_thresholds before handed in
-  (* The room being abstract is what puts its own array out of reach; what this
-     has to show is the other half, that the one handed in was not adopted.
-     Writing into it afterwards is the whole test, and a sharper one than
-     comparing the two arrays would have been. *)
+  (* The room being abstract puts its own array out of reach; this has to show
+     the other half, that the array handed in was not adopted. Writing into it
+     afterwards is the test, and a sharper one than comparing the two arrays
+     would be. *)
   handed.(0) <-
     snd
       (Room.doorway ~name:"elsewhere" ~width:1. ~opening:2. ~height:3.
@@ -973,9 +973,9 @@ let with_thresholds_keeps_a_copy () =
          (fun i -> Room.wall_at after i == Room.wall_at before i)
          (List.init (Room.wall_count after) Fun.id))
 
-(* The constructors and the accessors are two ends of the same statement: what
-   goes in through [floor]/[roof]/[open_sky] is what comes back out of the
-   reads, with the match on the ceiling variant written once, in the library. *)
+(* The constructors and the accessors are two ends of one statement: what goes
+   in through [floor]/[roof]/[open_sky] comes back out of the reads, with the
+   match on the ceiling variant written once, in the library. *)
 let bounds_read_back_through_the_accessors () =
   let ground = Plane.horizontal 0. in
   let lid = Plane.above ground 3. in
@@ -1013,8 +1013,8 @@ let bounds_read_back_through_the_accessors () =
     (Room.ceiling_surface yard = None && Room.ceiling_plane yard = None)
 
 (* The one authoring mistake a box invites is winding it backwards. The
-   constructor's whole promise is that it cannot be made through it, whichever
-   two opposite corners arrive, in whichever order. *)
+   constructor's promise is that the mistake cannot be made through it,
+   whichever two opposite corners arrive, in whichever order. *)
 let a_rectangle_is_wound_inward_from_either_corner_pair () =
   let centre = Vec.make 1. 1. in
   let check_walls what walls =
@@ -1046,8 +1046,8 @@ let a_flat_rectangle_is_refused () =
   raises "no height" (Vec.make 3. 0.);
   raises "no extent at all" (Vec.make 0. 0.);
   raises "a nan corner" (Vec.make Float.nan 2.);
-  (* Under [rectangle]'s own name, not [wall]'s or [path]'s — the caller wrote
-     this one. *)
+  (* Under [rectangle]'s own name, not [wall]'s or [path]'s, because the caller
+     wrote this one. *)
   let raises what height =
     Alcotest.check_raises what
       (Invalid_argument "Room.rectangle: the walls have to rise above the floor")
@@ -1060,17 +1060,17 @@ let a_flat_rectangle_is_refused () =
   raises "walls below the floor" (-2.);
   raises "a nan height" Float.nan
 
-(* A wall between two points that are the same has a normal [Vec.normalize]
-   could not scale, and it hands one it cannot scale straight back — so the
-   normal is neither a unit vector nor perpendicular to anything, which is what
-   [side_of] and [Atmosphere.face_shading] read. Nothing downstream objects
+(* A wall between two identical points has a normal [Vec.normalize] could not
+   scale, and normalize returns an unscalable vector unchanged. The normal is
+   then neither a unit vector nor perpendicular to anything, and [side_of] and
+   [Atmosphere.face_shading] read it as it stands. Nothing downstream objects
    either: [Ray.cast] finds no intersection with an edge of no length, so the
    wall is invisible, while [distance_to_wall] degrades to a point and blocks
    whoever walks into it. A threshold is the same mistake with more resting on
-   it, its normal being what [Transform.between] turns into a portal's frame
-   change. Both tests are the negation of the passing condition, so an end that
-   is [nan] or infinite fails with the coincident ones — a length folds every
-   bad coordinate into one number. *)
+   it, because its normal is what [Transform.between] turns into a portal's
+   frame change. Both tests are the negation of the passing condition, so a
+   [nan] or infinite end fails along with the coincident ones: a length folds
+   every bad coordinate into one number. *)
 let a_wall_or_threshold_with_no_length_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
@@ -1089,14 +1089,14 @@ let a_wall_or_threshold_with_no_length_is_refused () =
   raises "a threshold with a nan end" no_length
     (threshold (Vec.make 0. 0.) (Vec.make 0. Float.nan))
 
-(* The same invisible blocker reached from the other end of the wall. The
-   renderer takes a wall's top to be the floor plus its height and draws nothing
-   unless that clears the floor, while [blocked] and [passable] never read the
-   height at all — so a wall that does not rise is walked into and never seen.
-   A threshold that does not rise is worse still: [World.passable] is flat and
-   never consults the height, so the opening is walked through while the
-   renderer draws it as a sliver or as nothing. Negated, so [nan] and infinity
-   fail with the flat ones. *)
+(* The same invisible blocker reached through the height. The renderer takes a
+   wall's top to be the floor plus its height and draws nothing unless that
+   clears the floor, while [blocked] and [passable] never read the height at
+   all. A wall that does not rise is therefore walked into and never seen. A
+   threshold that does not rise is worse: [World.passable] is flat and never
+   consults the height, so the opening is walked through while the renderer
+   draws it as a sliver or as nothing. The guards are negations, so [nan] and
+   infinity fail with the flat ones. *)
 let a_wall_or_threshold_that_does_not_rise_is_refused () =
   let raises what message body =
     Alcotest.check_raises what (Invalid_argument message) body
@@ -1142,9 +1142,9 @@ let a_lintel_below_its_opening_is_refused () =
     "a lintel flush with the top of its opening is allowed" true
     (Option.is_some flush.Room.lintel)
 
-(* And hanging one afterwards is held to the same terms. A threshold is private
-   so that it carries one invariant rather than one per route to it, and
-   [with_lintel] is a route to it: an opening built with a lintel the
+(* Hanging a lintel afterwards is held to the same terms. A threshold is
+   private so that it carries one invariant rather than one per route to it,
+   and [with_lintel] is a route to it: an opening built without a lintel the
    constructor refused could otherwise be given that lintel a line later. The
    message names [with_lintel] because that is what was called. *)
 let with_lintel_is_refused_the_same_lintel () =
@@ -1171,11 +1171,11 @@ let with_lintel_is_refused_the_same_lintel () =
     "and taking the lintel away asks nothing at all" true
     (none.Room.lintel = None)
 
-(* Shutting a closed loop by repeating the first point at the end is the natural
-   way to write one down, and exactly the mistake: [closed] already joins them,
-   so the repeated pair is a wall of no length. Refused under [path]'s own name
-   rather than left to [wall], because the wall it would have built is one the
-   caller never wrote. *)
+(* Shutting a closed loop by repeating the first point at the end is the
+   natural way to write one down, and exactly the mistake: [closed] already
+   joins them, so the repeated pair is a wall of no length. Refused under
+   [path]'s own name rather than left to [wall], because the wall it would
+   build is one the caller never wrote. *)
 let a_path_that_stands_still_is_refused () =
   let raises what ~closed points =
     Alcotest.check_raises what
@@ -1241,9 +1241,9 @@ let a_polygon_that_is_not_one_is_refused () =
   raises "walls below the floor" flat (polygon ~height:(-3.) ());
   raises "a nan height" flat (polygon ~height:Float.nan ())
 
-(* [across] is [Transform.between] with the endpoint pairing already right —
-   the same pairing {!World.make} uses for a link, which is the fact a game
-   authoring a neighbour's floor depends on. *)
+(* [across] is [Transform.between] with the endpoint pairing already right. It
+   is the same pairing {!World.make} uses for a link, which a game authoring a
+   neighbour's floor depends on. *)
 let across_is_the_link_transform () =
   let t1 = Room.threshold ~name:"a" ~height:2. (Vec.make 1. 0.) (Vec.make 3. 0.)
   and t2 =
@@ -1260,7 +1260,7 @@ let doorway_in ~name ?door a b =
     (Room.doorway ~name ?door ~width:1. ~opening:2. ~height:3. ~material:pale a
        b)
 
-(* Nearest-wins, gated by [where] and cut off by [within] — the whole of
+(* Nearest wins, filtered by [where] and cut off by [within]: the whole of
    "press the key at the door in front of you". *)
 let nearest_threshold_picks_the_nearest_that_qualifies () =
   let near = doorway_in ~name:"near" (Vec.make 0. 0.) (Vec.make 4. 0.)
@@ -1320,10 +1320,10 @@ let threshold_edits_share_the_derived_fields () =
     (w.Room.height = 2.5 && w.Room.material == mesh && w.Room.decals = [])
 
 (* [threshold_wall] is the one route to a [wall] that does not go through
-   [wall], and a private type is only worth having if every route to it holds.
-   The geometry it copies came from a threshold that already passed the same
-   test; the height comes from the caller, and one that does not rise is the
-   invisible collision blocker [wall]'s own comment is about. *)
+   [wall], and the private type's invariant must hold on every route to it. The
+   geometry it copies came from a threshold that already passed the same test.
+   The height comes from the caller, and a height that does not rise is the
+   invisible collision blocker [wall]'s own comment describes. *)
 let threshold_wall_will_not_build_a_wall_that_does_not_rise () =
   let t = doorway_in ~name:"gate" (Vec.make 0. 0.) (Vec.make 4. 0.) in
   let raises what height =

@@ -1,19 +1,19 @@
 (* Descriptions, and the worlds they assemble into.
 
-   Nothing here opens a window either. A description becomes a World and a World
-   is a value, so the whole of this step can be checked by comparing one against
-   the world the old API builds by hand — which is the strongest thing available
-   until there are pixels to compare, and stronger than reading the code twice.
+   Nothing here opens a window either. A description becomes a World and a
+   World is a value, so this step can be checked by comparing one against the
+   world the old API builds by hand. Until there are pixels to compare, that is
+   the strongest check available, and stronger than reading the code twice.
 
-   The reference is the one-room world the core API builds by hand, restated inline
-   below and built with the tree. If the declarative version stops agreeing with it,
-   one of the two has moved. *)
+   The reference is the one-room world the core API builds by hand, restated
+   inline below and built with the tree. If the declarative version stops
+   agreeing with it, one of the two has moved. *)
 
 (* {1 Comparing two worlds}
 
    World.t is abstract, so this walks it through the accessors a renderer uses.
-   That is the right level: two worlds that answer every one of these the same
-   way draw the same picture, whatever they are made of underneath. *)
+   That is the right level: two worlds that answer every accessor the same way
+   draw the same picture, whatever they hold underneath. *)
 
 open Camlcast_core
 open Camlcast
@@ -89,8 +89,8 @@ let same_world expected actual =
   let one = World.spawn expected and other = World.spawn actual in
   Alcotest.(check int) "spawn room" one.World.room other.World.room;
   Alcotest.check vec "spawn spot" one.World.pos other.World.pos;
-  (* Portals are what a link comes to, and the only thing that says two rooms
-     were joined at all. *)
+  (* Portals are what a link becomes, and the only record that two rooms were
+     joined at all. *)
   for room = 0 to World.room_count expected - 1 do
     for threshold = 0 to World.doorway_count expected ~room - 1 do
       match
@@ -167,13 +167,13 @@ let the_smallest_game =
 
    The trap this step exists to close. *)
 
-(* {!P.boundary} with nothing said at any leg has to be the two helpers it
-   generalizes, or it is a third way of building a boundary rather than one way
-   with more available. *)
+(* {!P.boundary} with nothing specified at any leg has to equal the two helpers
+   it generalizes, or it is a third way of building a boundary rather than one
+   way with more options. *)
 (* {!P.boundary} is now the only way to lay a run of wall in a description, so
-   what has to be pinned is that its two axes still mean what the two functions
-   it replaced meant: [closed] shuts the loop, and {!P.polygon} hands it the
-   corners {!Room.regular_polygon} would have used. *)
+   the pin is that its two axes still mean what the two functions it replaced
+   meant: [closed] shuts the loop, and {!P.polygon} hands it the corners
+   {!Room.regular_polygon} would have used. *)
 let runs =
   let described children =
     (Mount.build
@@ -209,7 +209,7 @@ let runs =
           last.Room.b);
     case "a polygon boundary is Room.regular_polygon" (fun () ->
         (* The corners were split out of that function so a pillar could carry
-           per-leg handlers; splitting them must not have moved one. *)
+           per-leg handlers; the split must not have moved a corner. *)
         let center = Vec.make 1.5 (-2.5) in
         let built =
           Room.regular_polygon ~center ~radius:0.8 ~sides:5 ~rotation:0.3
@@ -236,8 +236,9 @@ let runs =
               one.Room.b other.Room.b)
           (List.combine built described_walls));
     case "the last corner of an open run cannot carry anything" (fun () ->
-        (* It leaves no wall, so a handler there would never fire — the one
-           mistake the "describes the wall leaving it" shape invites. *)
+        (* The last corner of an open run leaves no wall, so a handler there
+           would never fire. That is the one mistake the "describes the wall
+           leaving it" shape invites. *)
         Alcotest.check_raises "said plainly"
           (Invalid_argument
              "P.boundary: the last corner of an open run leaves no wall, so it \
@@ -282,8 +283,9 @@ let winding =
         same_world (Mount.build forwards).Scene.world
           (Mount.build backwards).Scene.world);
     case "and it is the winding Room.rectangle uses" (fun () ->
-        (* The engine documents rectangle as impossible to wind wrong, so it is
-           the definition rather than a rule restated alongside it. *)
+        (* The engine documents rectangle as impossible to wind wrong, so it
+           serves as the definition rather than a rule restated alongside
+           it. *)
         same_world built
           (Mount.build
              (P.world ~atmosphere:Atmosphere.default ~spawn
@@ -295,23 +297,23 @@ let winding =
                     ];
                 ]))
             .Scene.world);
-    (* {!P.boundary} is the winding above with the whole of {!P.wall} at every leg,
-       so the question it has to answer is whether a leg stays on the wall its
-       corner named when the run comes out wound the other way. Written in both
-       orders, every wall must end up with the same material on it.
+    (* {!P.boundary} is the winding above with the whole of {!P.wall} at every
+       leg, so the question is whether a leg stays on the wall its corner named
+       when the run comes out wound the other way. Written in both orders,
+       every wall must end up with the same material on it.
 
-       This is the case the implementation warns about: a leg describes the wall
-       it {e leaves}, so reversing the corners and letting each leg travel with
-       its own corner puts every leg one wall out. That version passes "the same
-       walls are there" and fails this. *)
+       This is the case the implementation warns about: a leg describes the
+       wall it {e leaves}, so reversing the corners and letting each leg travel
+       with its own corner puts every leg one wall out. That version passes
+       "the same walls are there" and fails this. *)
     case "a leg stays on its own wall through the winding" (fun () ->
         let brick =
           Material.make
             ~pattern:(Texture.generate (checker ~color:(Color.rgb 190 90 70)))
         in
-        (* One corner of the four is bricked, so the answer is asymmetric: a leg
-           shifted by one, or the whole run reflected, lands the brick somewhere
-           else and the walls below stop matching pairwise. *)
+        (* One corner of the four is bricked, so the answer is asymmetric: a
+           leg shifted by one, or the whole run reflected, lands the brick
+           somewhere else and the walls below stop matching pairwise. *)
         let legs cs =
           match cs with
           | [ p; q; r; s ] ->
@@ -332,8 +334,8 @@ let winding =
         let forwards = describe corners
         and backwards = describe (List.rev corners) in
         same_world forwards backwards;
-        (* And it is the brick that moved with its wall, not merely four walls
-           in the same places: find it by its endpoints in each. *)
+        (* The brick moved with its wall, not merely four walls in the same
+           places: find it by its endpoints in each. *)
         let bricked world =
           let room = World.room world 0 in
           List.find_map
@@ -348,9 +350,9 @@ let winding =
         Alcotest.check vec "the brick wall starts in the same place" a c;
         Alcotest.check vec "and ends in the same place" b d);
     case "every normal faces into the room" (fun () ->
-        (* The symptom of a reversed boundary is a room black from inside, and
-           this is that stated as arithmetic: from the middle of the room, every
-           wall's normal points back towards you. *)
+        (* The symptom of a reversed boundary is a room black from inside. This
+           states it as arithmetic: from the middle of the room, every wall's
+           normal points back towards the centre. *)
         let room =
           World.room
             (Mount.build
@@ -380,8 +382,8 @@ let winding =
 
 (* Three sides run as a path and the fourth cut as a doorway, which together
    close the boundary. An outline of all four corners *and* a doorway along one
-   of them would be a solid wall standing behind an opening — six walls where
-   five were meant, and a doorway you cannot walk through. *)
+   of them would be a solid wall standing behind an opening: six walls where
+   five were meant, and a doorway that cannot be walked through. *)
 let two_room_world ~door =
   P.world ~atmosphere:Atmosphere.default
     ~spawn:("west", Vec.make (-3.) 0.)
@@ -415,32 +417,32 @@ let two_room_world ~door =
       P.link ("west", "east") ("east", "west");
     ]
 
-(* {!Support.vec} allows 1e-9, which is the right slack for anything that has
-   been through a [cos] or a division and is eight orders too much for the case
-   below: the two forms of the cut agreed to 6.21e-17 the whole time they
-   disagreed. Nothing here goes through anything inexact — the claim is that two
-   expressions produce the same floats — so the comparison is [=], and the
-   printer shows enough digits for a failure to be legible. *)
+(* {!Support.vec} allows 1e-9, the right slack for anything that has been
+   through a [cos] or a division, and eight orders too much for the case below:
+   the two forms of the cut agreed to 6.21e-17 the whole time they disagreed.
+   Nothing here goes through anything inexact, because the claim is that two
+   expressions produce the same floats. The comparison is therefore [=], and
+   the printer shows enough digits for a failure to be legible. *)
 let exactly =
   Alcotest.testable
     (fun ppf (v : Vec.t) -> Format.fprintf ppf "(%.17g, %.17g)" v.Vec.x v.Vec.y)
     (fun (a : Vec.t) (b : Vec.t) -> a.Vec.x = b.Vec.x && a.Vec.y = b.Vec.y)
 
 let doorways =
-  (* P.opening does the same arithmetic P.doorway does, so it has to refuse what
-     P.doorway refuses. Unrefused, each of these is a pair of nans that comes
-     back much later as a transform that will not invert, a long way from the
-     two points that were wrong. *)
+  (* P.opening does the same arithmetic P.doorway does, so it has to refuse
+     what P.doorway refuses. Unrefused, each of these is a pair of nans that
+     surfaces much later as a transform that will not invert, far from the two
+     points that were wrong. *)
   let refuses name ~width ~refused a b =
     case name (fun () ->
         Alcotest.check_raises "in the words of the function that was called"
           (Invalid_argument refused) (fun () -> ignore (P.opening ~width a b)))
   in
   [
-    (* And refusing the same things is the cheap half of "the same arithmetic".
-       The expensive half is landing in the same place, which nothing asked
-       about — so P.opening restated the formula, restated the superseded form
-       of it, and went on refusing everything it was supposed to.
+    (* Refusing the same things is the cheap half of "the same arithmetic".
+       The expensive half is landing in the same place, which nothing tested:
+       P.opening restated the formula, restated the superseded form of it, and
+       went on refusing everything it was supposed to.
 
        Bit-for-bit and not [close], because approximately-equal is exactly what
        was true while it was wrong: the two agreed to 6.21e-17, which is a
@@ -468,17 +470,17 @@ let doorways =
             (Printf.sprintf "far end at width %g" width)
             rb pb
         in
-        (* Axis-aligned, where the coordinates cancel and both forms agreed all
-           along; then oblique, where they did not. *)
+        (* Axis-aligned first, where the coordinates cancel and both forms
+           agreed all along; then oblique, where they did not. *)
         same ~width:2. (Vec.make 0. 0.) (Vec.make 4. 0.);
         same ~width:4. (Vec.make 0. 0.) (Vec.make 4. 0.);
         let a = Vec.make 0.1 0.2 and b = Vec.make 0.7 1.3 in
         let span = Vec.length (Vec.sub b a) in
         same ~width:(span /. 3.) a b;
         same ~width:(span /. 2.) a b;
-        (* The case that bit: a whole side that is one opening. Both ends have
-           to come back as the very floats they went in as, or the jamb that is
-           supposed to vanish is a wall instead. *)
+        (* The case that failed: a whole side that is one opening. Both ends
+           have to come back as the very floats they went in as, or the jamb
+           that is supposed to vanish is a wall instead. *)
         same ~width:span a b;
         let pa, pb = P.opening ~width:span a b in
         Alcotest.check exactly "and the near end is the corner itself" a pa;
@@ -498,8 +500,9 @@ let doorways =
             Alcotest.(check int) "into the east room" 1 portal.World.to_room;
             Alcotest.(check int) "and back through its own" 0 portal.World.twin);
     case "the world it builds is one the engine agrees with" (fun () ->
-        (* World.check is what the engine asserts about a world it did not build
-           itself, so passing it is the engine's own opinion of the result. *)
+        (* World.check is what the engine asserts about a world it did not
+           build itself, so passing it is the engine's own verdict on the
+           result. *)
         let world = (Mount.build (two_room_world ~door:None)).Scene.world in
         World.check world);
     case "a door is carried through to the threshold" (fun () ->
@@ -549,18 +552,18 @@ let malformed =
 
 (* {1 One nesting rule, read the same way twice}
 
-   Prim.may_contain is the rule and both readers have always shared it. What
-   they did not share was the walk, and that is where they came apart: Host
-   looked only under the four primitives that hold anything, so a child hung on
-   a camera or a doorway went unlooked-at and ran; and its hud walk asked about
-   every descendant as though the hud were its parent, so a bar inside a
-   rectangle drew at runtime and failed in Check. Neither is reachable through P
-   — its hud pieces take no children and only P.hud nests — but Element and Prim
-   are public, so neither was unreachable either.
+   Prim.may_contain is the rule and both readers have always shared it. They
+   did not share the walk, and that is where they came apart. Host looked only
+   under the four primitives that hold anything, so a child hung on a camera or
+   a doorway went unchecked and ran. Host's hud walk asked about every
+   descendant as though the hud were its parent, so a bar inside a rectangle
+   drew at runtime and failed in Check. Neither case is reachable through P,
+   whose hud pieces take no children and where only P.hud nests, but Element
+   and Prim are public, so neither was unreachable either.
 
-   What is asserted is agreement rather than either answer on its own. A checker
-   that says a description is wrong is only worth reading if the thing it models
-   refuses the same description. *)
+   What is asserted is agreement rather than either answer on its own, because
+   a checker that calls a description wrong is only useful if the thing it
+   models refuses the same description. *)
 let both_readers =
   let module E = Camlcast_loom.Element in
   let only_room =
@@ -686,15 +689,15 @@ let furnishing =
 
 (* {1 The pixels}
 
-   Two worlds that answer every accessor alike ought to draw alike, and up to
-   here that has been an argument rather than a measurement. This measures it.
+   Two worlds that answer every accessor alike ought to draw alike. Up to here
+   that has been an argument rather than a measurement; this measures it.
 
    Framebuffer.offscreen has no streaming texture behind it and
-   Renderer.draw_frame makes no SDL call, so a whole frame can be drawn and read
-   back with no window open. That is the engine's own testing trick, and it is
-   what makes the strongest available gate for this rewrite cost nothing: draw
-   the described world and the hand-built one from the same eye, and compare
-   every pixel. *)
+   Renderer.draw_frame makes no SDL call, so a whole frame can be drawn and
+   read back with no window open. That is the engine's own testing technique,
+   and it makes the strongest available gate for this rewrite free: draw the
+   described world and the hand-built one from the same eye, and compare every
+   pixel. *)
 
 let render_from world player ~width ~height =
   let buffer = Framebuffer.offscreen ~width ~height in
@@ -712,7 +715,8 @@ let differing_pixel one other ~width ~height =
   scan 0 0
 
 (* Several angles, because one eye can miss a difference by facing away from
-   it: straight ahead, two turns into the corners, and most of the way round. *)
+   it: straight ahead, two turns into the corners, and most of the way
+   round. *)
 let the_same_picture =
   let width = 320 and height = 240 in
   List.map

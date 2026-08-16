@@ -83,21 +83,21 @@ let offsets_map_into_the_texture () =
     "a denser pattern spreads the same face over more columns" 128
     (Texture.column_of_offset dense 0.5)
 
-(* The vertical half of the same rule, and the one thing about it that is not
-   the horizontal half turned on its side: a row is counted {e down} from the
-   top, so a height just over the foot of a wall is the bottom row of the
-   pattern and one just under the next cell is the top. Get the flip wrong and
-   every wall in the game is drawn upside down. *)
+(* The vertical half of the same rule, and the one part that is not the
+   horizontal half turned on its side: a row is counted {e down} from the top,
+   so a height just over the foot of a wall is the bottom row of the pattern
+   and one just under the next cell is the top. Getting the flip wrong draws
+   every wall in the game upside down. *)
 let heights_map_into_the_texture () =
   let last = Texture.default_size - 1 in
   Alcotest.(check int)
     "the foot of a cell is the bottom row" last
     (Texture.row_of_height checker 0.);
-  (* Not the same case as the one above, which passes by clamping: this is a
+  (* Not the same case as the one above, which passes by clamping. This is a
      height genuinely inside the bottom row's band, and it is what scaling by
-     [size - 1] used to get wrong — under that rule the last row was reachable
-     only from exactly the foot and every height just over it fell in the row
-     above, leaving the bottom of every pattern undrawn. *)
+     [size - 1] used to get wrong: under that rule the last row was reachable
+     only from exactly the foot, every height just over it fell in the row
+     above, and the bottom of every pattern went undrawn. *)
   Alcotest.(check int)
     "and so is a height just over it" last
     (Texture.row_of_height checker 0.001);
@@ -107,8 +107,8 @@ let heights_map_into_the_texture () =
   Alcotest.(check int)
     "and the middle is the middle" (Texture.default_size / 2)
     (Texture.row_of_height checker 0.5);
-  (* The pattern tiles every world unit, so only the fraction comes into it —
-     the same rule the columns follow, and what makes a wall's pattern repeat up
+  (* The pattern tiles every world unit, so only the fraction matters: the
+     same rule the columns follow, and what makes a wall's pattern repeat up
      its height instead of stretching over it. Negative heights do not arise on
      the drawing path, where a wall is only sampled between its foot and its
      top, but [Float.floor] tiles them the same way and nothing here has to
@@ -129,17 +129,16 @@ let heights_map_into_the_texture () =
     (Texture.row_of_height dense 0.)
 
 (* The two axes are scaled by the same number, so the row rule is the column
-   rule turned on its side and nothing but the flip tells them apart. What that
-   buys is the assertion below it: every row owns the same band of a cell, the
-   bottom one included, so a pattern tiles up a wall on the terms it tiles
-   along one.
+   rule turned on its side and only the flip tells them apart. That buys the
+   assertion below it: every row owns the same band of a cell, the bottom one
+   included, so a pattern tiles up a wall on the terms it tiles along one.
 
-   The mirror is [size - 1 - column] rather than [size - column] because the two
-   count from opposite ends of the same half-open bands, and it holds only
-   {e off} the boundaries: a fraction landing exactly on a texel edge belongs to
-   the band above it going up and the band below it coming down, so the two
-   differ by one there. The fractions below are picked to sit inside a texel for
-   that reason — [0.5] would not, since [0.5 * 64] is a whole number. *)
+   The mirror is [size - 1 - column] rather than [size - column] because the
+   two count from opposite ends of the same half-open bands. It holds only
+   {e off} the boundaries: a fraction landing exactly on a texel edge belongs
+   to the band above it going up and the band below it coming down, so the two
+   differ by one there. The fractions below are picked to sit inside a texel
+   for that reason; [0.5] would not, since [0.5 * 64] is a whole number. *)
 let the_two_axes_agree () =
   let last = Texture.default_size - 1 in
   List.iter
@@ -150,8 +149,8 @@ let the_two_axes_agree () =
         (Texture.row_of_height checker tile))
     [ 0.1; 0.3; 0.7; 0.999 ]
 
-(* And the consequence worth having: no row is favoured. Swept rather than
-   sampled, because the claim is about area and a point has none — under the old
+(* The consequence worth having: no row is favoured. Swept rather than sampled,
+   because the claim is about area and a point has none. Under the old
    [size - 1] scale this sweep reached 63 of the 64 rows and never the bottom
    one, handing its share to the others at 101 and 102 samples apiece.
 
@@ -213,14 +212,13 @@ let a_pattern_of_no_size_is_refused () =
         (fun () -> ignore (Texture.noise ~size ~seed:0 ~cell:4 ~u:0 ~v:0)))
     [ 0; -8 ]
 
-(* A positive size is not on its own enough: it is [size * size] that both arrays
-   are as long as, and past the square root of the longest array that product
-   wraps instead of growing. [max_int] squares to exactly [1], so without the
-   check the texture would come back saying its side was [max_int] with a single
-   texel in it, and the arithmetic {!Texture.sample} does without bounds checking
-   would be arithmetic about a length that was never allocated. Only the refusing
-   is asserted here — the size just inside the limit is a size no machine should
-   be asked to allocate to prove a point. *)
+(* A positive size is not enough on its own. Both arrays are [size * size]
+   long, and past the square root of the longest array that product wraps
+   instead of growing. [max_int] squares to exactly [1], so without the check
+   the texture would come back reporting a side of [max_int] with a single
+   texel in it, and the unchecked arithmetic in {!Texture.sample} would be
+   about a length that was never allocated. Only the refusing is asserted here;
+   allocating a size just inside the limit is too expensive to test. *)
 let a_pattern_too_big_for_an_array_is_refused () =
   let just_over = int_of_float (sqrt (float_of_int Sys.max_array_length)) + 2 in
   List.iter
@@ -251,10 +249,10 @@ let noise_stays_in_band () =
     (!low >= 0 && !high <= 255);
   Alcotest.(check bool) "and the field actually varies" true (!high - !low > 32)
 
-(* The reason noise is in the engine rather than in a caller. A wall's pattern
-   repeats once per world unit, so a field whose lattice did not close on itself
-   would put a hard seam down every wall in the game — one per unit. The value
-   one texel before the wrap has to continue smoothly into the value at zero. *)
+(* Why noise is in the engine rather than in a caller. A wall's pattern repeats
+   once per world unit, so a field whose lattice did not close on itself would
+   put a hard seam down every wall in the game, one per unit. The value one
+   texel before the wrap has to continue smoothly into the value at zero. *)
 let noise_wraps_without_a_seam ~size () =
   let n ~u ~v = Texture.noise ~size ~seed:1 ~cell:16 ~u ~v in
   let last = size - 1 in
@@ -312,8 +310,8 @@ let noise_refuses_a_lattice_that_cannot_wrap () =
           ignore
             (Texture.noise ~size:Texture.default_size ~seed:0 ~cell ~u:0 ~v:0)))
     [ 0; -4; 7; 48 ];
-  (* And the divisor is the size actually being built, not the default one: 48
-     does not divide 64 — it is in the list above — but it does divide 96. *)
+  (* The divisor is the size actually being built, not the default one: 48
+     does not divide 64 (it is in the list above) but does divide 96. *)
   let accepted =
     try
       ignore (Texture.noise ~size:96 ~seed:0 ~cell:48 ~u:0 ~v:0);
@@ -336,20 +334,20 @@ let patterns_carry_their_own_size () =
         if u = 5 && v = 3 then marked else ground)
   in
   Alcotest.(check int) "and one that says otherwise" 128 (Texture.size dense);
-  (* Which is what makes the far corner readable at all: [sample] does not
-     bounds-check, so a pattern that said 128 and held 64 x 64 texels would read
-     off the end of its own array here rather than answer. *)
+  (* This is what makes the far corner readable at all: [sample] does not
+     bounds-check, so a pattern that said 128 and held 64 x 64 texels would
+     read off the end of its own array here rather than answer. *)
   Alcotest.check color "and has that many texels to sample" ground
     (Texture.sample dense ~u:127 ~v:127);
   Alcotest.check color "and is sampled at its own stride" marked
     (Texture.sample dense ~u:5 ~v:3)
 
-(* What a file was drawn in is what the wall is made of: nothing is reduced or
-   reinterpreted on the way in. Three saturated primaries pin that, and pin the
-   channel order with it — a loader that reduced to luma, or read red where blue
-   was, cannot agree with all three by accident. The grey ramp then pins the
-   row-major order with nothing else in the way. Values are literals in
-   tools/make_art.py and here, and the encoder there shares no code with the
+(* The colours in the file are the colours on the wall: nothing is reduced or
+   reinterpreted on load. Three saturated primaries pin that, and pin the
+   channel order with it, because a loader that reduced to luma, or read red
+   where blue was, cannot agree with all three by accident. The grey ramp then
+   pins the row-major order with nothing else in the way. Values are literals
+   in tools/make_art.py and here, and the encoder there shares no code with the
    decoder. *)
 let load_keeps_the_colour_of_the_file () =
   match Texture.load "fixtures/tile.png" with
@@ -385,9 +383,9 @@ let load_keeps_transparency () =
       Alcotest.(check int) "a solid texel" 255 (Texture.alpha t ~u:0 ~v:0);
       Alcotest.(check int) "a clear one" 0 (Texture.alpha t ~u:6 ~v:6)
 
-(* A pattern tiles a square world cell, so a rectangle would be stretched across
-   it rather than repeated in it. That is a picture nobody asked for, so it is
-   refused and the message says what was wrong with it. *)
+(* A pattern tiles a square world cell, so a rectangle would be stretched
+   across it rather than repeated in it. That result is never wanted, so the
+   file is refused and the message says what shape was wrong. *)
 let load_refuses_a_rectangle () =
   match Texture.load "fixtures/swatch.png" with
   | Ok _ -> Alcotest.fail "a 4x3 file was accepted as a pattern"

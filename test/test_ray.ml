@@ -96,32 +96,32 @@ let origin_on_a_wall () =
     "distance stays a usable divisor" true (hit.Ray.distance > 0.)
 
 (* {!Ray.segment} and {!Room.segments_cross} are the same cross-product
-   intersection written twice. Not similar — the same: the same denominator, the
-   same offset, and the same two quotients, bit for bit over half a million
-   random configurations. What differs is deliberate and is all guard. A ray runs
-   forever and only has to be ahead by [min_distance]; a step stops, so both its
-   parameters are bounded. The step has a collinear-overlap branch and the ray
-   has none, because a ray sliding along a wall meets nothing worth drawing while
-   a step sliding along one still has to be stopped. And the parallel test is
-   strict on one side and inclusive on the other, so that a segment of no length
+   intersection written twice. Not similar: the same denominator, the same
+   offset, and the same two quotients, bit for bit over half a million random
+   configurations. The differences are deliberate and are all guard. A ray runs
+   forever and only has to be ahead by [min_distance]; a step stops, so both
+   its parameters are bounded. The step has a collinear-overlap branch and the
+   ray has none, because a ray sliding along a wall meets nothing worth drawing
+   while a step sliding along one still has to be stopped. The parallel test is
+   strict on one side and inclusive on the other, so a segment of no length
    keeps the branch it has always taken.
 
-   A shared core would be the way to keep the arithmetic from drifting, and it
-   was measured rather than assumed. The version that pins what is worth pinning
-   has to hand back both parameters, and on this compiler a returned pair
+   A shared core would keep the arithmetic from drifting, and its cost was
+   measured rather than assumed. The version that pins what is worth pinning
+   has to return both parameters, and on this compiler a returned pair
    allocates however hard it is inlined: 327 words per cast against 163, and
-   33.9 ms against 30.1 for the same work — thirteen per cent of Ray.cast, which
-   bench/frame.ml already calls the frame's dominant cost. A continuation is
-   255 words. Handing back one parameter at a time is free and shares only the
-   division, leaving the two things that could actually flip — which endpoint
-   the offset runs from, and which segment's direction belongs to which
-   parameter — written out twice exactly as before.
+   33.9 ms against 30.1 for the same work. That is thirteen per cent of
+   Ray.cast, which bench/frame.ml already identifies as the frame's dominant
+   cost. A continuation is 255 words. Returning one parameter at a time is free
+   but shares only the division, leaving the two things that could actually
+   flip — which endpoint the offset runs from, and which segment's direction
+   belongs to which parameter — written out twice exactly as before.
 
-   So they stay apart, and this is what holds them together instead. Both halves
-   of what a cast reports are put to a step: the distance, by walking exactly
-   that far and requiring the walk to cross the wall while a walk a hair shorter
-   does not; and the offset along the wall, by measuring the hit back to that
-   wall's own start. A flipped sign or a swapped pairing moves one of them. *)
+   So the two stay separate, and this test holds them together instead. Both
+   halves of a cast's report are checked against a step. The distance: a walk
+   of exactly that length must cross the wall while a walk a hair shorter must
+   not. The offset along the wall: the hit is measured back to that wall's own
+   start. A flipped sign or a swapped pairing moves one of the two. *)
 let a_cast_agrees_with_a_step_about_where_a_wall_is () =
   let checked = ref 0 in
   List.iter
@@ -138,14 +138,15 @@ let a_cast_agrees_with_a_step_about_where_a_wall_is () =
             (Printf.sprintf "%s: along matches the hit point" name)
             hit.Ray.along
             (Vec.length (Vec.sub where w.Room.a));
-          (* Bracketed, not sat on. A step ending exactly at the hit is the
-             boundary of the step's own [t <= 1.], and rebuilding the endpoint
-             as [centre + t * direction] and taking it apart again lands one ulp
-             the wrong side of it — 1.0000000000000002 for the oblique ray here.
-             That is two routes to one real number, which is not what this is
-             about. A tenth of a per cent either side is: it is far finer than
-             any flipped sign or swapped pairing could survive, and far coarser
-             than the arithmetic. *)
+          (* Bracketed rather than tested at the exact boundary. A step ending
+             exactly at the hit sits on the step's own [t <= 1.] boundary, and
+             rebuilding the endpoint as [centre + t * direction] and
+             decomposing it again lands one ulp the wrong side:
+             1.0000000000000002 for the oblique ray here. That is two routes to
+             one real number, which is not what this test is about. A tenth of
+             a per cent either side is: far finer than any flipped sign or
+             swapped pairing could survive, and far coarser than the
+             arithmetic. *)
           let step k = Vec.add centre (Vec.scale direction (t *. k)) in
           Alcotest.(check bool)
             (Printf.sprintf "%s: a step just past it crosses" name)
@@ -171,11 +172,12 @@ let a_cast_agrees_with_a_step_about_where_a_wall_is () =
     true (!checked >= 6)
 
 (* The parallel test is the sine of the angle between ray and wall, so it holds
-   at every length. Scaled by neither, it would have been an area, and a wall
-   short enough would have failed it head-on and gone unrendered — while
-   [Room.passable] went on colliding with it, which is the one pairing a wall is
-   never allowed to have. A tenth of a picometre is well past anything worth
-   authoring; the point is that no length is short enough to break the test. *)
+   at every length. Scaled by neither length it would have been an area, and a
+   short enough wall would have failed it head-on and gone unrendered while
+   [Room.passable] went on colliding with it — invisible but solid, the one
+   pairing a wall is never allowed to have. A tenth of a picometre is well past
+   anything worth authoring; the point is that no length is short enough to
+   break the test. *)
 let a_wall_far_shorter_than_a_pixel_is_still_found () =
   let sliver =
     Room.wall ~height:3. ~material:dim
@@ -191,8 +193,8 @@ let a_wall_far_shorter_than_a_pixel_is_still_found () =
     "the ray finds it rather than passing through" true
     (hit.Ray.wall.Room.material == dim);
   Alcotest.check close "and at the distance it stands at" 1. hit.Ray.distance;
-  (* The half the renderer answers now agrees with the half collision always
-     did: both say something is there. *)
+  (* The rendering answer now agrees with the collision answer it always had:
+     both report something there. *)
   Alcotest.(check bool)
     "and collision agrees there is something there" false
     (Room.passable room ~from:centre ~dest:(Vec.make 3.5 2.))

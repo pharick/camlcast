@@ -52,19 +52,19 @@ let crossing_changes_frame () =
     = None)
 
 (* The same crossing, cut down to a whisker. {!World.crossing} asks
-   {!Room.segments_cross} first, so a step that came out parallel is a doorway
-   that goes unreported — and {!World.passable} says yes to it anyway, both of
+   {!Room.segments_cross} first, so a step that tested parallel is a doorway
+   that goes unreported, and {!World.passable} says yes to it anyway, both of
    its ends being within the padding of the threshold plane. The player used to
    arrive at [dest] still standing in the room behind it, a hair outside that
-   room's own east wall, and every step after that has [entering] negative and
+   room's own east wall. Every step after that has [entering] negative and
    reports nothing either: out of the world for good, walking on the floor of
-   the room it never left. A step this short is what movement itself makes, from
-   the remainder of a leg clipped almost exactly on the opening.
+   the room it never left. A step this short is what movement itself makes,
+   from the remainder of a leg clipped almost exactly on the opening.
 
-   The whisker is a power of two so that both ends of the step are exact and the
-   opening is met exactly halfway. Written as a decimal it would straddle a
-   binade — the spacing below [4.] is half the spacing above it — and the two
-   halves of the step would come out a percent apart. *)
+   The whisker is a power of two so that both ends of the step are exact and
+   the opening is met exactly halfway. Written as a decimal it would straddle a
+   binade, because the spacing below [4.] is half the spacing above it, and the
+   two halves of the step would come out a percent apart. *)
 let a_crossing_is_reported_however_short_the_step_is () =
   let whisker = Float.ldexp 1. (-44) in
   let dest = Vec.make (4. +. whisker) 2. in
@@ -99,16 +99,16 @@ let a_step_into_the_neighbour_is_refused () =
        ~dest:(Vec.make 4.5 2.))
 
 (* The mirror image of that, and the half a convex neighbour cannot pose. The
-   room next door folds back on itself, so it has a wall of its own standing —
-   in its own coordinates — on this side of its own doorway, which is to say in
-   the space the player is walking through. A step towards the opening never
-   reaches the room that wall belongs to, so that wall is not the neighbour's to
-   refuse it with. What is beyond the opening still is: the low wall inside the
-   second room stops the angled step exactly as {!two_rooms}' does. *)
+   room next door folds back on itself, so in its own coordinates it has a wall
+   standing on this side of its own doorway, in the space the player is walking
+   through. A step towards the opening never reaches the room that wall belongs
+   to, so the neighbour must not refuse the step with that wall. It must still
+   refuse with what is beyond the opening: the low wall inside the second room
+   stops the angled step exactly as {!two_rooms}' does. *)
 let the_neighbours_own_exterior_does_not_block () =
   let world = recessed () in
-  (* Straight at the middle of the opening, stopping in it. Half a cell clear of
-     either jamb, and — once the step is cut where it crosses the threshold —
+  (* Straight at the middle of the opening, stopping in it. Half a cell clear
+     of either jamb, and, once the step is cut where it crosses the threshold,
      0.35 clear of the slot's back wall, which is more than the padding. *)
   let from = Vec.make 3.6 2. and dest = Vec.make 4. 2. in
   Alcotest.(check bool)
@@ -123,8 +123,8 @@ let the_neighbours_own_exterior_does_not_block () =
        ~dest:(Vec.make 4.3 2.35))
 
 (* A leaf standing open changes none of that: it is a door swung aside, so the
-   opening behaves as a bare one, and it is still the room behind it — as real
-   as the room behind any opening — that refuses the step. *)
+   opening behaves as a bare one, and the room behind it, as real as the room
+   behind any opening, still refuses the step. *)
 let a_step_through_a_door_is_refused_by_the_neighbour () =
   let ajar = two_rooms_with_a_door Door.Open in
   let from = Vec.make 3.7 2.2 and dest = Vec.make 4.3 2.35 in
@@ -138,8 +138,8 @@ let a_step_through_a_door_is_refused_by_the_neighbour () =
     "and an open door is still one you can walk through" true
     (World.passable ajar ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.))
 
-(* The straight step through the middle of the opening, in both states. This is
-   the one the engine used to get wrong in either: a leaf was drawn and the
+(* The straight step through the middle of the opening, in both states. The
+   engine used to get this wrong in either state: a leaf was drawn and the
    player walked through it regardless. *)
 let a_door_blocks_in_the_states_that_have_a_leaf () =
   let through world =
@@ -156,7 +156,7 @@ let a_door_blocks_in_the_states_that_have_a_leaf () =
     (World.crossing two_rooms_closed ~room:0 ~from:(Vec.make 3.5 2.)
        ~dest:(Vec.make 4.5 2.)
     |> Option.is_some);
-  (* [crossing] still reports the doorway — it answers "which opening is this
+  (* [crossing] still reports the doorway: it answers "which opening is this
      step through", and [passable] is what has already said no. Movement asks
      both, in that order. *)
   Alcotest.(check bool)
@@ -276,16 +276,16 @@ let invalid_worlds_are_refused () =
 
 (* {!Room.doorway} refuses the degenerate wall a threshold with no length would
    come from, and {!Room.threshold} refuses one built by hand out of two points
-   that are the same or not finite — so what reaches a world is always a
+   that are the same or not finite, so what reaches a world is always a
    positive finite number. This is the last of the three: a length positive
-   enough to build and far too small to be a doorway, which nothing before here
-   has any reason to object to.
+   enough to build and far too small to be a doorway, which nothing earlier has
+   any reason to object to.
 
    The check is still written as the negation of what would pass, and that is
-   what makes this refuse rather than accept: a length below the minimum is not
+   what makes it refuse rather than accept: a length below the minimum is not
    caught by asking whether it is above one, because [1e-9 > epsilon] and
    [nan > epsilon] are both false and only the first is a number. Written the
-   other way round the world would be built and its every transform would be
+   other way round, the world would be built and every transform in it would be
    arithmetic on a gap nine orders of magnitude too small. *)
 let a_threshold_of_no_real_length_is_refused () =
   raises "a threshold too small to be a doorway"
@@ -385,9 +385,9 @@ let growing_never_disturbs_an_index () =
     (Room.threshold_count (World.room after 0))
 
 (* Nothing forces a link to agree with the path that already runs between two
-   rooms — there is no global frame for it to contradict. Joining a room back to
-   one it already reaches produces a loop whose geometry is impossible, and that
-   is a feature rather than something to guard against. *)
+   rooms, because there is no global frame for it to contradict. Joining a room
+   back to one it already reaches produces a loop whose geometry is impossible,
+   and that is a feature rather than something to guard against. *)
 let a_loop_may_contradict_itself () =
   let jambs, back = cut ~name:"back" (Vec.make 4. 4.) (Vec.make 0. 4.) in
   let opened room name =
@@ -411,8 +411,8 @@ let a_loop_may_contradict_itself () =
        (List.filter
           (fun (room, _, p) -> room = 0 && (Option.get p).World.to_room = 1)
           (doorways world)));
-  (* The two routes disagree about where the second room is, which is exactly
-     what makes a world bigger on the inside. *)
+  (* The two routes disagree about where the second room is, which is what
+     makes a world bigger on the inside. *)
   let through index = (portal world ~room:0 ~index).World.onto in
   let landing t = Transform.point t centre in
   Alcotest.(check bool)
@@ -513,9 +513,9 @@ let invalid_growth_is_refused () =
              ~ceiling:flat_ceiling jambs)
       in
       ignore (World.link bigger (0, "north") (next, "south")));
-  (* A leaf may be hung into an opening that is already linked, which is the one
-     way the two sides of a link can come to disagree after make and link have
-     both had their say — so check has to ask as well. Hanging one takes an
+  (* A leaf may be hung into an opening that is already linked, which is the
+     one way the two sides of a link can come to disagree after make and link
+     have both run, so check has to test it as well. Hanging one takes an
      open_doorway, which insists on a new threshold at the same time; the
      disagreement is at index 0, so it is what check reaches first. *)
   raises "a leaf hung on one side only"
@@ -540,18 +540,18 @@ let invalid_growth_is_refused () =
     "World.check: nothing links threshold start.north" (fun () ->
       World.check grown);
   (* A generator appends rooms, and a name it has used before does not collide
-     with the one that has it — it shadows it, because a room is resolved by
-     [Array.find_index], which answers with the first. A world where the second
-     [next] could never be named again is one a later link would silently make
-     against the wrong room. *)
+     with the one that has it: it shadows it, because a room is resolved by
+     [Array.find_index], which answers with the first. The second room could
+     then never be named again, and a later link against the name would
+     silently be made against the wrong room. *)
   raises "a name another room already has"
     "World.add_room: a room is already named start" (fun () ->
       ignore (World.add_room grown ~name:"start" (cell ())))
 
-(* Replacing a room is how a wall comes to have a chalk mark on it, a sign starts
-   moving, and a room is lit differently on the way back than it was on the way
-   out. Everything about the room may change but the openings, which are what
-   the rest of the world is holding on to. *)
+(* Replacing a room is how a wall comes to have a chalk mark on it, a sign
+   starts moving, and a room is lit differently on the way back than on the way
+   out. Everything about the room may change except the openings, which are
+   what the rest of the world holds on to. *)
 let a_room_can_be_replaced () =
   let before = World.room two_rooms 0 in
   let replacement =
@@ -589,8 +589,8 @@ let a_room_can_be_replaced () =
     (Room.wall_count (World.room two_rooms 0))
 
 (* What the rest of the world holds is a portal: a room index, a twin index and
-   a transform, none of which is re-derived when a room is replaced. So they
-   have to still mean what they meant — even when the room they describe has
+   a transform, none of which is re-derived when a room is replaced. They have
+   to keep meaning what they meant, even when the room they describe has
    nothing left in common with the one they were derived from. *)
 let replacing_never_disturbs_a_portal () =
   let there = portal two_rooms ~room:0 ~index:0 in
@@ -617,8 +617,8 @@ let replacing_never_disturbs_a_portal () =
     (portal after ~room:1 ~index:now.World.twin).World.to_room
 
 (* A leaf hung through one side leaves the two halves of the link disagreeing,
-   which is a world check refuses. Hanging one is still permitted — it is half of
-   an operation, not a mistake — and the other half is the same call again on the
+   which check refuses. Hanging one is still permitted, because it is half of
+   an operation and not a mistake; the other half is the same call again on the
    room next door. *)
 let a_door_takes_two_replacements () =
   (* Both fixture rooms have exactly the one doorway, so this hangs a leaf in
@@ -661,7 +661,8 @@ let invalid_replacement_is_refused () =
     (fun () ->
       ignore (World.replace_room two_rooms ~room:0 ~replacement:(like [])));
   (* An opening that moved would leave the twin pointing at it, and the
-     transform derived from it, describing a doorway that is no longer there. *)
+     transform derived from it, describing a doorway that is no longer
+     there. *)
   let _, moved = cut ~name:"east" (Vec.make 4. 0.) (Vec.make 4. 3.) in
   raises "an opening moved"
     "World.replace_room: first moved or reordered its threshold east" (fun () ->
@@ -700,10 +701,10 @@ let invalid_replacement_is_refused () =
                 ~floor:flat_floor ~ceiling:flat_ceiling
                 (List.init (Room.wall_count first) (Room.wall_at first) @ jambs))))
 
-(* A door is one thing seen from two rooms, and the two have to agree about what
-   it is doing — a door open from one side and locked from the other is one the
-   player could walk through in one direction only. set_door is the only way to
-   change one, precisely so that the disagreeing world never exists. *)
+(* A door is one thing seen from two rooms, and the two have to agree about its
+   state. A door open from one side and locked from the other could be walked
+   through in one direction only. set_door is the only way to change one,
+   precisely so that the disagreeing world never exists. *)
 let state_of world ~room ~threshold =
   match (Room.threshold_at (World.room world room) threshold).Room.door with
   | Some d -> Some d.Door.state
@@ -736,9 +737,9 @@ let setting_a_door_changes_both_sides () =
     "the world it came from is unchanged" true
     (state_of before ~room:0 ~threshold:0 = Some Door.Closed)
 
-(* Doors are opened and shut over and over across a run, so the operation has to
-   be one the world survives repeatedly — no drift in the openings it is
-   carrying, no portal left describing the door it used to be. *)
+(* Doors are opened and shut repeatedly across a run, so the world has to
+   survive the operation repeatedly: no drift in the openings it carries, no
+   portal left describing the door it used to be. *)
 let a_door_can_be_worked_repeatedly () =
   let twin = (portal two_rooms_closed ~room:0 ~index:0).World.twin in
   let world =
@@ -802,10 +803,10 @@ let working_a_door_that_is_not_there_is_refused () =
     (fun () ->
       ignore (World.set_door two_rooms_closed ~room:0 ~threshold:3 Door.Open))
 
-(* The air is the one thing about a world a game changes every frame — a lamp
-   guttering, a fuse burning down — so it has to be changeable without touching
-   the geometry, and it has to touch nothing else. Not equal to what it was:
-   the same. *)
+(* The air is the one thing about a world a game changes every frame (a lamp
+   guttering, a fuse burning down), so it has to be changeable without touching
+   the geometry, and it has to touch nothing else. The geometry must stay
+   physically the same, not merely equal. *)
 let changing_the_air_changes_nothing_else () =
   let thicker =
     Atmosphere.make ~haze:(Color.rgb 40 30 20) ~fog_distance:3.
@@ -834,22 +835,22 @@ let changing_the_air_changes_nothing_else () =
   Alcotest.check close "and the world it came from keeps its own air" 12.
     (World.atmosphere two_rooms).Atmosphere.fog_distance
 
-(* The five readers that take their index bare and last, each partly applied,
-   which is the whole of what being bare and last buys — see {!World}'s prose on
-   which index arguments are labelled.
+(* The five readers that take their index bare and last, each partly applied.
+   Partial application is the whole of what being bare and last buys; see
+   {!World}'s prose on which index arguments are labelled.
 
-   This is a compile-time guard wearing a test's clothes: the assertions are
+   This is a compile-time guard in the form of a test: the assertions are
    near-trivial and the point is the five expressions above them, which stop
    being well typed the moment anyone labels one of these indices.
 
-   {b It is not what would catch that, and it is worth being exact about why.}
+   {b It is not what would catch that, and the reason is worth stating.}
    Labelling {!Room.wall_at} was tried here: it breaks twelve files, and the
-   first error inside this one is at a point-free read three hundred lines above
-   — same message, no explanation. Thirty-odd incidental sites already fail
-   loudly and none of them says what the rule is. So this case adds no
-   detection. What it adds is the one place the constraint is written as code
-   and named for itself, next to the reason, for whoever reaches the suite after
-   the compiler has stopped being helpful. *)
+   first error inside this one is at a point-free read three hundred lines
+   above, with the same message and no explanation. Thirty-odd incidental
+   sites already fail loudly and none of them states the rule. This case
+   therefore adds no detection. What it adds is the one place the constraint is
+   written as code and named for itself, next to the reason, for whoever
+   reaches the suite after the compiler has stopped being helpful. *)
 let a_row_reads_point_free () =
   let rooms = List.init (World.room_count two_rooms) (World.room two_rooms) in
   let names = List.init (World.room_count two_rooms) (World.name two_rooms) in
@@ -876,13 +877,13 @@ let a_row_reads_point_free () =
     "every sprite" (Room.sprite_count first) (List.length sprites)
 
 (* {!World.type-portal}'s [threshold] is the copy taken when the link was made,
-   and the type says which of its fields survive a room being rebuilt. Both
-   halves are asserted, because a promise about half a record is only worth
-   having if the other half is known to be the way it is on purpose.
+   and the type documents which of its fields survive a room being rebuilt.
+   Both halves are asserted, because a promise about half a record only holds
+   if the other half is known to be that way on purpose.
 
-   These would fail if anyone made the copy refresh itself, which is the point:
-   that is a change worth making deliberately, with the paragraph on the type
-   rewritten and the per-frame cost of it weighed again. *)
+   These fail if anyone makes the copy refresh itself, which is the point: that
+   change should be made deliberately, with the paragraph on the type rewritten
+   and the per-frame cost weighed again. *)
 let snapshot_and_live world ~room ~slot =
   let portal = Option.get (World.portal world ~room ~threshold:slot) in
   (portal.World.threshold, Room.threshold_at (World.room world room) slot)

@@ -51,7 +51,7 @@ let the_vertical_field_of_view_is_fixed () =
     doubled.Viewport.projection
 
 (* A point at exactly eye height projects onto the horizon, however far away it
-   is — that is what "eye height" means on screen. *)
+   is. That is what "eye height" means on screen. *)
 let eye_height_lands_on_the_horizon () =
   List.iter
     (fun distance ->
@@ -81,11 +81,12 @@ let projection_is_inversely_proportional () =
     (offset 4. /. 2.)
     (offset 8.)
 
-(* The horizon is a place on the screen and not a row, and a row is its centre,
-   so whether any row sits exactly on it is a question of parity. At an odd
-   height the middle of the buffer falls on a pixel's centre and that row reads
-   exactly zero; at an even one it falls on the boundary between two, which
-   straddle zero by half a pixel each and neither of which is the horizon. *)
+(* The horizon is a position on the screen and not a row, and a row is
+   identified by its centre, so whether any row sits exactly on it is a parity
+   question. At an odd height the middle of the buffer falls on a pixel's
+   centre and that row reads exactly zero. At an even one it falls on the
+   boundary between two rows, which straddle zero by half a pixel each, and
+   neither is the horizon. *)
 let row_factor_is_zero_at_the_horizon () =
   let odd = at ~width:800 ~height:601 () in
   Alcotest.check close "an odd height puts a row on the horizon" 0.
@@ -117,16 +118,16 @@ let pitch_shears_the_horizon () =
 
 (* The column [Paint.crosshair] draws on is [width / 2], and [Sight] answers
    about the ray straight ahead, so the two agree exactly when that column's
-   centre is the middle of the buffer — which it is at every odd width, the
-   sizes [Renderer.internal_size] actually produces from a 1366- or 2560-wide
-   window. An even width has no middle column at all: the middle falls between
-   two, and the most that can be asked is that neither is favoured.
+   centre is the middle of the buffer. That holds at every odd width, the sizes
+   [Renderer.internal_size] actually produces from a 1366- or 2560-wide window.
+   An even width has no middle column at all: the middle falls between two, and
+   the most that can be asked is that neither is favoured.
 
-   Half a pixel buys more than it used to. [Sight] reads the texel under the
-   crosshair now, so at an even width the ray it traces and the ray through the
-   pixel drawn can fall either side of a texel edge, and the two disagree over a
-   grille's bar by one texel of the pattern. That is what the bound below is
-   worth in the world, and why it is asserted and not waived. *)
+   Half a pixel matters more than it used to. [Sight] now reads the texel under
+   the crosshair, so at an even width the ray it traces and the ray through the
+   pixel drawn can fall either side of a texel edge, and the two disagree over
+   a grille's bar by one texel of the pattern. That is the concrete cost the
+   bound below guards against, and why it is asserted and not waived. *)
 let the_centre_column_looks_straight_ahead () =
   let player = Player.make ~room:0 ~pos:centre ~angle:0.7 in
   List.iter
@@ -164,13 +165,14 @@ let a_flat_wall_stays_flat () =
     [ (800, 600); (1920, 1080); (400, 900) ]
 
 (* The rule the module is built on, stated as a round trip: [ray_direction]
-   takes a column and answers for its centre, [project_point] answers in the
-   continuous coordinates that centre lives on, so a point placed along a
+   takes a column and answers for its centre, and [project_point] answers in
+   the continuous coordinates that centre lives on, so a point placed along a
    column's own ray projects back to [column + 0.5]. Everything else about the
-   convention follows from this — it is what makes [Float.round] of a projected
+   convention follows from this. It is what makes [Float.round] of a projected
    extent name the pixels whose centres it covers, which is how the renderer
-   turns a wall or a sprite into rows and columns. Sample the edges as well as
-   the middle: an error in the half would show at column 0 and width - 1 first. *)
+   turns a wall or a sprite into rows and columns. The edges are sampled as
+   well as the middle, because an error in the half would show at column 0 and
+   width - 1 first. *)
 let a_column_projects_back_to_its_own_centre () =
   List.iter
     (fun (width, height) ->
@@ -193,16 +195,17 @@ let a_column_projects_back_to_its_own_centre () =
 
 (* The rule above turned into pixels, which is the half the renderer actually
    calls. A pixel belongs to an extent when its {e centre} falls in it, and an
-   extent is half-open — a wall runs down to its foot, where the floor takes
-   over — so [first_pixel] of where it starts and [last_pixel] of where it
-   stops are one apart and not equal.
+   extent is half-open, because a wall runs down to its foot where the floor
+   takes over. [first_pixel] of where an extent starts and [last_pixel] of
+   where it stops are therefore one apart and not equal.
 
    Written against the definition rather than against either function: the
-   answer is worked out by asking every pixel in reach whether its own centre is
-   inside, so rounding both ends alike shows up as one pixel too many. Both
-   edges are swept across more than a whole pixel, so every position of a
-   boundary relative to a centre is visited, and the widths run from under a
-   pixel — where the honest answer is sometimes no pixels at all — to several. *)
+   expected answer is computed by asking every pixel in reach whether its own
+   centre is inside, so rounding both ends alike shows up as one pixel too
+   many. Both edges are swept across more than a whole pixel, so every position
+   of a boundary relative to a centre is visited. The widths run from under a
+   pixel, where the correct answer is sometimes no pixels at all, to
+   several. *)
 let an_extent_covers_the_pixels_whose_centres_fall_in_it () =
   let by_definition a b =
     List.filter
@@ -223,8 +226,8 @@ let an_extent_covers_the_pixels_whose_centres_fall_in_it () =
     done
   done
 
-(* And the boundary between two extents laid end to end, which is the same
-   claim from the other side: a pixel goes to exactly one of them. *)
+(* The boundary between two extents laid end to end, the same claim from the
+   other side: a pixel goes to exactly one of them. *)
 let extents_laid_end_to_end_share_no_pixel () =
   List.iter
     (fun x ->
@@ -236,10 +239,10 @@ let extents_laid_end_to_end_share_no_pixel () =
 
 (* The one place three modules have to agree, and the disagreement this change
    exists to end: the pixel [Paint] draws the crosshair on, the ray [Viewport]
-   casts through that pixel, and the ray [Sight] picks along — which is
+   casts through that pixel, and the ray [Sight] picks along, which is
    [player.dir] with [Viewport.centre_rise], zero at a level pitch.
 
-   The crosshair is found by looking at what was actually drawn rather than by
+   The crosshair is found by inspecting what was actually drawn rather than by
    recomputing [width / 2], so this fails if either module moves and the other
    does not. *)
 let the_crosshair_sits_on_the_centre_ray () =
@@ -249,10 +252,10 @@ let the_crosshair_sits_on_the_centre_ray () =
       let fb = Framebuffer.offscreen ~width ~height in
       Paint.crosshair fb ~color:(Color.rgb 255 255 255);
       let lit ~x ~y = (Framebuffer.pixel fb ~x ~y).Color.r > 0 in
-      (* The arms cross on one pixel, so the row carrying the horizontal arm has
-         more lit pixels in it than any other and likewise the column carrying
+      (* The arms cross on one pixel, so the row carrying the horizontal arm
+         has more lit pixels than any other, and likewise the column carrying
          the vertical one. Whichever line has strictly the most is the middle,
-         and asking for it that way holds down to a buffer of one pixel. *)
+         and finding it that way holds down to a buffer of one pixel. *)
       let busiest what n count =
         let tally = List.map (fun i -> (i, count i)) (List.init n Fun.id) in
         let most = List.fold_left (fun m (_, c) -> Int.max m c) 0 tally in
@@ -274,7 +277,7 @@ let the_crosshair_sits_on_the_centre_ray () =
       (* An odd size puts a pixel's centre on the middle of the buffer, so the
          agreement is exact. An even one puts the middle on a boundary, where
          the most that can be true of any pixel is that its centre is half a
-         pixel from it — and that is asserted rather than waived, because a
+         pixel from it. That is asserted rather than waived, because a
          crosshair drawn anywhere else would still pass the odd cases. *)
       if width mod 2 = 1 then
         Alcotest.check vec
@@ -297,7 +300,7 @@ let the_crosshair_sits_on_the_centre_ray () =
           (name ^ ": and its row half a pixel from the horizon")
           true
           (Float.abs (float_of_int cy +. 0.5 -. v.Viewport.horizon) <= 0.5);
-      (* Which is the ray Sight traces: level, it rises nowhere. *)
+      (* This is the ray Sight traces: level, it rises nowhere. *)
       Alcotest.check close
         (name ^ ": and Sight looks flat along it")
         0.
@@ -306,10 +309,10 @@ let the_crosshair_sits_on_the_centre_ray () =
 
 (* {1 Billboards}
 
-   [sprite_box] is what the renderer draws a sprite in and what anything wanting
-   to ring one has to land on, so the two features a sprite gained — a base
-   above the floor and a width from its own picture — are asserted here, on the
-   rectangle, rather than only on the pixels in test_renderer. *)
+   [sprite_box] is what the renderer draws a sprite in and what anything
+   ringing one has to land on. The two features a sprite gained, a base above
+   the floor and a width from its own picture, are therefore asserted here on
+   the rectangle, rather than only on the pixels in test_renderer. *)
 
 let facing_east = Player.make ~room:0 ~pos:(Vec.make 0. 0.) ~angle:0.
 
@@ -378,10 +381,10 @@ let a_base_raises_both_edges_together () =
   Alcotest.check close "and the foot by the same" (ground.bottom -. rise)
     lifted.bottom
 
-(* The lift is measured from the floor under it and not from an absolute height,
-   which is what makes a sprite ride a slope instead of the ground climbing
-   through it. Raising the floor by a cell and raising the base by a cell are
-   the same picture. *)
+(* The lift is measured from the floor under it and not from an absolute
+   height, which is what makes a sprite follow a slope instead of the ground
+   climbing through it. Raising the floor by a cell and raising the base by a
+   cell are the same picture. *)
 let a_base_is_measured_from_the_floor () =
   let image = Image.make ~width:16 (fun ~u:_ ~v:_ -> (Color.rgb 1 1 1, 255)) in
   let on_a_high_floor =

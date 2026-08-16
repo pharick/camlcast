@@ -1,10 +1,10 @@
 (* What a description says to draw over the frame, and where it lands.
 
-   A HUD is pixels, so this asserts pixels — on an offscreen buffer, with no
-   window. What is being checked is not that Paint works, which test_paint
-   already does, but that a description reaches it: that the items come out in
-   the order they were written, that nesting only groups them, and that the
-   coordinates a component wrote are the coordinates they are drawn at. *)
+   A HUD is pixels, so this asserts pixels, on an offscreen buffer with no
+   window. The check is not that Paint works — test_paint covers that — but
+   that a description reaches it: items come out in the order they were
+   written, nesting only groups them, and the coordinates a component wrote are
+   the coordinates they are drawn at. *)
 
 open Camlcast_core
 open Camlcast
@@ -40,8 +40,8 @@ let showing items =
     ~spawn:("room", Vec.make 0. 0.)
     [ room; P.hud items ]
 
-(* Only the overlay, over a buffer that starts black — so every pixel that is
-   not black came from the HUD and nothing has to be subtracted. *)
+(* Draws only the overlay, over a buffer that starts black, so every non-black
+   pixel came from the HUD and nothing has to be subtracted. *)
 let painted description =
   let buffer = Framebuffer.offscreen ~width ~height in
   Overlay.draw buffer (Mount.build description).Scene.hud;
@@ -53,8 +53,8 @@ let red = Color.rgb 220 40 40
 let blue = Color.rgb 40 80 220
 
 (* A font of one glyph: a solid block in cell zero, so "  " is nothing and any
-   character the atlas has is a filled square. Enough to ask where text lands
-   without asking what it looks like. *)
+   character the atlas has is a filled square. Enough to test where text lands
+   without testing what it looks like. *)
 let block_font =
   let atlas =
     Image.make ~width:6 ~height:8 (fun ~u:_ ~v:_ ->
@@ -140,8 +140,9 @@ let () =
               Alcotest.check color "and the other way round" blue
                 (at under 20 20));
           case "nesting groups and changes nothing else" (fun () ->
-              (* A component returning three labels as one thing should not have
-                 to say where each of them goes relative to the others twice. *)
+              (* A component returning three labels as one value should not
+                 have to restate each label's position relative to the
+                 others. *)
               let flat_scene =
                 (Mount.build
                    (showing
@@ -203,7 +204,7 @@ let () =
         [
           case "a meter follows the state behind it" (fun () ->
               (* The HUD is a description like any other, so a component that
-                 keeps a number can draw it without anything being told. *)
+                 keeps a number can draw it with no extra wiring. *)
               let gauge =
                 Element.declare ~name:"gauge" @@ fun () ->
                 let left, set_left = Hook.use_state 1. in

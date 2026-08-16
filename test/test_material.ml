@@ -13,10 +13,10 @@ let holes =
       if u mod 16 < 5 || v mod 16 < 5 then (Color.rgb 200 200 200, 255)
       else (Color.rgb 0 0 0, 0))
 
-(* A material is its pattern and nothing else yet, so two walls made of the same
-   stuff cost one set of arrays between them however many rooms they are in.
-   That is the sharing Material's docstring claims, and it is physical equality
-   or it is not sharing. *)
+(* A material is currently its pattern and nothing else, so two walls of the
+   same material cost one set of arrays between them however many rooms they are
+   in. Material's docstring claims this sharing, and sharing means physical
+   equality. *)
 let materials_share_a_pattern () =
   let here = Material.make ~pattern:banded
   and there = Material.make ~pattern:banded in
@@ -35,12 +35,11 @@ let opacity_comes_from_the_pattern () =
     (Material.opaque (Material.make ~pattern:holes))
 
 (* [opaque] answers for the whole surface and [opaque_at] for one point of it.
-   The pointwise one is what {!Sight} asks, because the renderer decides per
-   texel: a solid texel is written over the column and hides what is behind, a
-   clear one leaves it showing. [holes] is bar where either index falls in the
-   first five of every sixteen, so a point in the middle of a bar and a point in
-   the middle of a hole answer differently — which is the whole difference the
-   whole-surface question cannot express. *)
+   {!Sight} asks the pointwise one, because the renderer decides per texel: a
+   solid texel is written over the column and hides what is behind, a clear one
+   leaves it showing. [holes] is bar where either index falls in the first five
+   of every sixteen, so a point in a bar and a point in a hole answer
+   differently. The whole-surface question cannot express that difference. *)
 let opacity_is_asked_of_a_point () =
   let m = Material.make ~pattern:holes in
   (* A texel column is 1/64 of a cell, so 2/64 along is inside the first bar and
@@ -52,7 +51,7 @@ let opacity_is_asked_of_a_point () =
   Alcotest.(check bool)
     "and see-through where it is not" false
     (Material.opaque_at m ~along:0.13 ~above:0.85);
-  (* Either index being bar is enough: the fixture's bars run both ways. *)
+  (* Either index being bar suffices: the fixture's bars run both ways. *)
   Alcotest.(check bool)
     "a bar in one axis alone still stops it" true
     (Material.opaque_at m ~along:0.13 ~above:0.97);
@@ -62,11 +61,10 @@ let opacity_is_asked_of_a_point () =
     "and it tiles every cell" true
     (Material.opaque_at m ~along:5.03 ~above:3.97)
 
-(* Partly transparent is not solid. The renderer only writes a pixel outright —
-   and only records its distance — at a full 255; anything less it blends, which
-   leaves what is behind showing through and so leaves it there to be picked.
-   Drawing the line anywhere else would make a pane of glass something you could
-   not look through, which is the one thing a window is for. *)
+(* Partly transparent is not solid. The renderer writes a pixel outright, and
+   records its distance, only at a full 255. Anything less it blends, which
+   leaves what is behind showing through and therefore pickable. Drawing the
+   line anywhere else would make a pane of glass impossible to look through. *)
 let a_half_transparent_texel_is_not_solid () =
   let veil alpha =
     Material.make
@@ -84,12 +82,12 @@ let a_half_transparent_texel_is_not_solid () =
     "and neither is a clear one" false
     (Material.opaque_at (veil 0) ~along:0.5 ~above:0.5)
 
-(* The two questions cannot disagree, which is what lets the renderer route a
-   whole wall by the cheap one and [Sight] then ask the dear one of a single
-   ray: a pattern is [Texture.opaque] only when every texel of it is solid, so a
-   material that says it is opaque answers true at every point of itself. Swept
-   across a cell in both directions rather than asserted at a point, because the
-   claim is "everywhere" and one sample is not that. *)
+(* The two questions must not disagree: the renderer routes a whole wall by the
+   cheap one and [Sight] asks the expensive one of a single ray. A pattern is
+   [Texture.opaque] only when every texel is solid, so a material that reports
+   opaque answers true at every point of itself. Swept across a cell in both
+   directions rather than asserted at a point, because the claim is "everywhere"
+   and one sample does not cover that. *)
 let a_solid_material_is_solid_everywhere () =
   let m = Material.make ~pattern:banded in
   Alcotest.(check bool) "the whole surface says solid" true (Material.opaque m);
@@ -124,10 +122,9 @@ let planes_tile_every_world_unit () =
     "the pattern has more than one shade across a tile" true
     (List.length (List.sort_uniq compare shades) > 1)
 
-(* Nothing stands between the pattern and the plane. What a texel was drawn as
-   is what [plane_texel] hands back — no colour of the material's own multiplies
-   it on the way, because the material has not got one. The only thing that
-   still touches it is the fog the renderer applies afterwards. *)
+(* [plane_texel] returns the texel exactly as the pattern drew it. No colour of
+   the material's own multiplies it, because the material has none. The only
+   later modification is the fog the renderer applies afterwards. *)
 let a_plane_shows_the_pattern_as_it_is () =
   let orange = Color.rgb 200 100 50 in
   Alcotest.check color "the texel arrives unchanged" orange

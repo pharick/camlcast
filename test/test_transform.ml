@@ -24,17 +24,18 @@ let a_direction_ignores_the_offset () =
   Alcotest.(check bool)
     "so the two do not agree" true
     (Vec.length (Vec.sub (Transform.point t p) (Transform.direction t p)) > 1e-6);
-  (* Two positions differ by the same vector before and after — the offset
-     cancels — which is what makes it right to rotate directions alone. *)
+  (* Two positions differ by the same vector before and after, because the
+     offset cancels. That is what makes it correct to rotate directions
+     alone. *)
   let q = Vec.make 4. 2. in
   Alcotest.check vec "differences only rotate"
     (Transform.direction t (Vec.sub q p))
     (Vec.sub (Transform.point t q) (Transform.point t p))
 
 (* Applying one motion and then its inverse. There is no [compose] to fold the
-   two into a single transform and check that against the identity, because
-   nothing in the engine composes: a chain of doorways is walked a link at a
-   time. So the round trip is written the way the renderer travels it. *)
+   two into a single transform and check against the identity, because nothing
+   in the engine composes: a chain of doorways is walked a link at a time. The
+   round trip is therefore written the way the renderer travels it. *)
 let inverse_round_trips () =
   let t = turn_and_shift in
   let p = Vec.make (-0.2) 0.7 in
@@ -42,7 +43,7 @@ let inverse_round_trips () =
     (Transform.point (Transform.inverse t) (Transform.point t p));
   Alcotest.check vec "and undoes direction" p
     (Transform.direction (Transform.inverse t) (Transform.direction t p));
-  (* Both ways round, since the inverse of the inverse is the motion itself and
+  (* Both directions, since the inverse of the inverse is the motion itself and
      an implementation that negated the wrong thing would pass only one. *)
   Alcotest.check vec "the other way too" p
     (Transform.point t (Transform.point (Transform.inverse t) p))
@@ -75,12 +76,12 @@ let between_preserves_lengths () =
        (Transform.direction t (Vec.make 1. 0.))
        (Transform.direction t (Vec.make 0. 1.)))
 
-(* A segment whose two ends are the same point has no direction, so there is no
-   rotation laying it onto anything. Left to itself it would reach
-   [Vec.normalize], which hands a zero vector back unchanged, and the result
-   would be a value with [cos = 0.] and [sin = 0.] — past the invariant the
-   private type exists to hold, and drifting the camera basis a little further
-   at every doorway from there on. *)
+(* A segment whose two ends are the same point has no direction, so no rotation
+   lays it onto anything. Unguarded, it would reach [Vec.normalize], which
+   returns a zero vector unchanged, and the result would be a value with
+   [cos = 0.] and [sin = 0.]. That violates the invariant the private type
+   exists to hold, and would drift the camera basis further at every doorway
+   from then on. *)
 let a_segment_with_no_length_is_refused () =
   let refused what message a1 a2 b1 b2 =
     Alcotest.check_raises what (Invalid_argument message) (fun () ->
@@ -102,19 +103,19 @@ let a_segment_with_no_length_is_refused () =
     "Transform.between: a1 and a2 are the same point" here
     (Vec.make Float.nan Float.nan)
     here there;
-  (* And an infinite one, which is the case that gets past a bare [> 0.]: the
-     length between the two ends is infinite, which is positive, and normalising
-     then scales by its reciprocal — [x *. 0.], which is [nan]. Refused for the
-     length not being finite. *)
+  (* An infinite coordinate is the case that gets past a bare [> 0.]: the
+     length between the two ends is infinite, which is positive, and
+     normalising then scales by its reciprocal, [x *. 0.], which is [nan].
+     Refused for the length not being finite. *)
   refused "a coordinate that is infinite"
     "Transform.between: b1 and b2 are the same point" here there here
     (Vec.make Float.infinity 2.);
-  (* And the case neither of those two covers, which the guard used to let
-     through: a length that is finite and above zero and still too small to take
-     a reciprocal of. Below about 5.6e-309 the reciprocal is infinity, so
-     normalising gives (infinity, nan) and both cos and sin come out nan — a
-     rotation that is not one, in the type whose privacy is there to promise it
-     cannot be. See Vec.normalizable. *)
+  (* The case neither of those two covers, which the guard used to let through:
+     a length that is finite, above zero, and still too small to take a
+     reciprocal of. Below about 5.6e-309 the reciprocal is infinity, so
+     normalising gives (infinity, nan) and both cos and sin come out nan: a
+     non-rotation in the type whose privacy promises it cannot hold one. See
+     Vec.normalizable. *)
   let hair = Vec.make 1e-320 0. in
   refused "the first segment subnormally short"
     "Transform.between: a1 and a2 are the same point" (Vec.make 0. 0.) hair here
