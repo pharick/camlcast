@@ -1,6 +1,7 @@
 ; Not a test. `dune build` compiles it so it cannot rot, and `dune runtest`
-; never runs it: a benchmark answers a question somebody asked, and spending a
-; minute of every CI run on one nobody read is how a suite gets ignored.
+; never runs it: a benchmark is for answering a question someone asked, and a
+; minute of every CI run spent on output nobody reads teaches people to ignore
+; the suite.
 ;
 ;   dune exec bench/frame.exe
 ;

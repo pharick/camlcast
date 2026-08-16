@@ -58,7 +58,7 @@ keep_out() {
 
 # ldd resolves the whole transitive closure in one go, so unlike the macOS
 # walk this needs no recursion — only a second pass for the library that is
-# dlopened and therefore in nobody's closure.
+# dlopened and therefore in no closure.
 harvest() {
   local from=$1 name path
   while read -r name _ path _; do

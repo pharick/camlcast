@@ -122,7 +122,7 @@ relocate() {
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$macos/camlcast-demo-bin"
 relocate "$macos/camlcast-demo-bin"
 
-# The two that no amount of otool would have found.
+# The two libraries otool cannot reveal (both dlopened; see the header).
 adopt "$prefix/lib/libSDL2_image.dylib"
 adopt "$prefix/lib/libSDL3.dylib"
 relocate "$frameworks/libSDL2_image.dylib"
@@ -141,11 +141,11 @@ EOF
 chmod +x "$macos/camlcast-demo"
 
 # Every Mach-O file records the OS version it was built against, and the bundle
-# cannot run below the highest of them. That number is not ours to choose: the
+# cannot run below the highest of them. That number cannot be chosen here: the
 # libraries came from Homebrew, which builds its bottles for the runner's own
-# macOS, and MACOSX_DEPLOYMENT_TARGET would reach our object files and none of
-# theirs. So the plist is told what is true of the bundle rather than what would
-# be nice -- read back out of the bundle itself, after everything is in it.
+# macOS, and MACOSX_DEPLOYMENT_TARGET reaches only this build's object files,
+# not theirs. So the plist records what the bundle actually requires -- read
+# back out of the bundle itself, after everything is in it.
 floor=$(
   otool -l "$macos/camlcast-demo-bin" "$frameworks"/*.dylib |
     awk '$1 == "minos" { print $2 }' |
@@ -185,8 +185,8 @@ codesign --force --sign - "$macos/camlcast-demo-bin"
 codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"
 
-# The bundle is only relocatable if nothing still points into Homebrew, and only
-# complete if the library nobody could see is in it.
+# The bundle is only relocatable if nothing still points into Homebrew, and
+# only complete if the dlopened libraries are in it.
 if otool -L "$macos/camlcast-demo-bin" "$frameworks"/*.dylib | grep -q "$prefix"; then
   echo "bundle-macos: a $prefix path survived relocation" >&2
   otool -L "$macos/camlcast-demo-bin" "$frameworks"/*.dylib | grep "$prefix" >&2

@@ -3,10 +3,9 @@
 ;
 ; The module named for the library is the library: dune makes camlcast.ml the
 ; interface and everything beside it reachable only through what that file
-; chooses to re-export. Which is how the boundary this whole rewrite is about
-; stops being a convention and becomes a fact — Engine, Renderer, Framebuffer,
-; World and Player are not in there, so no amount of autocomplete will find
-; them.
+; chooses to re-export. That turns the boundary from a convention into a fact
+; the compiler enforces — Engine, Renderer, Framebuffer, World and Player are
+; not re-exported, so autocomplete cannot surface them.
 ;
 ; The only library depending on both of the others, and deliberately the only
 ; one: loom knows nothing of walls, core knows nothing of components, and

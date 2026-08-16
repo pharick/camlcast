@@ -17,7 +17,7 @@ documentation for a green tick.
 
 What is worth catching is the other kind: a reference the author got wrong. A
 typo in {!Room.doorwya}, or a cross-library {!World.make} that needed to be
-written {!Camlcast_core.World.make}. Those warn in exactly the same breath as
+written {!Camlcast_core.World.make}. Those warn in exactly the same form as
 the stdlib ones and are just as invisible, because CI only reads an exit code
 and tools/pages-site.py only follows links that were emitted -- an unresolved
 reference is rendered as inert text and has no link to follow.
@@ -29,8 +29,8 @@ So the split is made here, by name, against a list short enough to read:
 Anything else is an offence. That is fail-closed: a new kind of warning is a
 failure until somebody looks at it, and letting a new external root through is a
 one-line change made on purpose rather than a silence nobody chose. If the list
-goes stale -- the last @raise Fun.Finally_raised deleted, say -- that is said
-out loud rather than failed on, since a doc improvement should not break a
+goes stale -- the last @raise Fun.Finally_raised deleted, say -- that is
+reported rather than failed on, since a doc improvement should not break a
 build.
 
 The diagnostics are read back out of the built artifacts with `odoc errors`
@@ -69,8 +69,8 @@ def diagnostics(odocl: Path) -> list[tuple[str, str]]:
     """Every (location, message) odoc stored while compiling and linking a unit.
 
     On stderr, where odoc puts diagnostics whether it is reporting them as it
-    finds them or reading them back afterwards. Its stdout is empty, so a script
-    that read that would find nothing to complain about and say so cheerfully.
+    finds them or reading them back afterwards. Its stdout is empty, so a
+    script reading stdout would find no diagnostics and pass wrongly.
     """
     stored = subprocess.run(
         ["odoc", "errors", str(odocl)],

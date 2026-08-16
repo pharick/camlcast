@@ -19,7 +19,7 @@
 ; A Mach-O header reserves only as much room as the paths it was linked with
 ; need, and tools/bundle-macos.sh has to add an LC_RPATH and repoint every
 ; library at the bundle. That does not fit, and install_name_tool cannot make
-; room after the fact — it says so and gives up. -headerpad_max_install_names
+; room after the fact — it reports the failure and exits. -headerpad_max_install_names
 ; asks the linker for the slack up front. It costs a few hundred bytes of
 ; padding and means nothing on any other platform, hence two rules rather than
 ; one flag: the ordered set language link_flags speaks has no conditional, so

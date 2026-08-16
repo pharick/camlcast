@@ -8,12 +8,12 @@
 ; than only the parts of it opam would carry.
 ;
 ; The pictures belong to the camlcast-demo package and not to camlcast: the
-; engine reads no file and has nothing to put in a prefix, and the program that
-; does read files has to carry them. Under the prefix that is
+; engine reads no file and has nothing to put in a prefix, and the program
+; that does read files has to carry them. Under the prefix that is
 ; share/camlcast-demo/assets, one directory above bin/ and across — the same
-; shape as a macOS bundle, which is why Asset finds it without being told. It is
-; the source pictures that go, not a copy of the build: they are what
-; tools/bundle-*.sh carry into a .app or an AppImage as well.
+; shape as a macOS bundle, so Asset finds it without being told. The source
+; pictures are installed, not a copy of the build: they are also what
+; tools/bundle-*.sh carry into a .app or an AppImage.
 
 (alias
  (name default)
@@ -28,7 +28,7 @@
   (glob_files
    (assets/*.png with_prefix assets))))
 
-; Turn the unused-code warnings back on, because dune stopped doing it for us.
+; Turn the unused-code warnings back on; dune no longer does it.
 ;
 ; Under (lang dune 3.0) the dev profile compiled with
 ; `-w @1..3@5..28@30..39...`, which enabled warning 32 and made it fatal. At the
@@ -38,9 +38,9 @@
 ; only escalates warnings that are enabled, so the whole unused-* family was
 ; silently unreachable rather than merely non-fatal.
 ;
-; It cost something. Bitmap.alpha survived the sealing commit that un-exported
-; it, dead and unreferenced, and nothing anywhere said so. This is the check
-; that would have caught it the moment it stopped being called.
+; The gap had a cost: Bitmap.alpha survived the sealing commit that
+; un-exported it, dead and unreferenced, with no diagnostic anywhere. This is
+; the check that would have caught it the moment it stopped being called.
 ;
 ; 32..39 is the unused-* family: value, open, type, for-loop index, ancestor,
 ; constructor, extension constructor, rec flag. 9 catches a record pattern that
@@ -48,7 +48,7 @@
 ; error at each place that should have handled it rather than a silent hole; 27
 ; catches a bound name nothing reads. Both were one site each when they went on.
 ;
-; What is left off is left off on evidence. Building this tree with -w +a raises
+; What stays off stays off for measured reasons. Building this tree with -w +a raises
 ; 467 of warning 42, 257 of 40 and 157 of 44 — the constructor/label
 ; disambiguation family, which fires on correct idiomatic code and which dune's
 ; own default excluded for the same reason — and 55 of warning 4, which asks for
@@ -59,9 +59,9 @@
 ; because they are typing flags: the first makes the left of a `;` have to be
 ; unit, the second rejects the ambiguous old format-string syntax. Both were in
 ; dune's dev profile at (lang dune 3.0) and vanished at 3.21 along with the -w,
-; and both were already clean here — this only stops that from rotting.
+; and both were already clean here — this only keeps them enforced.
 ;
-; -principal is the one deliberately declined. It is a real check rather than a
+; -principal is deliberately declined. It is a real check rather than a
 ; stylistic one, but loom/hook.ml does not typecheck under it, and buying it
 ; would mean rewriting the part of the reconciler whose inference is subtlest.
 ;

@@ -1,7 +1,7 @@
 ; The demos and the art they are built from: one small world per engine
 ; feature, plus the five-room showcase level that has all of them at once.
-; Nothing in the engine depends on any of this, which is the point: it is
-; content, and it lives outside the library it is content for.
+; Nothing in the engine depends on any of this, by design: it is content, and
+; content lives outside the library it is content for.
 ;
 ; camlcast is the only dependency, SDL included: a demo that binds a key names
 ; a Camlcast_core.Key and never reaches past the engine for it, the same way a game
@@ -9,10 +9,10 @@
 
 ; The public name is the package name, so this installs as lib/camlcast-demo/
 ; and camlcast.install carries none of it. It was camlcast.demo, whose first
-; component names the package a public name belongs to — which put a findlib
-; subpackage, and every .ml in this directory, into the engine's own install
-; file: the content shipped with the library it is content for, and the demos
-; missing from the package that is the demos.
+; component names the owning package — which put a findlib subpackage, and
+; every .ml in this directory, into the engine's own install file: the content
+; shipped with the engine, and the camlcast-demo package was missing its own
+; demos.
 ;
 ; The executable in bin/ has this same public name and does not collide with it:
 ; one is a binary in bin/, the other a findlib package in lib/. The module name

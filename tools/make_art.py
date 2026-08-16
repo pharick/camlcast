@@ -6,8 +6,9 @@ Two sets of files, for two different reasons.
 `assets/` is the art the `loading` demo reads, and is here so that a demo of
 reading art from files has art in files to read. It is drawn rather than
 generated in the engine on purpose: a picture that came out of a paint program
-is exactly the case `Image.load` and `Texture.load` exist for, and one produced
-by the engine's own generators would prove less than it looked like it did.
+is exactly the case `Image.load` and `Texture.load` exist for; one produced
+by the engine's own generators would not exercise the loading path this art
+exists to prove.
 
 `test/fixtures/` is the input to `test_bitmap`, `test_image` and `test_texture`.
 Those files matter for a subtler reason: **this encoder shares no code with the
@@ -89,7 +90,7 @@ def write_png(path, width, height, pixel):
 # A Texture keeps colour, so these are drawn in the colours they will be seen
 # in. Nothing recolours them at draw time: the Material wearing one of these
 # does not carry a colour, and the only thing between here and the screen is
-# the Atmosphere. That is the point of the left half of the loading demo — what
+# the Atmosphere. The left half of the loading demo demonstrates this: what
 # the file says is what the wall is.
 # --------------------------------------------------------------------------
 

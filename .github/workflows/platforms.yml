@@ -1,10 +1,10 @@
-# Does camlcast build where a player would run it?
+# Checks that camlcast builds where a player would run it.
 #
-# ci.yml stays the fast Linux gate and owns @fmt and @doc; this is the slower
-# question of whether the SDL2 stack comes together on the other platforms. The
-# two are separate files rather than one matrix because almost every step here
-# would otherwise need an `if:` — macOS has to talk opam out of its depext check,
-# and Windows needs a different Unix environment underneath it.
+# ci.yml stays the fast Linux gate and owns @fmt and @doc; this answers the
+# slower question of whether the SDL2 stack comes together on the other
+# platforms. The two are separate files rather than one matrix because almost
+# every step here would otherwise need an `if:` — macOS has to bypass opam's
+# depext check, and Windows needs a different Unix environment underneath it.
 #
 # Nothing here opens a window. Sdl.init lives in Engine alone and no test touches
 # it, so the suites run headless on every runner. See test/dune.
@@ -54,13 +54,12 @@ jobs:
           ocaml-compiler: "5.5"
           dune-cache: true
 
-      # --no-depexts, because opam cannot see what brew just installed. It tests
-      # for a system package by name against `brew list --full-name`, which
-      # reports the formula, sdl2-compat; the depext conf-sdl2 asks for is spelled
-      # sdl2, which is only an alias and never appears in that list. So opam
-      # concludes the dependency is missing however many times you install it.
-      # The check that matters, `pkg-config sdl2`, does succeed — this skips a
-      # broken test, not a real one. Upstream: opam-repository#30337.
+      # --no-depexts, because opam cannot see what brew just installed: `brew
+      # list --full-name` reports the formula sdl2-compat while the depext is
+      # spelled sdl2, an alias that never appears in that list, so the check
+      # fails no matter how often the package is installed. The check that
+      # matters, `pkg-config sdl2`, does succeed — this skips a broken test,
+      # not a real one. Details in HACKING.md; upstream: opam-repository#30337.
       - run: opam install . --deps-only --with-test --no-depexts
 
       - run: opam exec -- dune build
@@ -94,8 +93,8 @@ jobs:
       #
       # SDL2 puts `-lmingw32 -mwindows -lSDL2main` in sdl2.pc for C programs,
       # whose main() it renames to SDL_main. tsdl does none of that: it calls
-      # SDL_SetMainReady instead, so SDL2main is dead weight. -lmingw32 is worse
-      # than dead. tsdl bakes the --libs-only-l output into tsdl.cmxa as -cclib,
+      # SDL_SetMainReady instead, so SDL2main is dead weight. -lmingw32 is
+      # actively harmful. tsdl bakes the --libs-only-l output into tsdl.cmxa as -cclib,
       # and ocamlopt puts a library's flags ahead of libasmrun.a, so ld reaches
       # libmingw32.a while wmain is still undefined. OCaml links with -municode,
       # so wmain is its entry point and its runtime is what should answer;

@@ -1,10 +1,10 @@
 # Build the bundles a player can actually run, for the four platforms the
 # engine is known to work on.
 #
-# Separate from platforms.yml, which answers "does it build, and do the suites
-# pass" when asked. This answers "does it ship", which is only worth doing when
-# there is something to ship — so it runs on a version tag, and on request, and
-# nothing else.
+# Separate from platforms.yml, which checks that the tree builds and the
+# suites pass on request. This checks that the bundles ship, which only
+# matters when there is something to ship — so it runs on a version tag, and
+# on request, and nothing else.
 #
 # The bundling itself lives in tools/bundle-*.sh rather than in this file. Each
 # one is a few dozen lines of otool, ldd and copying that is far easier to get
@@ -187,8 +187,8 @@ jobs:
       contents: write
 
     steps:
-      # skip-decompress is the other half of archive: false above. Without it the
-      # action would see a zip and helpfully unpack it, and the release would be
+      # skip-decompress is the other half of archive: false above. Without it
+      # the action unpacks any zip it downloads, and the release would be
       # offered a camlcast-demo.app directory instead of the file to attach.
       - uses: actions/download-artifact@v8
         with:

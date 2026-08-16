@@ -34,7 +34,7 @@ cp -R "$root/assets" "$stage/assets"
 
 # ldd on a PE file resolves the whole transitive closure, so this needs no
 # recursion — only a second pass for the DLL that is dlopened and therefore in
-# nobody's closure.
+# no closure.
 harvest() {
   local from=$1 name path
   while read -r name _ path _; do
@@ -55,9 +55,10 @@ cp /mingw64/bin/SDL2_image.dll "$stage/SDL2_image.dll"
 harvest "$stage/SDL2_image.dll"
 
 # No launcher script: the executable with no argument opens the menu, so
-# double-clicking camlcast-demo.exe is already the right thing. A console window
-# opens behind it, which is what an OCaml executable on mingw is — the alternative
-# is linking -mwindows, and see the CI workflow for how well that goes with tsdl.
+# double-clicking camlcast-demo.exe is already the right thing. A console
+# window opens behind it, because an OCaml executable on mingw is a console
+# program — the alternative is linking -mwindows, which breaks tsdl (see the
+# CI workflow).
 
 for needed in SDL2.dll SDL2_image.dll; do
   if [ ! -e "$stage/$needed" ]; then

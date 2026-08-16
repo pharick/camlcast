@@ -211,8 +211,8 @@ def main() -> None:
     if argv[:1] in (["-h"], ["--help"]):
         print(USAGE)
         return
-    # The second argument is deleted rather than read, so an extra one is a
-    # misunderstanding worth stopping for and not a word to ignore.
+    # The second argument is deleted rather than read, so an extra argument is
+    # a mistake to stop on, not a word to ignore.
     if len(argv) > 2:
         sys.exit(f"pages-site: too many arguments\n{USAGE}")
 
