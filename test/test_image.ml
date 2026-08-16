@@ -114,10 +114,10 @@ let load_reads_a_file () =
           (1, 1, 30, 140, 185, 185);
         ]
 
-(* A JPEG has no alpha channel, and arrives solid rather than clear — which is
-   the only sane reading of a photograph, and the one that stops a loaded sprite
-   from being invisible. Its colours are lossy, so only the shape and the alpha
-   are worth asserting. *)
+(* A JPEG has no alpha channel, and arrives solid rather than clear. Solid is
+   the only sane reading of a photograph, and it stops a loaded sprite from
+   being invisible. Its colours are lossy, so only the shape and the alpha are
+   asserted. *)
 let a_file_without_alpha_is_solid () =
   match Image.load "fixtures/swatch.jpg" with
   | Error (`Msg m) -> Alcotest.fail m
@@ -146,11 +146,11 @@ let disc_is_a_circle () =
 let clear_is_invisible () =
   Alcotest.(check int) "nothing shows through it" 0 (snd Image.clear)
 
-(* A picture of no size is refused where it is written down rather than where it
-   is drawn. Nothing about an empty image is wrong until something divides by
-   its height — {!Room.sprite_half_width} does — or clamps into an array that is
-   not there, and by then the mistake is a frame in the renderer and not a line
-   in the level. *)
+(* A picture of no size is refused where it is written down rather than where
+   it is drawn. Nothing about an empty image is wrong until something divides
+   by its height ({!Room.sprite_half_width} does) or clamps into an array that
+   is not there, and by then the mistake is a frame in the renderer and not a
+   line in the level. *)
 let an_image_of_no_size_is_refused () =
   List.iter
     (fun (w, h) ->
@@ -164,13 +164,14 @@ let an_image_of_no_size_is_refused () =
     (Invalid_argument "Image.make: an image must have a positive size")
     (fun () -> ignore (Image.make ~width:0 (fun ~u:_ ~v:_ -> Image.clear)))
 
-(* A positive size is not on its own enough: it is [width * height] that the two
-   arrays are as long as, and past the longest array that product wraps instead
-   of growing — [max_int] by [max_int] is [1] — so without the check a picture
-   would keep the size it was written down with while holding a pixel of it, and
-   the mistake would surface as {!Image.sample} indexing off the end of an array
-   in some later frame. Only the refusing is asserted; the size just inside the
-   limit is one no machine should be asked to allocate to prove a point. *)
+(* A positive size is not on its own enough: the two arrays are as long as
+   [width * height], and past the longest array that product wraps instead of
+   growing ([max_int] by [max_int] is [1]). Without the check a picture would
+   keep the size it was written down with while holding one pixel of it, and
+   the mistake would surface as {!Image.sample} indexing off the end of an
+   array in some later frame. Only the refusing is asserted; the size just
+   inside the limit is one no machine should be asked to allocate to prove a
+   point. *)
 let an_image_too_big_for_an_array_is_refused () =
   List.iter
     (fun (w, h) ->

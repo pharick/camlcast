@@ -9,9 +9,10 @@ let ceiling_is_open (r : Room.t) =
 
 (* Stepping through a doorway lands you behind the neighbour's own copy of it,
    so anything that then looks or walks forward meets that opening again
-   immediately. [twin] is how it knows which one not to go back through; if it
-   pointed anywhere else the renderer would bounce between the two rooms until
-   it ran out of budget, and the doorway would fill with haze. *)
+   immediately. [twin] names that copy, so it is the one opening not gone back
+   through; if it pointed anywhere else the renderer would bounce between the
+   two rooms until it ran out of budget, and the doorway would fill with
+   haze. *)
 let a_portal_knows_its_twin () =
   List.iter
     (fun (room, _, p) ->
@@ -78,10 +79,11 @@ let the_default_world_is_varied () =
      walkable end to end; a shut one is the Doors demo's business. *)
   (* Off the rooms as they stand, not off a portal's copy of a threshold. That
      copy is pinned on where an opening is and not on what hangs in it (see
-     {!World.type-portal}), so [door] read from there is the leaf as it was when
-     the link was made. It happens to be right for a level nobody has worked a
-     door in, which is exactly how this sort of read survives — and the
-     assertion just below already walks the live rooms for the same fact. *)
+     {!World.type-portal}), so [door] read from there is the leaf as it was
+     when the link was made. It happens to be right for a level nobody has
+     worked a door in, which is exactly how this sort of stale read survives.
+     The assertion just below already walks the live rooms for the same
+     fact. *)
   Alcotest.(check bool)
     "some threshold carries a door" true
     (List.exists
@@ -122,12 +124,12 @@ let the_default_world_is_varied () =
          <> Plane.elevation (Room.floor_plane r) (Vec.make 1. 0.))
        all)
 
-(* The hall's cellar door is the one solid leaf in the level, and a leaf has to
-   be walked into to be gone through. Collision carries a step near any doorway
-   into the room on the far side and asks again there, a doored one included, so
-   this is what says that question has not made the one door in the level
-   impassable — and that a step through it is checked against the room it arrives
-   in rather than the one it left. *)
+(* The hall's cellar door is the one solid leaf in the level, and a leaf has
+   to be walked into to be gone through. Collision carries a step near any
+   doorway into the room on the far side and asks again there, a doored one
+   included. This case says that question has not made the one door in the
+   level impassable, and that a step through it is checked against the room it
+   arrives in rather than the one it left. *)
 let the_cellar_door_can_be_walked_through () =
   let hall = 1 in
   let room = World.room Level.default hall in
@@ -135,8 +137,8 @@ let the_cellar_door_can_be_walked_through () =
   Alcotest.(check string)
     "the second doorway of the hall" "cellar" door.Room.name;
   Alcotest.(check bool) "has a leaf hanging in it" true (door.Room.door <> None);
-  (* A threshold is wound with the boundary it is cut into, so its normal points
-     into the room that owns it — this one at the hall. A step along the normal
+  (* A threshold is wound with the boundary it is cut into, so its normal
+     points into the room that owns it, here the hall. A step along the normal
      therefore starts inside the hall, and one taken against it walks at the
      door. Standing there is asserted rather than assumed: were the sign the
      other way about, the walk below would begin in the cellar's own space while

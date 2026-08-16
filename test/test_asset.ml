@@ -1,21 +1,19 @@
-(** Where a picture is looked for.
+(** Asset.resolve: which directories a picture is looked for in, and in what
+    order.
 
-    Every case here drives {!Asset.resolve} with a made-up [exists] over a
-    made-up tree, which is the whole point of it taking one: the rule is about
-    {e which} directories are tried and in what order, and answering that
-    against a real filesystem would test this machine rather than the rule. The
-    only thing {!Asset.path} adds is the three real answers, and it has nowhere
-    to hide a mistake. *)
+    Every case drives {!Asset.resolve} with a made-up [exists] over a made-up
+    tree; [resolve] takes [exists] for exactly this use. Answering against a
+    real filesystem would test this machine rather than the rule. {!Asset.path}
+    only adds the three real answers, so it has nowhere to hide a mistake. *)
 
 open Camlcast_core
 open Support
 
-(** Joined the way {!Asset} joins, which is not the way a POSIX machine spells
-    it: [Filename.concat] uses a backslash on Windows, so a case that wrote its
-    expected path out by hand passed on a Mac and failed on a runner. What is
-    under test is which directory is tried and in what order, and that rule is
-    the same everywhere — so the cases below name the components and leave the
-    separator to [Filename]. *)
+(** Join paths the way {!Asset} joins them. [Filename.concat] uses a backslash
+    on Windows, so a case that wrote its expected path out by hand passed on a
+    Mac and failed on a runner. The rule under test, which directory is tried
+    and in what order, is the same everywhere. The cases below name the
+    components and leave the separator to [Filename]. *)
 let ( / ) = Filename.concat
 
 (** An [exists] that says yes to exactly these paths. *)
@@ -48,9 +46,9 @@ let files_may_sit_beside_the_binary () =
     "the executable's own directory" beside
     (found (resolve ~exe:"/opt/game/demo" [ beside ] "art/wall.png"))
 
-(* A dune build, which is the layout every developer actually runs: each
-   executable is one directory below _build/default, beside the copied source
-   tree. Without this root, nothing would find anything before it was packaged. *)
+(* A dune build, the layout every developer runs: each executable is one
+   directory below _build/default, beside the copied source tree. Without this
+   root, nothing would be found before packaging. *)
 let a_dune_build_looks_one_directory_up () =
   let above = "/repo/_build/default" / "assets/wall.png" in
   Alcotest.(check string)
@@ -59,10 +57,10 @@ let a_dune_build_looks_one_directory_up () =
        (resolve ~exe:"/repo/_build/default/bin/demo.exe" [ above ]
           "assets/wall.png"))
 
-(* An opam or system prefix, which is what `opam install camlcast-demo`
-   produces: the binary in bin/ and the art the root dune installs in share/
-   beside it. The same up-and-across shape as the bundle, which is why a prefix
-   needs no dune-site and nothing had to be told where it is. *)
+(* An opam or system prefix, what `opam install camlcast-demo` produces: the
+   binary in bin/ and the art the root dune installs in share/ beside it. The
+   shape is the same up-and-across as the bundle, so a prefix needs no
+   dune-site and nothing has to be told where it is. *)
 let a_prefix_looks_in_its_share_directory () =
   let installed =
     "/usr/local" / "share" / "camlcast-demo" / "assets/font.png"
@@ -73,9 +71,9 @@ let a_prefix_looks_in_its_share_directory () =
        (resolve ~exe:"/usr/local/bin/camlcast-demo" [ installed ]
           "assets/font.png"))
 
-(* The share directory is the executable's name and not this project's, so a
-   game built on the engine finds its own — and on Windows the [.exe] comes off
-   first, or an installer would have to spell the directory "foo.exe". *)
+(* The share directory takes the executable's name, not this project's, so a
+   game built on the engine finds its own. On Windows the [.exe] comes off
+   first; otherwise an installer would have to spell the directory "foo.exe". *)
 let the_share_directory_is_named_after_the_binary () =
   let theirs = "/usr" / "share" / "wanderer" / "art/wall.png" in
   Alcotest.(check string)
@@ -89,8 +87,8 @@ let the_share_directory_is_named_after_the_binary () =
    happens to be lying beside or above the binary. *)
 let the_first_root_that_has_it_wins () =
   let bundled = "/A/Contents" / "Resources" / "art/wall.png" in
-  (* Above the binary is /A/Contents, the third root — not /A, which is no root
-     at all and so could never have lost to anything. *)
+  (* Above the binary is /A/Contents, the third root. /A is no root at all, so
+     a copy there could never have lost to anything. *)
   let stale = "/A/Contents" / "art/wall.png" in
   Alcotest.(check string)
     "the bundle's copy, not the stale one above it" bundled
@@ -120,7 +118,8 @@ let the_override_is_used_alone () =
     && (not (mentions m "/repo/_build/default"))
     && mentions m Asset.variable)
 
-(* The only useful thing to say about a missing picture is where it was not. *)
+(* The error for a missing picture names the asset and every root tried,
+   because where it was not found is the only useful thing to report. *)
 let nothing_found_names_every_root () =
   let m = message (resolve ~exe:"/opt/game/demo" [] "art/wall.png") in
   Alcotest.(check bool)
@@ -148,12 +147,11 @@ let roots_are_ordered_and_distinct () =
     "and an override replaces the lot" [ "/scratch" ]
     (Asset.roots ~exe:"/opt/game/bin/demo" ~override:(Some "/scratch"))
 
-(* {!Asset.read} is {!Asset.path} and then a loader, and what it promises is
-   that the first error wins. Texture.of_asset and Image.of_asset are this and
-   nothing else, so a missing file has to come back saying where it was looked
-   for rather than whatever a loader would have made of a path that is not
-   there — which means the loader must not run at all. This is the only claim
-   about it that can be made without a disk, and it is the one that matters. *)
+(* {!Asset.read} is {!Asset.path} and then a loader, and it promises that the
+   first error wins. Texture.of_asset and Image.of_asset are this and nothing
+   else. A missing file must come back saying where it was looked for, not
+   whatever a loader would make of a path that is not there, so the loader
+   must not run at all. That is the only claim testable without a disk. *)
 let read_does_not_reach_the_loader_without_a_file () =
   let ran = ref false in
   let loader _ =

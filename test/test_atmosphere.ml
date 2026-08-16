@@ -6,8 +6,8 @@ let daylight =
     ~min_brightness:0.25 ~light:(Vec.make (-0.4) (-0.9)) ~ambient:0.6
     ~directional:0.4 ()
 
-(* The default is the air above, the one every demo settled on — pinned so
-   that a change to it is a decision and not a drift. *)
+(* The default equals the daylight value above, the one every demo settled on.
+   Pinned so that a change to it is a decision, not a drift. *)
 let the_default_is_the_settled_air () =
   Alcotest.(check bool)
     "default is the daylight the suite is written against" true
@@ -37,9 +37,9 @@ let orientation_shades_within_its_band () =
     daylight.Atmosphere.ambient
     (Atmosphere.face_shading daylight (Vec.perp light))
 
-(* Both faces of a wall light the same — a wall is a segment, not a surface with
-   a front and a back, so its normal's sign is an artefact of which way round
-   the endpoints were written. *)
+(* Both faces of a wall light the same. A wall is a segment, not a surface
+   with a front and a back, so its normal's sign is an artefact of which way
+   round the endpoints were written. *)
 let shading_ignores_which_way_the_normal_points () =
   List.iter
     (fun angle ->
@@ -51,8 +51,8 @@ let shading_ignores_which_way_the_normal_points () =
     (List.init 8 (fun i -> float_of_int i *. Float.pi /. 4.))
 
 (* A world with no discernible light source: every wall the same brightness
-   whichever way it faces, so only distance tells them apart. This is a setting,
-   not a special case — the same function with the band closed up. *)
+   whichever way it faces, so only distance tells them apart. This is a
+   setting, not a special case: the same function with the band closed up. *)
 let a_sourceless_atmosphere_flattens_orientation () =
   let dark =
     Atmosphere.make ~haze:(Color.rgb 8 8 9) ~fog_distance:9.
@@ -75,8 +75,8 @@ let fog_fades_with_distance () =
   Alcotest.check close "and stays there" daylight.Atmosphere.min_brightness
     (Atmosphere.fog daylight (daylight.Atmosphere.fog_distance *. 10.))
 
-(* Two atmospheres over the same geometry is the whole point of it being a
-   value: a corridor closes in and goes black where a courtyard stays open. *)
+(* An atmosphere is a value so two can differ over the same geometry: a
+   corridor closes in and goes black where a courtyard stays open. *)
 let a_closer_atmosphere_fades_sooner () =
   let close_in =
     Atmosphere.make ~haze:(Color.rgb 8 8 9) ~fog_distance:9.
@@ -109,11 +109,11 @@ let make_normalises_the_light () =
    [~directional:0.] instead — see above, where that is tested as the setting it
    is.
 
-   Three spellings of the same failure, and the third is the one that looks
-   least like it: an infinite coordinate has a length that passes any [> 0.]
-   test on its own, and then normalising scales by its reciprocal — [x *. 0.],
-   which is [nan]. So the guard is on the length being {e finite} and positive,
-   and all three arrive at the same message. *)
+   Three spellings of the same failure; the third looks least like it. An
+   infinite coordinate has a length that passes any [> 0.] test on its own,
+   and normalising then scales by its reciprocal: [x *. 0.], which is [nan].
+   So the guard is on the length being {e finite} and positive, and all three
+   arrive at the same message. *)
 let a_light_that_points_nowhere_is_refused () =
   let refused what light =
     Alcotest.check_raises what

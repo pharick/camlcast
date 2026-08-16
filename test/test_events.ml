@@ -1,7 +1,7 @@
 (* Time and input reaching a description, with no window and no SDL.
 
    Input reads the keyboard through SDL, but its edges and hold timers are a
-   pure function of two frames and a duration — which is why test_input can
+   pure function of two frames and a duration. That is why test_input can
    drive them directly, and why a whole game's worth of frames can be played
    here without anything being opened. A frame is a value; playing one is
    binding it and rendering. *)
@@ -59,8 +59,8 @@ let play ?(held = []) ?(dt = tick) driver =
 
 (* Events puts its handlers in effects that hold nothing, so no component
    written against this library can tell whether a mount lets go of what it
-   has. One written against the hook underneath can, and a game reaching for it
-   is entitled to an answer. *)
+   has. One written against the hook underneath can, so the answer is pinned
+   here for a game that reaches for it. *)
 let journal = ref []
 
 let holder =
@@ -103,19 +103,19 @@ let () =
               Alcotest.(check (float 1e-9)) "still" 0. !seen);
           case "and runs the frame's work anyway, once, on no time at all"
             (fun () ->
-              (* Because it is an effect, and a render runs what it owes. This
-                 is the pass {!Run.on} makes before the loop starts, to ask the
-                 description where its world says the player spawns: one call,
-                 [dt = 0.], and a scene that is never drawn — the loop asks a
-                 game for its next state before drawing, so the first thing on
-                 the screen is the render after this one. Check.report and every
-                 test that renders once do the same.
+              (* Because it is an effect, and a render runs its effects. This
+                 is the pass {!Run.on} makes before the loop starts, to ask
+                 the description where its world says the player spawns: one
+                 call, [dt = 0.], and a scene that is never drawn. The loop
+                 asks a game for its next state before drawing, so the first
+                 thing on the screen is the render after this one.
+                 Check.report and every test that renders once do the same.
 
                  Written down because a handler that scales its work by [dt]
-                 does nothing here and one that ticks by a fixed amount ticks
-                 early, and which of those a game wrote is the whole difference.
-                 A change that stops this happening is welcome and has two
-                 comments to bring with it. *)
+                 does nothing here while one that ticks by a fixed amount
+                 ticks early, and which of those a game wrote is the whole
+                 difference. A change that stops this happening is welcome and
+                 has two comments to update with it. *)
               let seen = ref [] in
               let ticker =
                 Element.declare ~name:"ticker" @@ fun () ->
@@ -161,9 +161,9 @@ let () =
               ignore (play ~held:[ Input.Key Key.w ] driver);
               Alcotest.(check (option bool))
                 "and still down while held" (Some true) !held);
-          (* The reason these take a control and not a key: a mouse button is
-             one, and a component that wants one should not have to be told it
-             cannot have it. *)
+          (* These take a control and not a key because a mouse button is a
+             control too, and a component that wants one must be able to have
+             it. *)
           case "a mouse button drives a component as a key does" (fun () ->
               let taps = ref 0 and held = ref None in
               let listener =
@@ -188,9 +188,9 @@ let () =
           case "the fuse burns down and the light goes with it" (fun () ->
               (* A simplified version of the guide's burning-brazier game
                  (examples/step10_burning.ml), driven. The point is not the
-                 arithmetic — it is that a component holds a clock, nothing
-                 above it knows, and a test can play the whole thing through
-                 without opening anything. *)
+                 arithmetic: a component holds a clock, nothing above it
+                 knows, and a test can play the whole thing through without
+                 opening anything. *)
               let fuse = 1. in
               let air ~light =
                 Atmosphere.make ~fog_distance:(2. +. (10. *. light)) ()

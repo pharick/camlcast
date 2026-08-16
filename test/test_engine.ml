@@ -15,9 +15,9 @@ let standing_still () =
   Alcotest.check vec "position is unchanged" centre after.Player.pos;
   Alcotest.check close "facing is unchanged" 0. (heading after)
 
-(* Input hands step a finished per-frame delta — the speeds in Config are per
-   second and it has already scaled them by the length of the frame — so step
-   applies the motion as given rather than scaling it again. *)
+(* Input hands step a finished per-frame delta: the speeds in Config are per
+   second and Input has already scaled them by the length of the frame. So
+   step applies the motion as given rather than scaling it again. *)
 let motion_is_applied_as_given () =
   Alcotest.check close "forward moves by that many cells" (centre.x +. 0.5)
     (step { Input.still with forward = 0.5 }).Player.pos.x;
@@ -67,9 +67,10 @@ let collisions_still_apply () =
 
 (* The loop runs an arbitrary state through the callbacks of an [Engine.game],
    and [simulate] is the whole of a frame that does not need a window: what the
-   state becomes, given the frame's input. The game below is the smallest thing
-   with a phase in it — it counts the frames it is given, adds up the time it is
-   told has passed and the turning it is asked for, and ends after a second. *)
+   state becomes, given the frame's input. The game below is the smallest
+   thing with a phase in it: it counts the frames it is given, adds up the
+   time it is told has passed and the turning it is asked for, and ends after
+   a second. *)
 type phase = Playing | Ended
 type session = { phase : phase; elapsed : float; frames : int; heading : float }
 
@@ -157,10 +158,10 @@ let pointing_takes_the_mouse_but_not_the_clock () =
    have moved, and the horizon moves when the player goes {e through a doorway}.
    That is not the same question as whether they finished the frame somewhere
    else: a frame can round a jamb, or go all the way round a loop of rooms, and
-   come back to the index it started with. Comparing the two indices calls both
-   of those nothing happening, and the crossings are the only place they are
-   written down. [Player.crossed] is that rule, and it is what a game reads
-   whether it uses the wrapper or its own [Engine.run]. *)
+   come back to the index it started with. Comparing the two indices treats
+   both of those as nothing happening, and the crossings are the only place
+   they are written down. [Player.crossed] is that rule, and it is what a game
+   reads whether it uses the wrapper or its own [Engine.run]. *)
 let a_frame_that_crosses_nothing_does_not_grow () =
   let stayed = Player.traverse world (player ()) ~forward:0.5 ~strafe:0. in
   Alcotest.(check int)
@@ -169,10 +170,10 @@ let a_frame_that_crosses_nothing_does_not_grow () =
   Alcotest.(check bool)
     "so the world is left alone" false (Player.crossed stayed)
 
-(* A step round the loop fixture goes out of a room and back into it within one
-   frame. The room index at the end is the one it set out with — which is
-   exactly the case the old test missed — and a generator still has to hear
-   about it. *)
+(* A step round the loop fixture goes out of a room and back into it within
+   one frame. The room index at the end is the one it set out with, which is
+   exactly the case the old test missed. A generator still has to hear about
+   it. *)
 let a_round_trip_still_grows () =
   let start = Player.make ~room:0 ~pos:centre ~angle:0. in
   let moved = Player.slide loop start (Vec.make 4. 2.5) in
@@ -185,14 +186,15 @@ let a_round_trip_still_grows () =
   Alcotest.(check bool)
     "so the world is grown all the same" true (Player.crossed moved)
 
-(* And it is grown {e once}, which is the half [Player.crossed] being a boolean
+(* And it is grown {e once}, the half that [Player.crossed] being a boolean
    already implies and nothing asserted. A step is clipped at each opening and
    the rest of it carried through, up to [Config.max_crossings_per_step] times
-   per axis, so a frame can go through several doorways — and a generator hears
-   about that frame once, with the pose it finished in. Building ahead of where
-   the player now stands covers every room they passed through on the way, the
-   renderer looking no deeper from there either; calling per doorway would ask
-   for the same rooms over again with the same pose each time. *)
+   per axis, so a frame can go through several doorways. A generator hears
+   about that frame once, with the pose it finished in. Building ahead of
+   where the player now stands covers every room they passed through on the
+   way, and the renderer looks no deeper from there either; calling per
+   doorway would ask for the same rooms over again with the same pose each
+   time. *)
 let extend_runs_once_a_frame_however_many_it_crossed () =
   let calls = ref 0 and asked = ref [] in
   let extend world (p : Player.t) =
@@ -225,10 +227,10 @@ let extend_runs_once_a_frame_however_many_it_crossed () =
     (Engine.grow ~extend loop start { Input.still with Input.forward = 0.5 });
   Alcotest.(check int) "a frame that crossed nothing asks nothing" 0 !calls
 
-(* {!Engine.run}'s [result] covers the frame and not the game, and this pins the
-   difference. A game callback that raises comes out as itself rather than as an
-   [`Msg], because a game's own mistake is the other kind — the one the engine
-   would be flattening into a condition, and losing the backtrace over.
+(* {!Engine.run}'s [result] covers the frame and not the game, and this pins
+   the difference. A game callback that raises comes out as itself rather than
+   as an [`Msg], because a game's own mistake is a bug and not a condition;
+   flattening it into an [`Msg] would lose the backtrace.
 
    Asked of {!Engine.simulate} because [run] needs a window and simulate does
    not, and it is [update]'s only caller in either: the loop reads the same
@@ -250,9 +252,9 @@ let a_games_own_exception_comes_out_as_itself () =
   in
   Alcotest.check_raises "not wrapped, not swallowed"
     (The_games_own "from update") (frame true);
-  (* And an unfocused frame runs [update] too — it passes a [dt] of zero rather
-     than skipping the call — so there is no half of the loop where a game's
-     exception would be quietly missed instead. *)
+  (* And an unfocused frame runs [update] too (it passes a [dt] of zero rather
+     than skipping the call), so there is no half of the loop where a game's
+     exception would be quietly missed. *)
   Alcotest.check_raises "and the same on a paused frame"
     (The_games_own "from update") (frame false)
 

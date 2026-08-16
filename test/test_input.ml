@@ -1,6 +1,6 @@
 (** [Input] reads SDL, but the part worth testing is the part that does not.
     [Input.advance] is the edges and the hold timer, and it is a pure function
-    of the previous frame, what is held now and how long the frame lasted — so
+    of the previous frame, what is held now and how long the frame lasted. So
     these drive it with scripted keys and never open a window. *)
 
 open Camlcast_core
@@ -12,9 +12,10 @@ let click = Input.Button Input.Left
 let tick = 1. /. 60.
 
 (* One frame, in which [held] is everything the player is holding down and
-   [tapped] everything they pressed and let go of inside it — what [Input.Runtime.drain]
-   picks out of the event queue and the device state cannot say. The mouse is
-   still: what it read is [Binding]'s business, not the edges'. *)
+   [tapped] everything they pressed and let go of inside it: what
+   [Input.Runtime.drain] picks out of the event queue and the device state
+   cannot say. The mouse is still, because what it read is [Binding]'s
+   business, not the edges'. *)
 let frame ?(dt = tick) ?(tapped = []) held actions =
   Input.advance
     ~tapped:(fun control -> List.mem control tapped)
@@ -73,7 +74,7 @@ let a_hold_adds_the_frames_up () =
     (Input.held_for (frames [ e ] 60 Input.untouched) e)
 
 (* The duration survives one frame past the release, which is what lets a game
-   tell a tap from a deliberate hold at the moment the key comes up — a door
+   tell a tap from a deliberate hold at the moment the key comes up. A door
    that opens on a press and commits on a long hold asks exactly this. *)
 let a_hold_can_still_be_read_when_it_ends () =
   let long = frame [] (frames [ e ] 60 Input.untouched) in
@@ -118,10 +119,10 @@ let a_button_is_a_control_like_any_other () =
 
    A control pressed and released between two frames is up again by the time the
    device is asked, so the state alone reports nothing at all: no press, and no
-   release either. What the event queue saw going down is the only record of it,
-   and counting that as down for the frame gives the press its edge — the same
-   edge, and the same hold of nothing, as a tap that happened to straddle a
-   frame boundary. *)
+   release either. What the event queue saw going down is the only record of
+   it, and counting that as down for the frame gives the press its edge: the
+   same edge, and the same hold of nothing, as a tap that happened to straddle
+   a frame boundary. *)
 
 let a_tap_between_frames_is_still_a_press () =
   let tap = frame ~tapped:[ e ] [] Input.untouched in
@@ -168,11 +169,11 @@ let a_hold_is_measured_in_seconds_not_frames () =
 
 (* {1 Frames nobody was there for}
 
-   [Engine.simulate] stops the clock and drops the motion of a frame the window
-   spent out of focus, but the hold timer is fed the real length of the frame at
-   the moment the controls are sampled — before any of that — so it is the one
-   thing that would keep running while the game was behind another window. A
-   minute away would come back as a minute of holding.
+   [Engine.simulate] stops the clock and drops the motion of a frame the
+   window spent out of focus, but the hold timer is fed the real length of the
+   frame at the moment the controls are sampled, before any of that. So it is
+   the one thing that would keep running while the game was behind another
+   window. A minute away would come back as a minute of holding.
 
    [freeze] is what a frame is worth instead: the state as it stood, no edges,
    and no seconds added. *)

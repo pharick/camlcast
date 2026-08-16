@@ -6,8 +6,8 @@
     needs a window. The one test that draws uses {!Framebuffer.offscreen} and
     reads the pixels back.
 
-    The atlas here is 96 x 60 — sixteen cells of 6 x 10 across, six down, the
-    same shape as the real one — and every pixel of cell [n] is the grey [n], so
+    The atlas here is 96 x 60 (sixteen cells of 6 x 10 across, six down, the
+    same shape as the real one), and every pixel of cell [n] is the grey [n], so
     a glyph that lands on the screen says which cell it came from. *)
 
 open Camlcast_core
@@ -131,13 +131,13 @@ let measuring () =
    a UTF-8 string is a string of bytes to every one of the three: [é] is two
    cells wide, two glyphs, and a place a line may break.
 
-   Pinned because it is the interface's claim and not an accident anyone should
-   discover — and pinned as the {e agreement} rather than as the byte count
-   alone, since that half is what makes the result a tidy layout of the wrong
-   thing rather than a mess. A version of this module that decoded UTF-8 would
-   fail the first check below and still pass the rest, which is the right shape
-   for a test of something whose remedy is a different atlas and a different
-   index. *)
+   Pinned because it is the interface's claim and not an accident anyone
+   should discover. Pinned as the {e agreement} rather than as the byte count
+   alone, since the agreement is what makes the result a tidy layout of the
+   wrong thing rather than a mess. A version of this module that decoded UTF-8
+   would fail the first check below and still pass the rest, which is the
+   right shape for a test of something whose remedy is a different atlas and a
+   different index. *)
 let text_is_measured_and_wrapped_in_bytes () =
   (* "café" in UTF-8: four letters, five bytes, and so five cells wide. *)
   let word = "caf\xc3\xa9" in
@@ -176,8 +176,8 @@ let wrapping_breaks_on_spaces () =
     (wrap "aa\nbb" (10 * cell_w))
 
 (* The breaks that break onto nothing are breaks too. Dropping them made this
-   disagree with [measure], which counts them, so a wrapped paragraph was drawn
-   shorter than the panel sized for it — and a paragraph break in the source
+   disagree with [measure], which counts them: a wrapped paragraph was drawn
+   shorter than the panel sized for it, and a paragraph break in the source
    closed up on its way to the screen. *)
 let wrapping_keeps_the_lines_that_are_empty () =
   let wrap text = Font.wrap font text ~width:(10 * cell_w) in
@@ -228,8 +228,8 @@ let drawing_puts_the_right_cell_in_the_right_place () =
     (Framebuffer.pixel fb ~x:2 ~y:3);
   Alcotest.check color "across its whole cell" (grey 33)
     (Framebuffer.pixel fb ~x:(2 + cell_w - 1) ~y:(3 + cell_h - 1));
-  (* '0' is 48, which is cell 16 — and it sits one advance along, not one atlas
-     cell along, which is the same number here only because they agree. *)
+  (* '0' is 48, which is cell 16. It sits one advance along, not one atlas
+     cell along; the two are the same number here only because they agree. *)
   Alcotest.check color "'0' is cell 16, one advance along" (grey 16)
     (Framebuffer.pixel fb ~x:(2 + cell_w) ~y:3);
   Alcotest.check color "and nothing was drawn before the start"

@@ -1,11 +1,11 @@
 (** Decoding a picture file.
 
     The fixtures are written by [tools/make_art.py], which shares no code with
-    what is being tested here: it is Python's own zlib and a PNG header written
-    by hand. That matters more than it looks like it does. A decoder that
-    swapped red and blue, or read each row at the wrong offset, would still
-    agree with an encoder in this repository that made the same mistake — so the
-    values below are literals in both places and in neither's code.
+    the decoder under test: it is Python's own zlib and a PNG header written by
+    hand. A decoder that swapped red and blue, or read each row at the wrong
+    offset, would still agree with an encoder in this repository that made the
+    same mistake. So the values below are literals in both places and in
+    neither's code.
 
     [swatch.png] is 4 x 3 and no two of its channels are the same function of
     the position, so every way of getting a pixel wrong produces a different
@@ -43,10 +43,10 @@ let channels_arrive_in_order () =
 
 (* Rows are laid end to end at four bytes a pixel, whatever the file's own
    arrangement was. A picture wider than it is tall would still decode if the
-   two extents were swapped and the pixels transposed with them, so the check
-   worth making is that a named pixel is where its coordinates say — asked of
-   the colours that come back rather than of the byte offsets they were read
-   from, which are the decoder's own business. *)
+   two extents were swapped and the pixels transposed with them. So the check
+   is that a named pixel is where its coordinates say, asked of the colours
+   that come back rather than of the byte offsets they were read from, which
+   are the decoder's own business. *)
 let rows_are_laid_out_by_width () =
   let s = read "fixtures/swatch.png" in
   let at x y = fst (Bitmap.sample s ~u:x ~v:y) in
@@ -61,13 +61,13 @@ let rows_are_laid_out_by_width () =
 (* A JPEG has no alpha channel; converting to one that does must fill it solid,
    not clear, or every photograph loaded would come out invisible.
 
-   Its colours are not worth asserting as values. This fixture is four pixels by
-   three of maximum-frequency content, which is the worst case a lossy codec can
-   be handed — the decoded blue at the origin is 165 against the 200 that went
-   in — so what survives is the {e shape} of the picture and not its numbers.
-   That is still enough to catch a channel that moved: red climbs left to right,
-   green climbs top to bottom, and blue is the largest of the three, none of
-   which would hold if two of them had been swapped. *)
+   Its colours are not asserted as values. This fixture is four pixels by three
+   of maximum-frequency content, the worst case a lossy codec can be handed:
+   the decoded blue at the origin is 165 against the 200 that went in. What
+   survives is the {e shape} of the picture, not its numbers. That is still
+   enough to catch a channel that moved: red climbs left to right, green
+   climbs top to bottom, and blue is the largest of the three, none of which
+   would hold if two of them had been swapped. *)
 let a_format_without_alpha_arrives_solid () =
   let s = read "fixtures/swatch.jpg" in
   Alcotest.(check int) "the width" 4 s.Bitmap.width;
@@ -98,7 +98,7 @@ let a_missing_file_is_an_error () =
     true
     (String.length m > 0)
 
-(* Not every file with pixels in the name has pixels in it. *)
+(* The file exists but holds no image data; loading must fail. *)
 let a_file_that_is_not_a_picture_is_an_error () =
   ignore (fails "fixtures/notanimage.txt")
 

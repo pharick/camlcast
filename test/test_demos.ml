@@ -18,9 +18,9 @@ let each name check =
       case (demo.Catalogue.name ^ ": " ^ name) (fun () -> check demo))
     Catalogue.demos
 
-(* How many directions "all round" is asked in. A gap you could walk through is
-   most of a cell wide, and these rooms are tens of cells across, so rays this
-   far apart — under a degree — cannot fall either side of one. *)
+(* How many directions "all round" is asked in. A gap you could walk through
+   is most of a cell wide, and these rooms are tens of cells across, so rays
+   this far apart (under a degree) cannot fall either side of one. *)
 let directions = 512
 
 (* Somewhere inside a room to look around from.
@@ -50,14 +50,15 @@ let inside world i =
    doorway cut into one; a ray that meets neither has left through a gap, and
    what it would have drawn is floor and sky all the way to the horizon.
 
-   Asking it this way is what lets furniture alone. lib/check.mli explains that
-   the geometry does not say which walls are a room's boundary and which are not,
-   so a partition you can walk round the end of is indistinguishable from a wall
-   left out — by its ends. It is not indistinguishable by this: a ray past the end
-   of a partition goes on to meet the boundary behind it, and a ray through a gap
-   in the boundary meets nothing. Five demos stand a free-standing partition in a
-   room on purpose — glass, floating, chalk, loading and showcase — and counting
-   loose ends calls every one of them a hole. This calls none of them one. *)
+   Asking it this way lets furniture alone. lib/check.mli explains that the
+   geometry does not say which walls are a room's boundary and which are not,
+   so by its ends a partition you can walk round the end of is
+   indistinguishable from a wall left out. It is distinguishable by this: a
+   ray past the end of a partition goes on to meet the boundary behind it, and
+   a ray through a gap in the boundary meets nothing. Five demos stand a
+   free-standing partition in a room on purpose (glass, floating, chalk,
+   loading and showcase); counting loose ends calls every one of them a hole,
+   and this calls none of them one. *)
 let escaping room ~origin =
   List.filter
     (fun angle ->
@@ -152,12 +153,12 @@ let names_are_distinct () =
 (* {!Catalogue.attempt} is the seam between the demos' two ways of failing, and
    the only part of the launcher reachable without a window. Above it,
    bin/demo.ml turns a [`Msg] into "camlcast-demo: " and an exit code of 1; below
-   it the asset loaders raise, because a demo already inside a frame has nowhere
-   to put a result. With nothing in between, a missing picture printed OCaml's
-   own fatal-error banner and stopped with its own code — past both of this
-   program's conventions at once. What matters is that the message survives the
-   trip, since naming the file is the whole reason the loaders can afford to
-   raise at all. *)
+   it the asset loaders raise, because a demo already inside a frame has
+   nowhere to put a result. With nothing in between, a missing picture printed
+   OCaml's own fatal-error banner and stopped with its own code, past both of
+   this program's conventions at once. The message has to survive the trip,
+   since naming the file is the whole reason the loaders can afford to raise
+   at all. *)
 let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
   let ran : (Engine.ending, [ `Msg of string ]) result =
     Catalogue.attempt (fun () -> Ok Engine.Returned)
@@ -181,11 +182,11 @@ let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
       Alcotest.(check bool)
         "a raised failure arrives as a message that still names the file" true
         (mentions message "assets/tiles.png"));
-  (* And nothing else. The seam catches one exception and it is the demos' own,
-     so a mistake inside a frame — the [List.nth] that is one past the end, the
-     [Option.get] of nothing — goes out as itself rather than arriving here
-     dressed as a demo whose art could not be read. Reported that way it would
-     be reported calmly, under a message about a file that was never the
+  (* And nothing else. The seam catches one exception and it is the demos'
+     own, so a mistake inside a frame (the [List.nth] that is one past the
+     end, the [Option.get] of nothing) goes out as itself rather than arriving
+     here dressed as a demo whose art could not be read. Reported that way it
+     would appear calmly, under a message about a file that was never the
      trouble, and the real mistake would appear nowhere in it. *)
   Alcotest.check_raises "a Failure from anywhere else is not ours"
     (Failure "index out of bounds") (fun () ->
@@ -198,14 +199,14 @@ let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
              invalid_arg "Room.doorway: the opening has to fit under the wall")))
 
 (* Growing is where a world was most easily broken, and the shape of the risk
-   has changed. The old corridor grew by surgery — open_doorway to give a dead
-   end a way on, add_room for what lay beyond it, link to join the two — and
+   has changed. The old corridor grew by surgery (open_doorway to give a dead
+   end a way on, add_room for what lay beyond it, link to join the two), and
    every one of those checks an invariant the generator had to keep by hand.
 
    A description grows by being longer. There is nothing to keep by hand, so
    what is asserted is not that the surgery was done right but that the result
-   is a world: longer corridors, each of them checked, with no seam anywhere and
-   no threshold left leading nowhere. *)
+   is a world: longer corridors, each of them checked, with no seam anywhere
+   and no threshold left leading nowhere. *)
 let growing_leaves_a_world_that_still_works () =
   let before = World.room_count Endless.world in
   let longest = ref before in
@@ -231,16 +232,16 @@ let growing_leaves_a_world_that_still_works () =
   Alcotest.(check bool)
     "the corridor is longer than it was" true (!longest > before)
 
-(* The trail demo builds a return route out of the crossings each frame reports,
-   pushing one unless it undoes the one on top. Walking to the far end of the
-   corridor and back again has to leave that route exactly as it was found —
-   which is the whole point of a traversal trace, asserted over a few hundred
-   frames of walking rather than a single step.
+(* The trail demo builds a return route out of the crossings each frame
+   reports, pushing one unless it undoes the one on top. Walking to the far
+   end of the corridor and back again has to leave that route exactly as it
+   was found; that is the point of a traversal trace. It is asserted over a
+   few hundred frames of walking rather than a single step.
 
-   The route is the component's own state and nothing outside it can read it, so
-   what is counted here is what a player sees: one tick on the HUD per doorway
-   between here and the way out, in the colour the demo draws a route in. That
-   is a better thing to assert than the state anyway. *)
+   The route is the component's own state and nothing outside it can read it,
+   so what is counted here is what a player sees: one tick on the HUD per
+   doorway between here and the way out, in the colour the demo draws a route
+   in. That is also a better thing to assert than the state. *)
 let the_trail_demo_unwinds_its_own_route () =
   let route = Color.rgb 235 200 110 in
   let ticks (scene : Scene.t) =
@@ -290,9 +291,9 @@ let the_trail_demo_unwinds_its_own_route () =
 
 (* The loading demo is the one whose world is not a value in a source file: it
    is read off the disk when something forces it, through Asset and the two
-   loaders. Forcing it at all is most of the test — a missing file, a path
-   resolved against the wrong root or a picture that would not decode all raise
-   here rather than returning a world.
+   loaders. Forcing it at all is most of the test: a missing file, a path
+   resolved against the wrong root or a picture that would not decode all
+   raise here rather than returning a world.
 
    The rest is what a screenshot would show and a walkability check would not:
    that the pictures reached the room rather than merely parsing. Every number
@@ -386,14 +387,13 @@ let the_floating_demo_lifts_its_sprites () =
    one made during the frame. A version that generated a picture per mote per
    frame would draw exactly the same thing and fail here.
 
-   This used to assert a second thing — that a moving room shared the walls of
+   This used to assert a second thing: that a moving room shared the walls of
    the room it moved from, so that seventy motes were not dragging four walls
-   behind them sixty times a second. A described world has no such sharing: it
-   is built from nothing every frame, on purpose, and bench/frame.exe is where
+   behind them sixty times a second. A described world has no such sharing; it
+   is built from nothing every frame, on purpose. bench/frame.exe is where
    that was measured and found to cost a seventh of one percent of drawing the
    frame it is for. What is asserted instead is what a reader of the demo
-   actually cares about, which is that the room stands still while the dust
-   falls. *)
+   cares about: the room stands still while the dust falls. *)
 let the_dust_demo_moves_without_making_anything () =
   let at t = (Mount.build (Dust.at ~t)).Scene.world in
   let early = at 0.4 and late = at 3.1 in
@@ -438,15 +438,15 @@ let the_dust_demo_moves_without_making_anything () =
    one §13.5 asks for, and none of them is visible in a screenshot.
 
    It used to call Chalk.place on a state it built by hand. There is no such
-   function now — the wall is told, by on_use — so the driver below is a mount
-   rendered into and a crosshair cast at it, which is a closer copy of what a
-   player actually does than the old one was.
+   function now; the wall is told, by on_use. So the driver below is a mount
+   rendered into and a crosshair cast at it, a closer copy of what a player
+   does than the old one was.
 
-   The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the one
-   wall here with two faces you can stand at, so it is what the side cases use.
-   Facing it from the south is looking north, at +y, and standing a cell and a
-   half back — inside Chalk.reach, since a wall further off than that is named
-   but not markable. *)
+   The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the
+   one wall here with two faces you can stand at, so it is what the side cases
+   use. Facing it from the south is looking north, at +y, standing a cell and
+   a half back. That is inside Chalk.reach, since a wall further off than that
+   is named but not markable. *)
 let chalking () =
   let mount = Mount.create () in
   let render () = Mount.render mount (Chalk.marking ()) in
@@ -493,9 +493,9 @@ let the_chalk_demo_marks_what_the_crosshair_is_on () =
     | Some { Sight.kind = Sight.Wall w; _ } -> w.decal
     | _ -> Some (-1))
 
-(* Persistence. Every wall of the room is a new value every frame — that is what
-   a described world is — and the marks are still on it, because the component
-   keeps them and describes them again. *)
+(* Persistence. Every wall of the room is a new value every frame (that is
+   what a described world is), and the marks are still on it, because the
+   component keeps them and describes them again. *)
 let the_chalk_demo_keeps_its_marks_through_a_rebuild () =
   let render = chalking () in
   let marked = use render (aiming ()) in
@@ -541,9 +541,9 @@ let the_chalk_demo_runs_out_of_chalk () =
   Alcotest.(check (option string))
     "and it says so" (Some "no chalk left")
     (Chalk.refusal ~left:0 (spot (aiming ()) ninth));
-  (* A wall in the room through the doorway is named but not markable. Pitched
-     up over the figure standing in there, or the crosshair finds that instead
-     and a sprite is not something this demo has a word about. *)
+  (* A wall in the room through the doorway is named but not markable. The aim
+     is pitched up over the figure standing in there, because otherwise the
+     crosshair finds the figure, and this demo has no refusal for a sprite. *)
   let start = chalking () () in
   let through = aiming ~from:(Vec.make 3. 0.) ~angle:0. ~pitch:0.3 () in
   Alcotest.(check bool)
@@ -590,9 +590,8 @@ let the_chalk_demo_has_one_glowing_symbol_and_one_not () =
 
 (* The controls demo is the one that binds anything of its own, and what it
    demonstrates is a claim its doc header makes to the player: both sets of
-   walking keys work, and holding one of each does not walk twice as fast. That
-   is exactly the sort of thing nobody notices going wrong, so it is asserted
-   rather than felt. *)
+   walking keys work, and holding one of each does not walk twice as fast.
+   Nobody notices that going wrong in play, so it is asserted here. *)
 let the_controls_demo_binds_a_second_set_of_walking_keys () =
   let tick = 1. /. 60. in
   let frame held =

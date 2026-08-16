@@ -1,10 +1,9 @@
-(* The map, drawn into a buffer with no window behind it.
+(* The debug map, drawn into a buffer with no window behind it.
 
-   An overlay is a thing you look at, so most of what it is worth cannot be
-   asserted. What can is that it draws where it says it does, that it draws
-   nothing anywhere else, and that the two colours it uses to say something —
-   green for a linked doorway, red for one that leads nowhere — are the ones it
-   ends up putting on the buffer. *)
+   An overlay is looked at, so most of its value cannot be asserted. What can
+   be: it draws where it says it does, it draws nothing anywhere else, and the
+   two signalling colours (green for a linked doorway, red for one that leads
+   nowhere) are the ones it puts on the buffer. *)
 
 open Camlcast_core
 open Camlcast
@@ -71,11 +70,11 @@ let unlinked_world =
   in
   let shut = Room.make ~floor ~ceiling walls in
   let opened = Room.make ~thresholds:[ threshold ] ~floor ~ceiling walls in
-  (* World.make refuses a threshold nothing links, which is the engine being
-     right. open_doorway is the primitive that legitimately leaves one: between
-     it and the link that fills it, the doorway is solid and draws as haze —
-     which is the state a world grown a room at a time passes through, and the
-     one the map exists to make visible. *)
+  (* World.make refuses a threshold nothing links; that refusal is correct.
+     open_doorway is the primitive that legitimately leaves one: between it
+     and the link that fills it, the doorway is solid and draws as haze. A
+     world grown a room at a time passes through that state, and the map
+     exists to make it visible. *)
   World.open_doorway
     (World.make
        ~rooms:[ ("west", shut) ]

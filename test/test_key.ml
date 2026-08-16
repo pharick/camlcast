@@ -158,9 +158,9 @@ let the_way_out_and_back_is_the_identity () =
 
 (* The other half of the escape hatch: it is the only way an arbitrary integer
    can become a key, so it is the only place a scancode off the end of the
-   keyboard can be caught. [Key.count] is the one that matters — a key there
-   would index into the mouse's part of [Input]'s arrays and be believed, where
-   anything past the whole flat range would at least raise. *)
+   keyboard can be caught. [Key.count] is the one that matters: a key there
+   would index into the mouse's part of [Input]'s arrays and be believed,
+   where anything past the whole flat range would at least raise. *)
 let a_place_no_keyboard_has_is_refused () =
   let refused what scancode =
     Alcotest.check_raises what

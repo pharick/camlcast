@@ -1,9 +1,9 @@
-(* What the crosshair is on, and who hears about it.
+(* Aim.crosshair: what the crosshair is on and which handlers are told.
 
-   Aim.crosshair is everything an interacting frame does, written as a function
-   of values, so the whole of this can be driven with nothing open. Sight casts
-   the same ray the renderer draws with, so a test that stands the player in a
-   room and faces them at a wall is asking the same question a player would. *)
+   Aim.crosshair covers everything an interacting frame does, as a function of
+   values, so the suite runs with nothing open. Sight casts the same ray the
+   renderer draws with, so a test that stands the player in a room facing a
+   wall asks the same question a player would. *)
 
 open Camlcast_core
 open Camlcast
@@ -16,9 +16,9 @@ let stone =
 let height = 4.
 let flat = Plane.horizontal 0.
 
-(* The loop casts the crosshair once and hands the answer on, because a frame
-   wants it for two things. So does this, in one line, so that every case below
-   reads as the question it is asking rather than as the plumbing. *)
+(* The loop casts the crosshair once and reuses the answer, because a frame
+   needs it for two things. This helper does the same in one line, keeping the
+   cases below free of plumbing. *)
 let crosshair targets world player ~was ~used =
   Aim.crosshair targets ~sight:(Sight.look world player) ~was ~used
 
@@ -102,22 +102,22 @@ let () =
                 [ (1, false); (3, true) ]
                 (List.rev !heard));
           case "a key carries the crosshair over an inserted sibling" (fun () ->
-              (* The leave is the one thing a frame has to recognise from the
-                 last one, and it recognises it by {!Camlcast_loom.Path.t}. An
-                 unkeyed child's path is its position among its siblings, so a
-                 description that writes one more wall ahead of the wall being
-                 looked at hands the [false] to whichever child has taken that
-                 position — the wrong wall told it lost the crosshair, and the
-                 right one never told, which leaves a highlight lit and a
-                 toggling handler inverted.
+              (* The leave is the one thing a frame has to match against the
+                 last one, and it matches by {!Camlcast_loom.Path.t}. An
+                 unkeyed child's path is its position among its siblings. If a
+                 description writes one more wall ahead of the wall being
+                 looked at, the [false] goes to whichever child has taken that
+                 position: the wrong wall is told it lost the crosshair, and
+                 the right one never is. Symptom: a highlight stays lit and a
+                 toggling handler is inverted.
 
-                 A key is the whole of the remedy, and this is the case that
-                 says so. The inserted wall is a stub in a corner that no ray
-                 here reaches; all it does is shift its siblings along by one.
+                 A key is the whole remedy, and this case checks that. The
+                 inserted wall is a stub in a corner that no ray here reaches;
+                 its only effect is to shift its siblings along by one.
 
                  Both frames go through one mount, because a rebuild is the
                  point: two builds would each be a first frame and there would
-                 be nothing to recognise. *)
+                 be nothing to match. *)
               let heard = ref [] in
               let named = [| "south"; "east"; "north"; "west" |] in
               let described ~extra =
@@ -303,9 +303,9 @@ let () =
                 "a picture that turns to face you has no coordinate" true
                 (!seen = Some Aim.On_sprite));
           case "a mark can be left where the crosshair was" (fun () ->
-              (* The chalk demo, without a rebuild anybody had to write: the
-                 component keeps a list of marks and describes them as decals,
-                 and the wall they are on is the wall that was told. *)
+              (* The chalk demo with no hand-written rebuild: the component
+                 keeps a list of marks and describes them as decals, on the
+                 wall whose on_use was told. *)
               let chalk =
                 Element.declare ~name:"chalk" @@ fun () ->
                 let marks, set_marks = Hook.use_state [] in
@@ -344,10 +344,10 @@ let () =
       ( "a door that opens itself",
         [
           case "a component holds the door, and the doorway works it" (fun () ->
-              (* The whole of what the demos call `doors`, without a callback
-                 the engine handed anybody: the state belongs to the component,
-                 the opening says what to do when it is used, and the world it
-                 describes follows. *)
+              (* The demos' `doors` behaviour, with no engine-supplied
+                 callback: the state belongs to the component, the doorway's
+                 on_use says what to do when it is used, and the described
+                 world follows the state. *)
               let leaf = Door.make stone in
               let door =
                 Element.declare ~name:"door" @@ fun () ->

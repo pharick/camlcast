@@ -1,13 +1,12 @@
-(** The arithmetic the loop paces itself by. Reading the clock needs SDL; what
-    is done to the two readings does not, and that is all of this. *)
+(** The arithmetic the loop paces itself by. Reading the clock needs SDL; the
+    arithmetic on the two readings does not, and only that is tested here. *)
 
 open Camlcast_core
 open Support
 
-(* The frame the simulation is advanced by is the real one, so that speed does
-   not depend on how long rendering took — but only up to a limit, past which a
-   stalled program would otherwise move the player an enormous distance in one
-   step. *)
+(* The simulation is advanced by the real frame time, so speed does not depend
+   on how long rendering took. The time is capped, because a stalled program
+   would otherwise move the player an enormous distance in one step. *)
 let a_frame_lasts_as_long_as_it_took () =
   Alcotest.check close "an ordinary frame is measured as it happened" 0.02
     (Clock.frame_time ~previous:1.5 ~now:1.52);

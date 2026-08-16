@@ -38,9 +38,9 @@ let levelling () =
   Alcotest.check color "0 is black" (Color.rgb 0 0 0) (Color.level base 0);
   Alcotest.check color "and half is half of every channel" (Color.rgb 100 50 25)
     (Color.level base 128);
-  (* Levelling scales all three channels together, so it cannot turn one colour
-     into another — only into a darker version of itself. A pattern that wants a
-     second colour has to say so, and this is why. *)
+  (* Levelling scales all three channels together, so it can only darken a
+     colour, never turn it into another. That is why a pattern that wants a
+     second colour has to say so. *)
   let dim = Color.level base 90 in
   Alcotest.(check bool)
     "the channels keep their order" true

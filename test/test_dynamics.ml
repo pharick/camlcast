@@ -82,13 +82,14 @@ let joined =
 (* Whether the crosshair is the player's, which decides whether anything in the
    world is told about it.
 
-   The loop used to cast and dispatch every frame whatever the description said,
-   so a pause menu — P.cursor, the mouse loose over a corridor — left the use
-   control working the door behind it, and a cutscene camera dragged on_gaze
-   enter and leave across everything it panned over. Neither is the player
-   aiming at anything. Run.aiming is exposed for the same reason carry and
-   crossings_of are: it is the loop's decision as a function of values, so this
-   asks the loop's own question rather than one written to look like it. *)
+   The loop used to cast and dispatch every frame whatever the description
+   said. So a pause menu (P.cursor, the mouse loose over a corridor) left the
+   use control working the door behind it, and a cutscene camera dragged
+   on_gaze enter and leave across everything it panned over. Neither is the
+   player aiming at anything. Run.aiming is exposed for the same reason carry
+   and crossings_of are: it is the loop's decision as a function of values, so
+   this asks the loop's own question rather than one written to look like
+   it. *)
 let interacting =
   let plain contents =
     Mount.build

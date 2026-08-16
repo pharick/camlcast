@@ -22,11 +22,10 @@ let severities description =
 
 let lines = Alcotest.(list string)
 
-(* Details, for the one case below that is about the detail. The file otherwise
-   asserts summaries on purpose — see the header — and this does not change
-   that: it is here because a detail said something about the engine's own
-   vocabulary that was not true, and a sentence a game developer is taught the
-   words by is worth pinning once. *)
+(* Details, for the one case below that is about the detail. The file
+   otherwise asserts summaries on purpose (see the header). This helper exists
+   because a detail once misstated the engine's own vocabulary. A sentence
+   that teaches a game developer the words is worth pinning once. *)
 let details description =
   List.concat_map
     (fun (d : Check.t) -> d.Check.detail)
@@ -48,7 +47,7 @@ let floor = floor_at 0.
 let ceiling = Room.roof ~plane:(Plane.above flat height) ~material:stone
 
 (* Three sides run open and the fourth cut, which together close the boundary.
-   Everything below is this, bent one way or another. *)
+   Every world below is a variation of this. *)
 let west_side ?key ?(corner = Vec.make 0. (-4.)) () =
   P.boundary ~closed:false ?key ~height ~material:stone
     (P.corners
@@ -240,31 +239,31 @@ let links =
                 ])));
   ]
 
-(* Where this module has to say what the engine says, because a checker that
+(* Cases where the checker must answer as the engine does. A checker that
    answers a question differently from the thing it models is worse than no
    checker: it fails worlds that run and passes worlds that do not, and either
    way the reader stops believing it.
 
    Every case here was a disagreement. The tolerance ones are the reason
-   World.has_length and its three neighbours are public — this file used to
-   measure with its own 1e-9 against the engine's 1e-6 — and the last is the
-   reason Element.Render_refused exists. *)
-(* Agreeing about which descriptions are wrong is half of it. The other half is
-   saying so in the same words, and by the time this was written the two shared
-   the rule (Prim.may_contain), the traversal (Nesting.misplaced) and the nouns
-   (Prim.describe, Prim.inside) — everything but the sentence. Host raised
-   "... does not belong in a world" where the checker reported "a ... cannot go
-   in a world": one offence under two names, which a developer who met one and
-   then the other had no way to connect. Every part anyone had thought to share
-   was shared, which is why the last part was not.
+   World.has_length and its three neighbours are public; this file used to
+   measure with its own 1e-9 against the engine's 1e-6. The last is the reason
+   Element.Render_refused exists. *)
+(* Agreeing about which descriptions are wrong is half of it. The other half
+   is saying so in the same words. By the time this was written the two shared
+   the rule (Prim.may_contain), the traversal (Nesting.misplaced) and the
+   nouns (Prim.describe, Prim.inside): everything but the sentence. Host
+   raised "... does not belong in a world" where the checker reported "a ...
+   cannot go in a world". That is one offence under two names, which a
+   developer who met one and then the other had no way to connect. Every part
+   anyone had thought to share was shared, which is why the last part was not.
 
-   Not written as the words themselves — those are pinned in "structure" above,
-   and pinning them twice would only mean two places to edit. Written as the
+   The assertion is not the words themselves; those are pinned in "structure"
+   above, and pinning them twice would mean two places to edit. It is the
    relation: whatever the engine puts in its exception has to contain what the
    checker puts in its summary. Containment and not equality because Host
-   prefixes the path it was found at and the checker carries that in a field of
-   its own, which is the one difference between them that is about the job
-   rather than about the words. *)
+   prefixes the path it was found at while the checker carries that in a field
+   of its own, the one difference between them that is about the job rather
+   than about the words. *)
 let refused_in_the_same_words name description =
   case name (fun () ->
       let said = summaries description in
@@ -307,9 +306,9 @@ let agrees_with_the_engine =
     refused_in_the_same_words "a description that is not a world at all"
       (P.wall ~height ~material:stone (Vec.make 0. 0.) (Vec.make 1. 0.));
     case "a width difference the engine tolerates is not a complaint" (fun () ->
-        (* 1e-7: inside World's epsilon of 1e-6, so this world builds and runs.
-           Reported, it was a fatal-sounding error about a world with nothing
-           wrong with it. *)
+        (* 1e-7 is inside World's epsilon of 1e-6, so this world builds and
+           runs. Reporting it produced a fatal-sounding error about a world
+           with nothing wrong with it. *)
         Alcotest.check lines "nothing to say" []
           (summaries (pair ~e:(2. +. 1e-7) ())));
     case "a width difference the engine refuses still is" (fun () ->
@@ -344,8 +343,8 @@ let agrees_with_the_engine =
           (summaries (pair ~dw:(Door.make stone) ())));
     case "a tolerated difference hides nothing below it" (fun () ->
         (* The tiers short-circuit: a link complaint stops the checks only an
-           assembled world can answer. So a spurious one cost the reader every
-           diagnostic behind it, which is what this is really about. *)
+           assembled world can answer. So a spurious link complaint used to
+           cost the reader every diagnostic behind it. *)
         Alcotest.check lines "the seam is still reported"
           [
             {|the floor steps by 0.5 through the doorway "east"|};
@@ -354,10 +353,11 @@ let agrees_with_the_engine =
           (summaries (pair ~east_floor:(floor_at 0.5) ~e:(2. +. 1e-7) ())));
     case "a primitive refusing inside a component is reported, not raised"
       (fun () ->
-        (* The doorway is wider than the wall it is cut into, which Room.doorway
-           refuses. Built inside a component — where a game builds one — it used
-           to come straight out of Check.report as Invalid_argument, so the
-           module written to replace a crash ended in one. *)
+        (* The doorway is wider than the wall it is cut into, which
+           Room.doorway refuses. Built inside a component, where a game builds
+           one, it used to come straight out of Check.report as
+           Invalid_argument: the module written to replace a crash ended in
+           one. *)
         let bad =
           Camlcast_loom.Element.declare ~name:"BadRoom" @@ fun () ->
           P.room ~name:"west" ~floor ~ceiling
@@ -460,9 +460,9 @@ let the_world_it_makes =
                 ])));
     case "and an overruled one is not judged on the room it names" (fun () ->
         (* Host looks the last camera's room up and drops the rest without
-           reading them, so this one's "cellar" is never looked for and nothing
-           is broken by it. What there is to say is that the camera does
-           nothing — not that the nothing it does is in the wrong place. *)
+           reading them, so this one's "cellar" is never looked for and
+           nothing is broken by it. The right report is that the camera does
+           nothing, not that the room it names is wrong. *)
         let two_cameras =
           P.world ~atmosphere:Atmosphere.default
             ~spawn:("west", Vec.make (-3.) 0.)
@@ -481,9 +481,9 @@ let the_world_it_makes =
           (severities two_cameras));
     case "which leaves the world buildable, and so still checked" (fun () ->
         (* The room check used to error here, and an error stops the tiers
-           below it — so a dead camera naming a typo took the geometry checks
-           down with it. This world's spawn is in a wall, and that is what a
-           report of it has to be able to reach. *)
+           below it, so a dead camera naming a typo took the geometry checks
+           down with it. This world's spawn is in a wall, and the report still
+           has to reach that. *)
         Alcotest.check lines "the camera, and the thing behind it"
           [
             "the player starts inside a wall";
@@ -576,11 +576,11 @@ let the_world_it_makes =
                 ])));
     case "and the reason it gives keeps the two words apart" (fun () ->
         (* The detail used to open "A doorway is an opening in a boundary",
-           which is the one sentence in the engine that says so. A doorway is an
-           opening {e and its jambs} — see {!Camlcast_core.Room} — and being
-           made with its jambs is exactly why a doorway cannot be the thing this
-           complaint is about. Only a bare threshold can, so the explanation now
-           says which of the two makes one and which cannot. *)
+           the one sentence in the engine that said so. A doorway is an
+           opening {e and its jambs} (see {!Camlcast_core.Room}), and being
+           made with its jambs is why a doorway cannot be the thing this
+           complaint is about. Only a bare threshold can. The explanation now
+           says which of the two makes this gap and which cannot. *)
         let gap =
           P.world ~atmosphere:Atmosphere.default
             ~spawn:("west", Vec.make (-3.) 0.)
@@ -626,15 +626,15 @@ let the_world_it_makes =
           [ "warning"; "warning" ] (severities stepped));
   ]
 
-(* {!Check.assembled} and {!Camlcast_core.World.check} are the same two words the
-   other way round, and running one is not running the other. They overlap in
-   nothing: World.check asserts what World.make guarantees, over a world grown
-   by add_room and link instead of made in one go, and raises on the first
-   break. Check.assembled reads a world that is already sound for the four ways it
-   can still be wrong to play, and hands them back.
+(* {!Check.assembled} and {!Camlcast_core.World.check} are the same two words
+   the other way round, and running one is not running the other. They overlap
+   in nothing. World.check asserts what World.make guarantees, over a world
+   grown by add_room and link instead of made in one go, and raises on the
+   first break. Check.assembled reads a world that is already sound for the
+   four ways it can still be wrong to play, and hands them back.
 
-   Both directions below, because a reader who knows only one of them is a
-   reader who thinks their world is checked. *)
+   Both directions are tested, because knowing only one of them invites
+   thinking the world is fully checked. *)
 let the_other_check =
   let world_of description = (Mount.build description).Scene.world in
   [
@@ -642,7 +642,7 @@ let the_other_check =
         (* A second doorway cut into the first room and left unlinked. The room
            is still reached through the doorway that is linked, its corners
            still meet walls, the floors still agree and the spawn is still
-           clear — so all four of Check.assembled's questions answer well. *)
+           clear, so all four of Check.assembled's questions answer well. *)
         let first = World.room two_rooms 0 in
         let jambs, extra =
           Room.doorway ~name:"unfinished" ~width:1. ~opening:2. ~height:3.
@@ -690,9 +690,8 @@ let the_other_check =
              (List.map
                 (fun (d : Check.t) -> d.Check.summary)
                 (Check.assembled stepped)));
-        (* And World.check is satisfied, which is the half that matters: every
-           invariant it knows about holds in a world nobody can walk through
-           without the camera jolting. *)
+        (* And World.check is satisfied: every invariant it knows about holds
+           in a world nobody can walk through without the camera jolting. *)
         World.check stepped);
   ]
 

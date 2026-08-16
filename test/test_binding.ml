@@ -1,8 +1,7 @@
 (** [Binding] is the half of the input that decides what a frame of controls
-    means, and it touches nothing at all: a table, a frame of {!Input.actions}
-    and a duration go in, a {!Input.motion} comes out. So these drive it with
-    scripted keys and a scripted mouse, and assert the arithmetic the player
-    would otherwise have to feel. *)
+    means, and it touches no state: a table, a frame of {!Input.actions} and a
+    duration go in, a {!Input.motion} comes out. The cases drive it with
+    scripted keys and a scripted mouse and assert the arithmetic directly. *)
 
 open Camlcast_core
 open Support
@@ -25,8 +24,8 @@ let up = key Key.up
 
 (* {1 The engine's own table}
 
-   It is a default and not a rule, but it is the one every demo walks on, so it
-   is worth pinning to the numbers {!Config} quotes. *)
+   The table is a default and not a rule, but every demo walks on it, so it is
+   pinned to the numbers {!Config} quotes. *)
 
 let the_default_table_walks_at_the_configured_speed () =
   let asked = Binding.motion Binding.default (frame [ w ]) ~dt:tick in
@@ -104,8 +103,8 @@ let pushing_the_mouse_up_looks_up () =
     (10. *. Config.pitch_sensitivity)
     asked.Input.pitch
 
-(* The two sources land on one number, which is what lets a player nudge the
-   mouse mid-turn without the arrow key being ignored. *)
+(* The two sources sum into one number, so a player can nudge the mouse
+   mid-turn without the arrow key being ignored. *)
 let the_mouse_and_the_arrows_add_up () =
   let asked =
     Binding.motion Binding.default
@@ -137,9 +136,9 @@ let rebinding_moves_the_keys_and_nothing_else () =
     (Config.move_speed *. tick)
     (Binding.motion table (frame [ d ]) ~dt:tick).Input.strafe
 
-(* Two keys on one axis is what a table that keeps WASD {e and} adds the arrows
-   looks like. Summing them unclamped would walk at twice the speed the axis
-   says — which is the bug the clamp is there for. *)
+(* Two keys on one axis is a table that keeps WASD {e and} adds the arrows.
+   Summing them unclamped would walk at twice the speed the axis says; the
+   clamp exists for that bug. *)
 let two_keys_on_one_axis_do_not_double_the_speed () =
   let both =
     Binding.make
@@ -184,8 +183,8 @@ let an_axis_with_no_terms_asks_for_nothing () =
   Alcotest.check close "however fast it says it is" 0.
     (Binding.motion table (frame [ w ]) ~dt:tick).Input.forward
 
-(* A weight is a scale and not only a sign, which is what a "walk slowly" key or
-   a coarser mouse is made of. *)
+(* A weight is a scale and not only a sign; a "walk slowly" key or a coarser
+   mouse is built from a fractional one. *)
 let a_fractional_weight_scales_the_ask () =
   let table =
     Binding.make
