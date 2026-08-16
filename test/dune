@@ -143,11 +143,18 @@
 ; demo's world and one of them — loading — reads files. The other four need
 ; nothing on disk, but the dependency is on the stanza so that a demo suite
 ; which grows a disk read later does not have to remember to ask for it.
+;
+; README.md and doc/demo/index.mld are dependencies for a different reason:
+; test_demos reads them as text to check that each one repeats the blurb its
+; demo carries in the catalogue. Naming them here is what puts them beside the
+; test in _build, and what has dune re-run the suite when either is edited.
 
 (tests
  (names test_patterns test_pictures test_level test_demos test_menu)
  (modules test_patterns test_pictures test_level test_demos test_menu)
  (package camlcast-demo)
  (deps
-  (source_tree ../assets))
+  (source_tree ../assets)
+  ../README.md
+  ../doc/demo/index.mld)
  (libraries camlcast_core camlcast_demo camlcast alcotest support))

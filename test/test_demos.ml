@@ -150,6 +150,72 @@ let names_are_distinct () =
     "and nothing else can" true
     (Catalogue.find "no-such-demo" = None)
 
+(* Text with runs of whitespace collapsed to one space and the two characters
+   the pages mark identifiers with dropped. The blurbs below are compared this
+   way rather than byte for byte: doc/demo/index.mld wraps its lines at eighty
+   columns, and both pages mark up a word the blurb spells plainly — [extend]
+   there, `extend` in README's table. Every word survives this, and their order
+   with them, which is what a rewording changes. *)
+let plainly text =
+  let out = Buffer.create (String.length text) in
+  let gap = ref false in
+  String.iter
+    (function
+      | ' ' | '\t' | '\n' | '\r' -> gap := true
+      | '`' | '[' | ']' -> ()
+      | c ->
+          if !gap && Buffer.length out > 0 then Buffer.add_char out ' ';
+          gap := false;
+          Buffer.add_char out c)
+    text;
+  Buffer.contents out
+
+let holds haystack needle =
+  let n = String.length needle and h = String.length haystack in
+  let rec at i =
+    i + n <= h && (String.sub haystack i n = needle || at (i + 1))
+  in
+  at 0
+
+(* Both pages are dependencies of this stanza, so they are read by the path
+   they have beside the test. See test/dune. *)
+let read path = In_channel.with_open_bin path In_channel.input_all
+
+let table =
+  lazy (List.map plainly (String.split_on_char '\n' (read "../README.md")))
+
+let listing = lazy (plainly (read "../doc/demo/index.mld"))
+
+(* A demo's [blurb] is the only copy of that sentence anyone should edit;
+   README.md's table and doc/demo/index.mld repeat it, which is what HACKING.md
+   asks of a new demo and what nothing else here checks. The three read well
+   apart, so a blurb reworded in one of them stays wrong until somebody thinks
+   to compare.
+
+   The table is checked row by row, so a blurb that lands against the wrong
+   demo fails as well. The listing is checked for the blurb alone: its entries
+   may carry a further sentence, and the module a demo is named after is not
+   its name — showcase is {!Camlcast_demo.Level}. *)
+let the_pages_repeat_the_catalogue_blurbs () =
+  let table = Lazy.force table and listing = Lazy.force listing in
+  List.iter
+    (fun (demo : Catalogue.t) ->
+      let name = demo.Catalogue.name in
+      let blurb = plainly demo.Catalogue.blurb in
+      (match
+         List.find_opt (fun row -> holds row ("| " ^ name ^ " |")) table
+       with
+      | None -> Alcotest.failf "README.md has no table row for %s" name
+      | Some row ->
+          Alcotest.(check bool)
+            (Printf.sprintf "README.md's %s row carries the catalogue's blurb"
+               name)
+            true (holds row blurb));
+      Alcotest.(check bool)
+        (Printf.sprintf "doc/demo/index.mld carries the %s blurb" name)
+        true (holds listing blurb))
+    Catalogue.demos
+
 (* {!Catalogue.attempt} is the seam between the demos' two ways of failing, and
    the only part of the launcher reachable without a window. Above it,
    bin/demo.ml turns a [`Msg] into "camlcast-demo: " and an exit code of 1; below
@@ -641,6 +707,8 @@ let () =
       ( "the catalogue",
         [
           case "names are distinct" names_are_distinct;
+          case "the pages repeat the catalogue's blurbs"
+            the_pages_repeat_the_catalogue_blurbs;
           case "a demo that cannot read its art is reported and not a crash"
             a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash;
           case "growing leaves a world that still works"

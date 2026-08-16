@@ -199,7 +199,7 @@ does.
 
 ## Adding a demo
 
-A demo is added in four places, and the suite holds you to the first two:
+A demo is added in four places, and the suite checks all four:
 
 1. its file in `demo/` — one feature, short enough to read in a sitting. It
    exposes `level` (or a component), `world` for the catalogue and the suites,
@@ -209,7 +209,12 @@ A demo is added in four places, and the suite holds you to the first two:
    across a doorway);
 3. a row in README.md's table — the blurb there is the catalogue's `blurb`
    string, verbatim, so write it once and paste it;
-4. a line on `doc/demo/index.mld`.
+4. a line on `doc/demo/index.mld`, carrying that same blurb and at most one
+   further sentence.
+
+`test_demos` compares the last two against the catalogue, ignoring line breaks
+and the markup each page puts round an identifier. A blurb reworded in one
+place and not the others fails the suite.
 
 ## CI
 

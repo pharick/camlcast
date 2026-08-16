@@ -24,7 +24,7 @@ type t = {
   name : string;  (** the argument to [camlcast-demo] *)
   blurb : string;
       (** one line, for the listing. README.md's table and [doc/demo/index.mld]
-          copy it verbatim. *)
+          copy it verbatim, and [test_demos] checks that they still do. *)
   world : World.t Lazy.t;
       (** the starting world; [endless] then grows it.
 

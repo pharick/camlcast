@@ -427,9 +427,9 @@ let lifting_it_over_the_wall_reveals_more () =
 let a_sprite_through_a_doorway_is_trimmed_to_the_opening () =
   (* {!Support.two_rooms} is two 4 x 4 rooms joined by a doorway one cell wide,
      with the transform between them a translation by (-4, 0). So a sprite at
-     (6, 2) of the second room's frame stands four cells straight ahead of a
-     player at (2, 2) of the first. At two and a half cells across, it is wider
-     than the opening it is seen through. *)
+     (2, 2) of the second room's own frame stands at (6, 2) of the first, four
+     cells straight ahead of a player at (2, 2). At two and a half cells across,
+     it is wider than the opening it is seen through. *)
   let looking = Player.make ~room:0 ~pos:centre ~angle:0. in
   let sprite = Room.sprite ~size:2.5 ~image:square (Vec.make 2. 2.) in
   let second = World.room two_rooms 1 in
