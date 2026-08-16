@@ -510,7 +510,7 @@ let prove font =
    bindings, so Escape has to be said again too: Controls.default was the
    layer saying it for you. F3 still opens the map, and M joins it; walk a
    boundary's ticks with it up, and a wall wound wrong points its tick out
-   of the room. ~map:[] is a game that has stopped wanting a map at all. *)
+   of the room. ~map:[] removes the map entirely. *)
 let controls =
   let hold key weight =
     { Binding.source = Binding.Hold (Input.Key key); weight }

@@ -3,8 +3,8 @@
 
    New here: Hook.use_effect, the one place a component reaches outside the
    description. The game logs the gate grinding open when that state changes;
-   the wisp announces itself once on mount and says goodbye from its cleanup
-   — which runs when the open gate frees it and it leaves the tree. *)
+   the wisp logs a line once on mount and another from its cleanup — which
+   runs when the open gate frees it and it leaves the tree. *)
 
 open Camlcast
 

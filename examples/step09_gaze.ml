@@ -1,11 +1,11 @@
 (* Step 9 of doc/making-a-game.mld — "Being looked at". The guide quotes
    only what each step adds; this file is the whole game as of this step.
 
-   New here: the torches answer the eye. on_gaze lifts a faint glow while the
-   crosshair rests on one, and on_use — E, out of the box — lights it, but
-   only within reach: the crosshair sees as far as the picture does, and how
-   far a hand reaches is the game's own rule. A crosshair joins the HUD so
-   there is something to aim with. *)
+   New here: the torches respond to being looked at. on_gaze lifts a faint
+   glow while the crosshair rests on one, and on_use — E, out of the box —
+   lights it, but only within reach: the crosshair sees as far as the picture
+   does, and how far a hand reaches is the game's own rule. A crosshair joins
+   the HUD so there is something to aim with. *)
 
 open Camlcast
 

@@ -2,7 +2,7 @@
    each step adds; this file is the whole game as of this step.
 
    New here: P.polygon. It hands back corners, not walls, so a pillar is a
-   boundary like any other and the winding is still not your problem. *)
+   boundary like any other and the winding is still handled automatically. *)
 
 open Camlcast
 
