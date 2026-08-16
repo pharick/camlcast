@@ -46,10 +46,10 @@ let of_rooms rooms =
        (fun (walls, sprites, thresholds) -> { walls; sprites; thresholds })
        rooms)
 
-(* Guarded rather than trusted at every step. A Sight is cast against the world
-   a frame was drawn from, and this is built from the same one, so they agree —
-   but a world that grew between the two would disagree by an index, and a frame
-   out of date is not a reason to stop. *)
+(* Bounds-checked rather than trusted. A Sight is cast against the world a
+   frame was drawn from, and this table is built from the same world, so
+   indices normally agree. If the world grew between the two, an index could be
+   out of range, and a stale frame must not raise. *)
 let at array index =
   if index >= 0 && index < Array.length array then array.(index) else None
 
@@ -85,17 +85,16 @@ let leaving t path =
               | None -> matching room.thresholds)))
     None t
 
-(* The cast comes in rather than being made here. It is one ray, and one ray is
-   nothing beside a frame — but the loop wants the same answer for a second
-   purpose, and casting it twice would leave two answers to one question that
-   nothing guarantees agree. *)
+(* The cast is passed in rather than made here. One ray is cheap next to a
+   frame, but the loop uses the same cast for a second purpose, and casting
+   twice would give two results that nothing guarantees agree. *)
 let crosshair t ~sight ~was ~used =
   let reaction = Option.bind sight (find t) in
   let now = Option.map (fun r -> r.path) reaction in
   if not (Option.equal Camlcast_loom.Path.equal was now) then begin
-    (* The one losing it first. Only the path was kept, so the leaving one is
-       found by looking it up again — the world it was found in has been rebuilt
-       since, and its indices have moved. *)
+    (* Notify the reaction losing gaze first. Only the path was kept, so the
+       leaving reaction is looked up again by path: the world it was found in
+       has been rebuilt since, and its indices have moved. *)
     (match was with
     | Some path -> (
         match leaving t path with Some on_gaze -> on_gaze false | None -> ())
@@ -142,8 +141,9 @@ let ring world player ~width ~height =
       in
       let near = at (decal.Room.along -. decal.Room.half_width)
       and far = at (decal.Room.along +. decal.Room.half_width) in
-      (* A decal hangs above the floor under the wall, so on a sloped one its two
-         ends are at different elevations — measured at each end, not once. *)
+      (* A decal hangs above the floor under the wall, so on a sloped floor its
+         two ends are at different elevations. Elevation is measured at each
+         end, not once. *)
       let corner point up =
         let foot = Plane.elevation (Room.floor_plane there) point in
         Viewport.project_point viewport pose ~point

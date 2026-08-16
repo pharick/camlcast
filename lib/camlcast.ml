@@ -1,8 +1,8 @@
 (* Implementation of {!Camlcast}; the interface carries the prose.
 
-   Nothing but aliases. This file exists to be the library's one visible module,
-   which is what makes everything it does not mention unreachable — see
-   lib/dune for why that is the point rather than a side effect. *)
+   Aliases only. This file is the library's one visible module, so everything
+   it does not mention is unreachable. See lib/dune: that is deliberate, not a
+   side effect. *)
 
 module P = P
 module Element = Camlcast_loom.Element

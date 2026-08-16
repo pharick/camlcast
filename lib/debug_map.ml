@@ -1,5 +1,4 @@
-(* Implementation of {!Camlcast.Debug_map}; the interface carries the
-   prose. *)
+(* Implementation of {!Camlcast.Debug_map}; the interface carries the prose. *)
 
 open Camlcast_core
 
@@ -13,8 +12,8 @@ let eye = Color.rgb 255 220 120
 let mark_error = Color.rgb 255 60 60
 let mark_warning = Color.rgb 255 190 60
 
-(* A tick this long in world units, so it stays the same length on the map
-   whatever the room's size — which is what makes a row of them readable as a
+(* Tick length in world units, so it stays the same length on the map whatever
+   the room's size. Uniform length is what makes a row of ticks readable as a
    direction rather than as a fringe. *)
 let normal_tick = 0.45
 let margin = 8
@@ -27,8 +26,8 @@ let panel buffer =
   (margin, margin, side, side)
 
 (* Every point the map has to fit: the boundary and the openings in it. Sprites
-   are deliberately left out of the measurement — a mote drifting far from the
-   room would shrink everything else to fit it in. *)
+   are deliberately left out of the measurement, because a small sprite
+   drifting far from the room would shrink everything else to fit it in. *)
 let bounds room =
   let corners = ref [] in
   for index = 0 to Room.wall_count room - 1 do
@@ -100,9 +99,10 @@ let draw buffer world player diagnostics =
       for index = 0 to Room.wall_count room - 1 do
         let wall = Room.wall_at room index in
         segment wall.Room.a wall.Room.b ~color:wall_ink;
-        (* The tick is the whole reason to draw this from above: it points the
-           way the wall faces, and a boundary wound the wrong way round is a
-           row of them pointing out of the room instead of into it. *)
+        (* The tick is the whole reason to draw the room from above: it points
+           the way the wall faces, and a boundary wound the wrong way round
+           shows as a row of ticks pointing out of the room instead of into
+           it. *)
         let middle = Vec.scale (Vec.add wall.Room.a wall.Room.b) 0.5 in
         segment middle
           (Vec.add middle (Vec.scale wall.Room.normal normal_tick))

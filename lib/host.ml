@@ -10,8 +10,8 @@ exception Malformed of string
 let node_path (node : prim Camlcast_loom.Host.node) =
   Camlcast_loom.Path.to_string node.Camlcast_loom.Host.path
 
-(* The offence is {!Prim}'s to word, the path is this one's to prefix: Check
-   carries the path in a field of its own and this has only the one line. *)
+(* {!Prim} words the offence; this module prefixes the path. Check carries the
+   path in a field of its own, while this has only the one line. *)
 let unexpected ~parent (node : prim Camlcast_loom.Host.node) =
   raise
     (Malformed
@@ -19,19 +19,19 @@ let unexpected ~parent (node : prim Camlcast_loom.Host.node) =
           (Prim.misplaced ~child:node.Camlcast_loom.Host.prim ~parent)))
 
 (* Both readers of the nesting rule ask {!Nesting} for it rather than each
-   walking the tree their own way: this one to refuse the first thing out of
-   place, Check to collect every one of them with the component that wrote it.
+   walking the tree their own way: this one refuses the first thing out of
+   place, Check collects every one of them with the component that wrote it.
    One pass over the whole description, before any of it is built, because a
-   rule applied in the places assembly happens to visit is a rule with holes in
-   it — which is what this was. *)
+   rule applied only in the places assembly happens to visit has holes in it.
+   This code previously had that bug. *)
 let refuse_strangers ~parent (node : prim Camlcast_loom.Host.node) =
   match Nesting.misplaced ~parent node with
   | [] -> ()
   | (child, parent) :: _ -> unexpected ~parent child
 
-(* A wall's decals are its children, because they are the one thing that has to
-   be in hand before {!Room.wall} can be called at all. Their placing was
-   settled by the pass above. *)
+(* A wall's decals are its children, because they are the one thing that must
+   be collected before {!Room.wall} can be called at all. Their placing was
+   validated by the pass above. *)
 let decals_of (node : prim Camlcast_loom.Host.node) =
   List.filter_map
     (fun (child : prim Camlcast_loom.Host.node) ->
@@ -40,10 +40,10 @@ let decals_of (node : prim Camlcast_loom.Host.node) =
       | _ -> None)
     node.Camlcast_loom.Host.children
 
-(* Flattened in the order they were written, so the last one written is the last
-   one drawn and therefore the one on top. Nesting is allowed and means nothing
-   but grouping: a component that returns three labels as one thing should not
-   have to say where each of them goes relative to the others twice. *)
+(* Flattened in the order they were written, so the last one written is the
+   last one drawn and therefore the one on top. Nesting is allowed and means
+   only grouping: a component that returns three labels as one thing should not
+   have to state where each goes relative to the others twice. *)
 let rec collect_hud (node : prim Camlcast_loom.Host.node) =
   List.concat_map
     (fun (child : prim Camlcast_loom.Host.node) ->
@@ -52,7 +52,7 @@ let rec collect_hud (node : prim Camlcast_loom.Host.node) =
       | item -> item :: collect_hud child)
     node.Camlcast_loom.Host.children
 
-(* Nothing where a thing asked for nothing, so a world full of scenery costs an
+(* None when neither handler was given, so a world full of scenery costs an
    array of Nones rather than a closure each. *)
 let reaction_of (node : prim Camlcast_loom.Host.node) (r : Prim.reacts) =
   match (r.Prim.on_gaze, r.Prim.on_use) with
@@ -62,10 +62,10 @@ let reaction_of (node : prim Camlcast_loom.Host.node) (r : Prim.reacts) =
 
 let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
   (* Accumulated reversed and reversed back, so that each list reaches
-     {!Room.make} in the order the game wrote it. That order is not cosmetic: a
-     wall's index is what {!Sight} reports and what a decal is added by, and a
-     threshold's is what a portal runs parallel to — and it is what the arrays
-     of reactions beside them are found by. *)
+     {!Room.make} in the order the game wrote it. That order is not cosmetic.
+     A wall's index is what {!Sight} reports and what a decal is added by, and
+     a threshold's is what a portal runs parallel to. The same indices are how
+     the arrays of reactions beside them are found. *)
   let walls = ref [] and thresholds = ref [] and sprites = ref [] in
   let wall_reacts = ref []
   and threshold_reacts = ref []
@@ -145,13 +145,13 @@ let assemble nodes =
         targets;
       }
   (* These two say something different from {!Check}'s, and unlike the pair
-     above that is about the shape of the report rather than about the words.
-     Check has a summary and a detail: it spends the first on what it found
-     ("there is no world here") and the second on the rule. This has one line
-     and no room for both, so it spends it on the rule, which is the half that
-     tells someone what to do. The offence with a primitive in it — a wall where
-     the world should be — is {!Prim.not_a_world} on both sides, because there
-     the sentence really was the same sentence twice. *)
+     above the difference comes from the shape of the report rather than from
+     the words. Check has a summary and a detail: it spends the first on what
+     it found ("there is no world here") and the second on the rule. This has
+     one line and no room for both, so it spends it on the rule, the half that
+     tells someone what to do. The offence with a primitive in it, a wall
+     where the world should be, is {!Prim.not_a_world} on both sides, because
+     there one sentence serves both. *)
   | [] -> raise (Malformed "a description has to have a world in it")
   | [ node ] ->
       raise

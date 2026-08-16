@@ -15,8 +15,8 @@ let default =
     map = [ Input.Key Key.f3 ];
   }
 
-(* Defaulted from {!default}'s own fields rather than from constants repeated
-   here, so that the two cannot come to disagree about what E is for. *)
+(* Defaults come from {!default}'s fields rather than from constants repeated
+   here, so the two cannot disagree about what E is bound to. *)
 let make ?(bindings = default.bindings) ?(use = default.use)
     ?(map = default.map) () =
   { bindings; use; map }

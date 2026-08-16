@@ -59,35 +59,37 @@ let finish = E.prim Prim.Finish
 let link here there = E.prim (Prim.Link { here; there })
 
 (* Room.wall is private, so a wall the engine built can be read back out and
-   handed to the same Wall primitive a game writes by hand, rather than needing
-   a second kind of wall for the two.
+   handed to the same Wall primitive a game writes by hand. No second kind of
+   wall is needed for the two.
 
-   It does not carry decals over, and its one caller is {!doorway}, whose jambs
-   come from {!Room.doorway} and never have any. Anything that did would lose
-   them here without a word, so if a second caller ever appears this needs the
-   [?decals] it does not currently pass. *)
+   It does not carry decals over. Its one caller is {!doorway}, whose jambs
+   come from {!Room.doorway} and never have any. Any wall that did have decals
+   would lose them here silently, so if a second caller ever appears this needs
+   the [?decals] it does not currently pass. *)
 let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
 
 (* The same arithmetic Room.doorway does to place its opening. Written once
-   there and read back here rather than restated, so the two cannot disagree
-   about where a doorway is.
+   there and called here rather than restated, so the two cannot disagree about
+   where a doorway is.
 
-   Which this said before it was true. It restated the arithmetic, and restated
-   the version Room.doorway had already stopped using — out from the middle
-   rather than in from the ends — so on an oblique wall the two put a full-width
-   opening 6.21e-17 apart, and a description building its own jambs from these
-   points got back the invisible blocker Room.cut_points exists to avoid. *)
+   This comment claimed that before it was true. The code restated the
+   arithmetic, and restated the version Room.doorway had already stopped
+   using: out from the middle rather than in from the ends. On an oblique wall
+   the two put a full-width opening 6.21e-17 apart, and a description building
+   its own jambs from these points got back the invisible blocker
+   Room.cut_points exists to avoid. *)
 let opening ~width a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in
-  (* The same three refusals {!Room.doorway} makes, in the words of the function
-     that was actually called. Without them the division below is a nan, and a
-     nan travels: it comes back as a transform that will not invert or a doorway
-     whose ends meet nothing, a long way from the pair of points that was
-     wrong. Negated, so a nan argument is refused with the degenerate ones —
-     and measured as {!Room.doorway} measures it, {!Vec.normalizable} rather
-     than merely positive, so a span only a subnormal long is refused here, in
-     these words, and not by some construction later in the geometry's. *)
+  (* The same three refusals {!Room.doorway} makes, worded with the name of the
+     function that was actually called. Without them the division below is a
+     nan, and a nan propagates: it surfaces as a transform that will not invert
+     or a doorway whose ends meet nothing, far from the pair of points that was
+     wrong. The conditions are negated so a nan argument is refused with the
+     degenerate ones. The span is measured as {!Room.doorway} measures it,
+     {!Vec.normalizable} rather than merely positive, so a span only a
+     subnormal long is refused here, in these words, and not by some later
+     construction in the geometry. *)
   if not (Vec.normalizable span) then
     invalid_arg "P.opening: no wall to cut an opening into";
   if not (Float.is_finite width && width > 0.) then
@@ -106,9 +108,9 @@ let threshold ?key ?door ?lintel ?on_gaze ?on_use ~name ~height a b =
          reacts ?on_gaze ?on_use () ))
 
 (* Twice the signed area, by the shoelace sum. Positive is the winding
-   Room.rectangle produces, and Room.rectangle is the one boundary the engine
-   documents as impossible to get wrong — so it is the definition to measure
-   against rather than a rule restated here and left to drift from it. *)
+   Room.rectangle produces. Room.rectangle is the one boundary the engine
+   documents as impossible to get wrong, so it is the definition to measure
+   against rather than a rule restated here that could drift from it. *)
 let twice_signed_area points =
   let rec go total = function
     | (p : Vec.t) :: ((q : Vec.t) :: _ as rest) ->
@@ -161,12 +163,13 @@ let polygon ~center ~radius ~sides ~rotation =
 
 let boundary ?key ?(closed = true) ~height ~material corners =
   let points = List.map (fun c -> c.at) corners in
-  (* Refused by the same call {!outline} and {!path} are refused by, so a run of
-     two identical corners or a closed one of two says what it has always said,
-     under a name a caller wrote. The walls it builds are discarded: they carry
-     one material and one height, which is the whole of what this exists not to
-     do. That is a handful of vectors normalised per run per frame, which is
-     what {!outline} already pays to build the walls it keeps. *)
+  (* Validated by the same call that refuses {!outline} and {!path}, so a run
+     of two identical corners, or a closed one of two, gets the established
+     message, under a name a caller wrote. The walls the call builds are
+     discarded: they carry one material and one height, and avoiding that
+     limit is the point of this function. The cost is a handful of vectors
+     normalised per run per frame, which {!outline} already pays to build the
+     walls it keeps. *)
   ignore (Room.path ~closed ~height ~material points : Room.wall list);
   (match List.rev corners with
   | last :: _ when (not closed) && not (bare last.leg) ->
@@ -175,19 +178,19 @@ let boundary ?key ?(closed = true) ~height ~material corners =
          carry nothing"
   | _ -> ());
   let written = legs ~closed corners in
-  (* One reversal, and each wall flipped with it, so a leg stays on the wall its
+  (* One reversal, with each wall flipped, so a leg stays on the wall its
      corner named however the run came out wound. Reversing the corners and
-     letting the legs travel with them is the same thing off by one — a leg
+     letting the legs travel with them is the same thing off by one: a leg
      describes the wall it {e leaves}, and after a reversal that is the wall it
      arrives by. *)
   let laid =
     if twice_signed_area points >= 0. then written
     else
-      (* Each wall flipped, and the traversal reversed — except that a closed
-         run's last wall is the one that shuts the loop, and it shuts it at
-         either winding, so it stays last. Reversing the whole list instead
-         leaves the same walls rotated by one, which builds the same room and
-         puts every leg on its neighbour. *)
+      (* Each wall flipped, and the traversal reversed, except that a closed
+         run's last wall is the one that closes the loop at either winding, so
+         it stays last. Reversing the whole list instead leaves the same walls
+         rotated by one, which builds the same room and puts every leg on its
+         neighbour. *)
       let flipped = List.map (fun (a, b, leg) -> (b, a, leg)) written in
       match List.rev flipped with
       | closing :: rest when closed -> rest @ [ closing ]
@@ -208,10 +211,10 @@ let doorway ?key ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material
   let jambs, threshold =
     Room.doorway ?door ~name ~width ~opening ~height ~material a b
   in
-  (* The handlers go on the opening and not on the jambs either side of it: what
-     a player aims at to work a door is the door. The key goes on the fragment
-     over the pair of them, because what a game rearranges is the doorway and
-     there is no one primitive here that is it. *)
+  (* The handlers go on the opening and not on the jambs either side of it,
+     because what a player aims at to operate a door is the door. The key goes
+     on the fragment over the pair of them, because a game rearranges the
+     doorway as a whole and no single primitive here is the doorway. *)
   E.fragment ?key
     (List.map of_wall jambs
     @ [ E.prim (Prim.Threshold (threshold, reacts ?on_gaze ?on_use ())) ])

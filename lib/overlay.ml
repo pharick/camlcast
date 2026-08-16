@@ -1,5 +1,4 @@
-(* Implementation of {!Camlcast.Overlay}; the interface carries the
-   prose. *)
+(* Implementation of {!Camlcast.Overlay}; the interface carries the prose. *)
 
 open Camlcast_core
 

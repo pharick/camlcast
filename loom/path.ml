@@ -13,14 +13,15 @@ let root = { rev = []; depth = 0 }
 let child parent ?key ?name index =
   { rev = { index; key; name } :: parent.rev; depth = parent.depth + 1 }
 
-(* Outermost first, which is the order a person reads a path in and the reverse
-   of the order it is built in. Not exported: the two spellings below are the
-   only things that want the chain, and handing a copy out invites a caller to
-   walk it rather than to ask {!equal}. *)
+(* Outermost first: the order a path is read in, and the reverse of the order
+   it is built in. Not exported, because only the two printers below need the
+   list and exporting a copy would encourage callers to walk it instead of
+   using {!equal}. *)
 let steps t = List.rev t.rev
 
-(* A keyed step is its key and an unkeyed one is its index; a keyed step and an
-   unkeyed one are never the same place, even should the numbers line up. *)
+(* A keyed step is identified by its key, an unkeyed one by its index. A keyed
+   step and an unkeyed one are never the same place, even if the numbers
+   match. *)
 let same_step a b =
   match (a.key, b.key) with
   | Some ka, Some kb -> String.equal ka kb
@@ -41,18 +42,18 @@ let to_string t =
   | [] -> "(root)"
   | shown -> String.concat " / " shown
 
-(* A key is dropped-index enough on its own: it says which of its siblings this
-   is, and says it in the terms the matching actually uses, so two steps under
-   one parent cannot share one. Without a key the index is the only thing that
-   tells siblings apart, and it is printed whether or not the step is named.
+(* A key alone is enough to drop the index: it identifies which sibling this
+   is, in the terms the matching actually uses, and two steps under one parent
+   cannot share a key. Without a key the index is the only thing that tells
+   siblings apart, so it is printed whether or not the step is named.
 
-   The name alone is not enough, which is what this used to print. Two unkeyed
-   siblings of one component — [torch (); torch ()], the ordinary way to write
-   two of a thing — are two different places with one name between them, and
-   printing them alike broke the one promise this spelling makes over
-   {!to_string}. It is the promise the whole second spelling exists for: a trace
-   that says [mount torch] twice has told you nothing about which, and
-   {!Hook_order_changed} naming [torch] sends a reader to look at both. *)
+   The name alone is not enough, though this used to print only it. Two
+   unkeyed siblings of one component — [torch (); torch ()], the ordinary way
+   to write two of a thing — are two different places sharing one name.
+   Printing them alike broke the one promise this spelling makes over
+   {!to_string}, the promise the second spelling exists for: a trace that says
+   [mount torch] twice does not say which, and a {!Hook_order_changed} naming
+   [torch] sends the reader to look at both. *)
 let debug_step step =
   let index = "#" ^ string_of_int step.index in
   match (step.name, step.key) with

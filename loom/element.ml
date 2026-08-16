@@ -4,10 +4,10 @@ exception Duplicate_key of { at : string; key : string }
 exception Render_refused of { at : string; message : string }
 
 (* Without this the default printer puts the path and the message inside a
-   constructor — Render_refused("#0/Hall", "Room.doorway: ...") — which is
-   further from readable than the bare Invalid_argument it replaced. A game that
-   does not run this through Check meets it as the line that stops the program,
-   so it is worth the four lines to have it read like one. *)
+   constructor: Render_refused("#0/Hall", "Room.doorway: ..."). That is less
+   readable than the bare Invalid_argument it replaced. A game that does not
+   run this through Check sees the exception as the line that stops the
+   program, so the four lines of printer are worth having it read as one. *)
 let () =
   Printexc.register_printer (function
     | Render_refused { at; message } -> Some (at ^ ": " ^ message)
@@ -35,10 +35,10 @@ let provide context value children =
 let prim ?key ?(children = []) prim = Prim { prim; key; children }
 let component ?key ~name render props = Component { render; props; key; name }
 
-(* [render] is captured once, when this is called, and every element the
-   returned function makes carries that same closure. That is what the
-   reconciler compares, so it is what makes a component keep its identity —
-   and its state — from one frame to the next. *)
+(* [render] is captured once, when this is called. Every element the returned
+   function makes carries that same closure. The reconciler compares that
+   closure, so it is what preserves a component's identity, and its state,
+   from one frame to the next. *)
 let declare ~name render ?key props = Component { render; props; key; name }
 
 let key = function

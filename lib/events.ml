@@ -26,9 +26,9 @@ let still =
     actions = Input.untouched;
     crossings = [];
     aim = None;
-    (* The engine's own initial window, put through the same rule the loop
-       would, so a description rendered outside a run measures itself against
-       something real rather than against nothing. *)
+    (* The engine's own initial window size, put through the same rule the loop
+       applies, so a description rendered outside a run measures against a real
+       size rather than against nothing. *)
     viewport =
       Renderer.internal_size ~width:Config.initial_width
         ~height:Config.initial_height;
@@ -41,10 +41,10 @@ let use_actions () = (use ()).actions
 let use_viewport () = (use ()).viewport
 let use_aim () = (use ()).aim
 
-(* Deps that are never equal, so the effect is torn down and set up again every
-   frame. That is the plain way to say "after each frame" in terms of the one
-   hook that runs after a frame at all, and it costs one comparison that always
-   answers the same way. *)
+(* Deps that never compare equal, so the effect is torn down and set up again
+   every frame. That expresses "after each frame" in terms of the one hook that
+   runs after a frame at all, and it costs one comparison that always answers
+   the same way. *)
 let after_every_frame work =
   Loom.Hook.use_effect ~equal:(fun _ _ -> false) ~deps:() work
 

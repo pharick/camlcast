@@ -3,16 +3,16 @@
 open Camlcast_core
 
 (* The scene is kept beside the player because the loop asks for the next state
-   before it asks what to draw, and moving the player needs a world to be
-   refused by. So a frame renders the description in [update] and [view] only
-   hands over what it found — which also means the world collision is resolved
-   against is the world the frame is drawn from, rather than the one before it.
+   before it asks what to draw, and moving the player needs a world to collide
+   with. So [update] renders the description and [view] only hands over the
+   result. Collision is therefore resolved against the world the frame is
+   drawn from, rather than the one before it.
 
-   The map and what it has to say live here for the same reason: the loop hands
-   this state to the overlay, so a frame draws the map of the world it decided
-   on rather than of whatever a ref happened to be holding. *)
-(* Indices out, names in: a doorway is what the description called it, not what
-   assembling the description happened to number it. *)
+   The map flag and its diagnostics live here for the same reason: the loop
+   hands this state to the overlay, so a frame draws the map of the world it
+   decided on rather than of whatever a ref happened to be holding. *)
+(* Names go out, not indices: a doorway is reported by the name the description
+   gave it, not by the number assembling the description assigned it. *)
 let crossings_of (scene : Scene.t) (movement : Player.movement) =
   let world = scene.Scene.world in
   let doorway room threshold =
@@ -55,9 +55,9 @@ type frame = {
   map : bool;
   found : Check.t list;
   (* What the crosshair was on last frame, by path rather than by index: a room
-     is rebuilt every frame and its indices move, and being looked at has to
-     survive that. This is the whole of what makes an enter and a leave possible
-     rather than a poll. *)
+     is rebuilt every frame and its indices move, and gaze state has to survive
+     that. This stored path is what makes an enter and a leave possible rather
+     than a poll. *)
   gazed : Camlcast_loom.Path.t option;
 }
 
@@ -69,14 +69,14 @@ let with_window = Engine.with_window
 let on window ?(controls = Controls.default) description =
   let mount = Mount.create () in
   (* Everything below is inside the mount's lifetime, the first render included:
-     a run that ends, and a run that never got started because the first
-     description was refused, owe the same cleanups. This sits inside
-     {!with_window}, so what an effect took while there was a window is given
-     back while there still is one. *)
+     a run that ends, and a run that never started because the first
+     description was refused, need the same cleanups. This sits inside
+     {!with_window}, so resources an effect took while there was a window are
+     released while there still is one. *)
   Fun.protect ~finally:(fun () -> Mount.destroy mount) @@ fun () ->
-  (* The frame is bound around the description rather than pushed into it, so a
-     component reads time and input by asking rather than by having them handed
-     down through every parent between it and here. *)
+  (* The frame is provided as context around the description rather than passed
+     into it, so a component reads time and input from the context instead of
+     having them threaded through every parent between it and here. *)
   let render frame =
     Mount.render mount
       (Camlcast_loom.Element.provide Events.context frame [ description ])
@@ -98,15 +98,16 @@ let on window ?(controls = Controls.default) description =
           viewport = !viewport;
         }
     in
-    (* No separate "is there a map at all": a game that has stopped wanting one
-       binds it to nothing, and nothing is never taken. *)
+    (* No separate map-enabled flag: a game that does not want a map binds the
+       control to an empty list, and an empty binding is never taken. *)
     let map = state.map <> Binding.taken controls.Controls.map actions in
-    (* Controlled or not, exactly as a text input is: a description that says
-       where the eye is gets it there, and one that does not is walked. The
-       controls are not applied to a camera the description is placing, since a
-       walk it never asked for would fight it every frame. *)
-    (* Engine.move rather than Engine.step, which is the same walk with the
-       crossings thrown away. A description that wants to know where it has been
+    (* The camera is controlled or uncontrolled, exactly as a text input is: a
+       description that places the eye has it placed, and one that does not
+       gets the walked player. The controls are not applied to a camera the
+       description is placing, because a walk it never asked for would conflict
+       with the placement every frame. *)
+    (* Engine.move rather than Engine.step; step is the same walk with the
+       crossings discarded. A description that wants to know where it has been
        needs them, and nothing else in the frame does. *)
     let player, crossings =
       match scene.Scene.camera with
@@ -119,48 +120,48 @@ let on window ?(controls = Controls.default) description =
           in
           (movement.Player.player, crossings_of scene movement)
     in
-    (* One cast, here, where the frame holds the world it settled on and the
-       player it settled them at. Two things want it — whatever it lands on has
-       to be told, and a description wants it as a value — and casting it once
-       is what makes those two the same answer rather than two answers taken a
-       few lines apart. *)
+    (* One cast, made here, where the frame holds the world it settled on and
+       the player it settled on. Two consumers want it: whatever it lands on
+       has to be told, and a description wants it as a value. Casting it once
+       makes those two the same answer rather than two answers taken a few
+       lines apart. *)
     let sight = Sight.look scene.Scene.world player in
-    (* Whether the player is aiming this, which is what gaze and use are about.
-       They are not "something is under the middle of the screen"; they are the
-       player looking at a thing and working it, and there are two states where
-       the middle of the screen is not that.
+    (* Whether the player is aiming this frame, which is what gaze and use are
+       about. They are not "something is under the middle of the screen"; they
+       are the player looking at a thing and operating it, and there are two
+       states where the middle of the screen is not that.
 
-       Under {!P.cursor} the mouse is loose and does not turn the camera, so the
-       crosshair is wherever the view was left rather than anywhere the player
-       is pointing — a pause menu over a corridor, and the use key working the
-       door behind it. Under a placed camera the view is the description's: a
-       cutscene panning across a room would otherwise drag gaze enter and leave
-       over everything it swept past, and the use key would work whatever the
-       camera happened to be facing.
+       Under {!P.cursor} the mouse is released and does not turn the camera, so
+       the crosshair is wherever the view was left rather than anywhere the
+       player is pointing. Otherwise a pause menu over a corridor would let the
+       use key operate the door behind it. Under a placed camera the view is
+       the description's. Otherwise a cutscene panning across a room would fire
+       gaze enter and leave over everything it swept past, and the use key
+       would operate whatever the camera happened to be facing.
 
-       Suppressed by handing on no cast rather than by skipping the call. The
-       difference is the leave: whatever held the crosshair when the menu went up
-       is told it has lost it, and a highlight is not left burning behind a
-       description that has taken the screen. *)
+       Suppressed by handing on no cast rather than by skipping the call,
+       because only the call delivers the leave: whatever held the crosshair
+       when the menu went up is told it has lost it, so a highlight is not left
+       on behind a description that has taken the screen. *)
     let aiming = aiming scene in
-    (* Everything an interacting frame does is Aim.crosshair, so the loop keeps
-       no logic of its own that could only be tested through a window. *)
+    (* All of a frame's interaction logic is in Aim.crosshair, so the loop
+       keeps no logic of its own that could only be tested through a window. *)
     let looking =
       Aim.crosshair scene.Scene.targets
         ~sight:(if aiming then sight else None)
         ~was:state.gazed
         ~used:(aiming && Binding.taken controls.Controls.use actions)
     in
-    (* And the same cast as a value, for a description that shows something
-       about whatever is being looked at without the thing itself having to say
-       so. *)
+    (* The same cast exposed as a value, so a description can show something
+       about whatever is being looked at without the target itself having a
+       handler. *)
     let aim = Option.map Aim.spot_of sight in
     {
       scene;
       map;
-      (* Only while the map is up. Walking every wall of every room is nothing
-         beside drawing one, but it is also nothing anybody asked for when the
-         map is down. *)
+      (* Only while the map is up. Walking every wall of every room is cheap
+         next to drawing a room, but there is no reason to do it when the map
+         is down. *)
       found = (if map then Check.assembled scene.Scene.world else []);
       player;
       room = World.name scene.Scene.world player.Player.room;
@@ -174,18 +175,20 @@ let on window ?(controls = Controls.default) description =
   let pointing state = state.scene.Scene.pointing in
   let overlay buffer state =
     viewport := (buffer.Framebuffer.width, buffer.Framebuffer.height);
-    (* The ring is the telling half of the crosshair drawn, so it reads the
-       same answer the dispatch above reads: a frame under a cursor or a
-       placed camera highlights nothing, exactly as it tells nothing — the
-       door behind a pause menu is neither worked nor ringed. Withheld here
-       rather than inside {!Overlay.draw}, which has no scene to ask. *)
+    (* The ring is the drawn counterpart of the gaze dispatch, so it reads the
+       same answer the dispatch above reads: a frame under a cursor or a placed
+       camera highlights nothing, exactly as it dispatches nothing, and the
+       door behind a pause menu is neither operated nor ringed. Withheld here
+       rather than inside {!Overlay.draw} because Overlay.draw has no scene to
+       consult. *)
     Overlay.draw
       ?aim:
         (if aiming state.scene then Some (state.scene.Scene.world, state.player)
          else None)
       buffer state.scene.Scene.hud;
-    (* Over the game's own layer, because it is a thing you turn on to look
-       under what is there rather than a thing the game drew. *)
+    (* Drawn over the game's own layer, because the map is a debug view the
+       player toggles to inspect the scene rather than something the game
+       drew. *)
     if state.map then
       Debug_map.draw buffer state.scene.Scene.world state.player state.found
   in

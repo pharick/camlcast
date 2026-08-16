@@ -8,10 +8,10 @@ let make default = { id = Type.Id.make (); default }
 let default t = t.default
 let bind context value = Binding (context, value)
 
-(* [provably_equal] returns a proof rather than a boolean, and matching on that
-   proof is what lets [value] leave here at the type [wanted] was declared with.
-   No cast, and none available: without the witness there would be no way to
-   write this function at all. *)
+(* [provably_equal] returns a type-equality proof rather than a boolean.
+   Matching on the proof lets [value] be returned at the type [wanted] was
+   declared with. No cast is used, and none is available: without the witness
+   this function could not be written. *)
 let rec find : type a. binding list -> a t -> a option =
  fun bindings wanted ->
   match bindings with

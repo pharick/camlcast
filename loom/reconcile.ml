@@ -5,18 +5,17 @@ module Make (H : Host.HOST) = struct
   type element = H.prim Element.t
 
   (* The tree that survives between frames. It mirrors the description that
-     built it, minus the props: nothing here needs them, because a component is
-     re-rendered from the new props and the old instance contributes its
-     identity and its slots.
+     built it, minus the props. Nothing here needs the props, because a
+     component is re-rendered from the new props while the old instance
+     contributes its identity and its slots.
 
-     [render_id] is that identity, and it is an [Obj.t] for a reason worth
-     stating. Two components' [render] functions have different types whenever
-     their props differ, so [==] cannot be applied to them directly; it would
-     not typecheck. [Obj.repr] erases the type and nothing else, and physical
-     equality on the result asks exactly the question meant — are these the same
-     closure? — without assuming anything about what is behind the pointer.
-     Nothing is ever cast back, which is what makes this a different and much
-     weaker use of [Obj] than the one in {!Hook}. *)
+     [render_id] is that identity, and it is an [Obj.t] because two
+     components' [render] functions have different types whenever their props
+     differ, so applying [==] to them directly would not typecheck. [Obj.repr]
+     erases the type and nothing else. Physical equality on the result asks
+     exactly the intended question — same closure? — without assuming anything
+     about what is behind the pointer. Nothing is ever cast back, which makes
+     this a different and much weaker use of [Obj] than the one in {!Hook}. *)
   type instance =
     | Nothing
     | Fragment of {
@@ -40,9 +39,9 @@ module Make (H : Host.HOST) = struct
         child : instance;
       }
 
-  (* What every step of a reconciliation needs to hand along: where to report
-     what it did, where to queue work that has to wait for the commit, and how
-     to say that a setter has been called. *)
+  (* Passed along every step of a reconciliation: where to report events,
+     where to queue work that has to wait for the commit, and how to signal
+     that a setter has been called. *)
   type context = {
     trace : (H.prim Trace.event -> unit) option;
     pending : Hook.Runtime.pending;
@@ -60,17 +59,17 @@ module Make (H : Host.HOST) = struct
 
   let dirty root = root.dirty
 
-  (* Asked before an event is built, and not only before it is delivered.
-     OCaml is strict, so [emit context (Trace.Updated (path, node))] allocates
-     both blocks whatever [emit] then decides — five words a node a frame, which
-     for a two-hundred-component tree measured at 2030 words against a
-     reconcile of 66987, or three percent, paid by every game whether it traces
-     or not. {!Trace} says it costs nothing untraced; this is what makes that
-     true.
+  (* Checked before an event is built, not only before it is delivered. OCaml
+     is strict, so [emit context (Trace.Updated (path, node))] allocates both
+     blocks whatever [emit] then does: five words per node per frame. For a
+     two-hundred-component tree that measured 2030 words against a reconcile
+     of 66987, about three percent, paid by every game whether it traces or
+     not. {!Trace} claims tracing costs nothing when off; this check is what
+     makes that true.
 
-     A thunk would not: [fun () -> Trace.Updated (path, node)] captures the same
-     two values and comes to the same five words. Measured, and it came to the
-     same 66987 to the word. *)
+     A thunk would not help: [fun () -> Trace.Updated (path, node)] captures
+     the same two values and costs the same five words. Measured, it came to
+     the same 66987 to the word. *)
   let watched context = Option.is_some context.trace
 
   let emit context event =
@@ -84,8 +83,8 @@ module Make (H : Host.HOST) = struct
     Path.child parent ?key:(Element.key element) ?name:(Element.name element)
       index
 
-  (* Children first, then the node itself: the deepest thing goes first, which
-     is also the order its cleanups are owed in. *)
+  (* Children first, then the node itself: deepest first, which is also the
+     order the cleanups are owed in. *)
   let rec unmount ~context instance =
     match instance with
     | Nothing -> ()
@@ -236,17 +235,18 @@ module Make (H : Host.HOST) = struct
     Hook.Runtime.run ~slots ~pending:context.pending ~at ~env
       ~invalidate:context.invalidate (fun () ->
         (* Where a refusal picks up the name of what was refused. A primitive
-           says invalid_arg when it will not take what it was handed, and it
-           cannot say more than that: it is a function that knows a width and a
-           wall and has never heard of the tree. This is the one place a
-           component's function is called, and so the only frame in which the
-           path is that component's rather than whatever is walked next — hence
-           the translation happens here and not in the handler at the top of
-           {!render}, which by then has lost it.
+           says invalid_arg when it rejects what it was handed, and it cannot
+           say more: it is a function that knows a width and a wall and
+           nothing about the tree. This is the one place a component's
+           function is called, so the only frame in which the path is that
+           component's rather than whatever is walked next. The translation
+           therefore happens here and not in the handler at the top of
+           {!render}, which by then has lost the path.
 
-           Only Invalid_argument, and see {!Element.Render_refused}: it is the
-           channel a primitive refuses through, and re-raising anything else
-           would be this claiming to explain exceptions that are not its own. *)
+           Only Invalid_argument is translated; see {!Element.Render_refused}.
+           It is the channel a primitive refuses through, and re-wrapping
+           anything else would claim to explain exceptions that are not this
+           channel's own. *)
         try render props
         with Invalid_argument message ->
           let backtrace = Printexc.get_raw_backtrace () in
@@ -268,12 +268,12 @@ module Make (H : Host.HOST) = struct
         | Some key -> Hashtbl.replace keyed key index
         | None -> ())
       olds;
-    (* An unkeyed child is claimed where it stands and nowhere else, which is
-       {!Path}'s rule seen from this end: a keyed step is its key and an unkeyed
-       one is its index. Compacting past the keyed siblings instead — taking the
-       next unkeyed one wherever it had got to — would carry state across a move
-       that the path does not survive, so the reconciler and the path would
-       disagree about which child this is. *)
+    (* An unkeyed child is claimed at its own index and nowhere else, which is
+       {!Path}'s rule seen from this end: a keyed step is its key and an
+       unkeyed one is its index. Compacting past the keyed siblings instead,
+       taking the next unclaimed unkeyed child wherever it sits, would carry
+       state across a move that the path does not survive. The reconciler and
+       the path would then disagree about which child this is. *)
     let take_at index =
       if index >= Array.length live then None
       else
@@ -293,9 +293,10 @@ module Make (H : Host.HOST) = struct
           claimed
     in
     (* Two siblings under one key would be two elements with one path, and a
-       path is what everything outside the runtime refers to a part of a
-       description by. Refused rather than resolved: whichever of the two the
-       matching happened to pick would be an answer nobody wrote down. *)
+       path is how everything outside the runtime refers to a part of a
+       description. Refused rather than resolved, because whichever of the two
+       the matching picked would be an arbitrary choice the game never
+       specified. *)
     let claimed_keys = Hashtbl.create 8 in
     let refuse_duplicate key =
       if Hashtbl.mem claimed_keys key then
@@ -353,27 +354,29 @@ module Make (H : Host.HOST) = struct
     with
     | tree, scene ->
         root.tree <- Some tree;
-        (* After the scene, never during a render: this is the seam where a
-           component is allowed to reach outside itself. *)
+        (* Flushed after the scene is assembled, never during a render: this
+           is the one point where a component is allowed to reach outside
+           itself. *)
         Hook.Runtime.flush root.pending;
         scene
     | exception refused ->
-        (* Caught to tidy up and not to handle, so it goes back out with the
-           backtrace it arrived with: this is the frame a game debugs from. *)
+        (* Caught only to clean up, not to handle. Re-raised with the
+           backtrace it arrived with, because that is the frame a game debugs
+           from. *)
         let backtrace = Printexc.get_raw_backtrace () in
-        (* Nothing here happened. The tree that queued this work was never
-           committed, so its setups are owed to no one, and the cleanups are
-           owed by components still standing in the tree that was kept. *)
+        (* The tree that queued this work was never committed, so its setups
+           are owed to no one, and the cleanups are owed by components still
+           present in the tree that was kept. *)
         Hook.Runtime.discard root.pending;
-        (* And a frame that was asked for before this one is still asked for. *)
+        (* A frame requested before this one is still requested. *)
         root.dirty <- owed || root.dirty;
-        (* Said, because the mounts and unmounts already reported cannot be. A
-           reader left without this has a trace that does not merely stop short:
-           a component this render said it unmounted is one the next render says
-           it updated, and updating something that was unmounted is the one
-           thing the reconciler promises never to do. Both lines are honest
-           about the walk and only the second is honest about the tree, and this
-           is where that parts. *)
+        (* Emitted because the mounts and unmounts already reported cannot be
+           retracted. Without this the trace does not merely stop short: a
+           component this render reported unmounted is one the next render
+           reports updated, and updating something that was unmounted is the
+           one thing the reconciler promises never to do. Both lines describe
+           the walk accurately; only the second describes the tree. This event
+           marks where they diverge. *)
         emit context Trace.Refused;
         Printexc.raise_with_backtrace refused backtrace
 
@@ -386,16 +389,16 @@ module Make (H : Host.HOST) = struct
        has nothing to walk: {!Hook.Runtime.on_unmount} reads a cleanup out of its cell
        without clearing it, and a row walked twice would owe it twice. *)
     root.tree <- None;
-    (* A frame asked for before this, by a tree that is now gone — or during
-       the flush, by a cleanup calling a setter on a row later in the queue
-       than its own. Nothing can ask for one after: the flush puts every row
-       out of the tree, and a setter on a row that has left says nothing to
-       the root — which is what keeps this [false] from being set back to
-       [true] by a timer that outlived the mount and left {!dirty} answering
-       yes with nothing left to render.
+    (* The flag may have been set before this call, by a tree that is now
+       gone, or during the flush, by a cleanup calling a setter on a row later
+       in the queue than its own. Nothing can set it after: the flush marks
+       every row as out of the tree, and a setter on a removed row does not
+       reach the root. That is what keeps this [false] from being set back to
+       [true] by a timer that outlived the mount, which would leave {!dirty}
+       answering yes with nothing left to render.
 
        Cleared in a [finally] rather than on the line after, because the flush
-       re-raises the first thing a cleanup raised, and a root that kept its
+       re-raises the first exception a cleanup raised. A root that kept its
        flag on that path would keep it for good: every row silenced, nothing
        left able to clear it, and {!dirty} answering yes forever about a root
        that no longer renders. *)

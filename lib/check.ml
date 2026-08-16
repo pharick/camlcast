@@ -39,13 +39,13 @@ let format = function
 let point (v : Vec.t) = Printf.sprintf "(%g, %g)" v.x v.y
 let near a b = Vec.length (Vec.sub a b) < 1e-6
 
-(* What counts as no step at all. A world that derives one room's floor from
-   its neighbour's with Plane.through means the two to meet exactly, and on a
-   sloped floor they come out a bit or two apart — the showcase level disagrees
-   with itself by 1.11e-16 across one doorway and is right. This is the
-   tolerance test/support.ml already calls close, and the demo suite has always
-   compared seams at it, so the two agree about zero by construction rather than
-   by coincidence. *)
+(* Threshold below which a seam gap counts as no step. A world that derives one
+   room's floor from its neighbour's with Plane.through intends the two to meet
+   exactly, but on a sloped floor they come out a bit or two apart: the
+   showcase level disagrees with itself by 1.11e-16 across one doorway and is
+   correct. This is the tolerance test/support.ml already calls close, and the
+   demo suite has always compared seams at it, so checker and tests agree about
+   zero by construction rather than by coincidence. *)
 let flat_enough = 1e-9
 
 let doorway_ends_meet_a_wall ~locate world room =
@@ -169,9 +169,9 @@ let assembled w = inspect ~locate:(World.name w) w
 
 (* {1 Reading a description}
 
-   The same reconciler, against a host that assembles nothing: the forest a
-   frame would have been built from, with every path still on it. That is the
-   whole of what a second host costs, and it is why the seam is one function. *)
+   The same reconciler, against a host that assembles nothing: the result is
+   the forest a frame would have been built from, with every path still on it.
+   The second host costs only the one [assemble] function below. *)
 
 module Forest = Loom.Reconcile.Make (struct
   type prim = Prim.t
@@ -240,9 +240,9 @@ let structure forest =
                   :: !rooms
             | Prim.Link { here; there } ->
                 links := (here, there, path_of child) :: !links
-            (* All of them, in the order they were written. Host takes the last
-               and says nothing about the rest, which is exactly the thing a
-               reader of this cannot see for themselves. *)
+            (* Collect every camera, in the order written. Host takes the last
+               and says nothing about the rest; that silent drop is what this
+               check exists to report. *)
             | Prim.Camera { room; _ } ->
                 cameras := (room, path_of child) :: !cameras
             | _ -> ())
@@ -273,9 +273,9 @@ let structure forest =
   in
   (problems, List.rev !rooms, List.rev !links, !spawn, List.rev !cameras)
 
-(* The second and any later use of a name is what is complained about, so the
-   one that was there first is left alone and a report reads as "this one is the
-   duplicate" rather than "two of these are". *)
+(* Complain about the second and any later use of a name, never the first. The
+   report then reads as "this one is the duplicate" rather than "two of these
+   are". *)
 let duplicates ~what names =
   let seen = Hashtbl.create 8 in
   List.filter_map
@@ -303,24 +303,25 @@ let naming rooms =
           (List.map (fun (name, _, at) -> (name, at)) room.thresholds))
       rooms
 
-(* A room named by something that is not a room: the same mistake wherever it is
-   made — a link, a spawn, a camera — so the same sentence under it. *)
+(* A name that matches no room is the same mistake whether a link, a spawn, or
+   a camera makes it, so the same sentence goes under all three. *)
 let no_such_room = "There is no room by that name in this world."
 
-(* The one {!Host} takes, and the ones it drops. Host keeps the camera it saw
-   last and overwrites as it goes, so it is the final one written that is obeyed
-   and the rest are never read at all — not even for the room they name. Both of
-   the things there are to say about a description with more than one camera are
-   said from here, so neither can drift from the other or from the engine. *)
+(* Split the cameras into the one {!Host} takes and the ones it drops. Host
+   keeps the camera it saw last, overwriting as it goes, so the final one
+   written is obeyed and the rest are never read at all, not even for the room
+   they name. Both diagnostics about a description with more than one camera
+   derive from this split, so neither can drift from the other or from the
+   engine. *)
 let camera_taken cameras =
   match List.rev cameras with
   | [] -> (None, [])
   | last :: earlier -> (Some last, List.rev earlier)
 
-(* Every camera but the last. The complaint goes on the ones that are not being
-   listened to rather than on the one that is: "this camera does nothing" is
-   what there is to act on, and the winner is not itself wrong. A warning and
-   not an error — the world builds, and one of the cameras is even obeyed. *)
+(* Every camera but the last. The complaint goes on the ignored cameras rather
+   than on the obeyed one: "this camera does nothing" is the actionable part,
+   and the winner is not itself wrong. A warning and not an error because the
+   world builds and one of the cameras is even obeyed. *)
 let overruled_cameras cameras =
   let _, earlier = camera_taken cameras in
   List.map
@@ -399,11 +400,10 @@ let linking rooms links =
           room_name ^ "." ^ threshold_name
         in
         (* Asked of World rather than measured here, and negated rather than
-           inverted, for the reasons that interface gives. What this file used
-           to do instead — its own 1e-9 against the engine's 1e-6, and
-           Option.is_some against the engine's door state — is what made a
-           checker that failed worlds the engine builds and passed worlds it
-           refuses. *)
+           inverted, for the reasons that interface gives. This file used to
+           measure locally: its own 1e-9 against the engine's 1e-6, and
+           Option.is_some against the engine's door state. That checker failed
+           worlds the engine builds and passed worlds it refuses. *)
         List.iter
           (fun (side, t) ->
             if not (World.has_length t) then
@@ -495,8 +495,8 @@ let linking rooms links =
                   exist.";
                ]))
     claimed;
-  (* Hashtbl order is unspecified, so the leftovers are sorted into the one
-     order a report can be read — and asserted on — twice. *)
+  (* Hashtbl iteration order is unspecified, so the problems are sorted into a
+     deterministic order that reading and test assertions can both rely on. *)
   List.sort
     (fun a b -> compare (a.where, a.summary) (b.where, b.summary))
     (List.rev !problems)
@@ -521,13 +521,13 @@ let of_forest forest =
             ]
         | Some _ | None -> []
       in
-      (* The camera's own words are Host's, which raises on this from deep inside
-         assembling the world. Caught here instead, where the component that wrote
+      (* The wording matches Host's, which raises on this from inside world
+         assembly. It is caught here instead, where the component that wrote
          the camera can be named.
 
-         Only the camera Host takes, because only that one's room is ever looked
-         for. An overruled camera may name anything it likes and the world will
-         still build; what is wrong with it is that it does nothing, which it is
+         Only the camera Host takes is checked, because only that one's room is
+         ever looked up. An overruled camera may name anything and the world
+         still builds; its only fault is that it does nothing, which it is
          already told. *)
       let camera_room =
         match camera_taken cameras with
@@ -554,10 +554,11 @@ let of_forest forest =
         in
         (* Both of the ways the engine has of refusing a description, caught so
            that a check written to replace {e these} crashes does not end in
-           one. Not a promise about every crash, which this used to read as: a
-           component of the game's own that raises during the render below
-           comes straight out of {!report}, and {!Check.report}'s own docstring
-           is where that is set out. What is bounded here is the engine's half. *)
+           one. This is not a promise about every crash, which this comment
+           used to read as. A component of the game's own that raises during
+           the render below comes straight out of {!report}, as
+           {!Check.report}'s own docstring sets out. Only the engine's half is
+           bounded here. *)
         let refused message =
           [
             error "(root)" "the engine refused to build this world"
@@ -574,30 +575,30 @@ let of_forest forest =
         | exception Invalid_argument message -> refused message
         | exception Host.Malformed message -> refused message
   in
-  (* Appended rather than folded into the tiers above: a description that
-     places the camera twice is saying two things whatever else is or is not
+  (* Appended rather than folded into the tiers above. A description that
+     places the camera twice gets this warning whatever else is or is not
      wrong with it, and nothing in those tiers depends on the answer. *)
   found @ overruled_cameras cameras
 
 let report description =
   let root = Forest.create () in
-  (* Rendering a description starts its effects, and reading one is over when
-     the reading is. See the interface: a check is a frame that is not drawn,
-     and it is not a frame that is still running afterwards either. *)
+  (* Rendering a description starts its effects, so the mount is destroyed as
+     soon as the reading ends. See the interface: a check is a frame that is
+     not drawn, and it must not be a frame still running afterwards either. *)
   Fun.protect ~finally:(fun () -> Forest.destroy root) @@ fun () ->
   match Forest.render root description with
   | forest -> of_forest forest
-  (* A primitive refusing what a component handed it — a doorway wider than the
-     wall it is cut into is the common one — and the mistake this whole module
-     exists to report rather than raise. It arrives named: the runtime turns the
-     bare Invalid_argument into {!Loom.Element.Render_refused} carrying the path
-     of the component whose description raised it, which is the line the reader
-     has to go and change.
+  (* A primitive refusing what a component handed it; a doorway wider than the
+     wall it is cut into is the common case. This is the mistake the whole
+     module exists to report rather than raise. It arrives named: the runtime
+     turns the bare Invalid_argument into {!Loom.Element.Render_refused}
+     carrying the path of the component whose description raised it, which is
+     the line the reader has to change.
 
      Caught here rather than beside the two refusals in [of_forest] because it
-     happens earlier than either: a description is built lazily, so a primitive
-     that will not take its arguments says so while the forest is still being
-     walked, and there is no forest yet to read. *)
+     happens earlier than either. A description is built lazily, so a primitive
+     that will not take its arguments raises while the forest is still being
+     walked, when there is no forest yet to read. *)
   | exception Loom.Element.Render_refused { at; message } ->
       [
         error at "this part of the description was refused"
@@ -608,11 +609,11 @@ let report description =
                would not take what it was given.";
             ];
       ]
-  (* The same mistake with no component to name — which, elements being built
-     strictly, nothing in this repository can arrange: a bad primitive outside
-     any component raises while the caller is still building [description],
-     before this function is entered at all. Kept because the promise above is
-     worth a belt past the argument that nothing currently reaches it. *)
+  (* The same mistake with no component to name. Elements are built strictly,
+     so nothing in this repository can arrange it: a bad primitive outside any
+     component raises while the caller is still building [description], before
+     this function is entered at all. Kept as a safeguard for the promise
+     above even though nothing currently reaches it. *)
   | exception Invalid_argument message ->
       [
         error "(root)" "this description was refused"
@@ -624,10 +625,10 @@ let report description =
                being built rather than while one was being rendered.";
             ];
       ]
-  (* The one mistake that stops a description becoming a forest at all, and so
-     the one that has to be caught here rather than read off one. Reported
-     rather than raised, for the same reason the two refusals above are, and
-     bounded the same way: the engine's refusals, not a game's own exception. *)
+  (* The one mistake that stops a description becoming a forest at all, so it
+     has to be caught here rather than read off one. Reported rather than
+     raised for the same reason as the two refusals above, and bounded the same
+     way: the engine's refusals, not a game's own exception. *)
   | exception Loom.Element.Duplicate_key { at; key } ->
       [
         error at
