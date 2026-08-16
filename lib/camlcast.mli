@@ -1,19 +1,18 @@
-(** A raycasting engine you describe rather than drive.
+(** A declarative raycasting engine.
 
-    A game says what its world should be, every frame, and the runtime works out
-    what changed. Parts of a world are components with props, state and events;
-    components compose into other components; and the framebuffer, the renderer
-    and the world itself are on the other side of this file.
+    A game describes what its world should be, every frame, and the runtime
+    works out what changed. Parts of a world are components with props, state
+    and events; components compose into other components. The framebuffer, the
+    renderer and the world itself are behind this module.
 
     {1 Everything a game opens}
 
-    This one module. What is in it is what a description is made of, and what is
-    not in it is the platform underneath — {!Camlcast_core.Engine},
-    {!Camlcast_core.Renderer}, {!Camlcast_core.Framebuffer},
-    {!Camlcast_core.World}, {!Camlcast_core.Player}. Those are reachable, by
-    adding [camlcast.core] to a dune file and saying so, which is the boundary
-    being a decision with a diff rather than something autocomplete finds for
-    you.
+    This one module. It contains what a description is made of. It excludes the
+    platform underneath: {!Camlcast_core.Engine}, {!Camlcast_core.Renderer},
+    {!Camlcast_core.Framebuffer}, {!Camlcast_core.World},
+    {!Camlcast_core.Player}. Those stay reachable by adding [camlcast.core] to a
+    dune file, so crossing the boundary is a decision with a diff rather than
+    something autocomplete finds.
 
     {1 The shape of a game}
 
@@ -43,14 +42,14 @@
     {!P} is written [P.( ... )] around a description rather than opened over a
     whole file. Its names are short and ordinary — [wall], [room], [text],
     [boundary] — and a local open puts them in scope exactly where a description
-    is being written and nowhere else, which also marks where one starts and
-    stops.
+    is written and nowhere else. The open also marks where a description starts
+    and stops.
 
     {1 Where to read next}
 
     {!P} for what a world is made of. {!Element} for what a component is and the
-    one rule it asks of you. {!Hook} for state. {!Events} for time and input.
-    {!Check} for what is wrong with a level before anyone walks into it. {!Run}
+    one rule it imposes. {!Hook} for state. {!Events} for time and input.
+    {!Check} for finding what is wrong with a level before running it. {!Run}
     for putting it on a window. *)
 
 (** {1 Describing a world} *)
@@ -60,8 +59,8 @@ module P = P
 module Element = Camlcast_loom.Element
 (** The hooks a component may call, {e without} the
     {!Camlcast_loom.Hook.Runtime} half {!Camlcast_loom.Reconcile} drives them
-    with. Out of reach on the same terms as {!Input}'s, and for the milder
-    version of the same reason. *)
+    with. Out of reach on the same terms as {!Input}'s runtime half, for a
+    milder version of the same reason. *)
 
 module Hook :
   module type of Camlcast_loom.Hook

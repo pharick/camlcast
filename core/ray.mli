@@ -1,24 +1,24 @@
-(** Casting a ray against the wall segments of a {!Room}.
+(** Casts a ray against the wall segments of a {!Room}.
 
     A grid raycaster steps a ray from cell to cell (the DDA). With arbitrary
-    wall segments there is no grid to step through, so instead the ray is
-    intersected with each wall directly and the ones it actually crosses are
-    kept. Write the ray as [origin + t*direction], [t >= 0], and a wall as
-    [a + s*edge] with [edge = b - a] and [s] in [0, 1]; solving with the 2-D
-    cross product (see {!Vec.cross}) gives [t] and [s], and the ray meets the
-    wall when they are not parallel, [t > 0], and [s] lies in [0, 1].
+    wall segments there is no grid to step through, so the ray is intersected
+    with each wall directly and the walls it actually crosses are kept. Write
+    the ray as [origin + t*direction], [t >= 0], and a wall as [a + s*edge] with
+    [edge = b - a] and [s] in [0, 1]. Solving with the 2-D cross product (see
+    {!Vec.cross}) gives [t] and [s]. The ray meets the wall when the two are not
+    parallel, [t > 0], and [s] lies in [0, 1].
 
     {b Why the distance has no fish-eye.} [direction] is deliberately {e not}
     normalised: {!Viewport.ray_direction} builds it as [dir + right * k] with
     [dir] the unit view direction. Because [t] is measured in units of
-    [direction], projecting the hit onto [dir] leaves exactly [t] — so [t] is
-    the distance perpendicular to the camera plane, which is what the projection
+    [direction], projecting the hit onto [dir] gives exactly [t]. So [t] is the
+    distance perpendicular to the camera plane, which is what the projection
     needs and what removes the fish-eye bulge.
 
     {b Seeing past a wall.} Walls have different heights and the floor and
     ceiling are sloped, so a near wall does not necessarily hide what is behind
     it. The cast therefore keeps {e every} wall the ray crosses and returns them
-    farthest-first, ready for {!Renderer} to paint back to front. *)
+    farthest-first, the order {!Renderer} paints in (back to front). *)
 
 type hit = {
   distance : float;  (** perpendicular distance from the camera plane *)
@@ -26,53 +26,53 @@ type hit = {
       (** world distance from the wall's start [a] to the hit, for texturing *)
   wall : Room.wall;
   index : int;
-      (** which of the room's walls it was. The wall itself is here for the
-          renderer, which wants its material and its geometry; the index is for
-          anything that has to name the wall afterwards — an index survives a
+      (** index of the wall in the room. The wall itself is included for the
+          renderer, which needs its material and geometry; the index is for
+          anything that must name the wall afterwards — an index survives a
           {!World.replace_room} where a copy of the wall would go stale. *)
 }
 
 type opening = { distance : float; along : float; index : int }
-(** A threshold the ray crossed, on the same terms as a {!type-hit} — [index]
-    into the room's thresholds rather than its walls. *)
+(** A threshold the ray crossed, in the same terms as a {!type-hit}, with
+    [index] into the room's thresholds rather than its walls. *)
 
 val min_distance : float
-(** The distance floor a hit is refused under, so a player standing on a wall
-    cannot divide by zero when the hit is turned into a wall height. *)
+(** Minimum distance below which a hit is refused. A player standing exactly on
+    a wall would otherwise divide by zero when the hit is turned into a wall
+    height. *)
 
 val cast : Room.t -> origin:Vec.t -> direction:Vec.t -> hit list
-(** Every wall the ray crosses, farthest first — the order the painter's-
-    algorithm renderer draws in. *)
+(** Every wall the ray crosses, farthest first — the order the
+    painter's-algorithm renderer draws in. *)
 
 val openings : Room.t -> origin:Vec.t -> direction:Vec.t -> opening list
-(** Every threshold the ray crosses, farthest first, on the same intersection
+(** Every threshold the ray crosses, farthest first, using the same intersection
     test as {!cast}. *)
 
-(** One thing a ray met in a room, of whichever kind. Walls and doorways are
-    found by two separate passes but have to be dealt with in one order, since
-    each can stand in front of the other. *)
+(** One thing a ray met in a room, of either kind. Walls and doorways are found
+    by two separate passes but must be processed in one order, since each can
+    stand in front of the other. *)
 type step = Wall of hit | Opening of opening
 
 val step_distance : step -> float
-(** How far away that thing was, whichever kind it is. *)
+(** The distance of a step, regardless of its kind. *)
 
 val merge : hit list -> opening list -> step list
-(** Both lists arrive farthest-first, so one merge puts walls and thresholds
-    into a single far-to-near stream without sorting either of them again.
+(** Merges walls and thresholds into a single far-to-near stream. Both lists
+    arrive farthest-first, so a single merge suffices without re-sorting either.
 
-    Far-to-near is the renderer's order — it paints back to front — and the
-    reverse of it is what anything asking "what is the first thing out there"
-    wants. Both read this. *)
+    Far-to-near is the renderer's order (it paints back to front); the reverse
+    is what a nearest-first query wants. Both consume this. *)
 
 val nearest : hit list -> hit option
-(** The closest wall along the ray, if it met one — the wall a solid-height
-    caster would have stopped at.
+(** The closest wall along the ray, if any — the wall a solid-height caster
+    would have stopped at.
 
-    Which is the one thing this engine never asks. {!Renderer} paints the whole
-    list and {!Sight} reads it from the near end, and both of them need what
-    stands behind the first wall: that is what walls of differing heights over a
-    sloped floor cost, and it is the reason {!cast} returns a list at all. This
-    is for a caller doing the older and simpler thing — a line of sight between
-    two points, a minimap ray, a tool asking what a direction runs into — where
-    one wall is the whole answer and the rest of the list is work already done.
-*)
+    The engine itself never asks this: {!Renderer} paints the whole list and
+    {!Sight} reads it from the near end, and both need what stands behind the
+    first wall. That need comes from walls of differing heights over a sloped
+    floor, and is the reason {!cast} returns a list at all. [nearest] is for
+    callers with the simpler question — a line of sight between two points, a
+    minimap ray, a tool asking what a direction runs into — where one wall is
+    the whole answer. The full hit list is still computed; [nearest] discards
+    the rest rather than short-circuiting. *)

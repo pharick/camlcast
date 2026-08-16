@@ -1,62 +1,63 @@
-(** A place on the keyboard.
+(** A position on the keyboard.
 
     A key is a {e scancode}: where the key sits on the board, not what is
     printed on it. {!w} is the key above {!s} on any layout, which is what a
     movement binding wants — a French player holding the key their board calls Z
-    walks forward, exactly as everybody else does. The letters here are the ones
-    a US board has printed on those places, because they have to be called
-    something.
+    walks forward like everyone else, so bindings survive layout changes. The
+    letters here are the ones a US board prints on those positions, because the
+    values need names.
 
-    The engine names them rather than passing SDL's own through, so that binding
-    a key is not a reason for a game to depend on SDL. {!of_scancode} is the way
-    back out for a key this module has not named. *)
+    The engine names them rather than passing SDL's own through, so binding a
+    key does not force a game to depend on SDL. {!of_scancode} covers a key this
+    module has not named. *)
 
 type t
-(** One place on the board. Abstract, and every value below is in range, so the
-    only way to hold one that is not is {!of_scancode} — which is why that is
-    the only function here that can fail. *)
+(** One position on the board. Abstract, and every value below is in range, so
+    the only way to hold an out-of-range one is {!of_scancode} — which is why
+    that is the only function here that can fail. *)
 
 val count : int
-(** How many places a keyboard has. {!Input} lays its controls out in one flat
-    range, a block per device, and this is the size of the keyboard's. *)
+(** The number of positions a keyboard has. {!Input} lays its controls out in
+    one flat range, a block per device; this is the size of the keyboard's
+    block. *)
 
 val of_scancode : int -> t
-(** The key at an SDL scancode. For one this module does not name: every key
-    worth binding is below, but the list is a judgement about what games want
-    and not a complete keyboard.
+(** The key at an SDL scancode, for a key this module does not name. Every key
+    worth binding is listed below, but the list is a judgement about what games
+    want, not a complete keyboard.
 
-    The scancode has to be a place a keyboard has — at least zero and less than
-    {!count} — and this refuses one that is not rather than handing back a key
-    that is quietly something else. {!Input} lays keys and mouse buttons out in
+    The scancode must be a position a keyboard has — at least zero and less than
+    {!count} — and an out-of-range one is refused rather than returned as a key
+    that is silently something else. {!Input} lays keys and mouse buttons out in
     one flat range with the buttons starting where the keyboard ends, so the key
     at {!count} would be the left mouse button and would be believed.
 
-    @raise Invalid_argument if the scancode is not a place a keyboard has. *)
+    @raise Invalid_argument if the scancode is not a position a keyboard has. *)
 
 val to_scancode : t -> int
-(** The SDL scancode of a key: at least zero and below {!count}, and the inverse
-    of {!of_scancode} both ways round. For handing a key back to SDL, or to
-    something else that speaks scancodes. *)
+(** The SDL scancode of a key: at least zero and below {!count}, and the two-way
+    inverse of {!of_scancode}. For handing a key back to SDL or to anything else
+    that speaks scancodes. *)
 
 val name : t -> string
-(** What to print on screen for this key, under the layout in use: {!a} is ["A"]
-    on a QWERTY board and ["Q"] on an AZERTY one, because that is what the
-    player sees printed on it. For a line of help text that says which key does
-    what — see the [controls] demo.
+(** The on-screen name for this key under the layout in use: {!a} is ["A"] on a
+    QWERTY board and ["Q"] on an AZERTY one, matching what the player sees
+    printed on the key. For a line of help text saying which key does what — see
+    the [controls] demo.
 
     Falls back to the layout-independent name for a key the current layout does
     not reach, and to ["?"] for one it cannot name at all: an empty string in
     the middle of a help line reads as a bug rather than as an unnamed key.
 
-    {b Ask for it after the window is open.} Which layout is in use is something
-    SDL learns when the video subsystem starts, so before then this answers for
-    a US board whatever is really plugged in. A help line built at module load
-    is wrong on half the machines that read it; one built on the first frame it
-    is drawn is right on all of them. *)
+    {b Ask for it after the window is open.} SDL learns the layout when the
+    video subsystem starts; before then this answers as for a US board
+    regardless of what is plugged in. A help line built at module load is wrong
+    on non-US machines; one built on the first frame it is drawn is right on all
+    of them. *)
 
 (** {1 Letters}
 
-    Named for a US board. What matters is the place, not the letter — see the
+    Named for a US board. What matters is the position, not the letter — see the
     note at the top. *)
 
 val a : t
@@ -104,9 +105,9 @@ val k0 : t
 
 (** {1 The function row}
 
-    F1 to F12. What a desktop has already claimed of these is not something the
-    engine can know — F11 is fullscreen here, and window managers take others —
-    so a game that binds them should expect a few never to arrive. *)
+    F1 to F12. The engine cannot know which of these the desktop has already
+    claimed — F11 is fullscreen here, and window managers take others — so a
+    game that binds them should expect a few never to arrive. *)
 
 val f1 : t
 val f2 : t
@@ -131,7 +132,7 @@ val space : t
 
 (** {1 Punctuation}
 
-    The places a US board prints these on. *)
+    The positions a US board prints these on. *)
 
 val minus : t
 val equals : t
@@ -147,9 +148,8 @@ val slash : t
 
 (** {1 Arrows}
 
-    The four of them, and the keyboard's answer to a mouse: {!Binding.default}
-    turns with left and right and looks with up and down, so that the engine
-    walks and looks without one. *)
+    The four arrow keys. {!Binding.default} turns with left and right and looks
+    with up and down, so the engine walks and looks without a mouse. *)
 
 val up : t
 val down : t
@@ -182,9 +182,9 @@ val rgui : t
 
 (** {1 The keypad}
 
-    Separate places from the number row above, so [kp_1] and {!k1} are two keys
-    and binding one does not bind the other. Whether they arrive at all depends
-    on Num Lock and on the board having them. *)
+    Separate positions from the number row above, so [kp_1] and {!k1} are two
+    keys and binding one does not bind the other. Whether they arrive at all
+    depends on Num Lock and on the board having them. *)
 
 val numlockclear : t
 val kp_divide : t

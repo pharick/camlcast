@@ -1,31 +1,29 @@
-(** The clock the loop paces itself by. Reading it needs SDL; the arithmetic
-    done to what it reports does not, which is why the two live here together
-    and away from the window. *)
+(** Timing source for the main loop. Reading the clock requires SDL; the
+    arithmetic on its readings does not. Both live here together, away from the
+    window code. *)
 
 val now : unit -> float
-(** The time now, in seconds. SDL's high resolution counter, rather than its
-    millisecond one: a frame is only some sixteen milliseconds long, so counting
-    in whole milliseconds would quantise it badly.
+(** Current time in seconds. Uses SDL's high-resolution counter, not its
+    millisecond counter: a frame is only about sixteen milliseconds long, so
+    counting in whole milliseconds would quantise it badly.
 
-    Only differences between two readings mean anything; where it counts from is
-    SDL's business. *)
+    Only differences between two readings are meaningful; the counter's origin
+    is defined by SDL and unspecified here. *)
 
 val frame_time : previous:float -> now:float -> float
-(** How long, in seconds, the frame starting at [now] should advance the
-    simulation by, given that the previous one started at [previous]. Speeds are
-    quoted per second (see {!Config}), so measuring the frame is what keeps the
-    player walking at the same pace on a machine that renders slowly as on one
-    that races.
+(** Seconds the frame starting at [now] should advance the simulation, given the
+    previous frame started at [previous]. Speeds are quoted per second (see
+    {!Config}), so measuring the frame keeps player speed identical on slow and
+    fast machines.
 
-    A frame longer than {!Config.max_frame_time} is capped at it. Those come
-    from the program being held up rather than from the world moving — the
-    window was dragged, the machine swapped — and honouring one would move the
-    player further in a single step than any collision test is meant to cope
-    with. A clock that went backwards is worth nothing rather than a negative
-    frame. *)
+    A frame longer than {!Config.max_frame_time} is capped at that value. Such
+    frames come from the program being stalled (window dragged, machine
+    swapped), not from the world moving; honouring one would move the player
+    further in a single step than the collision tests handle. If the clock went
+    backwards, the result is zero, not a negative frame. *)
 
 val idle_time : spent:float -> float
-(** What is left of {!Config.frame_budget} for a frame that has spent [spent]
-    seconds getting here — the seconds to sleep before starting the next one. A
-    frame that overran its budget gets nothing: it is late already, and
-    {!frame_time} has the simulation keep pace with it rather than slow down. *)
+(** Seconds left of {!Config.frame_budget} for a frame that has spent [spent]
+    seconds so far — the time to sleep before starting the next frame. A frame
+    that overran its budget gets zero: it is already late, and {!frame_time}
+    keeps the simulation in pace with it rather than slowing down. *)
