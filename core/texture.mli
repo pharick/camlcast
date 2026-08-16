@@ -1,24 +1,24 @@
-(** The machinery for surface patterns, generated in code or read from a file.
+(** Surface patterns, generated in code or read from a file.
 
-    A texel is a {!Color.t}, so a pattern says what a surface looks like and not
-    merely how bright it is at each point. A wall can therefore have more than
-    one colour in it — rust on iron, a painted band, tile grout a different
-    colour from the tile — which is the thing a pattern that carried only a
-    brightness could never express, however it was dressed afterwards.
+    A texel is a {!Color.t}, so a pattern states what a surface looks like, not
+    only how bright it is at each point. A wall can therefore hold several
+    colours — rust on iron, a painted band, tile grout a different colour from
+    the tile. A pattern that carried only a brightness could not express that,
+    however it was dressed afterwards.
 
-    A word on the word. A [t] is a {e built} pattern: two arrays, fixed at the
-    size it was made at. The function handed to {!generate} is a {e recipe} for
-    one — a colour at every point, at any size asked for, in as many colours as
-    it has arguments. Both get called patterns, here and in a game's own
-    modules, and which is meant is always the type: a recipe cannot be sampled
-    and a built one cannot be applied to anything.
+    Terminology: a [t] is a {e built} pattern — two arrays, fixed at the size it
+    was made at. The function handed to {!generate} is a {e recipe} for one: a
+    colour at every point, at any size asked for, in as many colours as it has
+    arguments. Both are called patterns, here and in a game's own modules. The
+    type says which is meant: a recipe cannot be sampled, and a built pattern
+    cannot be applied to anything.
 
     {1 One pattern at many colours}
 
     Brightness-only patterns bought one real thing: the same masonry could be
     red brick in one room and grey stone in the next, because the colour came
-    from elsewhere. That survives here, by writing the pattern as a function of
-    its colour and applying it partially:
+    from elsewhere. That survives here. Write the pattern as a function of its
+    colour and apply it partially:
 
     {[
     let brick ~color ~u ~v =
@@ -28,71 +28,71 @@
     and grey = generate (brick ~color:(Color.rgb 150 146 140))
     ]}
 
-    {!Color.level} is what makes that read as one line: it takes the 0 .. 255 a
-    pattern naturally computes — {!noise} and {!hash} both speak in it — and
-    scales a colour by it, moving value without touching hue. A pattern that
-    wants two colours in it simply does not go through [level].
+    {!Color.level} keeps that to one line. It takes the 0 .. 255 a pattern
+    naturally computes — {!noise} and {!hash} both work in it — and scales a
+    colour by it, changing value without touching hue. A pattern that wants two
+    colours in it simply does not go through [level].
 
     The reuse is now explicit rather than free, and it costs an array per colour
-    where before two materials shared one. That is the trade: a pattern is three
-    times the memory and cannot be re-dressed after the fact, in exchange for
-    being able to say what it actually looks like.
+    where before two materials shared one. The trade: a pattern is three times
+    the memory and cannot be re-dressed after the fact, in exchange for stating
+    what the surface actually looks like.
 
     {1 Size}
 
-    A pattern is square, and tiles once per world unit — {!Renderer} and
+    A pattern is square and tiles once per world unit; {!Renderer} and
     {!Material.plane_texel} both index it by the fractional part of a world
-    coordinate — so its size is a texel density and not a resolution: that many
-    texels across every cell of every wall and floor wearing it. That is why the
-    size is a property of the pattern rather than of the module. Sixty-four is
-    plenty for a generated pattern, whose detail is invented at whatever scale
-    it is asked for; art drawn by hand wants more, because at a cell's distance
-    one texel is about nine pixels tall.
+    coordinate. Its size is therefore a texel density, not a resolution: that
+    many texels across every cell of every wall and floor wearing it. This is
+    why size is a property of the pattern rather than of the module. Sixty-four
+    is plenty for a generated pattern, whose detail is invented at whatever
+    scale it is asked for; hand-drawn art wants more, because at a cell's
+    distance one texel is about nine pixels tall.
 
-    This module holds no patterns of its own. It is the type, the samplers, the
-    two generators and the loader; the patterns themselves are content and
-    belong to whatever is being drawn. A generated one has the advantage of
-    being testable — it is a pure function of [u] and [v] — and a loaded one has
-    the advantage of having been drawn. *)
+    This module holds no patterns of its own — the engine holds no content. It
+    is the type, the samplers, the two generators and the loader; the patterns
+    are content and belong to whatever is being drawn. A generated pattern is
+    testable, being a pure function of [u] and [v]; a loaded one preserves art
+    that was drawn by hand. *)
 
 val default_size : int
 (** Texels per side of a pattern that does not say otherwise: what the
-    generators below make when they are not told, and what every pattern in the
-    engine's own demos is. A power of two, and small enough that the whole set
-    stays comfortably in cache. *)
+    generators below make when not told, and what every pattern in the engine's
+    own demos is. A power of two, and small enough that the whole set stays
+    comfortably in cache. *)
 
 type t
-(** A built pattern: how densely it is written down, its colour and its opacity
-    at every texel of it, and whether any of that opacity is worth asking about.
+(** A built pattern: its texel density, its colour and its opacity at every
+    texel, and a precomputed answer to whether any of that opacity matters.
 
-    Abstract, because two of the four things it holds are arrays, and a private
-    record would hand those out. A private record cannot be built by hand, which
+    Abstract, because two of the four things it holds are arrays and a private
+    record would hand those out. A private record cannot be built by hand — that
     is what makes {!generate}, {!generate_masked} and {!load} the only ways to
-    arrive at a pattern; it cannot stop a caller writing into an array it can
+    make a pattern — but it cannot stop a caller writing into an array it can
     read. That is the difference between an invariant that holds of every
     pattern and one that holds until somebody indexes it.
 
-    The invariants are these. [size] is positive. The colour and the opacity are
-    both exactly [size * size] long and both row major, which is the one piece
-    of arithmetic {!sample} and {!alpha} do and the reason neither bounds-checks
-    what it is handed. And {!opaque} agrees with the opacity it is worked out
-    from, so a wall that says it is solid is — which is the one a writable array
-    would break in silence, leaving {!Renderer} painting a see-through wall
-    straight over its column and never reaching the translucent pass at all.
+    The invariants: [size] is positive. The colour and the opacity arrays are
+    both exactly [size * size] long and both row major — the one piece of
+    arithmetic {!sample} and {!alpha} do, and the reason neither bounds-checks
+    what it is handed. And {!opaque} agrees with the opacity it is computed
+    from. A writable array would break that last one in silence: {!Renderer}
+    would paint a see-through wall straight over its column and never reach the
+    translucent pass at all.
 
-    What it costs is a call where a field read used to be: {!Renderer} asks
+    The cost is a call where a field read used to be. {!Renderer} asks
     {!val-size} to work out how far down a strip each pixel of a wall falls, and
     {!Material.opaque} asks {!opaque} whether the wall is painted over the
-    column or held back, both once per wall per column. That is a call per
-    column of every frame and no allocation, which is affordable, and a pattern
-    that lies about being solid is not. *)
+    column or held back — each once per wall per column. That is one call per
+    column of every frame and no allocation, which is affordable; a pattern that
+    lies about being solid is not. *)
 
 val size : t -> int
 (** Texels per side, and so per world unit of surface. *)
 
 val opaque : t -> bool
-(** Whether every texel is fully solid — worked out when the pattern is built,
-    not asked of the texels here. *)
+(** Whether every texel is fully solid. Computed when the pattern is built, not
+    read from the texels here. *)
 
 val sample : t -> u:int -> v:int -> Color.t
 (** The colour of texel [(u, v)]. The caller has already clamped both into
@@ -109,37 +109,37 @@ val column_of_offset : t -> float -> int
 val row_of_height : t -> float -> int
 (** The texel row of [t] that a point [height] above the foot of a surface falls
     in. The pattern tiles every world unit, so only the fractional part of the
-    height comes into it, and the row is measured {e down} from the top: a
-    height just over the foot is the bottom row and one just under the next cell
-    is the top. That flip is what makes a wall's pattern stand up the right way,
-    and it is written here so that {!Renderer} and {!Sight} cannot each have
-    their own idea of it.
+    height matters. The row is measured {e down} from the top: a height just
+    over the foot is the bottom row, and one just under the next cell is the
+    top. That flip makes a wall's pattern stand up the right way, and it is
+    written here so {!Renderer} and {!Sight} cannot each have their own idea of
+    it.
 
-    It is [column_of_offset]'s rule turned on its side: both scale the fraction
-    by [size], so every one of a pattern's rows owns the same band of a cell as
-    every one of its columns, and a wall tiles up its height on the same terms
-    it tiles along its length. Scaling by [size - 1] instead — as this did until
-    the rows were measured — leaves the last row reachable only from a height
-    that is exactly a whole number of cells, so the bottom row of every pattern
-    has no area at all and the rest stretch to cover for it.
+    It is [column_of_offset]'s rule turned on its side. Both scale the fraction
+    by [size], so every row of a pattern owns the same band of a cell as every
+    column, and a wall tiles up its height on the same terms it tiles along its
+    length. Scaling by [size - 1] instead — as this did until the rows were
+    measured — leaves the last row reachable only from a height that is exactly
+    a whole number of cells: the bottom row of every pattern gets no area at
+    all, and the rest stretch to cover for it.
 
-    This is also the arithmetic the wall is {e drawn} with, and anything asking
-    what a surface is at a point has to agree with what was drawn there — which
-    is why the two questions share this function rather than each spelling it
-    out. *)
+    This is also the arithmetic the wall is {e drawn} with. Anything asking what
+    a surface is at a point must agree with what was drawn there, which is why
+    the two questions share this function rather than each spelling it out. *)
 
 val generate : ?size:int -> (u:int -> v:int -> Color.t) -> t
-(** A solid (fully opaque) pattern from a colour function. [f] is clamped rather
-    than trusted, because a pattern is usually arithmetic about a base value and
-    the ends of its range are exactly where that arithmetic leaves 0 .. 255.
+(** A solid (fully opaque) pattern from a colour function. What [f] returns is
+    clamped rather than trusted: a pattern is usually arithmetic about a base
+    value, and the ends of its range are exactly where that arithmetic leaves 0
+    .. 255.
 
     @raise Invalid_argument
-      if [size] is not positive. A pattern of no size is an authoring mistake
-      and not a condition to handle: there is nothing in it to sample, and
+      if [size] is not positive. A pattern of no size is an authoring mistake,
+      not a condition to handle: there is nothing in it to sample, and
       everything that reads one indexes by the side it says it has.
     @raise Invalid_argument
       if [size * size] is longer than an array can be. That product is the
-      invariant above, and past the square root of [Sys.max_array_length] it
+      length invariant above. Past the square root of [Sys.max_array_length] it
       wraps rather than growing — a size of [max_int] squares to [1] — so a
       texture would come back claiming a side its two arrays are far too short
       to answer for, and the first {!sample} past the first row would raise from
@@ -147,9 +147,9 @@ val generate : ?size:int -> (u:int -> v:int -> Color.t) -> t
 
 val generate_masked : ?size:int -> (u:int -> v:int -> Color.t * int) -> t
 (** A pattern that can see through itself: [f] returns a colour {e and} an alpha
-    for each texel, so a wall wearing it unveils whatever is behind. The alpha
-    is clamped alongside the colour, and {!opaque} is worked out from what
-    arrives rather than taken on trust.
+    for each texel, so a wall wearing it shows whatever is behind. The alpha is
+    clamped alongside the colour, and {!opaque} is computed from what arrives
+    rather than taken on trust.
 
     @raise Invalid_argument
       if [size] is not positive, or if its square is longer than an array can be
@@ -164,19 +164,19 @@ val load : string -> (t, [ `Msg of string ]) result
 
     Nothing is reduced or reinterpreted on the way in, so what a painting
     program showed is what a wall wearing this will show, under whatever the
-    {!Atmosphere} does to it. That is the whole reason to read a file rather
-    than write a function: a generated pattern is testable, and a drawn one is
-    drawn.
+    {!Atmosphere} does to it. That is the reason to read a file rather than
+    write a function: a generated pattern is testable, and a loaded one
+    preserves art drawn by hand.
 
     The file must be {e square}, because a pattern tiles a square world cell and
-    a rectangle would be silently stretched across it — but it may be square at
-    any size, since nothing in sampling one cares which.
+    a rectangle would be silently stretched across it. It may be square at any
+    size; nothing in sampling one cares which.
 
-    A result and not an exception, because a file is a run-time failure: it may
-    be missing, or not be a picture, or be the wrong shape, or — the two sizes
-    {!generate} would raise on — decode to no texels at all, or to more of them
-    than an array can hold. The twin of {!Image.load} in this, and see there:
-    the second was answered for later than the first, and for a file the
+    A result and not an exception, because a file is a run-time failure. It may
+    be missing, not be a picture, be the wrong shape, or — the two sizes
+    {!generate} raises on — decode to no texels at all, or to more of them than
+    an array can hold. The twin of {!Image.load} in this, and see there: the
+    second of those sizes was answered for later than the first. For a file, the
     difference between a condition and an exception is the difference between a
     game that reports and a game that stops. *)
 
@@ -199,24 +199,23 @@ val noise : size:int -> seed:int -> cell:int -> u:int -> v:int -> int
     result has no lattice edges in it. [seed] picks an independent field, so
     several octaves can be summed without their features lining up.
 
-    The lattice {b wraps} at [size], which is the whole reason this is here
-    rather than in a caller. A wall's pattern repeats once per world unit, so a
-    field that did not wrap would put a hard seam down every wall in the game,
-    one per unit — the very thing noise is being used to avoid.
+    The lattice {b wraps} at [size]; that wrapping is why this lives here rather
+    than in a caller. A wall's pattern repeats once per world unit, so a field
+    that did not wrap would put a hard seam down every wall in the game, one per
+    unit — the very thing noise is used to avoid.
 
     [size] is therefore the size of the pattern being built, and it is required
     rather than defaulted on purpose. A default would be right until the first
-    time someone wrote [generate ~size:128] over a [noise] left at 64, which
-    wraps twice inside each tile and puts back exactly the seam this wrapping
-    exists to remove — silently, and only every other 64 texels. Naming it at
-    both ends costs a few characters and makes that unwritable.
+    [generate ~size:128] written over a [noise] left at 64, which wraps twice
+    inside each tile and puts back exactly the seam this wrapping removes —
+    silently, and only every other 64 texels. Naming it at both ends costs a few
+    characters and makes that mistake unwritable.
 
-    Nothing in the engine calls this, and nothing is going to: the engine holds
-    no content, so every pattern there is belongs to a game. It is here rather
-    than in each of them because value noise is the one generator that is more
-    arithmetic than taste — two games wanting a mottled wall want the same
-    function, and the wrapping above is the part that is easy to leave out and
-    slow to see the absence of.
+    Nothing in the engine calls this — the engine holds no content, so every
+    pattern belongs to a game. It lives here rather than in each game because
+    value noise is the one generator that is more arithmetic than taste: two
+    games wanting a mottled wall want the same function, and the wrapping above
+    is easy to leave out and slow to notice missing.
 
     @raise Invalid_argument
       if [size] is not positive, or if [cell] does not divide it — the lattice
