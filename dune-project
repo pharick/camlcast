@@ -60,10 +60,10 @@
   ; test/dune name it, and a library a dune file names is one the package
   ; should ask for rather than inherit.
   (qcheck-core :with-test)
-  ; The declarative layer assembles a World every frame where the old API
-  ; built one and kept it, so the repo has to be able to measure that cost.
-  ; Before this there was no benchmark at all; the only performance numbers
-  ; anywhere were a comment in demo/dust.ml. bechamel depends only on fmt.
+  ; For the benchmark in bench/, which measures what assembling a World every
+  ; frame costs against what drawing the frame costs. Not :with-dev-setup,
+  ; though that is what it is: CI's floor job installs --with-test alone and
+  ; then runs `dune build`, which compiles bench/ along with everything else.
   (bechamel :with-test)
   (ocaml-lsp-server :with-dev-setup)
   ; Pinned to the same version .ocamlformat names: formatting is a build
