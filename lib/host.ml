@@ -22,8 +22,8 @@ let unexpected ~parent (node : prim Camlcast_loom.Host.node) =
    walking the tree their own way: this one refuses the first thing out of
    place, Check collects every one of them with the component that wrote it.
    One pass over the whole description, before any of it is built, because a
-   rule applied only in the places assembly happens to visit has holes in it.
-   This code previously had that bug. *)
+   rule applied only in the places assembly happens to visit has holes exactly
+   where assembly does not go. *)
 let refuse_strangers ~parent (node : prim Camlcast_loom.Host.node) =
   match Nesting.misplaced ~parent node with
   | [] -> ()

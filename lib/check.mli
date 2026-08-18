@@ -106,9 +106,9 @@ val assembled : World.t -> t list
     world built any other way. That is how the checker is tested against the
     twenty-odd worlds in [demo/] that are known to be right.
 
-    {b This was called [world], and was renamed to get away from
-       {!Camlcast_core.World.check}} — the same two words the other way round,
-    and the other half of the job rather than another spelling of it. That
+    {b Not to be read as a spelling of {!Camlcast_core.World.check}} — the same
+    two words the other way round, and the other half of the job rather than
+    another name for it. That
     function asserts what {!Camlcast_core.World.make} guarantees over a world
     grown instead of made, and {e raises} on the first break. This one assumes
     those guarantees hold and asks the four questions they leave open:
@@ -121,8 +121,8 @@ val assembled : World.t -> t list
     playable runs both.
 
     Being a list and not a raise, the result has to be {e looked at}. A call
-    whose result is dropped is a check that did not happen; that is the failure
-    the old name invited. *)
+    whose result is dropped is a check that did not happen, and nothing says so
+    — which is what a name promising a raise would invite. *)
 
 val to_string : t -> string
 (** One diagnostic, as several lines: the place, the summary, then the detail

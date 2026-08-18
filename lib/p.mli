@@ -212,10 +212,10 @@ val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
 
     It is literally the same arithmetic: this calls
     {!Camlcast_core.Room.cut_points}, which is what {!doorway} cuts at, so the
-    two cannot land a doorway in two places. Worth stating because for a while
-    they could. This function restated the formula rather than calling it, and
-    restated the older of the two forms, so on an oblique wall a full-width
-    opening came out [6.21e-17] from where {!doorway} puts it.
+    two cannot land a doorway in two places. Worth stating because restating
+    the formula here instead would not look wrong: the two forms of it agree on
+    a wall along an axis, and part company by [6.21e-17] on an oblique one —
+    close enough that a full-width opening looks placed and is not.
 
     At [width] equal to the wall's own length the two ends come back as [a] and
     [b] exactly; measuring in from the ends guarantees it. A description
