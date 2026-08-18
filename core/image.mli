@@ -107,8 +107,8 @@ val load : string -> (t, [ `Msg of string ]) result
     be missing, not be a picture, or — the two cases {!make} would raise on —
     decode to no pixels at all, or to more of them than an array can hold.
 
-    {b Both of {!make}'s refusals are covered, not just the first}; for a while
-    it was only the first. A size {!make} refuses, reached from here, would be
+    {b Both of {!make}'s refusals are covered, not just the first.} A size
+    {!make} refuses, reached from here, would be
     an [Invalid_argument] coming out of a function whose type says a bad file is
     a condition — the promise broken from the inside, by the one input a caller
     has least control over. The second case is out of reach of any file a 64-bit

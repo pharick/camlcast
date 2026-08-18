@@ -27,8 +27,8 @@ type window = {
   mutable fullscreen : bool;
   mutable relative : bool;
 }
-(* The things a frame needs that do not change during one, and that no longer
-    change between runs either. SDL offers no {e toggle} for fullscreen or
+(* The things a frame needs that do not change during one, and do not change
+    between runs either. SDL offers no {e toggle} for fullscreen or
     relative mouse mode, only a set, so flipping one requires the current value
     in hand. What is written here is the value that came back from the last set
     rather than the one asked for, which is the part that matters when a

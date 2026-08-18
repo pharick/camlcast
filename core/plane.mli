@@ -101,10 +101,10 @@ val cast :
     This shape — hoisted, unboxed, unjudged — is why the function exists. The
     renderer casts two planes for every pixel of every background, and the
     arithmetic is small enough that a function call around it costs more than
-    the arithmetic. It used to be written out at each of the three places that
-    needed it for exactly that reason, which made the engine's central formula
-    something with four copies to change. Marked [[@inline always]], it is one
-    copy and costs nothing; see the note in the implementation for the
+    the arithmetic. That is an argument for writing it out at each of the three
+    places that need it, and the price of doing so is the engine's central
+    formula in as many copies as there are callers. Marked [[@inline always]],
+    it is one copy and costs nothing; see the note in the implementation for the
     measurements. *)
 
 val view_distance :

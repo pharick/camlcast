@@ -333,8 +333,7 @@ val sprite_half_width : sprite -> float
     makes it: a 2:1 image is drawn twice as wide as it is tall. Taking the
     aspect from the picture rather than from a field of its own means an
     authoring mistake cannot stretch the art — there is nothing to disagree with
-    — and a square picture comes out square, which is what every sprite was
-    before this existed.
+    — and a square picture comes out square.
 
     This is the only place the aspect ratio appears. {!Viewport.sprite_box}
     scales the screen box by it and {!sprite_column} reads across it, so the
@@ -953,7 +952,7 @@ val cut_points : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
     Public because {!doorway} is not the only thing that has to know where an
     opening lands: a description naming the same doorway from both of its rooms
     needs the two ends without cutting anything. {!Camlcast.P.opening} is that
-    description, and it used to be the midpoint form written out again. Guarded
+    description, and calls this rather than restating the midpoint form. Guarded
     by neither caller — the degenerate cases are refused by whichever function
     the caller actually named, in its own words, and this is what is left once
     they have passed. [span] must be positive.
