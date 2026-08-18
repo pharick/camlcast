@@ -40,10 +40,10 @@ let flat = Plane.horizontal 0.
 
 (** The doorway this demo will not open, by the name both its sides share.
 
-    It used to be a pair of [(room, threshold)] indices, one for each side, and
-    keeping the two in step was the bookkeeping a game took on in exchange for
-    the engine not carrying a [Locked] state. A description names its doorways,
-    so there is one name for one door and nothing to keep in step. *)
+    The engine carries no [Locked] state, so a game that wants one keeps the
+    bookkeeping itself. A description names its doorways, which makes that
+    bookkeeping a name: one name for one door, rather than a [(room, threshold)]
+    index for each of its two sides and the job of keeping them in step. *)
 let locked = [ "sealed" ]
 
 (* The arrival hall: a wide room whose east wall is three doorways. All three
@@ -154,10 +154,9 @@ let working =
   let aimed, set_aimed = Hook.use_state None in
   Events.use_frame (fun ~dt ->
       if refused > 0. then set_refused (Float.max 0. (refused -. dt)));
-  (* One pair of handlers per doorway name, given to both of its sides. Which
-     is what the old version could not do: it found the nearest opening with a
-     door in it and worked that, because there was nothing to hang a handler on.
-     Now the doorway itself is told. *)
+  (* One pair of handlers per doorway name, given to both of its sides, so the
+     doorway itself is told. Without somewhere to hang a handler, a game is left
+     finding the nearest opening with a door in it and working that. *)
   let reacts name =
     ( (fun here -> set_aimed (if here then Some name else None)),
       fun _ ->

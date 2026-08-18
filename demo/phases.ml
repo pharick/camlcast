@@ -60,9 +60,8 @@ let at ~light ~over =
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
               (Vec.make (-1.) (-2.5));
           ];
-        (* The old version said this with ~finished, a callback the engine
-           asked every frame; now it is part of the description like everything
-           else. *)
+        (* The ending is part of the description like everything else, rather
+           than a predicate the engine asks every frame. *)
         (if over then finish else Element.empty);
       ])
 

@@ -335,10 +335,10 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
              sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
                (Vec.make 2.5 0.);
            ]
-          (* The dust. Where the old version had to keep the cellar's own
-             sprites and hand them back with the motes — with_sprites replaces
-             the array rather than adding to it, and handing it only the motes
-             made the figure disappear — a description simply says both. *)
+          (* The dust, written beside the cellar's own sprites rather than
+             merged into them. Room.with_sprites replaces the array rather than
+             adding to it, so reaching for it here with only the motes would
+             take the figure away; a description says both and needs neither. *)
           @ List.init motes_count (mote ~t));
         link ("plaza", "east") ("hall", "west");
         link ("plaza", "north") ("nook", "south");
@@ -361,9 +361,9 @@ let showcase =
   let shut, set_shut = Hook.use_state [] in
   let elapsed, set_elapsed = Hook.use_state 0. in
   let refused, set_refused = Hook.use_state 0. in
-  (* Which door the crosshair is on, if it is on one. The old version found the
-     nearest opening with a leaf in it and worked that; a doorway is told now,
-     and this is only kept so that pressing E at nothing can say so. *)
+  (* Which door the crosshair is on, if it is on one. A doorway is told when it
+     is worked, so this is not what opens anything; it is kept only so that
+     pressing E at nothing can say so. *)
   let at_door, set_at_door = Hook.use_state None in
   let aim = Events.use_aim () in
   Events.use_frame (fun ~dt ->

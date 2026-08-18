@@ -26,8 +26,8 @@ let nw = Vec.make (-7.) 7.
 
 (** The layer, as a function of the cycle fraction and the buffer size.
 
-    The old version drew this with a callback handed the framebuffer. It is part
-    of the description now, and {!Camlcast.Events.use_viewport} supplies the
+    Part of the description rather than a callback handed the framebuffer, with
+    {!Camlcast.Events.use_viewport} supplying the
     size — which is not the window's: the engine renders at whatever
     whole-number fraction of it stays under [max_render_height] and stretches
     the result. *)

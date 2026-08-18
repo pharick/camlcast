@@ -62,9 +62,8 @@ let cloud ?base ~key pos =
   P.sprite ~key ?base ~size:0.8 ~image:Pictures.motes.(0) pos
 
 (** Everything in the hall that does not move. The drifting sprite is written
-    beside these; where the old version rebuilt the sprite list to keep that
-    cheap, a description says both and the reconciler works out that only one
-    changed. *)
+    beside these rather than kept in a list of its own: the description says
+    both every frame, and the reconciler works out that only one changed. *)
 let still =
   P.
     [
