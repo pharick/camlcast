@@ -2,26 +2,19 @@
 
 (name camlcast)
 
-; A stanza may only use what it names. Left implicit, a library's dependencies
-; are visible to everything that depends on it, so a module can come to lean on
-; something no dune file in its directory mentions; the dependency is then real
-; but invisible, removable only by accident. This repo relies on the boundary:
-; loom/dune's empty (libraries) is the rule that keeps the reconciler from
-; knowing what a pixel is, and test/dune keeps three suites apart on the same
-; principle. A boundary the build enforces per directory must also hold across
-; transitive dependencies.
-;
-; Turning it on cost one line: test_loom reaches QCheck2 through
-; qcheck-alcotest and now names qcheck-core explicitly.
-;
-; It also costs a compiler version. Dune implements this through -H, the
-; hidden include added in 5.2: a transitive dependency stays readable to the
-; typechecker and unnameable in the source — the distinction the paragraph
-; above needs. Without -H dune drops those directories rather than hiding
-; them, and a type that only passes through one stops resolving.
-; Alcotest.testable takes an 'a Fmt.t, and camlcast.mli aliases loom's
-; Element — neither is named by any file here, and both stop compiling.
-; Hence the floor below.
+; A stanza may only use what it names. By default a library's dependencies are
+; visible to everything that depends on it, so a module can come to lean on
+; something no dune file in its directory mentions — and this repo keeps its
+; boundaries in those dune files: loom/dune's empty (libraries) is what stops
+; the reconciler from knowing what a pixel is, and test/dune holds its suites
+; apart on the same principle. Closing the transitive hole cost one line in
+; test/dune, where test_loom now names the qcheck-core it had been reaching
+; through qcheck-alcotest, and a compiler version: dune implements the rule with
+; -H, the hidden include added in 5.2, which leaves a transitive dependency
+; readable to the typechecker and unnameable in the source. Without -H dune
+; drops those directories rather than hiding them, and a type that only passes
+; through one stops resolving — Alcotest.testable takes an 'a Fmt.t, and
+; camlcast.mli aliases loom's Element. Hence the floor below.
 
 (implicit_transitive_deps false)
 
