@@ -48,12 +48,12 @@
   ; bundle has to carry.
   tsdl-image
   (alcotest :with-test)
-  ; Property tests, where the engine's own suites are example-based. The two
-  ; things the declarative layer adds have invariants crisp enough to state
-  ; outright — mounting A and then B leaves the same instances as mounting B
-  ; directly; an auto-wound outline encloses positive area whatever order its
-  ; points arrive in — and those are checked against generated input rather
-  ; than a handful of hand-written cases.
+  ; Property tests, where the engine's own suites are example-based. The
+  ; engine's behaviour is specific enough that cases are the honest way to check
+  ; it. What the declarative layer adds has invariants instead — rules that hold
+  ; for every description it can be handed — and a rule of that shape is better
+  ; checked against generated input than against however many hand-written cases
+  ; someone thought of.
   (qcheck-alcotest :with-test)
   ; QCheck2, where the generators and shrinkers live. qcheck-alcotest brings
   ; it either way; it is listed because (implicit_transitive_deps false) makes
