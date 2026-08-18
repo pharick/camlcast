@@ -100,13 +100,14 @@ let is what got = Alcotest.(check string) "" what (describe got)
    through [sprite_half_width]; the two agree to about [5e-16] and therefore
    disagree about which side of the boundary it falls on. Split anywhere else
    and the two land on the same side of the split whichever way that ulp
-   falls. Split at the middle, as this fixture used to be, and the assertion is
-   about the rounding of a tie rather than what the test is named for.
+   falls. Split at the middle and the assertion is about the rounding of a tie
+   rather than what the test is named for.
 
    The renderer maps a sprite's screen box onto the image exactly this way, so
    this also keeps what can be picked the same as what is drawn. That is what
-   the off-axis case below pins: it was once written the other way round,
-   against a {!Sight} that read the sprite mirrored, and it passed. *)
+   the off-axis case below pins, and it has to be written facing the way it is:
+   a {!Sight} reading the sprite mirrored passes the case written the other way
+   round. *)
 let a_sprite_is_read_across_by_its_width () =
   let split =
     Image.make ~height:12 ~width:16 (fun ~u ~v:_ ->

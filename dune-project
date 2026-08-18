@@ -7,14 +7,14 @@
 ; something no dune file in its directory mentions — and this repo keeps its
 ; boundaries in those dune files: loom/dune's empty (libraries) is what stops
 ; the reconciler from knowing what a pixel is, and test/dune holds its suites
-; apart on the same principle. Closing the transitive hole cost one line in
-; test/dune, where test_loom now names the qcheck-core it had been reaching
-; through qcheck-alcotest, and a compiler version: dune implements the rule with
-; -H, the hidden include added in 5.2, which leaves a transitive dependency
-; readable to the typechecker and unnameable in the source. Without -H dune
-; drops those directories rather than hiding them, and a type that only passes
-; through one stops resolving — Alcotest.testable takes an 'a Fmt.t, and
-; camlcast.mli aliases loom's Element. Hence the floor below.
+; apart on the same principle. Closing the transitive hole costs one line in
+; test/dune, where test_loom names the qcheck-core it reaches QCheck2 through
+; rather than inheriting it from qcheck-alcotest, and a compiler version: dune
+; implements the rule with -H, the hidden include added in 5.2, which leaves a
+; transitive dependency readable to the typechecker and unnameable in the
+; source. Without -H dune drops those directories rather than hiding them, and
+; a type that only passes through one stops resolving — Alcotest.testable takes
+; an 'a Fmt.t, and camlcast.mli aliases loom's Element. Hence the floor below.
 
 (implicit_transitive_deps false)
 

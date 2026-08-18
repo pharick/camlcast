@@ -503,10 +503,9 @@ let the_dust_demo_moves_without_making_anything () =
    work the use control, which is what Aim.crosshair does. Every claim below is
    one §13.5 asks for, and none of them is visible in a screenshot.
 
-   It used to call Chalk.place on a state it built by hand. There is no such
-   function now; the wall is told, by on_use. So the driver below is a mount
-   rendered into and a crosshair cast at it, a closer copy of what a player
-   does than the old one was.
+   There is no placing function to call: the wall is told, by on_use. So the
+   driver below is a mount rendered into and a crosshair cast at it, which is
+   as close to what a player does as a test gets.
 
    The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the
    one wall here with two faces you can stand at, so it is what the side cases

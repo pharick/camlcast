@@ -196,9 +196,8 @@ let spawn_uses_the_world () =
   Alcotest.check vec "spawn point" (World.spawn two_rooms).World.pos
     (Player.spawn two_rooms).Player.pos
 
-(* The initial facing used to be a hardcoded zero; now spawn takes it as a
-   parameter. Facing 0. stays the default, so a game that never passes one
-   starts exactly as it always did. *)
+(* The initial facing is a parameter of the spawn rather than a fixed zero.
+   Zero is still the default, so a game that never names one faces +x. *)
 let spawn_faces_where_it_is_told () =
   Alcotest.check vec "the default faces along +x" (Vec.of_angle 0.)
     (Player.spawn two_rooms).Player.dir;

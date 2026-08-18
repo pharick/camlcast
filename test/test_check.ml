@@ -316,9 +316,9 @@ let agrees_with_the_engine =
           [ "the two sides of this link are different widths" ]
           (summaries (pair ~e:(2. +. 1e-3) ())));
     case "a doorway too narrow to link is named here" (fun () ->
-        (* Below World's epsilon, so the engine refuses it. There was no check
-           for this at all, and it arrived as the engine's own message under
-           "the engine refused to build this world". *)
+        (* Below World's epsilon, so the engine refuses it. Named here rather
+           than left to arrive as the engine's own message under "the engine
+           refused to build this world", which says where but not what. *)
         Alcotest.check lines "once for each side"
           [
             "this doorway is too narrow to link";

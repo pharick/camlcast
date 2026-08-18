@@ -2,8 +2,9 @@
 
    Nothing here opens a window either. A description becomes a World and a
    World is a value, so this step can be checked by comparing one against the
-   world the old API builds by hand. Until there are pixels to compare, that is
-   the strongest check available, and stronger than reading the code twice.
+   same world built by hand against the platform. Until there are pixels to
+   compare, that is the strongest check available, and stronger than reading
+   the code twice.
 
    The reference is the one-room world the core API builds by hand, restated
    inline below and built with the tree. If the declarative version stops
@@ -440,12 +441,12 @@ let doorways =
   in
   [
     (* Refusing the same things is the cheap half of "the same arithmetic".
-       The expensive half is landing in the same place, which nothing tested:
-       P.opening restated the formula, restated the superseded form of it, and
-       went on refusing everything it was supposed to.
+       The expensive half is landing in the same place, and it is the half a
+       restated formula passes: refusing everything it is supposed to says
+       nothing about where it puts what it accepts.
 
-       Bit-for-bit and not [close], because approximately-equal is exactly what
-       was true while it was wrong: the two agreed to 6.21e-17, which is a
+       Bit-for-bit and not [close], because approximately-equal is what two
+       forms of this formula are: they agree to 6.21e-17, which is a
        cancellation away from an invisible wall a player walks into. Read off
        the threshold P.doorway actually built rather than recomputed here, so
        the fixture cannot drift into agreeing with the wrong one. *)
@@ -695,9 +696,8 @@ let furnishing =
    Framebuffer.offscreen has no streaming texture behind it and
    Renderer.draw_frame makes no SDL call, so a whole frame can be drawn and
    read back with no window open. That is the engine's own testing technique,
-   and it makes the strongest available gate for this rewrite free: draw the
-   described world and the hand-built one from the same eye, and compare every
-   pixel. *)
+   and it makes the strongest gate available here free: draw the described
+   world and the hand-built one from the same eye, and compare every pixel. *)
 
 let render_from world player ~width ~height =
   let buffer = Framebuffer.offscreen ~width ~height in

@@ -416,9 +416,9 @@ let a_line_entirely_off_the_buffer_draws_nothing () =
 (* The crosshair's claim: two arms crossing on the pixel that holds the middle
    of the buffer. Which pixel that is matters beyond this module, because
    {!Viewport} casts the straight-ahead ray through it and {!Sight} answers
-   about that ray. That the arms meet there at all is Paint's responsibility
-   and was previously asserted nowhere. An odd-sized buffer, so the middle is
-   one pixel and not two. *)
+   about that ray. That the arms meet there at all is Paint's responsibility,
+   and nothing downstream would catch it if they did not. An odd-sized buffer,
+   so the middle is one pixel and not two. *)
 let a_crosshair_crosses_in_the_middle () =
   let fb = Framebuffer.offscreen ~width:9 ~height:7 in
   Paint.crosshair fb ~color:(Color.rgb 255 255 255);
