@@ -17,8 +17,8 @@
    this — and the number that {e is} worth looking at is the other one: drawing
    five rooms takes most of a sixty-frame budget on its own. Ray.cast
    intersects every wall segment in the room once per screen column and there is
-   no spatial index, which is the engine as it has always been and has nothing
-   to do with anything above it.
+   no spatial index, which is the platform's own cost and has nothing to do with
+   anything above it.
 
    Run it with `dune exec bench/frame.exe`, or with `--profile release`, which
    moves the renderer by about a fifth and the layer by nothing. *)

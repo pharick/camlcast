@@ -60,7 +60,7 @@ val parallel : float
     two comments holding the two equal; shared, the figure cannot drift at all.
     The two still differ in the comparison — the ray's test is
     strict and {!Room.segments_cross}'s inclusive, so that a segment of no
-    length keeps the branch it has always taken — and that difference is each
+    length lands where each function needs it — and that difference is each
     function's own. The figure is not.
 
     Not in {!Config}: this is not a tunable. It marks where the cross product

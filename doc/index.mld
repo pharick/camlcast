@@ -105,9 +105,9 @@ player to draw from; and optionally [overlay], [pointing], [finished] and
 [extend : World.t -> Player.t -> World.t] called on any frame the player crossed
 into another room on.
 
-This is the API the engine had before it had a layer, and the layer still stands
-on it: {!Camlcast.Run} is one call to {!Camlcast_core.Engine.run} with a mount
-kept beside it. A game reaches for it when it genuinely needs a
+This is the API the layer stands on: {!Camlcast.Run} is one call to
+{!Camlcast_core.Engine.run} with a mount kept beside it. A game reaches for it
+when it genuinely needs a
 {!Camlcast_core.World} or a {!Camlcast_core.Renderer}, by adding
 [camlcast.core] to its dune file.
 

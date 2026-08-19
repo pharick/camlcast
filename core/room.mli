@@ -810,7 +810,7 @@ val segments_cross : a1:Vec.t -> a2:Vec.t -> b1:Vec.t -> b2:Vec.t -> bool
       along a wall meets nothing worth drawing while a step sliding along one
       still has to be stopped;
     - the parallel test is inclusive here and strict there, so a segment of no
-      length keeps the branch it has always taken.
+      length lands where each of the two needs it.
 
     A shared core would be the way to stop the middle drifting, and it was
     measured rather than assumed. Pinning what is worth pinning — which endpoint

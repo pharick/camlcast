@@ -372,8 +372,8 @@ let blocked t (p : Vec.t) =
    parallel is a doorway {!World.crossing} does not report, a room the player
    never enters, and a walk on out through the wall it was cut into.
 
-   Inclusive where Ray's is strict, so that a [b1..b2] of no length keeps the
-   branch it has always taken: its [denom] is zero and so is its scaled
+   Inclusive where Ray's is strict, so that a [b1..b2] of no length takes the
+   parallel branch: its [denom] is zero and so is its scaled
    tolerance, and a strict test would send it to the crossing branch to divide
    by that zero and come back false through a nan.
 
