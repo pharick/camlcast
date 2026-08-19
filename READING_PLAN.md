@@ -101,7 +101,7 @@ Read, in order:
 | 0.1 | `README.md` | The whole pitch. Especially the sections **The libraries**, **The engine in one page**, and the demo table. |
 | 0.2 | `dune-project` | The two opam packages and why they are two; `implicit_transitive_deps false` and what boundary it enforces. |
 | 0.3 | `core/dune`, `loom/dune`, `lib/dune`, `demo/dune` | Four short comment-essays. `loom/dune`'s empty `(libraries)` is the single most load-bearing line in the repo — the reconciler may not know what a pixel is. |
-| 0.4 | `doc/index.mld` | The annotated module list (it is the reading order for `core/`, and this plan follows it), and **The house rules** — the API conventions (`make`, `load`, `with_x`/`add_x`/`set_x`, units) that make one module's shape predict all the others. |
+| 0.4 | `doc/index.mld` | What each of the four libraries is and where its module index lives, **Where to start** — the reading path into `core/` that this plan expands — and **The house rules**, the API conventions (`make`, `load`, `with_x`/`add_x`/`set_x`, units) that make one module's shape predict all the others. |
 | 0.5 | `HACKING.md` | Skim. Note "The demos, and what migrating them found" — it is a compressed history of *why* the layer's API has the members it has. |
 
 If you can build, also do: `dune exec camlcast-demo` and walk through
@@ -141,7 +141,7 @@ instance tree the reconciler keeps — which is Phase 3's subject.)
 documented. Goal: understand how a frame is drawn and how a player moves.*
 
 `core/` is thirty modules with a strict property, stated in `doc/index.mld`:
-**each module depends only on the ones listed before it**. So reading them in
+**each module depends only on the ones under it**. So reading them in
 the order below means never meeting a name you have not already read. The
 modules cluster naturally; take a cluster per sitting.
 

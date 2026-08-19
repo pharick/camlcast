@@ -28,7 +28,7 @@ start:
 - **Learn how a raycaster draws** —
   [Building the engine from scratch](https://pharick.github.io/camlcast/building-the-engine.html):
   every derivation written out.
-- **Hack on the engine itself** — [the modules](#the-engine-in-one-page),
+- **Hack on the engine itself** — [the modules](#the-libraries-in-one-page),
   [Tests](#tests), and [HACKING.md](HACKING.md).
 
 ## What it looks like
@@ -163,8 +163,8 @@ in this repository because together they exercise every corner of the engine —
 decals, see-through walls, sloped floors, the open sky, growth, overlays and
 input — so a change that breaks one breaks a world you can walk through here.
 
-They are two opam packages for the same reason. `camlcast` is the engine: a
-library that reads no file and puts nothing in a prefix's `share`.
+They are two opam packages for the same reason. `camlcast` is a library that
+reads no file and puts nothing in a prefix's `share`.
 `camlcast-demo` is `bin/demo.ml` and the pictures it needs, which a program
 that reads its art off the disk must carry wherever it is installed.
 
@@ -347,15 +347,15 @@ xattr -dr com.apple.quarantine camlcast-demo.app
 [HACKING.md](HACKING.md) explains how the glibc floor and the `.app`'s
 minimum macOS version are determined.
 
-## The engine in one page
+## The libraries in one page
 
-**`core/`** is twenty-nine modules, each depending only on the ones before it:
-`Config`, `Key` and `Vec` at the bottom, `Room`, `World` and `Ray` in the
-middle, `Renderer`, `Clock` and `Engine` on top. The maths lives in the module
-docs: `Ray` for why the distance it reports is free of fish-eye, `Plane` for
-the equation that casts a sloped floor per pixel, `Viewport` for the
-projection and the resize rules, `Transform` for why linked doorways pair in
-reverse, `World` for the portal machinery.
+**`core/`** is the platform, a stack of modules each depending only on the
+ones under it: `Config`, `Key` and `Vec` at the bottom, `Room`, `World` and
+`Ray` in the middle, `Renderer`, `Clock` and `Engine` on top. The maths lives
+in the module docs: `Ray` for why the distance it reports is free of fish-eye,
+`Plane` for the equation that casts a sloped floor per pixel, `Viewport` for
+the projection and the resize rules, `Transform` for why linked doorways pair
+in reverse, `World` for the portal machinery.
 
 **`loom/`** is the declarative runtime, depending only on the standard
 library: `Element` is what a component returns, `Reconcile` matches this
@@ -368,7 +368,7 @@ the seam — two types and one function.
 for what is wrong with a level before anyone walks into it, `Aim` for what the
 crosshair is on, `Run` for the loop.
 
-The annotated list is the
+Each library's own module index is linked from the
 **[documentation landing page](https://pharick.github.io/camlcast/)**.
 
 ## Documentation

@@ -44,16 +44,18 @@ The engine holds no content: no colours, patterns, pictures or rooms. It
 provides the types those things are values of. A game supplies its own content,
 so two games can share an engine without sharing a look.
 
-- {b [camlcast]} — {b what a game opens.} The parts a world is described with,
-  the components that hold its state, and the loop that plays one. See
-  {!Camlcast}.
-- {b [camlcast.loom]} — the runtime under that: elements, reconciling, hooks,
-  contexts, a store. It depends only on the standard library and contains no
-  engine types.
-- {b [camlcast.core]} — the platform. Geometry, ray casting, rendering, SDL. A
-  game that genuinely needs {!Camlcast_core.World} or
-  {!Camlcast_core.Renderer} adds this to its dune file. The explicit dependency
-  makes bypassing the layer a decision rather than a drift.
+- {b [camlcast]} — {b the layer, and what a game opens.} The parts a world is
+  described with, the components that hold its state, and the loop that plays
+  one. Its interface is written by hand rather than generated, so it is also
+  the reading order: {!Camlcast}.
+- {b [camlcast.loom]} — the runtime under the layer: elements, reconciling,
+  hooks, contexts, a store. It depends only on the standard library and
+  contains no engine types. The four modules a game names are re-exported by
+  {!Camlcast}; the rest of it is at {!Camlcast_loom}.
+- {b [camlcast.core]} — the platform. Geometry, ray casting, rendering, SDL:
+  {!Camlcast_core}. A game that genuinely needs {!Camlcast_core.World} or
+  {!Camlcast_core.Renderer} adds this to its dune file, which makes bypassing
+  the layer a decision rather than a drift.
 - {b [camlcast-demo]} — the demos and the art they are made of, run by
   [camlcast-demo]. One small world per engine feature, plus the five-room
   showcase that has all of them at once. The demos are content and live outside
@@ -180,65 +182,10 @@ window is resizable and can go fullscreen at any frame.
 {!Camlcast_core.Renderer} puts it all together. {!Camlcast_core.World} carries
 both the portal machinery and the three primitives a world grows by.
 
-{1 The engine}
-
-Each depends only on the ones above it.
-
-- {!Camlcast_core.Config} — every tunable constant, in one place
-- {!Camlcast_core.Key} — the keyboard, named by the engine: a place on the
-  board rather than a letter, so a binding survives a change of layout
-- {!Camlcast_core.Result_ext} — [let*] and [let+], for chaining fallible SDL
-  calls, and the acquire/use/release that frees a window however a frame ends
-- {!Camlcast_core.Extent} — whether a rectangle of pixels is a length an array
-  can have; the check divides rather than multiplies, so it cannot overflow
-  the thing it is checking for
-- {!Camlcast_core.Vec} — immutable 2-D vectors, with the dot and cross products
-  the geometry needs
-- {!Camlcast_core.Transform} — rigid motions between room-local coordinate
-  frames
-- {!Camlcast_core.Plane} — an inclined floor/ceiling plane and its casting
-  equation
-- {!Camlcast_core.Color} — 8-bit RGB, shading and blending
-- {!Camlcast_core.Bitmap} — decoding a PNG or JPEG into plain bytes: the one
-  place pixel formats appear
-- {!Camlcast_core.Asset} — file locations, searched relative to the executable
-  rather than to a source tree
-- {!Camlcast_core.Texture} — colour surface patterns, generated or loaded, and
-  the wrapping value noise the generated ones are built from
-- {!Camlcast_core.Material} — what a surface is made of: its pattern
-- {!Camlcast_core.Door} — a leaf hung in a doorway: open or closed, and its
-  material
-- {!Camlcast_core.Atmosphere} — a world's fog, haze, and light source
-- {!Camlcast_core.Sky} — the open sky where a room has no roof
-- {!Camlcast_core.Image} — full-colour images with alpha, for decals and
-  sprites
-- {!Camlcast_core.Framebuffer} — a CPU pixel buffer and the streaming texture
-  it uploads through
-- {!Camlcast_core.Paint} — clipped rectangles, lines and pictures over a
-  finished frame
-- {!Camlcast_core.Font} — a bitmap font on a fixed grid: layout, wrapping and
-  drawing
-- {!Camlcast_core.Room} — one room's walls, thresholds, surfaces, sprites and
-  collision
-- {!Camlcast_core.World} — named rooms, linked portals, the world's atmosphere
-  and spawn, and how a world grows
-- {!Camlcast_core.Ray} — ray-versus-segment intersection: every wall the ray
-  crosses, farthest first
-- {!Camlcast_core.Player} — the camera, as position + unit [dir] + unit
-  [right], plus the pitch it looks up and down by
-- {!Camlcast_core.Viewport} — window size to camera geometry; the eye height,
-  the pitch shear and the resize rules
-- {!Camlcast_core.Sight} — what the crosshair is on, traced through doorways
-- {!Camlcast_core.Input} — the raw keyboard and mouse: controls, their edges
-  and holds, and what the analog sources read
-- {!Camlcast_core.Binding} — what those controls are for: a game's table, and
-  the one pure function that turns a frame of them into a movement
-- {!Camlcast_core.Renderer} — the software renderer: casts the planes, paints
-  the walls, per pixel
-- {!Camlcast_core.Clock} — the pacing arithmetic the loop measures its frames
-  by, apart from any window
-- {!Camlcast_core.Engine} — window lifetime, fullscreen state, and the game
-  loop
+{!Camlcast_core} lists the whole platform, alphabetically. The modules are
+layered — each depends only on the ones under it — which the listing does not
+show and {{!page-"building-the-engine"} Building the engine from scratch}
+builds them in.
 
 {1 The demos}
 
