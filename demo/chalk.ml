@@ -280,10 +280,10 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
         mark { wall = name; along; z; facing; symbol = selected }
     | _ -> ()
   in
-  (* The boundary walls, as legs of a {!P.boundary}, which winds itself — what
-     this demo used to give up by writing every wall out. A leg carries
-     everything P.wall does, which it has to: the jambs are brick where the
-     rest is stone. *)
+  (* The boundary walls, as legs of a {!P.boundary}, which winds itself. A leg
+     carries everything P.wall does, which it has to here: the jambs are brick
+     where the rest is stone, and writing the walls out one by one to say that
+     is what gives the winding up. *)
   let chalk_leg ?material name p =
     P.corner ?material ~key:name ~decals:(chalked ~marks name)
       ~on_use:(takes_a_mark name) p

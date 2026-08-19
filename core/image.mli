@@ -64,10 +64,9 @@ val make : width:int -> ?height:int -> (u:int -> v:int -> Color.t * int) -> t
     value twice.
 
     [width] comes first, as in {!Framebuffer.offscreen}, {!Viewport.make} and
-    {!Extent.fits}. It used to come second, behind the optional [height], which
-    is the one order an extent is never written in and was not forced by
-    anything: an optional argument only has to be followed by something, and the
-    generator is something.
+    {!Extent.fits}. Nothing forces that: an optional argument only has to be
+    followed by something, and the generator is something, so [height] could
+    sit in front — which is the one order an extent is never written in.
 
     Both colour and alpha are clamped into 0 .. 255 rather than trusted, as
     {!Texture.generate_masked} clamps what a pattern returns: a picture is

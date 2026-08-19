@@ -36,8 +36,8 @@ type t = {
    report it.
 
    The caller names the quantity rather than this function fixing it, because
-   the two look axes are not measured in the same thing. A message calling
-   both an angle would repeat the slip {!pitch_by}'s label used to have. *)
+   the two look axes are not measured in the same thing: a message calling both
+   an angle is the slip {!pitch_by}'s docstring is at pains to avoid. *)
 let finite who what value =
   if not (Float.is_finite value) then
     invalid_arg (Printf.sprintf "%s: the %s has to be finite" who what)

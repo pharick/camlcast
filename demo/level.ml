@@ -59,7 +59,7 @@ let roofed plane = P.roof ~plane ~material:Surfaces.soffit
     place in the level where those two answers differ.
 
     Both sides of a link ask this with the same name, so they cannot disagree —
-    what World.set_door used to have to keep in step and now nobody does. *)
+    the thing World.set_door has to keep in step when the sides are indices. *)
 let leaf material ~shut =
   Door.make ~state:(if shut then Door.Closed else Door.Open) material
 

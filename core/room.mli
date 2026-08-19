@@ -892,9 +892,9 @@ val passable : t -> from:Vec.t -> dest:Vec.t -> bool
 val rectangle :
   height:float -> material:Material.t -> Vec.t -> Vec.t -> wall list
 (** The four walls of the axis-aligned rectangle with these two opposite corners
-    — the single most common room there is, which every demo used to open by
-    naming four corners and a winding. The walls come out wound
-    counter-clockwise whichever two opposite corners are given, so the one
+    — the single most common room there is, and the one thing a demo would
+    otherwise open by naming four corners and a winding. The walls come out
+    wound counter-clockwise whichever two opposite corners are given, so the one
     authoring mistake a box invites cannot be made through here.
 
     @raise Invalid_argument

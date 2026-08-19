@@ -554,8 +554,8 @@ let of_forest forest =
         in
         (* Both of the ways the engine has of refusing a description, caught so
            that a check written to replace {e these} crashes does not end in
-           one. This is not a promise about every crash, which this comment
-           used to read as. A component of the game's own that raises during
+           one. Not a promise about every crash: a component of the game's own
+           that raises during
            the render below comes straight out of {!report}, as
            {!Check.report}'s own docstring sets out. Only the engine's half is
            bounded here. *)

@@ -156,8 +156,9 @@ val component :
     costs one call per level actually reached, and a subtree that turns out to
     be unmounted is never rendered at all.
 
-    {b It does not let the reconciler stop walking}, which this used to say.
-    There is no bailout. {!Camlcast_loom.Reconcile} matches a component by
+    {b It does not let the reconciler stop walking.} There is no bailout —
+    which is the thing laziness here is most likely to be read as promising.
+    {!Camlcast_loom.Reconcile} matches a component by
     [render]'s identity and its key, and what that buys is the component's
     {e slots} — its hook state — being kept. It re-renders regardless, every
     frame, whether or not the props are the ones it saw last. React's [memo] is

@@ -24,8 +24,8 @@
 
     Both sides of a doorway share one name, so the game's record and the
     engine's cannot disagree about a door's state — the bookkeeping
-    {!Camlcast_core.World.set_door} used to do. Open the middle door, walk
-    through, look back: it is open from there too.
+    {!Camlcast_core.World.set_door} does for a game that works in indices.
+    Open the middle door, walk through, look back: it is open from there too.
 
     The meter along the bottom is the door under the crosshair: empty when it is
     open, full when it is shut, red for a moment when this demo refuses to work
@@ -58,7 +58,7 @@ let north = Vec.make 0. 2.4
 (** What hangs in a doorway: nothing if it has no leaf, nothing if it has been
     opened, and the leaf otherwise. Both sides of a link ask this with the same
     name, so they cannot disagree — which is the whole of what
-    {!Camlcast_core.World.set_door} used to have to keep in step. *)
+    {!Camlcast_core.World.set_door} has to keep in step for its two indices. *)
 let leaf ~opened name =
   match name with
   | _ when List.mem name opened -> None

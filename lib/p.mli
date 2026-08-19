@@ -147,14 +147,13 @@ val boundary :
     This is the one way to lay a run of wall in a description, and the whole of
     {!wall} is available at every leg of it.
 
-    There were three forms: [outline] for a closed run, [path] for an open one,
-    and this for a run whose legs differ. The first two were this with
-    {!val-corners} in front of them and nothing said at any leg — the suite
-    asserted as much before they were removed — so they were two names for a
-    special case, not two things. A boundary with one handler on it used to mean
-    dropping to {!wall} per side and giving up the winding. That is the reason
-    the other two forms existed at all, and the chalk demo did exactly that for
-    every wall a mark can go on.
+    One form, not three. A closed run and an open one are this with
+    {!val-corners} in front of them and nothing said at any leg, so naming them
+    separately would be two names for a special case rather than two things.
+    The pull towards separate names is that a run whose legs differ looks like
+    a different shape of problem; it is not, and the alternative is dropping to
+    {!wall} per side and giving up the winding the moment one leg wants a
+    handler.
 
     [closed] joins the last corner back to the first, and defaults to true. Say
     [~closed:false] for a run that stops, which is a boundary with a {!doorway}
