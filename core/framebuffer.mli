@@ -2,8 +2,8 @@
     it is uploaded through once per frame.
 
     The sloped floor and ceiling need a colour decided {e per pixel} (see
-    {!Renderer}), which the old approach of blitting whole wall textures on the
-    GPU could not express. A pixel buffer expresses it directly: the renderer
+    {!Renderer}), which blitting whole wall textures on the GPU cannot express.
+    A pixel buffer expresses it directly: the renderer
     writes every pixel by hand, then the whole buffer is handed to the GPU in
     one upload and scaled up to fill the window.
 

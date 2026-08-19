@@ -295,7 +295,7 @@ GLYPHS = {
 }
 
 # The 96th cell, one past the last printable character: a hollow box, which is
-# what a reader has always been shown for a character nobody can draw.
+# what a reader expects to be shown for a character nobody can draw.
 TOFU = ".###. .#.#. .#.#. .#.#. .#.#. .#.#. .###."
 
 

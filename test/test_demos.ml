@@ -264,10 +264,10 @@ let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
         (Catalogue.attempt (fun () ->
              invalid_arg "Room.doorway: the opening has to fit under the wall")))
 
-(* Growing is where a world was most easily broken, and the shape of the risk
-   has changed. The old corridor grew by surgery (open_doorway to give a dead
-   end a way on, add_room for what lay beyond it, link to join the two), and
-   every one of those checks an invariant the generator had to keep by hand.
+(* Growing is where a world is most easily broken, and what the risk looks like
+   depends on how it grows. By surgery (open_doorway to give a dead end a way
+   on, add_room for what lies beyond it, link to join the two), every step
+   checks an invariant the generator has to keep by hand.
 
    A description grows by being longer. There is nothing to keep by hand, so
    what is asserted is not that the surgery was done right but that the result

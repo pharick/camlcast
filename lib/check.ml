@@ -44,7 +44,7 @@ let near a b = Vec.length (Vec.sub a b) < 1e-6
    exactly, but on a sloped floor they come out a bit or two apart: the
    showcase level disagrees with itself by 1.11e-16 across one doorway and is
    correct. This is the tolerance test/support.ml already calls close, and the
-   demo suite has always compared seams at it, so checker and tests agree about
+   demo suite compares seams at it, so checker and tests agree about
    zero by construction rather than by coincidence. *)
 let flat_enough = 1e-9
 

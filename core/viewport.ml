@@ -56,12 +56,11 @@
 
     {!Sight} deliberately traces the middle itself rather than that pixel, so
     its answer is the same whatever size the window has been dragged to. At an
-    even size the two rays are half a pixel apart, and that half now matters
-    more than it did. Picking reads the {e texel} under the crosshair rather
-    than judging a whole material, so a ray landing half a pixel to one side can
-    land on the next texel along. The two can therefore differ by one texel of
-    the pattern at the edge of a grille's bar, where before it took a target
-    narrower than a pixel to notice.
+    even size the two rays are half a pixel apart, and that half is worth more
+    than it looks. Picking reads the {e texel} under the crosshair rather than
+    judging a whole material, so a ray landing half a pixel to one side can
+    land on the next texel along: the two can differ at the edge of a grille's
+    bar, not only on a target narrower than a pixel.
 
     The gap is bounded on the screen, at half a pixel, but not bounded in the
     world, because half a pixel subtends more of a surface the further off it

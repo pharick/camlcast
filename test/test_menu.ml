@@ -54,9 +54,9 @@ let holding key = [ Input.Key key ]
 
 (* Press a key, then render again. A handler runs after the frame it was
    triggered on, so the frame the key went down on still shows the previous
-   selection; see Camlcast.Hook for why that is the rule. The old test drove a
-   pure update that responded immediately. This is the one place the difference
-   is visible, and the one-frame delay is imperceptible to a player. *)
+   selection; see Camlcast.Hook for why that is the rule. This is the one place
+   a component is visibly not a pure update responding immediately, and the
+   one-frame delay is imperceptible to a player. *)
 let press key driver =
   ignore (play ~held:(holding key) driver);
   play driver

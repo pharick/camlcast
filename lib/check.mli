@@ -48,7 +48,7 @@
     A {b spawn inside its room} cannot be checked either: an even-odd crossing
     test counts a free-standing partition as a boundary and gets the answer
     backwards. What is checked is that the spawn is not inside a wall, which is
-    {!Camlcast_core.Room.blocked} and is what the demo suite has always asked.
+    {!Camlcast_core.Room.blocked} and is what the demo suite asks.
 
     {1 No source locations}
 
