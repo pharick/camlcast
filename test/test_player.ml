@@ -52,11 +52,11 @@ let pitch_tips_within_a_limit () =
     ((Player.pitch_by p ~fraction:(-100.)).Player.pitch
    >= -.Config.max_pitch -. 1e-9)
 
-(* What [~fraction] is a fraction {e of}. The label used to say [~radians], and
-   nothing here contradicted it: the test above only checks that the number
-   comes back out, and {!Viewport}'s own pitch test only checks which way the
-   horizon moved. The whole suite therefore passed with a [tan] in the middle,
-   which is what taking the old label literally would insert.
+(* What [~fraction] is a fraction {e of}. Nothing else in the suite pins it:
+   the test above only checks that the number comes back out, and {!Viewport}'s
+   own pitch test only checks which way the horizon moved. Without this case
+   the whole suite passes with a [tan] in the middle — which is what reading
+   the argument as radians would put there.
 
    The claim is that the number is measured in window heights, and the one
    place that has an observable effect is the horizon, two modules away. Hence

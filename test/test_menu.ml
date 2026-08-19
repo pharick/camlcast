@@ -1,10 +1,9 @@
 (** The launcher's list, driven without a window.
 
-    This suite used to drive {!Camlcast_demo.Menu.update}, a pure function of
-    the state and one frame's input. The list is a component now and owns its
-    cursor, so the suite drives a mount and reads back the row the list
-    {e highlights}. That is what a player sees, and asserting it beats asserting
-    an index: these cases name demos.
+    The list is a component and owns its cursor, so this drives a mount and
+    reads back the row the list {e highlights} rather than calling an update
+    function and reading an index. That is what a player sees, which is why
+    these cases can name demos.
 
     Only the drawing needs a window, and the drawing makes no decisions. *)
 

@@ -36,8 +36,8 @@ let a_fresh_buffer_is_black () =
    only as long as their product. That product is the only arithmetic
    {!Framebuffer.set} does, unchecked, so a buffer whose extents and allocation
    disagree writes outside its own memory on the first call every test here
-   makes. Two negative extents multiply to a positive product, which is how one
-   used to get built.
+   makes. Two negative extents multiply to a positive product, which is how
+   such a buffer gets past a check on the product alone.
 
    {!Framebuffer.make} refuses the same pairs on the same terms, before asking
    SDL for the texture it would otherwise leak, but nothing here has a live
@@ -240,8 +240,8 @@ let asking_for_more_of_a_channel_never_gives_less () =
            (List.hd asked, List.hd got)
            (List.tl asked) (List.tl got)))
     [ ("solid", solid); ("blended", blended); ("tinted", tinted) ];
-  (* The concrete case the report named, pinned on its own: a red brightened
-     past full used to come out a dark teal. *)
+  (* The concrete case, pinned on its own: a red brightened past full must not
+     wrap into a dark teal. *)
   let fb = buffer () in
   Paint.rect fb ~x:0 ~y:0 ~w:4 ~h:4
     ~color:(Color.rgb (200 + 80) 40 40)

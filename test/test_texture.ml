@@ -95,9 +95,9 @@ let heights_map_into_the_texture () =
     (Texture.row_of_height checker 0.);
   (* Not the same case as the one above, which passes by clamping. This is a
      height genuinely inside the bottom row's band, and it is what scaling by
-     [size - 1] used to get wrong: under that rule the last row was reachable
-     only from exactly the foot, every height just over it fell in the row
-     above, and the bottom of every pattern went undrawn. *)
+     [size - 1] gets wrong: under that rule the last row is reachable only from
+     exactly the foot, every height just over it falls in the row above, and
+     the bottom of every pattern goes undrawn. *)
   Alcotest.(check int)
     "and so is a height just over it" last
     (Texture.row_of_height checker 0.001);

@@ -724,8 +724,8 @@ let effects =
   ]
 
 (* Destroying a root. A root that is only ever rendered into runs a cleanup
-   when its component unmounts. A root released while components were still
-   mounted used to run no cleanups at all. *)
+   when its component unmounts; the case worth pinning is the other one, a root
+   released while its components are still mounted. *)
 let destroying =
   let journal = ref [] in
   let note line = journal := line :: !journal in

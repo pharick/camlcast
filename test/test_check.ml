@@ -355,9 +355,9 @@ let agrees_with_the_engine =
       (fun () ->
         (* The doorway is wider than the wall it is cut into, which
            Room.doorway refuses. Built inside a component, where a game builds
-           one, it used to come straight out of Check.report as
-           Invalid_argument: the module written to replace a crash ended in
-           one. *)
+           one, the refusal has to be caught and reported: a module written to
+           replace a crash must not come out of Check.report as
+           Invalid_argument. *)
         let bad =
           Camlcast_loom.Element.declare ~name:"BadRoom" @@ fun () ->
           P.room ~name:"west" ~floor ~ceiling
@@ -480,10 +480,10 @@ let the_world_it_makes =
         Alcotest.check lines "and nothing here is broken" [ "warning" ]
           (severities two_cameras));
     case "which leaves the world buildable, and so still checked" (fun () ->
-        (* The room check used to error here, and an error stops the tiers
-           below it, so a dead camera naming a typo took the geometry checks
-           down with it. This world's spawn is in a wall, and the report still
-           has to reach that. *)
+        (* A warning and not an error, because an error stops the tiers below
+           it: raise the severity here and a dead camera naming a typo takes
+           the geometry checks down with it. This world's spawn is in a wall,
+           and the report has to reach that. *)
         Alcotest.check lines "the camera, and the thing behind it"
           [
             "the player starts inside a wall";
@@ -575,12 +575,12 @@ let the_world_it_makes =
                   P.link ("west", "east") ("east", "west");
                 ])));
     case "and the reason it gives keeps the two words apart" (fun () ->
-        (* The detail used to open "A doorway is an opening in a boundary",
-           the one sentence in the engine that said so. A doorway is an
-           opening {e and its jambs} (see {!Camlcast_core.Room}), and being
-           made with its jambs is why a doorway cannot be the thing this
-           complaint is about. Only a bare threshold can. The explanation now
-           says which of the two makes this gap and which cannot. *)
+        (* The two words are not interchangeable, and this detail is where
+           they are easiest to run together. A doorway is an opening {e and its
+           jambs} (see {!Camlcast_core.Room}), and being made with its jambs is
+           why a doorway cannot be the thing this complaint is about. Only a
+           bare threshold can, so the explanation has to say which of the two
+           makes this gap and which cannot. *)
         let gap =
           P.world ~atmosphere:Atmosphere.default
             ~spawn:("west", Vec.make (-3.) 0.)

@@ -553,8 +553,8 @@ let a_doorway_that_could_not_be_cut_is_refused () =
   let no_wall = "Room.doorway: no wall to cut a doorway into: gate" in
   raises "a wall with no length" no_wall
     (cut ~width:1. (Vec.make 2. 2.) (Vec.make 2. 2.));
-  (* An infinite end used to pass this check and raise from [threshold]
-     instead, under a name the caller never wrote. *)
+  (* An infinite end has to be refused here. Left to reach [threshold], it
+     raises from there, under a name the caller never wrote. *)
   raises "a wall running off to infinity" no_wall
     (cut ~width:1. (Vec.make 0. 0.) (Vec.make Float.infinity 0.));
   raises "an opening with no width"
@@ -708,9 +708,10 @@ let a_cut_too_fine_for_its_scale_is_refused () =
   let span = Vec.length (Vec.sub b a) in
   Alcotest.check_raises "a width of rounding noise" refused
     (cut ~width:(1e-18 *. span) a b);
-  (* At a span whose double overflows, the inset used to collapse to zero and
-     the asked width to be quietly ignored; measured overflow-free, it is half
-     the span, the cut a point, and the point refused. *)
+  (* At a span whose double overflows, an inset measured through that double
+     collapses to zero and the asked width is quietly ignored. Measured
+     overflow-free it is half the span, the cut a point, and the point
+     refused. *)
   Alcotest.check_raises "a span whose double overflows" refused
     (cut ~width:1. (Vec.make 0. 0.) (Vec.make 1e308 0.))
 

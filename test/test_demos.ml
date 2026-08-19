@@ -453,13 +453,13 @@ let the_floating_demo_lifts_its_sprites () =
    one made during the frame. A version that generated a picture per mote per
    frame would draw exactly the same thing and fail here.
 
-   This used to assert a second thing: that a moving room shared the walls of
-   the room it moved from, so that seventy motes were not dragging four walls
-   behind them sixty times a second. A described world has no such sharing; it
-   is built from nothing every frame, on purpose. bench/frame.exe is where
-   that was measured and found to cost a seventh of one percent of drawing the
-   frame it is for. What is asserted instead is what a reader of the demo
-   cares about: the room stands still while the dust falls. *)
+   What is not asserted here is that a moving room shares the walls of the room
+   it moved from, so that seventy motes are not dragging four walls behind them
+   sixty times a second. A described world has no such sharing: it is built
+   from nothing every frame, on purpose, and bench/frame.exe is where that
+   costs a seventh of one percent of drawing the frame it is for. So the claim
+   is the one a reader of the demo cares about: the room stands still while the
+   dust falls. *)
 let the_dust_demo_moves_without_making_anything () =
   let at t = (Mount.build (Dust.at ~t)).Scene.world in
   let early = at 0.4 and late = at 3.1 in

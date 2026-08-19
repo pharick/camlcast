@@ -138,9 +138,9 @@ let a_step_through_a_door_is_refused_by_the_neighbour () =
     "and an open door is still one you can walk through" true
     (World.passable ajar ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.))
 
-(* The straight step through the middle of the opening, in both states. The
-   engine used to get this wrong in either state: a leaf was drawn and the
-   player walked through it regardless. *)
+(* The straight step through the middle of the opening, in both states. What
+   this catches is a leaf that is drawn and walked through regardless — the two
+   answers coming apart, in either state. *)
 let a_door_blocks_in_the_states_that_have_a_leaf () =
   let through world =
     World.passable world ~room:0 ~from:(Vec.make 3.5 2.) ~dest:(Vec.make 4.5 2.)

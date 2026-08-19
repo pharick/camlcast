@@ -110,9 +110,10 @@ let a_segment_with_no_length_is_refused () =
   refused "a coordinate that is infinite"
     "Transform.between: b1 and b2 are the same point" here there here
     (Vec.make Float.infinity 2.);
-  (* The case neither of those two covers, which the guard used to let through:
-     a length that is finite, above zero, and still too small to take a
-     reciprocal of. Below about 5.6e-309 the reciprocal is infinity, so
+  (* The case neither of those two covers, and the one a guard against zero and
+     a guard against infinity both let through: a length that is finite, above
+     zero, and still too small to take a reciprocal of. Below about 5.6e-309
+     the reciprocal is infinity, so
      normalising gives (infinity, nan) and both cos and sin come out nan: a
      non-rotation in the type whose privacy promises it cannot hold one. See
      Vec.normalizable. *)
