@@ -244,18 +244,19 @@ let links =
    checker: it fails worlds that run and passes worlds that do not, and either
    way the reader stops believing it.
 
-   Every case here was a disagreement. The tolerance ones are the reason
-   World.has_length and its three neighbours are public; this file used to
-   measure with its own 1e-9 against the engine's 1e-6. The last is the reason
-   Element.Render_refused exists. *)
+   Every case here is a way the two can come apart. The tolerance ones are why
+   World.has_length and its three neighbours are public: measuring here with a
+   1e-9 of this file's own, against the engine's 1e-6, disagrees in the band
+   between them. The last is why Element.Render_refused exists. *)
 (* Agreeing about which descriptions are wrong is half of it. The other half
-   is saying so in the same words. By the time this was written the two shared
-   the rule (Prim.may_contain), the traversal (Nesting.misplaced) and the
-   nouns (Prim.describe, Prim.inside): everything but the sentence. Host
-   raised "... does not belong in a world" where the checker reported "a ...
-   cannot go in a world". That is one offence under two names, which a
-   developer who met one and then the other had no way to connect. Every part
-   anyone had thought to share was shared, which is why the last part was not.
+   is saying so in the same words. The two already share the rule
+   (Prim.may_contain), the traversal (Nesting.misplaced) and the nouns
+   (Prim.describe, Prim.inside), and sharing all of that is not enough: leave
+   the sentence to each and Host says "... does not belong in a world" where
+   the checker says "a ... cannot go in a world". That is one offence under two
+   names, which a developer who meets one and then the other has no way to
+   connect. The verb is the part nobody thinks to share, which is exactly why
+   it has to be pinned.
 
    The assertion is not the words themselves; those are pinned in "structure"
    above, and pinning them twice would mean two places to edit. It is the
