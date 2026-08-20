@@ -25,8 +25,9 @@ On macOS add `--no-depexts` to the install line. Homebrew's `sdl2` is an alias
 for the `sdl2-compat` formula, and opam checks for the depext by name against
 `brew list`, which reports only the formula. The `sdl2` the depext asks for
 never appears there, so the check fails no matter what is installed. Install
-the libraries yourself and tell opam to stop looking. Upstream:
-opam-repository#30337.
+the libraries yourself and tell opam to stop looking; the fix that would make
+that unnecessary is for `conf-sdl2` to ask for `sdl2-compat` on macOS, filed as
+[ocaml/opam-repository#30337](https://github.com/ocaml/opam-repository/issues/30337).
 
 The engine's floor is OCaml 5.2, required for `-H`, the hidden include that
 makes `(implicit_transitive_deps false)` hide directories instead of dropping

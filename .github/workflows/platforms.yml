@@ -59,7 +59,8 @@ jobs:
       # spelled sdl2, an alias that never appears in that list, so the check
       # fails no matter how often the package is installed. The check that
       # matters, `pkg-config sdl2`, does succeed — this skips a broken test,
-      # not a real one. Details in HACKING.md; upstream: opam-repository#30337.
+      # not a real one. Details in HACKING.md; the upstream fix would be in
+      # conf-sdl2's depext: https://github.com/ocaml/opam-repository/issues/30337
       - run: opam install . --deps-only --with-test --no-depexts
 
       - run: opam exec -- dune build
