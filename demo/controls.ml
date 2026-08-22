@@ -120,7 +120,8 @@ let chamber =
           (Vec.make 0. (-2.5));
       ])
 
-let spawn = ("room", Vec.make (-4.5) 0.)
+(* Not `spawn`: a local open of P puts its own in scope. *)
+let start = ("room", Vec.make (-4.5) 0.)
 
 (* Not (width, height): a local open of P puts a wall's height in scope, and a
    buffer's is a different number. *)
@@ -186,7 +187,7 @@ let reading =
       set_click
         (if Input.pressed actions primary then lamp_time else fade click dt));
   P.(
-    world ~atmosphere:Surfaces.air ~spawn
+    world ~atmosphere:Surfaces.air ~spawn:start
       [
         chamber;
         (if pointing then cursor else Element.empty);
@@ -207,7 +208,7 @@ let reading =
       ])
 
 let world =
-  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn [ chamber ]))
+  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn:start [ chamber ]))
     .Scene.world
 
 let run window =

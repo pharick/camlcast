@@ -267,12 +267,18 @@ let invalid_worlds_are_refused () =
            ~links:
              [ (("a", "gate"), ("b", "gate")); (("a", "gate"), ("b", "other")) ]
            ~atmosphere:air ~spawn:("a", centre)));
-  raises "unlinked threshold" "World.make: nothing links threshold a.gate"
-    (fun () ->
-      ignore
-        (World.make
-           ~rooms:[ ("a", square ~thresholds:[ gate () ] ()) ]
-           ~links:[] ~atmosphere:air ~spawn:("a", centre)))
+  (* Not a refusal any more. A door and the connection that joins two are
+     separate things, so a door with nothing on the other side is a level
+     part-built: the portal is None, the renderer fills the opening with haze
+     and passable holds it solid. Check reports it as a warning. *)
+  let unjoined =
+    World.make
+      ~rooms:[ ("a", square ~thresholds:[ gate () ] ()) ]
+      ~links:[] ~atmosphere:air ~spawn:("a", centre)
+  in
+  Alcotest.(check bool)
+    "a door that leads nowhere builds, and leads nowhere" true
+    (Option.is_none (World.portal unjoined ~room:0 ~threshold:0))
 
 (* {!Room.doorway} refuses the degenerate wall a threshold with no length would
    come from, and {!Room.threshold} refuses one built by hand out of two points
@@ -536,9 +542,9 @@ let invalid_growth_is_refused () =
                   ]
                 ~floor:flat_floor ~ceiling:flat_ceiling
                 (List.init (Room.wall_count first) (Room.wall_at first) @ jambs))));
-  raises "an unlinked doorway"
-    "World.check: nothing links threshold start.north" (fun () ->
-      World.check grown);
+  (* World.check asserts what World.make guarantees, and make no longer
+     guarantees that every doorway is joined, so neither does this. *)
+  World.check grown;
   (* A generator appends rooms, and a name it has used before does not collide
      with the one that has it: it shadows it, because a room is resolved by
      [Array.find_index], which answers with the first. The second room could

@@ -32,10 +32,14 @@ type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
     while it does. *)
 
 type t =
-  | World of { atmosphere : Atmosphere.t; spawn : string * Vec.t }
+  | World of { atmosphere : Atmosphere.t; spawn : (string * Vec.t) option }
       (** the root: the air every room is seen through, and where the player
           starts. Exactly one of these per description. *)
-  | Room of { name : string; floor : Room.surface; ceiling : Room.ceiling }
+  | Room of {
+      name : string option;
+      floor : Room.surface;
+      ceiling : Room.ceiling;
+    }
       (** a room in its own coordinate frame, named so that {!Link} can find it
       *)
   | Wall of {
@@ -76,6 +80,25 @@ type t =
   | Finish
       (** the description saying it is over. When one is present in a frame, the
           run ends after that frame. *)
+  | Door of {
+      id : int;
+      along : Vec.t * Vec.t;
+      width : float;
+      clearance : float;
+      name : string option;
+      leaf : Door.t option;
+      lintel : Room.lintel option;
+      reacts : reacts;
+    }
+      (** an opening cut into one leg of the room that holds it. [along] names
+          that leg by its two corners, in either order — the leg's own winding
+          is what the opening takes, which is why it cannot be given backwards.
+          [id] is the identity a {!Connect} joins it by. *)
+  | Connect of int * int
+  | Spawn of Vec.t
+      (** two {!Door}s, by [id], that are the same opening seen from either
+          side. A child of the world, so that joining two rooms and unjoining
+          them touches neither. *)
   | Link of { here : string * string; there : string * string }
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)

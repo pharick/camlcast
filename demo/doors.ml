@@ -69,7 +69,7 @@ let leaf ~opened name =
 (* Behind each doorway: the same small chamber three times over, each with its
    own way back and its own copy of whatever hangs in it. *)
 let chamber =
-  Element.declare ~name:"chamber" @@ fun (name, door, reacts) ->
+  Element.declare ~name:"chamber" @@ fun (name, hung, reacts) ->
   let sw = Vec.make 0. (-3.)
   and se = Vec.make 7. (-3.)
   and ne = Vec.make 7. 3.
@@ -82,7 +82,7 @@ let chamber =
       [
         boundary ~closed:false ~height ~material:Surfaces.brick
           (corners [ sw; se; ne; nw ]);
-        doorway ~name:"back" ?door ~on_gaze ~on_use ~width:2.4 ~opening:3.
+        doorway ~name:"back" ?door:hung ~on_gaze ~on_use ~width:2.4 ~opening:3.
           ~height ~material:Surfaces.brick nw sw;
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.);
       ])

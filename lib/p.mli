@@ -85,29 +85,50 @@ val open_sky : Sky.t -> Room.ceiling
 
 (** {1 The world} *)
 
-val world : atmosphere:Atmosphere.t -> spawn:string * Vec.t -> t list -> t
-(** The root of every description: the air its rooms are seen through, and the
-    room and spot the player starts in.
+val world : ?spawn:string * Vec.t -> atmosphere:Atmosphere.t -> t list -> t
+(** The root of every description: the air its rooms are seen through.
 
-    Its children are {!room}s and {!link}s. A description has exactly one of
-    these, as its outermost element. *)
+    Its children are {!val-room}s and the {!connect}ions between them. A
+    description has exactly one of these, as its outermost element.
+
+    Where the player starts is a {!val-spawn} in the room they start in, which
+    is why nothing here names a room. *)
+
+val spawn : Vec.t -> t
+(** Where the player starts, in the coordinates of the room that holds it.
+
+    A child of that room rather than a room's name and a point, because the room
+    is already the thing it is written inside. Exactly one description-wide. *)
+
+type corner
+(** One point on an {!val-room} outline, and how the wall {e leaving} it is
+    made. *)
 
 val room :
   ?key:string ->
-  name:string ->
+  ?name:string ->
+  ?outline:corner list ->
+  ?height:float ->
+  ?material:Material.t ->
   floor:Room.surface ->
   ceiling:Room.ceiling ->
   t list ->
   t
-(** A room in a coordinate frame of its own, holding its boundary, the sprites
-    standing in it and the doorways cut through it.
+(** A room in a coordinate frame of its own: a closed [outline], and what stands
+    inside it.
 
-    [name] is how a {!link} finds it, so it must be unique within the world. Use
-    {!Camlcast_core.Room.floor} for the surface and {!Camlcast_core.Room.roof}
-    or {!Camlcast_core.Room.open_sky} for what is overhead. *)
+    {b The outline is closed, and doors are cut out of it.} That is what makes
+    the winding the engine's business rather than the author's: a closed run
+    says which side is in, so every wall and every opening on it is wound from
+    here. It is also why removing a door puts its wall back — the leg was never
+    missing, only cut.
 
-type corner
-(** One point on a {!boundary}, and how the wall {e leaving} it is made. *)
+    [height] and [material] are what a leg that does not say gets, exactly as
+    they were on a boundary; a {!val-corner} overrides either.
+
+    [name] is for diagnostics alone. Nothing in a description refers to a room
+    by name — a {!connect} joins two {!val-door}s, and a door is already in one
+    room — so a description that says nothing here reads by its path instead. *)
 
 val corner :
   ?key:string ->
@@ -186,6 +207,64 @@ val boundary :
     wall as built, and a decal placed back at that [along] is on the same wall
     in the same frame. For hand-placing a decal on a boundary whose winding is
     unchecked, {!wall} is still there. *)
+
+type door
+(** One opening: how wide, how tall, and what hangs in it.
+
+    Made once, at the top level, for the reason {!Camlcast_loom.Element.declare}
+    is: it carries the identity a {!connect} joins by, and a value made inside a
+    render is a different door every frame.
+
+    A door belongs to the room it is {!cut} into, and stands on its own. One
+    that nothing connects leads nowhere {e yet}: the renderer fills it with the
+    world's haze and it is solid to walk into. That is a state to build in, not
+    a mistake, so {!Check} reports it as a warning and the engine builds it. *)
+
+val door :
+  ?name:string ->
+  ?leaf:Door.t ->
+  ?lintel:Room.lintel ->
+  width:float ->
+  clearance:float ->
+  unit ->
+  door
+(** An opening [width] across and [clearance] tall, with [leaf] hanging in it
+    and [lintel] over it.
+
+    [clearance] has to fit under the height of every room this is cut into —
+    both of them, once it is connected, and they need not be the same height.
+    The strip left above it is the wall's own height and material unless
+    [lintel] says otherwise, which is the whole of what a hand-built opening
+    used to be for.
+
+    [name] is for diagnostics alone. *)
+
+val cut :
+  ?key:string ->
+  ?on_gaze:(bool -> unit) ->
+  ?on_use:(Aim.spot -> unit) ->
+  door ->
+  along:Vec.t * Vec.t ->
+  t
+(** Cut this door into the leg of the room's outline running between these two
+    corners.
+
+    {b The two corners are given in either order.} They name a leg; the leg's
+    own winding is what the opening takes. That is the one thing this shape is
+    for: a doorway wound against its room is what
+    {!Camlcast_core.Transform.between} turns into a neighbour placed outside
+    itself, and no check in the engine catches it.
+
+    The jambs either side are legs of the outline like any other, so a
+    {!val-corner} dresses them. *)
+
+val connect : door -> door -> t
+(** These two doors are the same opening, seen from either side.
+
+    A child of the world rather than of either room, so joining two rooms and
+    unjoining them touches neither of them. The two have to agree about their
+    width, their height and their leaf; a description that connects two that do
+    not is refused in those terms. *)
 
 val polygon :
   center:Vec.t -> radius:float -> sides:int -> rotation:float -> corner list

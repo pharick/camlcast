@@ -24,11 +24,18 @@
     A world need not be finished. A doorway whose portal is [None] leads nowhere
     {e yet}: the renderer fills it with the world's {!Atmosphere.haze} and
     {!passable} treats it as solid, so an unfinished world stays playable
-    instead of crashing when the player walks towards the gap. {!make} still
-    refuses to produce such a world, because in a hand-authored level a doorway
-    onto nowhere is a mistake. {!open_doorway}, {!add_room} and {!link} are what
-    leave one, and a generator composing them can build the level ahead of the
-    player indefinitely.
+    instead of crashing when the player walks towards the gap.
+
+    {!make} builds one. It used to refuse, on the grounds that a doorway onto
+    nowhere is a mistake in a hand-authored level; what that cost was the
+    ability to build a level in the order anyone builds one, which is rooms
+    first and the ways between them after. A door and the connection that joins
+    two are separate things in a description, so an unjoined door is a state to
+    work in rather than a slip, and {!Camlcast.Check} reports one as a warning —
+    the tier a step in the floor is reported at, for the same reason: it draws,
+    it is walkable, and you want to hear about it before you ship.
+    {!open_doorway}, {!add_room} and {!link} leave one too, and a generator
+    composing them can build the level ahead of the player indefinitely.
 
     Everything that survives a frame refers to a room by a bare index:
     {!Player.t}'s [room], a portal's [to_room] and [twin]. Appending never

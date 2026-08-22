@@ -200,16 +200,6 @@ let make ~rooms ~links ~atmosphere ~spawn =
       fill ia ja name_a here;
       fill ib jb name_b there)
     links;
-  Array.iteri
-    (fun room ->
-      Array.iteri (fun index -> function
-        | Some _ -> ()
-        | None ->
-            let t = Room.threshold_at values.(room) index in
-            invalid_arg
-              ("World.make: nothing links threshold "
-             ^ describe room t.Room.name)))
-    slots;
   let spawn_room, spawn_pos = spawn in
   {
     rooms = values;
@@ -361,11 +351,7 @@ let check t =
     (fun room row ->
       Array.iteri
         (fun index -> function
-          | None ->
-              let x = Room.threshold_at t.rooms.(room) index in
-              invalid_arg
-                ("World.check: nothing links threshold " ^ t.names.(room) ^ "."
-               ^ x.Room.name)
+          | None -> (* a door that leads nowhere yet; see {!make} *) ()
           | Some portal ->
               let describe =
                 t.names.(room) ^ "." ^ portal.threshold.Room.name

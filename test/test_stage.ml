@@ -573,7 +573,7 @@ let both_readers =
   in
   let world_with extra =
     E.prim
-      (Prim.World { atmosphere = Atmosphere.default; spawn })
+      (Prim.World { atmosphere = Atmosphere.default; spawn = Some spawn })
       ~children:(only_room :: extra)
   in
   let bar =

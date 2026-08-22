@@ -9,12 +9,10 @@ let floor = Room.floor
 let roof = Room.roof
 let open_sky = Room.open_sky
 
-let world ~atmosphere ~spawn children =
+let world ?spawn ~atmosphere children =
   E.prim ~children (Prim.World { atmosphere; spawn })
 
-let room ?key ~name ~floor ~ceiling children =
-  E.prim ?key ~children (Prim.Room { name; floor; ceiling })
-
+let spawn at = E.prim (Prim.Spawn at)
 let reacts ?on_gaze ?on_use () = { Prim.on_gaze; on_use }
 
 let wall ?key ?on_gaze ?on_use ?(decals = []) ~height ~material a b =
@@ -203,6 +201,78 @@ let boundary ?key ?(closed = true) ~height ~material corners =
            ~material:(Option.value leg.material ~default:material)
            a b)
        laid)
+
+(* The legs of a closed outline, wound so the room is on the inside. The same
+   correction {!boundary} makes, with the open case gone: an outline is closed,
+   so every corner describes a wall and none of them can be the one that carries
+   nothing. *)
+let laid_outline ~height ~material corners =
+  let points = List.map (fun c -> c.at) corners in
+  ignore (Room.path ~closed:true ~height ~material points : Room.wall list);
+  let written = legs ~closed:true corners in
+  if twice_signed_area points >= 0. then written
+  else
+    let flipped = List.map (fun (a, b, leg) -> (b, a, leg)) written in
+    match List.rev flipped with
+    | closing :: rest -> rest @ [ closing ]
+    | [] -> []
+
+let room ?key ?name ?outline ?height ?material ~floor ~ceiling children =
+  let boundary_walls =
+    match (outline, height, material) with
+    | None, _, _ -> []
+    | Some corners, Some height, Some material ->
+        List.map
+          (fun (a, b, leg) ->
+            wall ?key:leg.key ?on_gaze:leg.on_gaze ?on_use:leg.on_use
+              ~decals:leg.decals
+              ~height:(Option.value leg.height ~default:height)
+              ~material:(Option.value leg.material ~default:material)
+              a b)
+          (laid_outline ~height ~material corners)
+    | Some _, _, _ ->
+        invalid_arg
+          "P.room: an outline needs a height and a material for its legs"
+  in
+  E.prim ?key
+    ~children:(boundary_walls @ children)
+    (Prim.Room { name; floor; ceiling })
+
+(* A door is made once and cut once. The identity is what a {!connect} joins by,
+   and it is why this is a value rather than an element: two rooms that are
+   joined refer to the same door, and an element rebuilt every frame has nothing
+   for them to refer to. Made at the top level, for the reason
+   {!Camlcast_loom.Element.declare} is. *)
+type door = {
+  id : int;
+  width : float;
+  clearance : float;
+  door_name : string option;
+  leaf : Door.t option;
+  lintel : Room.lintel option;
+}
+
+let fresh_door = ref 0
+
+let door ?name ?leaf ?lintel ~width ~clearance () =
+  incr fresh_door;
+  { id = !fresh_door; width; clearance; door_name = name; leaf; lintel }
+
+let cut ?key ?on_gaze ?on_use d ~along =
+  E.prim ?key
+    (Prim.Door
+       {
+         id = d.id;
+         along;
+         width = d.width;
+         clearance = d.clearance;
+         name = d.door_name;
+         leaf = d.leaf;
+         lintel = d.lintel;
+         reacts = reacts ?on_gaze ?on_use ();
+       })
+
+let connect a b = E.prim (Prim.Connect (a.id, b.id))
 
 let doorway ?key ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material
     a b =

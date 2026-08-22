@@ -72,6 +72,43 @@ let escaping room ~origin =
    when the module is loaded, so merely reaching this suite has already run
    every one of them. What is checked here is what make does not: that the
    result is somewhere you can stand and look. *)
+(* A threshold's normal faces into the room that owns it. That is the winding
+   rule {!Room} states, the rule {!Transform.between} derives a link from, the
+   rule {!World.passable} measures depth with, and the rule {!World.crossing}
+   tests inside against — and nothing in the engine checks it. World.make's ten
+   refusals pass a threshold wound backwards, World.check passes it, and
+   Check.assembled passes it; over a flat floor seam_gap passes it too, because
+   Plane.through of a horizontal plane is that same plane under any rotation.
+
+   Asked by walking. Step off the middle of the opening along its own normal and
+   look that way: facing in, the ray crosses the room and meets the far wall or
+   a doorway cut into it; facing out, the step has already left the room and the
+   ray is going away from it, so it meets nothing. *)
+let faces_inward room (threshold : Room.threshold) =
+  let origin =
+    Vec.add
+      (Vec.scale (Vec.add threshold.Room.a threshold.Room.b) 0.5)
+      (Vec.scale threshold.Room.normal 0.5)
+  in
+  let direction = threshold.Room.normal in
+  Ray.cast room ~origin ~direction <> []
+  || Ray.openings room ~origin ~direction <> []
+
+let thresholds_face_inward (demo : Catalogue.t) =
+  let world = Lazy.force demo.Catalogue.world in
+  List.iteri
+    (fun i room ->
+      List.iter
+        (fun t ->
+          let threshold = Room.threshold_at room t in
+          Alcotest.(check bool)
+            (Printf.sprintf "%s.%s is wound with its room" (World.name world i)
+               threshold.Room.name)
+            true
+            (faces_inward room threshold))
+        (List.init (Room.threshold_count room) Fun.id))
+    (rooms world)
+
 let is_walkable (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
   let spawn = World.spawn world in
@@ -695,10 +732,130 @@ let passes_the_checker (demo : Catalogue.t) =
   | [] -> ()
   | found -> Alcotest.failf "%s" (Check.format found)
 
+(* The shape examples/step06_antechamber.ml through step26_shipping.ml write: a
+   vault whose east wall opens onto a corridor. All twenty-one cut the
+   corridor's doorway from c_sw to c_nw, which runs clockwise about a corridor
+   lying east of it — the mirror of what demo/slopes.ml writes for the same
+   shape. World.make accepts it, World.check accepts it, Check.assembled accepts
+   it, and over these flat floors seam_gap accepts it too, so this is here to
+   show that the check above does not.
+
+   It asserts a bug, and is meant to: a check that cannot fail on the thing it
+   was written for proves nothing. It goes when the examples do. *)
+let the_examples_wind_their_corridor_backwards () =
+  let height = 4. in
+  let flat = Plane.horizontal 0. in
+  let sw = Vec.make (-6.) (-6.)
+  and se = Vec.make 6. (-6.)
+  and ne = Vec.make 6. 6.
+  and nw = Vec.make (-6.) 6. in
+  let c_sw = Vec.make 0. (-2.)
+  and c_se = Vec.make 8. (-2.)
+  and c_ne = Vec.make 8. 2.
+  and c_nw = Vec.make 0. 2. in
+  (* Not `floor` and `ceiling`: the local open of P below puts its own
+     constructors of those names in scope. *)
+  let ground = P.floor ~plane:flat ~material:pale in
+  let soffit = P.roof ~plane:(Plane.above flat height) ~material:pale in
+  let level =
+    P.(
+      world ~atmosphere:Atmosphere.default
+        ~spawn:("vault", Vec.make (-4.5) 0.)
+        [
+          room ~name:"vault" ~floor:ground ~ceiling:soffit
+            [
+              boundary ~closed:false ~height ~material:pale
+                (corners [ ne; nw; sw; se ]);
+              doorway ~name:"east" ~width:2. ~opening:2.6 ~height ~material:pale
+                se ne;
+            ];
+          room ~name:"corridor" ~floor:ground ~ceiling:soffit
+            [
+              boundary ~closed:false ~height ~material:pale
+                (corners [ c_nw; c_ne; c_se; c_sw ]);
+              doorway ~name:"west" ~width:2. ~opening:2.6 ~height ~material:pale
+                c_sw c_nw;
+            ];
+          link ("vault", "east") ("corridor", "west");
+        ])
+  in
+  let world = (Mount.build level).Scene.world in
+  let doorway_of name =
+    let i = Option.get (World.named world name) in
+    let room = World.room world i in
+    (room, Room.threshold_at room 0)
+  in
+  let vault, east = doorway_of "vault" in
+  let corridor, west = doorway_of "corridor" in
+  Alcotest.(check bool)
+    "the vault's own doorway is wound with it" true (faces_inward vault east);
+  Alcotest.(check bool)
+    "the corridor's is not, and nothing else in the engine says so" false
+    (faces_inward corridor west)
+
+(* The same two rooms, in the shape that replaces theirs. The corridor's outline
+   is written in the order step06 writes it — the order whose shoelace sum is
+   negative — and its door is named by the very pair step06 cuts backwards. Cut
+   from the outline rather than by the description, both come out wound with
+   their own room, and the check above passes what it just failed. *)
+let a_door_cut_from_an_outline_is_wound_with_its_room () =
+  let height = 4. in
+  let flat = Plane.horizontal 0. in
+  let sw = Vec.make (-6.) (-6.)
+  and se = Vec.make 6. (-6.)
+  and ne = Vec.make 6. 6.
+  and nw = Vec.make (-6.) 6. in
+  let c_sw = Vec.make 0. (-2.)
+  and c_se = Vec.make 8. (-2.)
+  and c_ne = Vec.make 8. 2.
+  and c_nw = Vec.make 0. 2. in
+  let ground = P.floor ~plane:flat ~material:pale in
+  let soffit = P.roof ~plane:(Plane.above flat height) ~material:pale in
+  let east = P.door ~width:2. ~clearance:2.6 () in
+  let west = P.door ~width:2. ~clearance:2.6 () in
+  (* Not one name in it: no room is named, no doorway is named, and the spawn
+     is in the room it is written inside. A connection joins two doors, and a
+     door is already in a room, so there is nothing left for a string to do. *)
+  let level =
+    P.(
+      world ~atmosphere:Atmosphere.default
+        [
+          room ~floor:ground ~ceiling:soffit ~height ~material:pale
+            ~outline:(corners [ sw; se; ne; nw ])
+            [ spawn (Vec.make (-4.5) 0.); cut east ~along:(se, ne) ];
+          room ~floor:ground ~ceiling:soffit ~height ~material:pale
+            ~outline:(corners [ c_nw; c_ne; c_se; c_sw ])
+            [ cut west ~along:(c_sw, c_nw) ];
+          connect east west;
+        ])
+  in
+  let world = (Mount.build level).Scene.world in
+  List.iteri
+    (fun i room ->
+      List.iter
+        (fun t ->
+          let threshold = Room.threshold_at room t in
+          Alcotest.(check bool)
+            (World.name world i ^ "." ^ threshold.Room.name
+           ^ " is wound with its room")
+            true
+            (faces_inward room threshold))
+        (List.init (Room.threshold_count room) Fun.id))
+    (rooms world);
+  (* And the two are joined: the connection named no room and no doorway, and
+     the layer found both from the doors alone. *)
+  List.iter
+    (fun (room, _, p) ->
+      let portal : World.portal = Option.get p in
+      Alcotest.check close "no step in the floor" 0.
+        (World.seam_gap world ~room portal))
+    (doorways world)
+
 let () =
   Alcotest.run "Demos"
     [
       ("walkable", each "is walkable" is_walkable);
+      ("wound", each "winds its doorways inward" thresholds_face_inward);
       ("checked", each "passes the checker" passes_the_checker);
       ("consistent", each "is consistent" is_consistent);
       ("seams", each "has no seams" has_no_seams);
@@ -729,5 +886,9 @@ let () =
             the_chalk_demo_has_one_glowing_symbol_and_one_not;
           case "the controls demo binds a second set of walking keys"
             the_controls_demo_binds_a_second_set_of_walking_keys;
+          case "the examples wind their corridor backwards"
+            the_examples_wind_their_corridor_backwards;
+          case "a door cut from an outline is wound with its room"
+            a_door_cut_from_an_outline_is_wound_with_its_room;
         ] );
     ]

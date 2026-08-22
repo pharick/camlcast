@@ -10,8 +10,12 @@ type reacts = {
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 
 type t =
-  | World of { atmosphere : Atmosphere.t; spawn : string * Vec.t }
-  | Room of { name : string; floor : Room.surface; ceiling : Room.ceiling }
+  | World of { atmosphere : Atmosphere.t; spawn : (string * Vec.t) option }
+  | Room of {
+      name : string option;
+      floor : Room.surface;
+      ceiling : Room.ceiling;
+    }
   | Wall of {
       a : Vec.t;
       b : Vec.t;
@@ -39,13 +43,26 @@ type t =
   | Crosshair of Color.t
   | Cursor
   | Finish
+  | Door of {
+      id : int;
+      along : Vec.t * Vec.t;
+      width : float;
+      clearance : float;
+      name : string option;
+      leaf : Door.t option;
+      lintel : Room.lintel option;
+      reacts : reacts;
+    }
+  | Connect of int * int
+  | Spawn of Vec.t
   | Link of { here : string * string; there : string * string }
 
 let point (v : Vec.t) = Printf.sprintf "(%g,%g)" v.x v.y
 
 let describe = function
   | World _ -> "world"
-  | Room { name; _ } -> "room " ^ name
+  | Room { name; _ } -> (
+      match name with Some name -> "room " ^ name | None -> "room")
   | Wall { a; b; _ } -> "wall " ^ point a ^ "-" ^ point b
   | Decal _ -> "decal"
   | Threshold (t, _) -> "threshold " ^ t.Room.name
@@ -60,6 +77,9 @@ let describe = function
   | Crosshair _ -> "crosshair"
   | Cursor -> "cursor"
   | Finish -> "finish"
+  | Door { along = a, b; _ } -> "door " ^ point a ^ "-" ^ point b
+  | Connect _ -> "connection"
+  | Spawn at -> "spawn at " ^ point at
   | Link { here = ra, ta; there = rb, tb } ->
       Printf.sprintf "link %s.%s-%s.%s" ra ta rb tb
 
@@ -77,8 +97,9 @@ let not_a_world prim = Printf.sprintf "a %s is not a world" (describe prim)
 
 let may_contain ~parent ~child =
   match (parent, child) with
-  | World _, (Room _ | Link _ | Camera _ | Cursor | Finish | Hud) -> true
-  | Room _, (Wall _ | Threshold _ | Sprite _) -> true
+  | World _, (Room _ | Link _ | Connect _ | Camera _ | Cursor | Finish | Hud) ->
+      true
+  | Room _, (Wall _ | Threshold _ | Sprite _ | Door _ | Spawn _) -> true
   | Wall _, Decal _ -> true
   | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Highlight _ | Crosshair _ | Hud)
     ->

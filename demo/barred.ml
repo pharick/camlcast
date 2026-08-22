@@ -42,13 +42,13 @@ let flat = Plane.horizontal 0.
     that places an opening is written once, in the engine, and read back here
     rather than restated. The wall is split about its middle so both jambs keep
     the boundary's winding, which the link between two rooms is derived from. *)
-let cut ~name ~door ~transom a b =
+let cut_by_hand ~name ~hung ~transom a b =
   let p, q = P.opening ~width a b in
   P.
     [
       wall ~height ~material:Surfaces.brick a p;
       wall ~height ~material:Surfaces.brick q b;
-      threshold ~name ~door ~height:clearance
+      threshold ~name ~door:hung ~height:clearance
         ~lintel:{ top = height; material = transom }
         p q;
     ]
@@ -64,7 +64,7 @@ let middle = Vec.make 0. 0.
    wears the same transom, so the view back out matches the view in. *)
 let chamber =
   Element.declare ~name:"chamber"
-  @@ fun (name, door, transom, ceiling, sprites) ->
+  @@ fun (name, hung, transom, ceiling, sprites) ->
   let sw = Vec.make 0. (-3.5)
   and se = Vec.make 6. (-3.5)
   and ne = Vec.make 6. 3.5
@@ -73,7 +73,7 @@ let chamber =
     room ~name
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling
-      (cut ~name:"back" ~door ~transom nw sw
+      (cut_by_hand ~name:"back" ~hung ~transom nw sw
       @ [
           wall ~height ~material:Surfaces.brick sw se;
           wall ~height ~material:Surfaces.brick se ne;
@@ -95,9 +95,10 @@ let level =
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
-          (cut ~name:"barred" ~door:grille ~transom:Surfaces.brick hall_se
-             middle
-          @ cut ~name:"glazed" ~door:oak ~transom:Surfaces.window middle hall_ne
+          (cut_by_hand ~name:"barred" ~hung:grille ~transom:Surfaces.brick
+             hall_se middle
+          @ cut_by_hand ~name:"glazed" ~hung:oak ~transom:Surfaces.window middle
+              hall_ne
           @ [
               wall ~height ~material:Surfaces.stone hall_sw hall_se;
               wall ~height ~material:Surfaces.stone hall_ne hall_nw;

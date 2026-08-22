@@ -665,10 +665,10 @@ let the_other_check =
           (List.map
              (fun (d : Check.t) -> d.Check.summary)
              (Check.assembled grown));
-        Alcotest.check_raises "and World.check will not have it"
-          (Invalid_argument
-             "World.check: nothing links threshold first.unfinished") (fun () ->
-            World.check grown));
+        (* Neither check's business now: a door that nothing connects is a
+           level part-built, and Check.report is where it is reported, as a
+           warning rather than a break. *)
+        World.check grown);
     case "and a step in the floor is Check.assembled's alone" (fun () ->
         let stepped =
           world_of

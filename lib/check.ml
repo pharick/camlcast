@@ -226,11 +226,11 @@ let structure forest =
   let problems =
     match forest with
     | [ ({ Loom.Host.prim = Prim.World { spawn = where; _ }; _ } as root) ] ->
-        spawn := Some where;
+        spawn := where;
         List.iter
           (fun (child : Prim.t Loom.Host.node) ->
             match child.Loom.Host.prim with
-            | Prim.Room { name; _ } ->
+            | Prim.Room { name = Some name; _ } ->
                 rooms :=
                   {
                     room_path = path_of child;
@@ -474,14 +474,17 @@ let linking rooms links =
     (fun (room_name, threshold_name) (count, at) ->
       if count = 0 then
         complain
-          (error at
+          (warning at
              (Printf.sprintf "the doorway %S leads nowhere" threshold_name)
              ~detail:
                [
-                 Printf.sprintf "Nothing links %s.%s to another room's doorway."
-                   room_name threshold_name;
-                 "An unlinked doorway is drawn as haze and cannot be walked \
-                  through.";
+                 Printf.sprintf
+                   "Nothing connects %s.%s to another room's doorway." room_name
+                   threshold_name;
+                 "It is drawn as haze and is solid to walk into. A door and \
+                  the connection that joins two are separate things, so this \
+                  is a level part-built rather than a level wrong — but it is \
+                  not what you want to ship.";
                ])
       else if count > 1 then
         complain
