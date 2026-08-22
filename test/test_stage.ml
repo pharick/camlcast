@@ -381,10 +381,10 @@ let winding =
 
 (* {1 Doorways and links} *)
 
-(* Three sides run as a path and the fourth cut as a doorway, which together
-   close the boundary. An outline of all four corners *and* a doorway along one
-   of them would be a solid wall standing behind an opening: six walls where
-   five were meant, and a doorway that cannot be walked through. *)
+(* Three sides run as an open boundary and the fourth cut as a doorway, which
+   together close it. A boundary closed over all four corners *and* a doorway
+   along one of them would be a solid wall standing behind an opening: six walls
+   where five were meant, and a doorway that cannot be walked through. *)
 let two_room_world ~door =
   P.world ~atmosphere:Atmosphere.default
     ~spawn:("west", Vec.make (-3.) 0.)

@@ -35,9 +35,9 @@ let nw = Vec.make 0. 8.
 (* A walled yard, open overhead, with a doorway in the wall faced on entry and
    a tall column to catch the light against the sky.
 
-   Three sides run as a path and the fourth is cut, which together close the
-   boundary: an outline of all four AND a doorway along one of them would be a
-   solid wall standing behind an opening. *)
+   Three sides run as an open boundary and the fourth is cut, which together
+   close it: a boundary closed over all four AND a doorway along one of them
+   would be a solid wall standing behind an opening. *)
 let yard ~name ~sky ~column =
   P.(
     room ~name

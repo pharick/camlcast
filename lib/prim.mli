@@ -80,27 +80,19 @@ type t =
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)
 
-val describe : t -> string
-(** A short phrase naming this primitive, for a {!Camlcast_loom.Trace}. *)
-
-val inside : t -> string
-(** Where this primitive's children are, said as a phrase: ["in a world"],
-    ["on a wall"], ["on the hud"]. A complaint about one of them ends with this
-    phrase. *)
-
 val misplaced : child:t -> parent:t -> string
 (** What to say about a nesting {!may_contain} refused:
-    ["a sprite (0,0) cannot go in a world"]. {!describe} names the thing,
-    {!inside} names the place, and this supplies the one sentence they go in.
+    ["a sprite (0,0) cannot go in a world"]. One phrase names the thing, another
+    names the place, and this supplies the one sentence they go in.
 
     The sentence lives here for the reason the rule below does — the same
     reason, a third time. {!Host.assemble} and {!Check.report} both report this
     offence, and were they to word it separately —
     ["… does not belong in a world"] against ["a … cannot go in a world"] — a
     game developer meeting one and then the other would have no way to tell they
-    had been told the same thing twice. Sharing {!describe} and {!inside} is not
-    enough to prevent it: the verb is where two wordings of one offence part
-    company, and it is the part nobody thinks to share. *)
+    had been told the same thing twice. Sharing those two phrases is not enough
+    to prevent it: the verb is where two wordings of one offence part company,
+    and it is the part nobody thinks to share. *)
 
 val not_a_world : t -> string
 (** What to say about a description whose one root is something else:

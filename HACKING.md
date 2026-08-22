@@ -142,7 +142,7 @@ primitive the layer has. What each one is a demo of:
 
 | demo | what it needs | where |
 | --- | --- | --- |
-| `masonry`, `loading` | materials, art from disk | `P.outline`, `Texture`, `Asset` |
+| `masonry`, `loading` | materials, art from disk | `P.boundary`, `Texture`, `Asset` |
 | `gallery` | decals and sprites | `P.decal`, `P.sprite` |
 | `glass`, `barred` | see-through materials, a door you see through | `P.wall`, `P.doorway ~door` |
 | `slopes` | inclined floors and roofs | `P.floor`, `P.roof` |

@@ -124,10 +124,7 @@ val assembled : World.t -> t list
     whose result is dropped is a check that did not happen, and nothing says so
     — which is what a name promising a raise would invite. *)
 
-val to_string : t -> string
-(** One diagnostic, as several lines: the place, the summary, then the detail
-    indented under it. *)
-
 val format : t list -> string
 (** Every diagnostic, blank-line separated, or a single line saying there were
-    none. *)
+    none. One diagnostic is several lines: the place, the summary, then the
+    detail indented under it. *)

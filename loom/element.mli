@@ -41,9 +41,9 @@
     Nothing enforces this. {!declare} happens to, by accident rather than
     design: [declare ~name render] is a partial application and not a value, so
     its type variable is weak and fixes to the first type it is used at — a
-    second use at another type is a compile error. {!component}, applied
-    outright, has no such variable to weaken. This is one more reason to write
-    components with {!declare}.
+    second use at another type is a compile error. Writing the constructor out
+    as a function of its props instead — [let torch ?key p = declare ... ?key p]
+    — hands the variable back, and the hazard with it.
 
     {1 Keys}
 
@@ -147,28 +147,6 @@ val prim : ?key:string -> ?children:'prim t list -> 'prim -> 'prim t
 (** [prim p] is the host primitive [p], with [children] under it and nothing by
     default. *)
 
-val component :
-  ?key:string -> name:string -> ('props -> 'prim t) -> 'props -> 'prim t
-(** [component ~name render props] is [render] waiting to be called on [props].
-
-    It is not called here. A description of a subtree is built lazily, one level
-    at a time, as the reconciler walks into it. Describing a frame therefore
-    costs one call per level actually reached, and a subtree that turns out to
-    be unmounted is never rendered at all.
-
-    {b It does not let the reconciler stop walking.} There is no bailout — which
-    is the thing laziness here is most likely to be read as promising.
-    {!Camlcast_loom.Reconcile} matches a component by [render]'s identity and
-    its key, and what that buys is the component's {e slots} — its hook state —
-    being kept. It re-renders regardless, every frame, whether or not the props
-    are the ones it saw last. React's [memo] is the thing that is absent, and
-    nothing here stands in for it: a game that wants a subtree to stop being
-    rebuilt has to not describe it.
-
-    [render] must be monomorphic in ['props] — see the identity rule at the top
-    of this page. Applied outright, this is the form that will let a polymorphic
-    one through; {!declare} will not. *)
-
 val declare :
   name:string -> ('props -> 'prim t) -> ?key:string -> 'props -> 'prim t
 (** [declare ~name render] is the way a game should write a component:
@@ -184,7 +162,22 @@ val declare :
     What comes back is a constructor for that component. The closure it captures
     is made once — here, at module initialisation — rather than once per frame.
     That makes the identity rule at the top of this page hold by construction
-    instead of by remembering it. *)
+    instead of by remembering it. [render] must be monomorphic in ['props], for
+    the reason that rule gives.
+
+    [render] is not called when the element is made. A description of a subtree
+    is built lazily, one level at a time, as the reconciler walks into it.
+    Describing a frame therefore costs one call per level actually reached, and
+    a subtree that turns out to be unmounted is never rendered at all.
+
+    {b It does not let the reconciler stop walking.} There is no bailout — which
+    is the thing laziness here is most likely to be read as promising.
+    {!Camlcast_loom.Reconcile} matches a component by [render]'s identity and
+    its key, and what that buys is the component's {e slots} — its hook state —
+    being kept. It re-renders regardless, every frame, whether or not the props
+    are the ones it saw last. React's [memo] is the thing that is absent, and
+    nothing here stands in for it: a game that wants a subtree to stop being
+    rebuilt has to not describe it. *)
 
 val key : 'prim t -> string option
 (** The key this element was given, if it was given one. {!Empty} never has one,

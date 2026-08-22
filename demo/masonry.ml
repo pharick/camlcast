@@ -16,9 +16,9 @@ open Camlcast
 let height = 4.
 let flat = Plane.horizontal 0.
 
-(* The four corners. Given to outline they would be four walls of one
+(* The four corners. Given to one boundary they would be four walls of one
    material; given one at a time they are four walls of four. They still bound
-   the room, so they are wound the way outline would wind them. *)
+   the room, so they are wound the way a boundary would wind them. *)
 let sw = Vec.make (-6.) (-6.)
 let se = Vec.make 6. (-6.)
 let ne = Vec.make 6. 6.

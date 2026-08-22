@@ -162,13 +162,12 @@ let polygon ~center ~radius ~sides ~rotation =
 
 let boundary ?key ?(closed = true) ~height ~material corners =
   let points = List.map (fun c -> c.at) corners in
-  (* Validated by the same call that refuses {!outline} and {!path}, so a run
-     of two identical corners, or a closed one of two, gets the established
-     message, under a name a caller wrote. The walls the call builds are
-     discarded: they carry one material and one height, and avoiding that
-     limit is the point of this function. The cost is a handful of vectors
-     normalised per run per frame, which {!outline} already pays to build the
-     walls it keeps. *)
+  (* Validated by {!Room.path}, so a run of two identical corners, or a closed
+     one of two, gets the established message, under a name a caller wrote. The
+     walls the call builds are discarded: they carry one material and one
+     height, and avoiding that limit is the point of this function. The cost is
+     a handful of vectors normalised per run per frame, which is what that call
+     pays anyway for the walls it hands back. *)
   ignore (Room.path ~closed ~height ~material points : Room.wall list);
   (match List.rev corners with
   | last :: _ when (not closed) && not (bare last.leg) ->

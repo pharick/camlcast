@@ -33,7 +33,6 @@ let provide context value children =
   Provide { binding = Context.bind context value; children }
 
 let prim ?key ?(children = []) prim = Prim { prim; key; children }
-let component ?key ~name render props = Component { render; props; key; name }
 
 (* [render] is captured once, when this is called. Every element the returned
    function makes carries that same closure. The reconciler compares that
