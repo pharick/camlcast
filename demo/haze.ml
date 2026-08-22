@@ -27,28 +27,28 @@ let flat = Plane.horizontal 0.
 let level =
   P.(
     world ~atmosphere:fog
-      ~spawn:("colonnade", Vec.make 2. 0.)
       [
-        room ~name:"colonnade"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
-          (* The colonnade runs east, the spawn's facing direction. A plain box
-             boundary: four corners. *)
-          (boundary ~height ~material:Surfaces.stone
-             (corners
-                [
-                  Vec.make 0. (-6.);
-                  Vec.make length (-6.);
-                  Vec.make length 6.;
-                  Vec.make 0. 6.;
-                ])
+            (* The colonnade runs east, the spawn's facing direction. A plain
+               box outline: four corners. *)
+          ~outline:
+            (corners
+               [
+                 Vec.make 0. (-6.);
+                 Vec.make length (-6.);
+                 Vec.make length 6.;
+                 Vec.make 0. 6.;
+               ])
+          (spawn (Vec.make 2. 0.)
           :: List.concat
                (List.init 14 (fun k ->
                     let x = 6. +. (float_of_int k *. 6.) in
                     List.map
                       (fun y ->
-                        boundary ~height ~material:Surfaces.brick
+                        block ~height ~material:Surfaces.brick
                           (polygon ~center:(Vec.make x y) ~radius:0.7 ~sides:6
                              ~rotation:0.2))
                       [ -3.5; 3.5 ])));

@@ -22,11 +22,6 @@ open Camlcast
 
 let height = 4.
 let period = 6.
-
-(* The wall the sign hangs on, faced at spawn. Its endpoints never move: only
-   what is painted on it does. *)
-let sign_wall_a = Vec.make 7. (-6.)
-let sign_wall_b = Vec.make 7. 6.
 let sw = Vec.make (-7.) (-6.)
 let se = Vec.make 7. (-6.)
 let ne = Vec.make 7. 6.
@@ -44,9 +39,8 @@ let at ~phase =
   let coat = coats.(int_of_float (phase *. 4.) mod 4) in
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("room", Vec.make (-4.5) 0.)
       [
-        room ~name:"room"
+        room ~height ~material:Surfaces.stone
           ~floor:
             (floor
                ~plane:(Plane.horizontal (0.3 *. sin turn))
@@ -55,23 +49,30 @@ let at ~phase =
             (roof
                ~plane:(Plane.horizontal (height +. 0.5))
                ~material:Surfaces.soffit)
-          [
-            wall ~height ~material:Surfaces.stone sw se;
-            wall ~height ~material:coat sign_wall_a sign_wall_b
-              ~decals:
-                [
-                  (* Two pictures alternating is a two-frame animation; the
+          ~outline:
+            [
+              corner sw;
+              (* The wall the sign hangs on, faced at spawn. Its ends never
+                 move: only what is painted on it does. *)
+              corner se ~material:coat
+                ~decals:
+                  [
+                    (* Two pictures alternating is a two-frame animation; the
                      slide along the wall is the same decal placed somewhere
                      else. *)
-                  decal
-                    ~along:(6. +. (3.5 *. sin turn))
-                    ~z:(1.8 +. (0.25 *. sin (turn *. 2.)))
-                    ~half_width:0.9 ~half_height:0.9
-                    (if Float.rem (phase *. 6.) 1. < 0.5 then Pictures.painting
-                     else Pictures.poster);
-                ];
-            wall ~height ~material:Surfaces.stone ne nw;
-            wall ~height ~material:Surfaces.stone nw sw;
+                    decal
+                      ~along:(6. +. (3.5 *. sin turn))
+                      ~z:(1.8 +. (0.25 *. sin (turn *. 2.)))
+                      ~half_width:0.9 ~half_height:0.9
+                      (if Float.rem (phase *. 6.) 1. < 0.5 then
+                         Pictures.painting
+                       else Pictures.poster);
+                  ];
+              corner ne;
+              corner nw;
+            ]
+          [
+            spawn (Vec.make (-4.5) 0.);
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
               (Vec.make 2. (2. *. sin turn));
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure

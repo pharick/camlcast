@@ -18,22 +18,22 @@ let flat = Plane.horizontal 0.
 let level =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("room", Vec.make (-5.5) 0.)
       [
-        room ~name:"room"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+            (* A plain box outline: four corners say all of it. *)
+          ~outline:
+            (corners
+               [
+                 Vec.make (-8.) (-6.);
+                 Vec.make 8. (-6.);
+                 Vec.make 8. 6.;
+                 Vec.make (-8.) 6.;
+               ])
           [
-            (* A plain box boundary: four corners say all of it. *)
-            boundary ~height ~material:Surfaces.stone
-              (corners
-                 [
-                   Vec.make (-8.) (-6.);
-                   Vec.make 8. (-6.);
-                   Vec.make 8. 6.;
-                   Vec.make (-8.) 6.;
-                 ]);
+            spawn (Vec.make (-5.5) 0.);
             (* A screen across the room in two halves, bars on one side and
                leaded glass on the other, with a walkable gap between them. It
                stands square across the spawn's facing direction. *)

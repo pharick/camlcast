@@ -96,19 +96,19 @@ let nw = Vec.make (-.half) half
 let at ~t =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("chamber", Vec.make (-5.) (-5.))
       [
-        room ~name:"chamber"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
-          ([
-             wall ~height ~material:Surfaces.stone sw se;
-             wall ~height ~material:Surfaces.brick se ne;
-             wall ~height ~material:Surfaces.stone ne nw;
-             wall ~height ~material:Surfaces.brick nw sw;
-           ]
-          @ List.init count (mote ~t));
+          ~outline:
+            [
+              corner sw;
+              corner se ~material:Surfaces.brick;
+              corner ne;
+              corner nw ~material:Surfaces.brick;
+            ]
+          (spawn (Vec.make (-5.) (-5.)) :: List.init count (mote ~t));
       ])
 
 let falling =

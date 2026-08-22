@@ -28,28 +28,31 @@ let level =
     (* Spawn faces the hung wall down the length of the room, sprites in
        between. *)
     world ~atmosphere:Surfaces.air
-      ~spawn:("room", Vec.make (-5.) 0.)
       [
-        room ~name:"room"
+        room ~height ~material:Surfaces.brick
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~outline:
+            [
+              corner sw;
+              (* The hung wall with its decals. [along] is measured from the
+                 wall's first endpoint and [z] up from the floor, so a decal is
+                 placed in the wall's own terms and stays put if the room
+                 around it moves. *)
+              corner se ~material:Surfaces.panel
+                ~decals:
+                  [
+                    decal ~along:3. ~z:1.7 ~half_width:1. ~half_height:1.
+                      Pictures.painting;
+                    decal ~along:6.5 ~z:1.7 ~half_width:0.8 ~half_height:1.
+                      Pictures.poster;
+                  ];
+              corner ne;
+              corner nw;
+            ]
           [
-            wall ~height ~material:Surfaces.brick sw se;
-            (* The hung wall with its decals. [along] is measured from the
-               wall's first endpoint and [z] up from the floor, so a decal is
-               placed in the wall's own terms and stays put if the room around
-               it moves. *)
-            wall ~height ~material:Surfaces.panel se ne
-              ~decals:
-                [
-                  decal ~along:3. ~z:1.7 ~half_width:1. ~half_height:1.
-                    Pictures.painting;
-                  decal ~along:6.5 ~z:1.7 ~half_width:0.8 ~half_height:1.
-                    Pictures.poster;
-                ];
-            wall ~height ~material:Surfaces.brick ne nw;
-            wall ~height ~material:Surfaces.brick nw sw;
+            spawn (Vec.make (-5.) 0.);
             (* Two figures one behind the other: the near one hides the far
                one, and neither is ever seen edge-on. *)
             sprite ~key:"near" ~size:1.8 ~image:Pictures.figure
