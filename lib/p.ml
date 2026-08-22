@@ -72,12 +72,11 @@ let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
    there and called here rather than restated, so the two cannot disagree about
    where a doorway is.
 
-   This comment claimed that before it was true. The code restated the
-   arithmetic, and restated the version Room.doorway had already stopped
-   using: out from the middle rather than in from the ends. On an oblique wall
-   the two put a full-width opening 6.21e-17 apart, and a description building
-   its own jambs from these points got back the invisible blocker
-   Room.cut_points exists to avoid. *)
+   Restating it here is what the sentence above is guarding against, and the
+   restatement that looks right is the wrong one: out from the middle rather
+   than in from the ends. On an oblique wall the two put a full-width opening
+   6.21e-17 apart, and a description building its own jambs from those points
+   gets back the invisible blocker Room.cut_points exists to avoid. *)
 let opening ~width a b =
   let edge = Vec.sub b a in
   let span = Vec.length edge in

@@ -137,10 +137,9 @@ type mark = {
 }
 (** One chalk stroke.
 
-    The old version kept a room and a wall by {e index} — "the only terms that
-    survive a room being rebuilt". A wall has a name here because the
-    description gave it one, and a name also survives the rooms being written
-    down in another order, which an index does not. *)
+    A room and a wall by {e name}, not by index. The description gave both
+    names, and a name survives a room being rebuilt and the rooms being written
+    down in another order alike; an index survives only the first. *)
 
 let flat = Plane.horizontal 0.
 let hall_sw = Vec.make (-6.) (-5.)
@@ -281,10 +280,10 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
         mark { wall = name; along; z; facing; symbol = selected }
     | _ -> ()
   in
-  (* The boundary walls, as legs of a {!P.boundary}, which winds itself — what
-     this demo used to give up by writing every wall out. A leg carries
-     everything P.wall does, which it has to: the jambs are brick where the
-     rest is stone. *)
+  (* The boundary walls, as legs of a {!P.boundary}, which winds itself. A leg
+     carries everything P.wall does, which it has to here: the jambs are brick
+     where the rest is stone, and writing the walls out one by one to say that
+     is what gives the winding up. *)
   let chalk_leg ?material name p =
     P.corner ?material ~key:name ~decals:(chalked ~marks name)
       ~on_use:(takes_a_mark name) p

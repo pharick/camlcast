@@ -171,9 +171,9 @@ let a_frame_that_crosses_nothing_does_not_grow () =
     "so the world is left alone" false (Player.crossed stayed)
 
 (* A step round the loop fixture goes out of a room and back into it within
-   one frame. The room index at the end is the one it set out with, which is
-   exactly the case the old test missed. A generator still has to hear about
-   it. *)
+   one frame. The room index at the end is the one it set out with, so a test
+   comparing indices sees nothing happen — and a generator still has to hear
+   about it. *)
 let a_round_trip_still_grows () =
   let start = Player.make ~room:0 ~pos:centre ~angle:0. in
   let moved = Player.slide loop start (Vec.make 4. 2.5) in

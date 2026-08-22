@@ -82,9 +82,9 @@ let joined =
 (* Whether the crosshair is the player's, which decides whether anything in the
    world is told about it.
 
-   The loop used to cast and dispatch every frame whatever the description
-   said. So a pause menu (P.cursor, the mouse loose over a corridor) left the
-   use control working the door behind it, and a cutscene camera dragged
+   A loop that cast and dispatched every frame whatever the description said
+   would leave a pause menu (P.cursor, the mouse loose over a corridor) working
+   the door behind it with the use control, and a cutscene camera dragging
    on_gaze enter and leave across everything it panned over. Neither is the
    player aiming at anything. Run.aiming is exposed for the same reason carry
    and crossings_of are: it is the loop's decision as a function of values, so

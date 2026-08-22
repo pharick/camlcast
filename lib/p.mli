@@ -147,14 +147,13 @@ val boundary :
     This is the one way to lay a run of wall in a description, and the whole of
     {!wall} is available at every leg of it.
 
-    There were three forms: [outline] for a closed run, [path] for an open one,
-    and this for a run whose legs differ. The first two were this with
-    {!val-corners} in front of them and nothing said at any leg — the suite
-    asserted as much before they were removed — so they were two names for a
-    special case, not two things. A boundary with one handler on it used to mean
-    dropping to {!wall} per side and giving up the winding. That is the reason
-    the other two forms existed at all, and the chalk demo did exactly that for
-    every wall a mark can go on.
+    One form, not three. A closed run and an open one are this with
+    {!val-corners} in front of them and nothing said at any leg, so naming them
+    separately would be two names for a special case rather than two things. The
+    pull towards separate names is that a run whose legs differ looks like a
+    different shape of problem; it is not, and the alternative is dropping to
+    {!wall} per side and giving up the winding the moment one leg wants a
+    handler.
 
     [closed] joins the last corner back to the first, and defaults to true. Say
     [~closed:false] for a run that stops, which is a boundary with a {!doorway}
@@ -212,10 +211,10 @@ val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
 
     It is literally the same arithmetic: this calls
     {!Camlcast_core.Room.cut_points}, which is what {!doorway} cuts at, so the
-    two cannot land a doorway in two places. Worth stating because for a while
-    they could. This function restated the formula rather than calling it, and
-    restated the older of the two forms, so on an oblique wall a full-width
-    opening came out [6.21e-17] from where {!doorway} puts it.
+    two cannot land a doorway in two places. Worth stating because restating the
+    formula here instead would not look wrong: the two forms of it agree on a
+    wall along an axis, and part company by [6.21e-17] on an oblique one — close
+    enough that a full-width opening looks placed and is not.
 
     At [width] equal to the wall's own length the two ends come back as [a] and
     [b] exactly; measuring in from the ends guarantees it. A description

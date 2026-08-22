@@ -35,11 +35,10 @@ let coats = [| Surfaces.brick; Surfaces.panel; Surfaces.stone; Surfaces.tile |]
 
 (** The world as it stands at [phase], a fraction of the way round the cycle.
 
-    The old version kept one authored world for the player to walk in and
-    replaced its room every frame with another for the renderer to draw. That is
-    no longer needed: the walls never move, and collision is a flat question
-    about wall segments that the floor plane takes no part in — so the world
-    described here is the world walked in, and there is only one. *)
+    One world, described afresh each frame and both walked in and drawn. It can
+    be one because the walls never move: what changes is the coat on them, and
+    collision is a flat question about wall segments that the material takes no
+    part in. *)
 let at ~phase =
   let turn = phase *. 2. *. Float.pi in
   let coat = coats.(int_of_float (phase *. 4.) mod 4) in

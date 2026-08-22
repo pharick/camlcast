@@ -47,10 +47,10 @@ let to_string t =
    cannot share a key. Without a key the index is the only thing that tells
    siblings apart, so it is printed whether or not the step is named.
 
-   The name alone is not enough, though this used to print only it. Two
+   The name alone is not enough, tempting as it is to print only it. Two
    unkeyed siblings of one component — [torch (); torch ()], the ordinary way
    to write two of a thing — are two different places sharing one name.
-   Printing them alike broke the one promise this spelling makes over
+   Printing them alike breaks the one promise this spelling makes over
    {!to_string}, the promise the second spelling exists for: a trace that says
    [mount torch] twice does not say which, and a {!Hook_order_changed} naming
    [torch] sends the reader to look at both. *)

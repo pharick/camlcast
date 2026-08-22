@@ -1271,10 +1271,11 @@ let a_grille_is_picked_where_it_is_drawn () =
 (* What the buffer's size promises, over every window shape worth having and a
    good many that are not.
 
-   The shape is the part worth pinning, because it is the part the interface
-   used to overstate. Both axes divide by one whole number, so the buffer is
-   the window at a clean pixel multiple. Each axis then floors, so the ratio
-   comes out a little off wherever that number does not go into both. The
+   The shape is the part worth pinning, because it is the part an interface is
+   most likely to overstate. Both axes divide by one whole number, so the
+   buffer is the window at a clean pixel multiple. Each axis then floors, so
+   the ratio comes out a little off wherever that number does not go into
+   both. The
    assertion is the bound those two truncations imply rather than a figure
    somebody measured: dividing [w] by [s] loses less than one whole pixel, so
    the ratio moves by less than one part in each of the buffer's own extents. A

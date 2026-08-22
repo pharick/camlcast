@@ -31,10 +31,10 @@ val clamp_channel : int -> int
     their function returns exactly as they clamp colour, and a second function
     differing only in name would be a second thing to keep correct.
 
-    This was four copies before it was one: this function, plus a private
-    spelling each in {!Texture}, {!Image} and {!Renderer}, two of them with the
-    [min] and the [max] the other way round and one written as a pair of [if]s.
-    All four agreed, but a divergence would not have been detected. *)
+    A clamp is the kind of thing that gets respelled wherever it is wanted — a
+    private one in {!Texture}, in {!Image}, in {!Renderer}, some with the [min]
+    and the [max] the other way round, some as a pair of [if]s. Spellings that
+    agree look exactly like spellings that do not, so there is one of it. *)
 
 val clamp : t -> t
 (** Every channel clamped back into 0 .. 255, via {!clamp_channel}. A colour

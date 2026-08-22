@@ -254,8 +254,8 @@ let () =
       ( "where on it",
         [
           case "a wall is told where the crosshair landed on it" (fun () ->
-              (* What marking a wall needs, and the only thing the old chalk
-                 demo reached into Sight for. *)
+              (* What marking a wall needs, and the only thing the chalk demo
+                 would otherwise reach into Sight for. *)
               let seen = ref None in
               let scene =
                 Mount.build

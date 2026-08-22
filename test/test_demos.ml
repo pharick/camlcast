@@ -264,10 +264,10 @@ let a_demo_that_cannot_read_its_art_is_reported_and_not_a_crash () =
         (Catalogue.attempt (fun () ->
              invalid_arg "Room.doorway: the opening has to fit under the wall")))
 
-(* Growing is where a world was most easily broken, and the shape of the risk
-   has changed. The old corridor grew by surgery (open_doorway to give a dead
-   end a way on, add_room for what lay beyond it, link to join the two), and
-   every one of those checks an invariant the generator had to keep by hand.
+(* Growing is where a world is most easily broken, and what the risk looks like
+   depends on how it grows. By surgery (open_doorway to give a dead end a way
+   on, add_room for what lies beyond it, link to join the two), every step
+   checks an invariant the generator has to keep by hand.
 
    A description grows by being longer. There is nothing to keep by hand, so
    what is asserted is not that the surgery was done right but that the result
@@ -453,13 +453,13 @@ let the_floating_demo_lifts_its_sprites () =
    one made during the frame. A version that generated a picture per mote per
    frame would draw exactly the same thing and fail here.
 
-   This used to assert a second thing: that a moving room shared the walls of
-   the room it moved from, so that seventy motes were not dragging four walls
-   behind them sixty times a second. A described world has no such sharing; it
-   is built from nothing every frame, on purpose. bench/frame.exe is where
-   that was measured and found to cost a seventh of one percent of drawing the
-   frame it is for. What is asserted instead is what a reader of the demo
-   cares about: the room stands still while the dust falls. *)
+   What is not asserted here is that a moving room shares the walls of the room
+   it moved from, so that seventy motes are not dragging four walls behind them
+   sixty times a second. A described world has no such sharing: it is built
+   from nothing every frame, on purpose, and bench/frame.exe is where that
+   costs a seventh of one percent of drawing the frame it is for. So the claim
+   is the one a reader of the demo cares about: the room stands still while the
+   dust falls. *)
 let the_dust_demo_moves_without_making_anything () =
   let at t = (Mount.build (Dust.at ~t)).Scene.world in
   let early = at 0.4 and late = at 3.1 in
@@ -503,10 +503,9 @@ let the_dust_demo_moves_without_making_anything () =
    work the use control, which is what Aim.crosshair does. Every claim below is
    one §13.5 asks for, and none of them is visible in a screenshot.
 
-   It used to call Chalk.place on a state it built by hand. There is no such
-   function now; the wall is told, by on_use. So the driver below is a mount
-   rendered into and a crosshair cast at it, a closer copy of what a player
-   does than the old one was.
+   There is no placing function to call: the wall is told, by on_use. So the
+   driver below is a mount rendered into and a crosshair cast at it, which is
+   as close to what a player does as a test gets.
 
    The partition across the hall runs from (-1.5, 1) to (2.5, 1) and is the
    one wall here with two faces you can stand at, so it is what the side cases

@@ -28,8 +28,8 @@ where it is going, a fuse that tracks how much is left. Each of those should be
 written next to the thing it belongs to, not in one function that advances all
 of them together.
 
-The old shape of a game on this engine was the second thing forced into the
-first:
+Written against the platform directly, a game is the second thing forced into
+the first:
 
 {[
   type t = { phase : phase; left : float; player : Player.t }
@@ -412,8 +412,8 @@ argument being repeated.
 The other number in that table is the significant one. Drawing five rooms takes
 most of a sixty-frame budget on its own, because {!Camlcast_core.Ray.cast}
 intersects every wall segment in the room once per screen column and there is
-no spatial index. That cost is the engine as it has always been, has nothing to
-do with the layer, and is where optimisation work would actually pay.
+no spatial index. That cost is the platform's own, has nothing to do with the
+layer, and is where optimisation work would actually pay.
 
 {1 What to read in the source}
 

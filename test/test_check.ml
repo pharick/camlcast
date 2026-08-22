@@ -244,18 +244,19 @@ let links =
    checker: it fails worlds that run and passes worlds that do not, and either
    way the reader stops believing it.
 
-   Every case here was a disagreement. The tolerance ones are the reason
-   World.has_length and its three neighbours are public; this file used to
-   measure with its own 1e-9 against the engine's 1e-6. The last is the reason
-   Element.Render_refused exists. *)
+   Every case here is a way the two can come apart. The tolerance ones are why
+   World.has_length and its three neighbours are public: measuring here with a
+   1e-9 of this file's own, against the engine's 1e-6, disagrees in the band
+   between them. The last is why Element.Render_refused exists. *)
 (* Agreeing about which descriptions are wrong is half of it. The other half
-   is saying so in the same words. By the time this was written the two shared
-   the rule (Prim.may_contain), the traversal (Nesting.misplaced) and the
-   nouns (Prim.describe, Prim.inside): everything but the sentence. Host
-   raised "... does not belong in a world" where the checker reported "a ...
-   cannot go in a world". That is one offence under two names, which a
-   developer who met one and then the other had no way to connect. Every part
-   anyone had thought to share was shared, which is why the last part was not.
+   is saying so in the same words. The two already share the rule
+   (Prim.may_contain), the traversal (Nesting.misplaced) and the nouns
+   (Prim.describe, Prim.inside), and sharing all of that is not enough: leave
+   the sentence to each and Host says "... does not belong in a world" where
+   the checker says "a ... cannot go in a world". That is one offence under two
+   names, which a developer who meets one and then the other has no way to
+   connect. The verb is the part nobody thinks to share, which is exactly why
+   it has to be pinned.
 
    The assertion is not the words themselves; those are pinned in "structure"
    above, and pinning them twice would mean two places to edit. It is the
@@ -316,9 +317,9 @@ let agrees_with_the_engine =
           [ "the two sides of this link are different widths" ]
           (summaries (pair ~e:(2. +. 1e-3) ())));
     case "a doorway too narrow to link is named here" (fun () ->
-        (* Below World's epsilon, so the engine refuses it. There was no check
-           for this at all, and it arrived as the engine's own message under
-           "the engine refused to build this world". *)
+        (* Below World's epsilon, so the engine refuses it. Named here rather
+           than left to arrive as the engine's own message under "the engine
+           refused to build this world", which says where but not what. *)
         Alcotest.check lines "once for each side"
           [
             "this doorway is too narrow to link";
@@ -355,9 +356,9 @@ let agrees_with_the_engine =
       (fun () ->
         (* The doorway is wider than the wall it is cut into, which
            Room.doorway refuses. Built inside a component, where a game builds
-           one, it used to come straight out of Check.report as
-           Invalid_argument: the module written to replace a crash ended in
-           one. *)
+           one, the refusal has to be caught and reported: a module written to
+           replace a crash must not come out of Check.report as
+           Invalid_argument. *)
         let bad =
           Camlcast_loom.Element.declare ~name:"BadRoom" @@ fun () ->
           P.room ~name:"west" ~floor ~ceiling
@@ -480,10 +481,10 @@ let the_world_it_makes =
         Alcotest.check lines "and nothing here is broken" [ "warning" ]
           (severities two_cameras));
     case "which leaves the world buildable, and so still checked" (fun () ->
-        (* The room check used to error here, and an error stops the tiers
-           below it, so a dead camera naming a typo took the geometry checks
-           down with it. This world's spawn is in a wall, and the report still
-           has to reach that. *)
+        (* A warning and not an error, because an error stops the tiers below
+           it: raise the severity here and a dead camera naming a typo takes
+           the geometry checks down with it. This world's spawn is in a wall,
+           and the report has to reach that. *)
         Alcotest.check lines "the camera, and the thing behind it"
           [
             "the player starts inside a wall";
@@ -575,12 +576,12 @@ let the_world_it_makes =
                   P.link ("west", "east") ("east", "west");
                 ])));
     case "and the reason it gives keeps the two words apart" (fun () ->
-        (* The detail used to open "A doorway is an opening in a boundary",
-           the one sentence in the engine that said so. A doorway is an
-           opening {e and its jambs} (see {!Camlcast_core.Room}), and being
-           made with its jambs is why a doorway cannot be the thing this
-           complaint is about. Only a bare threshold can. The explanation now
-           says which of the two makes this gap and which cannot. *)
+        (* The two words are not interchangeable, and this detail is where
+           they are easiest to run together. A doorway is an opening {e and its
+           jambs} (see {!Camlcast_core.Room}), and being made with its jambs is
+           why a doorway cannot be the thing this complaint is about. Only a
+           bare threshold can, so the explanation has to say which of the two
+           makes this gap and which cannot. *)
         let gap =
           P.world ~atmosphere:Atmosphere.default
             ~spawn:("west", Vec.make (-3.) 0.)

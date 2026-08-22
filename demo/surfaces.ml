@@ -1,8 +1,8 @@
 (** The showcase level's materials, sky and air.
 
-    These were once a table indexed by an integer id; named values are the
+    Named values rather than a table indexed by an integer id, which is the
     argument for {!Camlcast_core.Material}: [~material:Surfaces.brick] says what
-    the wall is, where [~texture:1] said only where to look it up.
+    the wall is, where [~texture:1] says only where to look it up.
 
     A pattern carries its own colours, so a material here is a {!Patterns}
     function with its colours filled in and the texture generated. The same

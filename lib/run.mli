@@ -17,7 +17,7 @@
     The runtime holds the player and moves it. A description says where the
     world is and what is in it. The eye's position belongs to the loop, which
     feeds the key bindings through {!Camlcast_core.Engine.step} — the same step
-    every game on the old API called on its first line.
+    a game written straight against the platform calls for itself.
 
     That is the uncontrolled case, and the only case this step handles. In the
     controlled case a description places the camera itself — a cutscene, a lift,

@@ -126,13 +126,12 @@ val with_window :
     function is done with it — however it is done, error or exception included.
 
     [title], [width] and [height] default to {!Config.window_title},
-    {!Config.initial_width} and {!Config.initial_height}, so every call made
-    before these parameters existed still gets the same window. They exist
-    because a game previously could not name its own window: {!Config} is
-    compile-time constants, and this function took no arguments at all, so every
-    game built on this engine opened a window called CamlCast. The field of view
-    is still in that position — it is read inside {!Viewport}, several calls
-    below anything a game can reach — and is not settable here.
+    {!Config.initial_width} and {!Config.initial_height}, so a call that names
+    none of them gets the engine's own window. They are parameters rather than
+    more of {!Config} because {!Config} is compile-time constants: without them
+    every game built on this engine would open a window called CamlCast. The
+    field of view stays in {!Config} — it is read inside {!Viewport}, several
+    calls below anything a game can reach — and is not settable here.
 
     Everything a frame needs is acquired here and released in reverse: SDL, the
     window, the renderer, and the buffer frames are drawn into. Nothing inside

@@ -3,16 +3,17 @@
 ; Nothing in the engine depends on any of this, by design: it is content, and
 ; content lives outside the library it is content for.
 ;
-; camlcast is the only dependency, SDL included: a demo that binds a key names
-; a Camlcast_core.Key and never reaches past the engine for it, the same way a game
-; does.
+; The engine's own libraries and nothing else. The platform is named beside the
+; layer because a demo of Room or Renderer says so directly; and a demo that
+; binds a key names a Camlcast_core.Key rather than a scancode, so nothing here
+; reaches past the engine to SDL.
 
 ; The public name is the package name, so this installs as lib/camlcast-demo/
-; and camlcast.install carries none of it. It was camlcast.demo, whose first
-; component names the owning package — which put a findlib subpackage, and
-; every .ml in this directory, into the engine's own install file: the content
-; shipped with the engine, and the camlcast-demo package was missing its own
-; demos.
+; and camlcast.install carries none of it. The hyphen is what does that: a
+; public name's first dotted component names the package the stanza belongs to,
+; so camlcast.demo would make this a findlib subpackage of the engine and put
+; every .ml in this directory into camlcast's own install file — the content
+; shipped with the engine, and the camlcast-demo package without its demos.
 ;
 ; The executable in bin/ has this same public name and does not collide with it:
 ; one is a binary in bin/, the other a findlib package in lib/. The module name

@@ -73,6 +73,5 @@ val read :
     message, not by which call failed.
 
     {!Texture.of_asset} and {!Image.of_asset} are exactly this and nothing else.
-    They were the same two lines written twice; the composition is named once
-    here because providing it ready-made is the reason either function exists.
-*)
+    The composition is named once here rather than spelled out in each of them,
+    because providing it ready-made is the reason either function exists. *)

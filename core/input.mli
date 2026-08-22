@@ -248,8 +248,8 @@ module Runtime : sig
       No key is read here as a {e binding}, not even the two the engine acts on
       itself. Fullscreen and leaving the run are ordinary state from {!Binding},
       like anything a game binds: {!pressed} is already true for exactly one
-      frame per press, which is all that watching for the event used to buy.
-      What a {e player} means by a control is {!sample}'s business; what the
+      frame per press, which is all that watching for the event would buy. What
+      a {e player} means by a control is {!sample}'s business; what the
       {e window} meant is this one's. *)
 
   val closed : queue -> bool

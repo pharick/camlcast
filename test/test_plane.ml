@@ -90,10 +90,10 @@ let cast_answers_before_it_judges () =
   (* Parallel: infinity rather than the enormous finite number the division
      would otherwise give, which is the reason the epsilon exists.
 
-     Bracketed with {!Plane.parallel} itself rather than with the two literals
-     this used to name. Those were 1e-12 and 1e-8, chosen to sit either side of
-     a 1e-9 written elsewhere; if that number had moved between them, the test
-     would have kept passing while testing nothing. *)
+     Bracketed with {!Plane.parallel} itself rather than with literals either
+     side of it. Literals chosen to straddle today's value — 1e-12 and 1e-8
+     around a 1e-9 — keep passing if the epsilon moves anywhere between them,
+     which is the one change that would make this test worth running. *)
   Alcotest.(check bool)
     "along the horizon, infinitely far" true
     (cast 0. = infinity);

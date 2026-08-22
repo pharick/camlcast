@@ -44,7 +44,7 @@ let near a b = Vec.length (Vec.sub a b) < 1e-6
    exactly, but on a sloped floor they come out a bit or two apart: the
    showcase level disagrees with itself by 1.11e-16 across one doorway and is
    correct. This is the tolerance test/support.ml already calls close, and the
-   demo suite has always compared seams at it, so checker and tests agree about
+   demo suite compares seams at it, so checker and tests agree about
    zero by construction rather than by coincidence. *)
 let flat_enough = 1e-9
 
@@ -554,8 +554,8 @@ let of_forest forest =
         in
         (* Both of the ways the engine has of refusing a description, caught so
            that a check written to replace {e these} crashes does not end in
-           one. This is not a promise about every crash, which this comment
-           used to read as. A component of the game's own that raises during
+           one. Not a promise about every crash: a component of the game's own
+           that raises during
            the render below comes straight out of {!report}, as
            {!Check.report}'s own docstring sets out. Only the engine's half is
            bounded here. *)

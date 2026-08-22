@@ -7,13 +7,13 @@
     comes close enough to the end, the number goes up and the next description
     has another segment.
 
-    This is the clearest case in the demos of the layer paying for itself.
-    Growing a world used to mean surgery on one:
+    This is the clearest case in the demos of the layer paying for itself. Grown
+    against the platform, a world of this shape is surgery on one:
     {!Camlcast_core.World.open_doorway} to give a dead end a way on,
-    {!Camlcast_core.World.add_room} for what lay beyond it,
+    {!Camlcast_core.World.add_room} for what lies beyond it,
     {!Camlcast_core.World.link} to join the two, and a search for whether a room
-    already had a way on so none of it was done twice — every step appending and
-    never moving, so held indices stayed valid. None of that is here. Segments
+    already has a way on so none of it is done twice — every step appending and
+    never moving, so held indices stay valid. None of that is here. Segments
     described again are matched against last frame's and kept, the new one is
     mounted, and the indices are whatever this frame's assembly produced.
 

@@ -2,26 +2,19 @@
 
 (name camlcast)
 
-; A stanza may only use what it names. Left implicit, a library's dependencies
-; are visible to everything that depends on it, so a module can come to lean on
-; something no dune file in its directory mentions; the dependency is then real
-; but invisible, removable only by accident. This repo relies on the boundary:
-; loom/dune's empty (libraries) is the rule that keeps the reconciler from
-; knowing what a pixel is, and test/dune keeps three suites apart on the same
-; principle. A boundary the build enforces per directory must also hold across
-; transitive dependencies.
-;
-; Turning it on cost one line: test_loom reaches QCheck2 through
-; qcheck-alcotest and now names qcheck-core explicitly.
-;
-; It also costs a compiler version. Dune implements this through -H, the
-; hidden include added in 5.2: a transitive dependency stays readable to the
-; typechecker and unnameable in the source — the distinction the paragraph
-; above needs. Without -H dune drops those directories rather than hiding
-; them, and a type that only passes through one stops resolving.
-; Alcotest.testable takes an 'a Fmt.t, and camlcast.mli aliases loom's
-; Element — neither is named by any file here, and both stop compiling.
-; Hence the floor below.
+; A stanza may only use what it names. By default a library's dependencies are
+; visible to everything that depends on it, so a module can come to lean on
+; something no dune file in its directory mentions — and this repo keeps its
+; boundaries in those dune files: loom/dune's empty (libraries) is what stops
+; the reconciler from knowing what a pixel is, and test/dune holds its suites
+; apart on the same principle. Closing the transitive hole costs one line in
+; test/dune, where test_loom names the qcheck-core it reaches QCheck2 through
+; rather than inheriting it from qcheck-alcotest, and a compiler version: dune
+; implements the rule with -H, the hidden include added in 5.2, which leaves a
+; transitive dependency readable to the typechecker and unnameable in the
+; source. Without -H dune drops those directories rather than hiding them, and
+; a type that only passes through one stops resolving — Alcotest.testable takes
+; an 'a Fmt.t, and camlcast.mli aliases loom's Element. Hence the floor below.
 
 (implicit_transitive_deps false)
 
@@ -55,22 +48,22 @@
   ; bundle has to carry.
   tsdl-image
   (alcotest :with-test)
-  ; Property tests, where the engine's own suites are example-based. The two
-  ; things the declarative layer adds have invariants crisp enough to state
-  ; outright — mounting A and then B leaves the same instances as mounting B
-  ; directly; an auto-wound outline encloses positive area whatever order its
-  ; points arrive in — and those are checked against generated input rather
-  ; than a handful of hand-written cases.
+  ; Property tests, where the engine's own suites are example-based. The
+  ; engine's behaviour is specific enough that cases are the honest way to check
+  ; it. What the declarative layer adds has invariants instead — rules that hold
+  ; for every description it can be handed — and a rule of that shape is better
+  ; checked against generated input than against however many hand-written cases
+  ; someone thought of.
   (qcheck-alcotest :with-test)
   ; QCheck2, where the generators and shrinkers live. qcheck-alcotest brings
   ; it either way; it is listed because (implicit_transitive_deps false) makes
   ; test/dune name it, and a library a dune file names is one the package
   ; should ask for rather than inherit.
   (qcheck-core :with-test)
-  ; The declarative layer assembles a World every frame where the old API
-  ; built one and kept it, so the repo has to be able to measure that cost.
-  ; Before this there was no benchmark at all; the only performance numbers
-  ; anywhere were a comment in demo/dust.ml. bechamel depends only on fmt.
+  ; For the benchmark in bench/, which measures what assembling a World every
+  ; frame costs against what drawing the frame costs. Not :with-dev-setup,
+  ; though that is what it is: CI's floor job installs --with-test alone and
+  ; then runs `dune build`, which compiles bench/ along with everything else.
   (bechamel :with-test)
   (ocaml-lsp-server :with-dev-setup)
   ; Pinned to the same version .ocamlformat names: formatting is a build

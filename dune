@@ -28,28 +28,27 @@
   (glob_files
    (assets/*.png with_prefix assets))))
 
-; Turn the unused-code warnings back on; dune no longer does it.
+; Turn the unused-code warnings on; dune does not.
 ;
-; Under (lang dune 3.0) the dev profile compiled with
-; `-w @1..3@5..28@30..39...`, which enabled warning 32 and made it fatal. At the
-; 3.21 this project has declared since its first commit, dune passes no -w at
-; all: the command line is `-short-paths -keep-locs -warn-error +a`, so the
-; compiler's own defaults apply — and those switch 32..42 off. -warn-error +a
-; only escalates warnings that are enabled, so the whole unused-* family was
-; silently unreachable rather than merely non-fatal.
+; At (lang dune 3.21) the dev profile passes no -w at all: the command line is
+; `-short-paths -keep-locs -warn-error +a`, so the compiler's own defaults
+; apply, and those switch 32..42 off. -warn-error +a only escalates warnings
+; that are enabled, which leaves the whole unused-* family unreachable rather
+; than merely non-fatal — not a setting to be turned up later, but a check that
+; is not running.
 ;
-; The gap had a cost: Bitmap.alpha survived the sealing commit that
-; un-exported it, dead and unreferenced, with no diagnostic anywhere. This is
-; the check that would have caught it the moment it stopped being called.
+; What it catches is a value nothing calls any more: an .mli that stops
+; exporting something leaves the implementation behind it dead, referenced from
+; nowhere and diagnosed by nothing.
 ;
 ; 32..39 is the unused-* family: value, open, type, for-loop index, ancestor,
 ; constructor, extension constructor, rec flag. 9 catches a record pattern that
 ; does not name every field, which is what turns adding a field into a compile
 ; error at each place that should have handled it rather than a silent hole; 27
-; catches a bound name nothing reads. Both were one site each when they went on.
+; catches a bound name nothing reads.
 ;
-; What stays off stays off for measured reasons. Building this tree with -w +a raises
-; 467 of warning 42, 257 of 40 and 157 of 44 — the constructor/label
+; What stays off stays off for measured reasons. Building this tree with -w +a
+; raises 467 of warning 42, 257 of 40 and 157 of 44 — the constructor/label
 ; disambiguation family, which fires on correct idiomatic code and which dune's
 ; own default excluded for the same reason — and 55 of warning 4, which asks for
 ; a style of pattern matching this codebase does not write. 70 is a special
@@ -57,9 +56,9 @@
 ;
 ; -strict-sequence and -strict-formats are here rather than among the warnings
 ; because they are typing flags: the first makes the left of a `;` have to be
-; unit, the second rejects the ambiguous old format-string syntax. Both were in
-; dune's dev profile at (lang dune 3.0) and vanished at 3.21 along with the -w,
-; and both were already clean here — this only keeps them enforced.
+; unit, the second rejects the ambiguous old format-string syntax. Dune passes
+; neither at 3.21, and the tree is clean under both, so naming them here costs
+; nothing and keeps it that way.
 ;
 ; -principal is deliberately declined. It is a real check rather than a
 ; stylistic one, but loom/hook.ml does not typecheck under it, and buying it

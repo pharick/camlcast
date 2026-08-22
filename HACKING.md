@@ -25,8 +25,9 @@ On macOS add `--no-depexts` to the install line. Homebrew's `sdl2` is an alias
 for the `sdl2-compat` formula, and opam checks for the depext by name against
 `brew list`, which reports only the formula. The `sdl2` the depext asks for
 never appears there, so the check fails no matter what is installed. Install
-the libraries yourself and tell opam to stop looking. Upstream:
-opam-repository#30337.
+the libraries yourself and tell opam to stop looking; the fix that would make
+that unnecessary is for `conf-sdl2` to ask for `sdl2-compat` on macOS, filed as
+[ocaml/opam-repository#30337](https://github.com/ocaml/opam-repository/issues/30337).
 
 The engine's floor is OCaml 5.2, required for `-H`, the hidden include that
 makes `(implicit_transitive_deps false)` hide directories instead of dropping
@@ -41,6 +42,40 @@ the bound in `dune-project` is checked rather than merely asserted.
 in two places — `.ocamlformat` says `0.29.0` and the opam dev-setup dependency
 pins the same — because ocamlformat's output changes between releases. A
 mismatched binary refuses to run rather than quietly reflowing the tree.
+
+## Comments
+
+A comment justifies or explains the code as it stands. It does not narrate how
+the code got there.
+
+- **Yes**: "`:with-test` rather than `:with-dev-setup`, because CI's floor job
+  installs `--with-test` alone and then builds the workspace, `bench/`
+  included."
+- **No**: "This used to be a constant in `Config`." "The old version kept a room
+  by index." "There was no check for this at all." "Every step of this rewrite
+  has said the same thing."
+
+The reason is not taste. A claim about the past is unfalsifiable from the tree:
+nothing compiles against it, no test covers it, and a reader cannot check it
+without the history the comment is standing in for. It rots in silence, and one
+wrong line teaches people to stop trusting the ones beside it. `git log` and
+`git blame` hold the history, and hold it accurately.
+
+Almost every historical comment is a current-state comment that gave up too
+early. "These used to be five constants" is really "these are a value because
+they are most of what distinguishes one place from another" — the argument
+survives the next edit, the date stamp does not. Where a past mistake is the
+whole point of a guard, describe the mistake the guard prevents rather than the
+day someone made it.
+
+Three things this does not forbid:
+
+- The behaviour of something outside this repo, stated in the present: "dune
+  does not turn these warnings on".
+- Runtime pasts. "the wall it used to be" is about a value one call ago, not
+  about the repository.
+- Step-to-step continuity in `examples/` and the guides, where the reader has
+  just read the previous version and the comparison is the lesson.
 
 ## The examples
 
@@ -100,37 +135,10 @@ it resolves. **That set of warnings is the expected output** — anything else
 in it is a real reference that has gone stale. `@doc-new`, the odoc 3 driver
 alias that would put `Stdlib` in scope, does not build in this tree.
 
-## The demos, and what migrating them found
+## The demos
 
-All twenty-two demos are descriptions. Migrating them doubled as a parity
-check: five primitives were added because rewriting a demo needed them, not by
-design.
-
-| found by | what it closed |
-| --- | --- |
-| `slopes`, `floating`, `level` | `P.opening` / `P.through` — carrying a floor across a doorway |
-| `barred`, `level` | `P.threshold` — a lintel of a different material from its wall |
-| `controls` | `P.cursor` — freeing the mouse instead of capturing it |
-| `targets` | `P.highlight` and `Aim.ring` — the projection needed the viewport |
-| `targets`, `level` | `Events.aim` — what kind of thing the crosshair is on |
-
-Two more came from the audit before it: `on_use` takes an `Aim.spot`, because
-`chalk` marks a wall where the crosshair is; and `Events.use_crossed`, because
-`trail` builds a route home from the doorways a frame went through and
-`Engine.step` throws those away.
-
-Four tests stopped meaning what they meant, and each says so where it is
-rather than being quietly made to compile:
-
-- `dust` asserted that a moving room *shares* the walls of the room it moved
-  from. False now by design; `bench/frame.exe` shows why that is affordable.
-- `endless` asserted that graph surgery was done right. There is no surgery.
-- `trail` and `menu` read private state. They now read what the player sees —
-  the ticks on the HUD, the row the list highlights.
-
-`test_menu` also found the one place a component differs visibly from the pure
-`update` it replaced: a handler runs *after* the frame it fired on, so the
-frame a key goes down on still shows what was selected before it.
+All twenty-two demos are descriptions, and between them they reach every
+primitive the layer has. What each one is a demo of:
 
 | demo | what it needs | where |
 | --- | --- | --- |
@@ -152,10 +160,22 @@ frame a key goes down on still shows what was selected before it.
 | `controls` | binding controls | `Run.play ~controls` |
 | `showcase` | all of the above at once | all of the above |
 
+Four of the demo suites assert something worth knowing before reading them:
+
+- `dust` — a moving room does not share the walls of the room it moved from.
+  `bench/frame.exe` is why that is affordable.
+- `endless` — the world grows by describing more rooms, so there is no graph
+  surgery to get right.
+- `trail`, `menu` — they read what the player sees, the ticks on the HUD and
+  the row the list highlights, rather than private state.
+- `menu` also pins the one place a component is visibly not a pure `update`: a
+  handler runs *after* the frame it fired on, so the frame a key goes down on
+  still shows what was selected before it.
+
 The layer's reference is not a demo but the guide's one room, hand-built
 against the platform and restated inline in `test_stage.ml`, which renders it
 beside its described twin and compares every pixel. It is a valid reference
-because it was never rewritten.
+because it names nothing in the layer: it is what the layer has to reproduce.
 
 ## Benchmarks
 

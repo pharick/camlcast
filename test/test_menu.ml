@@ -1,10 +1,9 @@
 (** The launcher's list, driven without a window.
 
-    This suite used to drive {!Camlcast_demo.Menu.update}, a pure function of
-    the state and one frame's input. The list is a component now and owns its
-    cursor, so the suite drives a mount and reads back the row the list
-    {e highlights}. That is what a player sees, and asserting it beats asserting
-    an index: these cases name demos.
+    The list is a component and owns its cursor, so this drives a mount and
+    reads back the row the list {e highlights} rather than calling an update
+    function and reading an index. That is what a player sees, which is why
+    these cases can name demos.
 
     Only the drawing needs a window, and the drawing makes no decisions. *)
 
@@ -55,9 +54,9 @@ let holding key = [ Input.Key key ]
 
 (* Press a key, then render again. A handler runs after the frame it was
    triggered on, so the frame the key went down on still shows the previous
-   selection; see Camlcast.Hook for why that is the rule. The old test drove a
-   pure update that responded immediately. This is the one place the difference
-   is visible, and the one-frame delay is imperceptible to a player. *)
+   selection; see Camlcast.Hook for why that is the rule. This is the one place
+   a component is visibly not a pure update responding immediately, and the
+   one-frame delay is imperceptible to a player. *)
 let press key driver =
   ignore (play ~held:(holding key) driver);
   play driver

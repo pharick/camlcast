@@ -1,11 +1,10 @@
 (* What the declarative layer costs, against what a frame costs anyway.
 
-   Every step of this rewrite has said the same thing about assembling a whole
-   World every frame: a real cost, deliberately deferred, to be settled when a
-   benchmark asks. This is the benchmark, and the number that matters is not how
-   long a render takes but how it compares to drawing the frame it is for. A
-   layer that costs a twentieth of what the renderer costs is a layer nobody
-   will ever see; one that costs as much again has to be paid for.
+   The layer assembles a whole World every frame, which is a real cost, and the
+   question is whether it is one worth caching. The number that settles it is
+   not how long a render takes but how it compares to drawing the frame it is
+   for. A layer that costs a twentieth of what the renderer costs is a layer
+   nobody will ever see; one that costs as much again has to be paid for.
 
    The answer, on the machine this was written on, at the 512x384 buffer the
    engine's own window renders into:
@@ -18,8 +17,8 @@
    this — and the number that {e is} worth looking at is the other one: drawing
    five rooms takes most of a sixty-frame budget on its own. Ray.cast
    intersects every wall segment in the room once per screen column and there is
-   no spatial index, which is the engine as it has always been and has nothing
-   to do with anything above it.
+   no spatial index, which is the platform's own cost and has nothing to do with
+   anything above it.
 
    Run it with `dune exec bench/frame.exe`, or with `--profile release`, which
    moves the renderer by about a fifth and the layer by nothing. *)

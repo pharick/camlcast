@@ -34,8 +34,8 @@ let ne = Vec.make 3.5 9.
 let nw = Vec.make (-3.5) 9.
 
 (* A component, because the two chambers are the same room. Given different
-   names, they are two rooms of one shape — what the old version said by
-   calling a function twice, in a form the runtime can also tell apart. *)
+   names, they are two rooms of one shape — the same thing a function called
+   twice would say, in a form the runtime can also tell apart. *)
 let chamber =
   Element.declare ~name:"chamber" @@ fun name ->
   P.(

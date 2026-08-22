@@ -1,17 +1,17 @@
 ; The platform. Geometry, ray casting, rendering, SDL — everything a frame is
 ; actually made of, and none of it anything a game should have to name.
 ;
-; It was called camlcast until the declarative layer was ready to take that
-; name. It is called core now for the reason the directory is: what a game opens
-; is the layer over the top, and this is what that layer is over. A game that
+; It is called core for the reason the directory is: what a game opens is the
+; layer over the top, and this is what that layer is over. A game that
 ; genuinely needs World or Renderer adds camlcast.core to its own dune
 ; explicitly, so crossing the boundary is a decision rather than a drift.
 
-; -w +70 is "every module in here has an .mli", which all twenty-nine already
-; did: the flag costs nothing today and keeps it that way. A module without an
-; interface exports every binding in it — the state 9d84dbe went through the
-; tree to end — so the invariant is enforced by a check rather than a habit. It is set per library rather than at the root because
-; demo/ is twenty-nine deliberately .mli-less files, one showcase each.
+; -w +70 is "every module in here has an .mli", which every module in here
+; already has: the flag costs nothing and keeps it that way. A module without an
+; interface exports every binding in it, so the boundary this library draws
+; would be whatever its implementation happens to leave visible. Set per library
+; rather than at the root, because demo/ is deliberately .mli-less, one showcase
+; per file.
 
 (library
  (flags

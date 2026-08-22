@@ -61,9 +61,9 @@ let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
 (** Three barrels spread across the doorway's view: one square on, one to each
     side, so turning the head picks a different one.
 
-    Each is keyed by a name, and that name is what it is recorded under — the
-    old version recorded a room and a sprite index, numbers that assembling a
-    description happens to produce rather than anything the demo meant. *)
+    Each is keyed by a name, and that name is what it is recorded under, rather
+    than a room and a sprite index — numbers that assembling a description
+    happens to produce rather than anything the demo meant. *)
 let barrels =
   [
     ("straight", Vec.make 3. 0.);

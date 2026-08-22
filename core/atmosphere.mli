@@ -1,13 +1,12 @@
 (** The air a {!World} is seen through: how fast it fades things out, what
     colour it fades them to, and where its light comes from.
 
-    These used to be constants — two in {!Config} and three more in the palette
-    — which lit and fogged every world the same way. They are a value here
-    because they are most of what distinguishes one place from another. A sunlit
-    courtyard and a windowless corridor can be built from the same geometry and
-    materials; the corridor reads as a corridor because its fog closes in at
-    nine cells instead of twelve, fades to black instead of grey, and has no
-    discernible light direction. *)
+    A value rather than a set of constants, because it is most of what
+    distinguishes one place from another: constants would light and fog every
+    world in a game the same way. A sunlit courtyard and a windowless corridor
+    can be built from the same geometry and materials; the corridor reads as a
+    corridor because its fog closes in at nine cells instead of twelve, fades to
+    black instead of grey, and has no discernible light direction. *)
 
 type t = private {
   haze : Color.t;

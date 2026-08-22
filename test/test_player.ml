@@ -52,11 +52,11 @@ let pitch_tips_within_a_limit () =
     ((Player.pitch_by p ~fraction:(-100.)).Player.pitch
    >= -.Config.max_pitch -. 1e-9)
 
-(* What [~fraction] is a fraction {e of}. The label used to say [~radians], and
-   nothing here contradicted it: the test above only checks that the number
-   comes back out, and {!Viewport}'s own pitch test only checks which way the
-   horizon moved. The whole suite therefore passed with a [tan] in the middle,
-   which is what taking the old label literally would insert.
+(* What [~fraction] is a fraction {e of}. Nothing else in the suite pins it:
+   the test above only checks that the number comes back out, and {!Viewport}'s
+   own pitch test only checks which way the horizon moved. Without this case
+   the whole suite passes with a [tan] in the middle — which is what reading
+   the argument as radians would put there.
 
    The claim is that the number is measured in window heights, and the one
    place that has an observable effect is the horizon, two modules away. Hence
@@ -196,9 +196,8 @@ let spawn_uses_the_world () =
   Alcotest.check vec "spawn point" (World.spawn two_rooms).World.pos
     (Player.spawn two_rooms).Player.pos
 
-(* The initial facing used to be a hardcoded zero; now spawn takes it as a
-   parameter. Facing 0. stays the default, so a game that never passes one
-   starts exactly as it always did. *)
+(* The initial facing is a parameter of the spawn rather than a fixed zero.
+   Zero is still the default, so a game that never names one faces +x. *)
 let spawn_faces_where_it_is_told () =
   Alcotest.check vec "the default faces along +x" (Vec.of_angle 0.)
     (Player.spawn two_rooms).Player.dir;

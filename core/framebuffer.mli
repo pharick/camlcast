@@ -2,10 +2,10 @@
     it is uploaded through once per frame.
 
     The sloped floor and ceiling need a colour decided {e per pixel} (see
-    {!Renderer}), which the old approach of blitting whole wall textures on the
-    GPU could not express. A pixel buffer expresses it directly: the renderer
-    writes every pixel by hand, then the whole buffer is handed to the GPU in
-    one upload and scaled up to fill the window.
+    {!Renderer}), which blitting whole wall textures on the GPU cannot express.
+    A pixel buffer expresses it directly: the renderer writes every pixel by
+    hand, then the whole buffer is handed to the GPU in one upload and scaled up
+    to fill the window.
 
     The buffer is 8-bit BGRA, written a channel at a time so nothing is boxed in
     the inner loop; the texture format is chosen to match that byte order.
@@ -50,12 +50,12 @@ val offscreen : width:int -> height:int -> t
 (** A buffer with no window behind it: the same pixels and the same depth, drawn
     into by the same {!set} and {!blend}, never uploaded anywhere.
 
-    It exists so that what is drawn can be read back and asserted. Everything
-    downstream of this module — {!Paint}, {!Font}, and the renderer itself —
-    used to be testable only through the arithmetic feeding it, because a real
-    buffer needs a live SDL renderer for its streaming texture and a test has no
-    window. The texture is the only part that truly needs SDL, so it is the only
-    part that is optional.
+    It exists so that what is drawn can be read back and asserted. A real buffer
+    needs a live SDL renderer for its streaming texture and a test has no
+    window, which would leave everything downstream of this module — {!Paint},
+    {!Font}, and the renderer itself — testable only through the arithmetic
+    feeding it. The texture is the only part that truly needs SDL, so it is the
+    only part that is optional.
 
     Pair it with {!Renderer.draw_frame} and {!pixel} to test drawing without
     opening a window.

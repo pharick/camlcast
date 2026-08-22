@@ -94,13 +94,13 @@ val misplaced : child:t -> parent:t -> string
     {!inside} names the place, and this supplies the one sentence they go in.
 
     The sentence lives here for the reason the rule below does — the same
-    reason, a third time. {!Host.assemble} raised
-    ["… does not belong in a world"] and {!Check.report} reported
-    ["a … cannot go in a world"]: one offence with two names. A game developer
-    who met the checker's wording and then the engine's had no way to tell they
-    had been told the same thing twice. The drift went unnoticed because the
-    nouns were already shared and only the verb was not: every part of the
-    sentence anyone thought to share was shared. *)
+    reason, a third time. {!Host.assemble} and {!Check.report} both report this
+    offence, and were they to word it separately —
+    ["… does not belong in a world"] against ["a … cannot go in a world"] — a
+    game developer meeting one and then the other would have no way to tell they
+    had been told the same thing twice. Sharing {!describe} and {!inside} is not
+    enough to prevent it: the verb is where two wordings of one offence part
+    company, and it is the part nobody thinks to share. *)
 
 val not_a_world : t -> string
 (** What to say about a description whose one root is something else:

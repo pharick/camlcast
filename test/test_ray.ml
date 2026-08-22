@@ -104,7 +104,7 @@ let origin_on_a_wall () =
    ray has none, because a ray sliding along a wall meets nothing worth drawing
    while a step sliding along one still has to be stopped. The parallel test is
    strict on one side and inclusive on the other, so a segment of no length
-   keeps the branch it has always taken.
+   lands where each of the two needs it.
 
    A shared core would keep the arithmetic from drifting, and its cost was
    measured rather than assumed. The version that pins what is worth pinning

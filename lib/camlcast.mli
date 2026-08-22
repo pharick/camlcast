@@ -124,8 +124,9 @@ module Key = Camlcast_core.Key
     That half is the loop's — draining SDL's event queue, reading and clearing
     its accumulated mouse motion — and two of the six do damage from a game:
     reading the motion leaves the loop's own read empty and the camera still,
-    and draining the queue swallows the quit event. Both used to sit in this
-    namespace beside {!Input.pressed}, with a docstring asking politely.
+    and draining the queue swallows the quit event. Sitting in this namespace
+    beside {!Input.pressed}, they would be guarded by a docstring asking
+    politely.
 
     Removed here rather than renamed there, so it is out of reach on the same
     terms as {!Camlcast_core.Engine} and {!Camlcast_core.World}: nothing stops a

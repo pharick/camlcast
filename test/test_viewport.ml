@@ -316,7 +316,7 @@ let the_crosshair_sits_on_the_centre_ray () =
 
 let facing_east = Player.make ~room:0 ~pos:(Vec.make 0. 0.) ~angle:0.
 
-(* A square picture is what every sprite used to be, and it comes out square. *)
+(* The aspect comes from the picture, so a square picture comes out square. *)
 let a_square_picture_is_as_wide_as_it_is_tall () =
   let s =
     Room.sprite ~size:1.5

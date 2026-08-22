@@ -24,8 +24,8 @@
 
     Both sides of a doorway share one name, so the game's record and the
     engine's cannot disagree about a door's state — the bookkeeping
-    {!Camlcast_core.World.set_door} used to do. Open the middle door, walk
-    through, look back: it is open from there too.
+    {!Camlcast_core.World.set_door} does for a game that works in indices. Open
+    the middle door, walk through, look back: it is open from there too.
 
     The meter along the bottom is the door under the crosshair: empty when it is
     open, full when it is shut, red for a moment when this demo refuses to work
@@ -40,10 +40,10 @@ let flat = Plane.horizontal 0.
 
 (** The doorway this demo will not open, by the name both its sides share.
 
-    It used to be a pair of [(room, threshold)] indices, one for each side, and
-    keeping the two in step was the bookkeeping a game took on in exchange for
-    the engine not carrying a [Locked] state. A description names its doorways,
-    so there is one name for one door and nothing to keep in step. *)
+    The engine carries no [Locked] state, so a game that wants one keeps the
+    bookkeeping itself. A description names its doorways, which makes that
+    bookkeeping a name: one name for one door, rather than a [(room, threshold)]
+    index for each of its two sides and the job of keeping them in step. *)
 let locked = [ "sealed" ]
 
 (* The arrival hall: a wide room whose east wall is three doorways. All three
@@ -58,7 +58,7 @@ let north = Vec.make 0. 2.4
 (** What hangs in a doorway: nothing if it has no leaf, nothing if it has been
     opened, and the leaf otherwise. Both sides of a link ask this with the same
     name, so they cannot disagree — which is the whole of what
-    {!Camlcast_core.World.set_door} used to have to keep in step. *)
+    {!Camlcast_core.World.set_door} has to keep in step for its two indices. *)
 let leaf ~opened name =
   match name with
   | _ when List.mem name opened -> None
@@ -154,10 +154,9 @@ let working =
   let aimed, set_aimed = Hook.use_state None in
   Events.use_frame (fun ~dt ->
       if refused > 0. then set_refused (Float.max 0. (refused -. dt)));
-  (* One pair of handlers per doorway name, given to both of its sides. Which
-     is what the old version could not do: it found the nearest opening with a
-     door in it and worked that, because there was nothing to hang a handler on.
-     Now the doorway itself is told. *)
+  (* One pair of handlers per doorway name, given to both of its sides, so the
+     doorway itself is told. Without somewhere to hang a handler, a game is left
+     finding the nearest opening with a door in it and working that. *)
   let reacts name =
     ( (fun here -> set_aimed (if here then Some name else None)),
       fun _ ->
