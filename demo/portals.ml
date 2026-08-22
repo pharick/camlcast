@@ -33,51 +33,51 @@ let se = Vec.make 3.5 0.
 let ne = Vec.make 3.5 9.
 let nw = Vec.make (-3.5) 9.
 
-(* A component, because the two chambers are the same room. Given different
-   names, they are two rooms of one shape — the same thing a function called
-   twice would say, in a form the runtime can also tell apart. *)
+(* A component, because the two chambers are the same room. Given a door each,
+   they are two rooms of one shape — the same thing a function called twice
+   would say, in a form the runtime can also tell apart. The door is what tells
+   them apart now: it is the one thing about a chamber that is its own. *)
 let chamber =
-  Element.declare ~name:"chamber" @@ fun name ->
+  Element.declare ~name:"chamber" @@ fun back ->
   P.(
-    room ~name
+    room ~height ~material:Surfaces.brick
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
+      ~outline:(corners [ sw; se; ne; nw ])
       [
-        boundary ~closed:false ~height ~material:Surfaces.brick
-          (corners [ se; ne; nw; sw ]);
-        doorway ~name:"back" ~width:2.6 ~opening:3. ~height
-          ~material:Surfaces.brick sw se;
+        cut back ~along:(sw, se);
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 0. 6.5);
       ])
+
+let right = P.door ~width:2.6 ~clearance:3. ()
+let left = P.door ~width:2.6 ~clearance:3. ()
+let east_back = P.door ~width:2.6 ~clearance:3. ()
+let west_back = P.door ~width:2.6 ~clearance:3. ()
 
 let level =
   P.(
     (* Spawn is set back from the middle, so both doorways are ahead and the
        same room is visible through each. *)
     world ~atmosphere:Surfaces.air
-      ~spawn:("hub", Vec.make (-6.) 0.)
       [
-        room ~name:"hub"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
-          ((* Sides 0 and 5 are the two that meet at due east: both slanted, so
-              both links turn as well as move, and near enough each other to be
-              seen at the same time. *)
-           doorway ~name:"right" ~width:2.6 ~opening:3. ~height
-             ~material:Surfaces.stone (hub_corner 0) (hub_corner 1)
-          :: doorway ~name:"left" ~width:2.6 ~opening:3. ~height
-               ~material:Surfaces.stone (hub_corner 5) (hub_corner 0)
-          :: List.map
-               (fun k ->
-                 wall ~height ~material:Surfaces.stone (hub_corner k)
-                   (hub_corner ((k + 1) mod 6)))
-               [ 1; 2; 3; 4 ]);
+          ~outline:(corners (List.init 6 hub_corner))
+          [
+            spawn (Vec.make (-6.) 0.);
+            (* Sides 0 and 5 are the two that meet at due east: both slanted,
+               so both connections turn as well as move, and near enough each
+               other to be seen at the same time. *)
+            cut right ~along:(hub_corner 0, hub_corner 1);
+            cut left ~along:(hub_corner 5, hub_corner 0);
+          ];
         (* The same room, twice. *)
-        chamber ~key:"east" "east";
-        chamber ~key:"west" "west";
-        link ("hub", "right") ("east", "back");
-        link ("hub", "left") ("west", "back");
+        chamber ~key:"east" east_back;
+        chamber ~key:"west" west_back;
+        connect right east_back;
+        connect left west_back;
       ])
 
 let world = (Mount.build level).Scene.world

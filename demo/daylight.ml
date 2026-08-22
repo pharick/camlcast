@@ -35,31 +35,34 @@ let nw = Vec.make 0. 8.
 (* A walled yard, open overhead, with a doorway in the wall faced on entry and
    a tall column to catch the light against the sky.
 
-   Three sides run as an open boundary and the fourth is cut, which together
-   close it: a boundary closed over all four AND a doorway along one of them
-   would be a solid wall standing behind an opening. *)
-let yard ~name ~sky ~column =
+   The outline closes over all four corners and the gate is cut out of one of
+   them. Which one is named by its two ends, in either order: the outline is
+   what says which side of that leg is in, so the opening takes its winding
+   from the wall rather than from the order it was written in. *)
+let yard ~gate ~sky ~column ~holds =
   P.(
-    room ~name
+    room ~height ~material:Surfaces.stone
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(open_sky sky)
-      [
-        boundary ~closed:false ~height ~material:Surfaces.stone
-          (corners [ ne; nw; sw; se ]);
-        doorway ~name:"door" ~width:2.8 ~opening:2.4 ~height
-          ~material:Surfaces.stone se ne;
-        boundary ~height:7. ~material:Surfaces.brick
-          (polygon ~center:column ~radius:0.9 ~sides:6 ~rotation:0.);
-      ])
+      ~outline:(corners [ sw; se; ne; nw ])
+      (cut gate ~along:(se, ne)
+      :: block ~height:7. ~material:Surfaces.brick
+           (polygon ~center:column ~radius:0.9 ~sides:6 ~rotation:0.)
+      :: holds))
+
+(* One gate per yard, and the connection between them is what makes the two the
+   same opening. Neither yard is named, and neither names the other. *)
+let noon_gate = P.door ~width:2.8 ~clearance:2.4 ()
+let dusk_gate = P.door ~width:2.8 ~clearance:2.4 ()
 
 let level =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("noon", Vec.make 3. 0.)
       [
-        yard ~name:"noon" ~sky:noon ~column:(Vec.make 9. 4.);
-        yard ~name:"dusk" ~sky:dusk ~column:(Vec.make 9. (-4.));
-        link ("noon", "door") ("dusk", "door");
+        yard ~gate:noon_gate ~sky:noon ~column:(Vec.make 9. 4.)
+          ~holds:[ spawn (Vec.make 3. 0.) ];
+        yard ~gate:dusk_gate ~sky:dusk ~column:(Vec.make 9. (-4.)) ~holds:[];
+        connect noon_gate dusk_gate;
       ])
 
 let world = (Mount.build level).Scene.world

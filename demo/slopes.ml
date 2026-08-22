@@ -30,6 +30,11 @@ let hall_floor = Plane.make ~a:0.11 ~b:0. ~c:0.
 let hall_roof = Plane.make ~a:0.17 ~b:0. ~c:height
 let width = 2.6
 
+(* The way up, made once and cut into both rooms. Its two sides are the same
+   opening, which is what the connection at the foot of this file says. *)
+let onward = P.door ~width ~clearance:3.2 ()
+let back = P.door ~width ~clearance:3.2 ()
+
 (* Both surfaces are carried through the doorway rather than restated. Two
    rooms have no coordinates in common, so an upper floor written by hand will
    drift; derived, it cannot, and Check finds no step in the floor at the
@@ -42,16 +47,23 @@ let up_roof = P.through ~from ~into hall_roof
 let level =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("hall", Vec.make 2. 0.)
       [
-        room ~name:"hall"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:hall_floor ~material:Surfaces.ground)
           ~ceiling:(roof ~plane:hall_roof ~material:Surfaces.soffit)
+            (* The leg the way up is cut into is brick where the rest is
+               stone, so the jambs either side of the opening are too: they are
+               legs of this outline like any other. *)
+          ~outline:
+            [
+              corner hall_sw;
+              corner hall_se ~material:Surfaces.brick;
+              corner hall_ne;
+              corner hall_nw;
+            ]
           [
-            boundary ~closed:false ~height ~material:Surfaces.stone
-              (corners [ hall_ne; hall_nw; hall_sw; hall_se ]);
-            doorway ~name:"onward" ~width ~opening:3.2 ~height
-              ~material:Surfaces.brick hall_se hall_ne;
+            spawn (Vec.make 2. 0.);
+            cut onward ~along:(hall_se, hall_ne);
             (* On the slope: a sprite's feet sit on the floor at whatever
                height it has reached. *)
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
@@ -59,18 +71,22 @@ let level =
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
               (Vec.make 11. 2.5);
           ];
-        room ~name:"upper"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:up_floor ~material:Surfaces.ground)
           ~ceiling:(roof ~plane:up_roof ~material:Surfaces.soffit)
+          ~outline:
+            [
+              corner up_sw;
+              corner up_se;
+              corner up_ne;
+              corner up_nw ~material:Surfaces.brick;
+            ]
           [
-            boundary ~closed:false ~height ~material:Surfaces.stone
-              (corners [ up_sw; up_se; up_ne; up_nw ]);
-            doorway ~name:"back" ~width ~opening:3.2 ~height
-              ~material:Surfaces.brick up_nw up_sw;
+            cut back ~along:(up_nw, up_sw);
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
               (Vec.make 6. 0.);
           ];
-        link ("hall", "onward") ("upper", "back");
+        connect onward back;
       ])
 
 let world = (Mount.build level).Scene.world

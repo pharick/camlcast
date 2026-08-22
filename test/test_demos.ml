@@ -851,6 +851,36 @@ let a_door_cut_from_an_outline_is_wound_with_its_room () =
         (World.seam_gap world ~room portal))
     (doorways world)
 
+(* A checksum of the first frame of every demo, drawn from its spawn. Nothing
+   asserts on the number here: it is written out so that a change which is meant
+   to leave the demos looking exactly as they did can be shown to. Framebuffer
+   .offscreen has no texture behind it and draw_frame makes no SDL call, so this
+   draws real frames with nothing open. *)
+let frames_are_unchanged () =
+  let width, height =
+    Renderer.internal_size ~width:Config.initial_width
+      ~height:Config.initial_height
+  in
+  let checksum (demo : Catalogue.t) =
+    let world = Lazy.force demo.Catalogue.world in
+    let buffer = Framebuffer.offscreen ~width ~height in
+    Renderer.draw_frame buffer world (Player.spawn world);
+    let total = ref 0 in
+    for y = 0 to height - 1 do
+      for x = 0 to width - 1 do
+        let c = Framebuffer.pixel buffer ~x ~y in
+        total :=
+          (!total * 31) + (c.Color.r * 65536) + (c.Color.g * 256)
+          + (c.Color.b land 0x3FFFFFFF)
+      done
+    done;
+    Printf.sprintf "%-10s %d" demo.Catalogue.name !total
+  in
+  Out_channel.with_open_text "/tmp/frames.txt" (fun out ->
+      List.iter
+        (fun demo -> Printf.fprintf out "%s\n" (checksum demo))
+        Catalogue.demos)
+
 let () =
   Alcotest.run "Demos"
     [
@@ -890,5 +920,6 @@ let () =
             the_examples_wind_their_corridor_backwards;
           case "a door cut from an outline is wound with its room"
             a_door_cut_from_an_outline_is_wound_with_its_room;
+          case "every demo's first frame, written out" frames_are_unchanged;
         ] );
     ]

@@ -16,9 +16,9 @@ open Camlcast
 let height = 4.
 let flat = Plane.horizontal 0.
 
-(* The four corners. Given to one boundary they would be four walls of one
-   material; given one at a time they are four walls of four. They still bound
-   the room, so they are wound the way a boundary would wind them. *)
+(* The four corners. A corner says how the wall {e leaving} it is made, so four
+   of them carrying four materials is four walls of four — and it is still one
+   outline, so it is still wound for us. *)
 let sw = Vec.make (-6.) (-6.)
 let se = Vec.make 6. (-6.)
 let ne = Vec.make 6. 6.
@@ -29,20 +29,23 @@ let level =
     (* Spawn faces the green panel wall, with the red brick to the right and
        the blue stone to the left: three of the four in shot at once. *)
     world ~atmosphere:Surfaces.air
-      ~spawn:("room", Vec.make (-4.5) 0.)
       [
-        room ~name:"room"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~outline:
+            [
+              corner sw ~material:Surfaces.brick;
+              corner se ~material:Surfaces.panel;
+              corner ne ~material:Surfaces.stone;
+              corner nw ~material:Surfaces.tile;
+            ]
           [
-            wall ~height ~material:Surfaces.brick sw se;
-            wall ~height ~material:Surfaces.panel se ne;
-            wall ~height ~material:Surfaces.stone ne nw;
-            wall ~height ~material:Surfaces.tile nw sw;
+            spawn (Vec.make (-4.5) 0.);
             (* An oak post off to one side, so the walls are also seen at a
                glancing angle, where the directional light falls differently. *)
-            boundary ~height:2.6 ~material:Surfaces.oak
+            block ~height:2.6 ~material:Surfaces.oak
               (polygon ~center:(Vec.make 2.5 3.5) ~radius:0.7 ~sides:4
                  ~rotation:0.4);
           ];

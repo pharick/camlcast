@@ -238,6 +238,17 @@ let room ?key ?name ?outline ?height ?material ~floor ~ceiling children =
     ~children:(boundary_walls @ children)
     (Prim.Room { name; floor; ceiling })
 
+let block ?key ~height ~material corners =
+  E.fragment ?key
+    (List.map
+       (fun (a, b, leg) ->
+         wall ?key:leg.key ?on_gaze:leg.on_gaze ?on_use:leg.on_use
+           ~decals:leg.decals
+           ~height:(Option.value leg.height ~default:height)
+           ~material:(Option.value leg.material ~default:material)
+           a b)
+       (laid_outline ~height ~material corners))
+
 (* A door is made once and cut once. The identity is what a {!connect} joins by,
    and it is why this is a value rather than an element: two rooms that are
    joined refer to the same door, and an element rebuilt every frame has nothing

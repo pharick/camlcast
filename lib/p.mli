@@ -208,6 +208,15 @@ val boundary :
     in the same frame. For hand-placing a decal on a boundary whose winding is
     unchecked, {!wall} is still there. *)
 
+val block :
+  ?key:string -> height:float -> material:Material.t -> corner list -> t
+(** A closed shape standing inside a room: a pillar, a column, a plinth.
+
+    An outline like a room's, and wound like one, but it is not the room's
+    boundary and no door is cut into it. Use {!polygon} for the corners of a
+    round one. For something with two ends rather than a loop — a partition, a
+    bench seen over — reach for {!val-wall}. *)
+
 type door
 (** One opening: how wide, how tall, and what hangs in it.
 
