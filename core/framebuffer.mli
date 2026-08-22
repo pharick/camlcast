@@ -3,9 +3,9 @@
 
     The sloped floor and ceiling need a colour decided {e per pixel} (see
     {!Renderer}), which blitting whole wall textures on the GPU cannot express.
-    A pixel buffer expresses it directly: the renderer
-    writes every pixel by hand, then the whole buffer is handed to the GPU in
-    one upload and scaled up to fill the window.
+    A pixel buffer expresses it directly: the renderer writes every pixel by
+    hand, then the whole buffer is handed to the GPU in one upload and scaled up
+    to fill the window.
 
     The buffer is 8-bit BGRA, written a channel at a time so nothing is boxed in
     the inner loop; the texture format is chosen to match that byte order.

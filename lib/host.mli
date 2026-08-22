@@ -8,11 +8,11 @@
 
     It builds the world from scratch each time, and does not cache what it
     assembles, because [bench/frame.exe] says there is nothing worth caching.
-    Describing five rooms and a hundred and forty-five walls — the shape
-    and size of the largest world this engine has — takes {b 20 microseconds};
-    the renderer spends {b 14 milliseconds} drawing that same frame. The layer
-    is a seventh of one percent of the work, so caching it would optimise the
-    wrong end by two and a half orders of magnitude.
+    Describing five rooms and a hundred and forty-five walls — the shape and
+    size of the largest world this engine has — takes {b 20 microseconds}; the
+    renderer spends {b 14 milliseconds} drawing that same frame. The layer is a
+    seventh of one percent of the work, so caching it would optimise the wrong
+    end by two and a half orders of magnitude.
 
     If that ever stops being true, every node carries a {!Camlcast_loom.Path.t}
     stable from frame to frame, so caching what a subtree assembled is a change

@@ -83,8 +83,8 @@ val pitch_by : t -> fraction:float -> t
     {!Config.max_pitch} so it never tips past where the sheared image stops
     looking right.
 
-    {b Not radians, whatever the name pitch suggests.} There is no
-    vertical rotation to measure: {!Viewport.make} takes the pitch straight into
+    {b Not radians, whatever the name pitch suggests.} There is no vertical
+    rotation to measure: {!Viewport.make} takes the pitch straight into
     [horizon = height/2 + pitch*height], so [0.1] slides the horizon a tenth of
     the window and means nothing in particular in degrees. Everything else that
     handles the number says so:

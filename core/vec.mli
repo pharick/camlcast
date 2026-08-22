@@ -58,10 +58,10 @@ val parallel : float
     the player cannot walk through, or a wall the player walks into but cannot
     see. A copy in each, with a comment in each saying it is the other's, leaves
     two comments holding the two equal; shared, the figure cannot drift at all.
-    The two still differ in the comparison — the ray's test is
-    strict and {!Room.segments_cross}'s inclusive, so that a segment of no
-    length lands where each function needs it — and that difference is each
-    function's own. The figure is not.
+    The two still differ in the comparison — the ray's test is strict and
+    {!Room.segments_cross}'s inclusive, so that a segment of no length lands
+    where each function needs it — and that difference is each function's own.
+    The figure is not.
 
     Not in {!Config}: this is not a tunable. It marks where the cross product
     stops carrying an angle and starts carrying rounding error, and a game that

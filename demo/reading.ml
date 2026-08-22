@@ -8,10 +8,10 @@
     raise back into the [`Msg] the launcher reports.
 
     A dedicated exception costs a module of four lines and lets the catching
-    side name what it catches. Catching [Failure] would do if those three
-    raised it with [failwith] — except that any [List.nth] off the end of a
-    list inside a demo's frame raises [Failure] too, and would reach the
-    launcher as an unreadable-art report naming an unrelated file.
+    side name what it catches. Catching [Failure] would do if those three raised
+    it with [failwith] — except that any [List.nth] off the end of a list inside
+    a demo's frame raises [Failure] too, and would reach the launcher as an
+    unreadable-art report naming an unrelated file.
 
     [Invalid_argument] is deliberately still not caught: it signals the other
     kind of mistake — a world that does not join up, a font atlas the wrong

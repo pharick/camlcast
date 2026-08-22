@@ -7,8 +7,8 @@
     comes close enough to the end, the number goes up and the next description
     has another segment.
 
-    This is the clearest case in the demos of the layer paying for itself.
-    Grown against the platform, a world of this shape is surgery on one:
+    This is the clearest case in the demos of the layer paying for itself. Grown
+    against the platform, a world of this shape is surgery on one:
     {!Camlcast_core.World.open_doorway} to give a dead end a way on,
     {!Camlcast_core.World.add_room} for what lies beyond it,
     {!Camlcast_core.World.link} to join the two, and a search for whether a room

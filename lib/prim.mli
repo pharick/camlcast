@@ -95,12 +95,12 @@ val misplaced : child:t -> parent:t -> string
 
     The sentence lives here for the reason the rule below does — the same
     reason, a third time. {!Host.assemble} and {!Check.report} both report this
-    offence, and were they to word it separately — ["… does not belong in a
-    world"] against ["a … cannot go in a world"] — a game developer meeting one
-    and then the other would have no way to tell they had been told the same
-    thing twice. Sharing {!describe} and {!inside} is not enough to prevent it:
-    the verb is where two wordings of one offence part company, and it is the
-    part nobody thinks to share. *)
+    offence, and were they to word it separately —
+    ["… does not belong in a world"] against ["a … cannot go in a world"] — a
+    game developer meeting one and then the other would have no way to tell they
+    had been told the same thing twice. Sharing {!describe} and {!inside} is not
+    enough to prevent it: the verb is where two wordings of one offence part
+    company, and it is the part nobody thinks to share. *)
 
 val not_a_world : t -> string
 (** What to say about a description whose one root is something else:

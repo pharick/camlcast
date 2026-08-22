@@ -74,5 +74,4 @@ val read :
 
     {!Texture.of_asset} and {!Image.of_asset} are exactly this and nothing else.
     The composition is named once here rather than spelled out in each of them,
-    because providing it ready-made is the reason either function exists.
-*)
+    because providing it ready-made is the reason either function exists. *)

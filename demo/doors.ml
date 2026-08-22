@@ -24,8 +24,8 @@
 
     Both sides of a doorway share one name, so the game's record and the
     engine's cannot disagree about a door's state — the bookkeeping
-    {!Camlcast_core.World.set_door} does for a game that works in indices.
-    Open the middle door, walk through, look back: it is open from there too.
+    {!Camlcast_core.World.set_door} does for a game that works in indices. Open
+    the middle door, walk through, look back: it is open from there too.
 
     The meter along the bottom is the door under the crosshair: empty when it is
     open, full when it is shut, red for a moment when this demo refuses to work

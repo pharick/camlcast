@@ -149,9 +149,9 @@ val boundary :
 
     One form, not three. A closed run and an open one are this with
     {!val-corners} in front of them and nothing said at any leg, so naming them
-    separately would be two names for a special case rather than two things.
-    The pull towards separate names is that a run whose legs differ looks like
-    a different shape of problem; it is not, and the alternative is dropping to
+    separately would be two names for a special case rather than two things. The
+    pull towards separate names is that a run whose legs differ looks like a
+    different shape of problem; it is not, and the alternative is dropping to
     {!wall} per side and giving up the winding the moment one leg wants a
     handler.
 
@@ -211,10 +211,10 @@ val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
 
     It is literally the same arithmetic: this calls
     {!Camlcast_core.Room.cut_points}, which is what {!doorway} cuts at, so the
-    two cannot land a doorway in two places. Worth stating because restating
-    the formula here instead would not look wrong: the two forms of it agree on
-    a wall along an axis, and part company by [6.21e-17] on an oblique one —
-    close enough that a full-width opening looks placed and is not.
+    two cannot land a doorway in two places. Worth stating because restating the
+    formula here instead would not look wrong: the two forms of it agree on a
+    wall along an axis, and part company by [6.21e-17] on an oblique one — close
+    enough that a full-width opening looks placed and is not.
 
     At [width] equal to the wall's own length the two ends come back as [a] and
     [b] exactly; measuring in from the ends guarantees it. A description

@@ -3,11 +3,10 @@
 
     A value rather than a set of constants, because it is most of what
     distinguishes one place from another: constants would light and fog every
-    world in a game the same way. A sunlit
-    courtyard and a windowless corridor can be built from the same geometry and
-    materials; the corridor reads as a corridor because its fog closes in at
-    nine cells instead of twelve, fades to black instead of grey, and has no
-    discernible light direction. *)
+    world in a game the same way. A sunlit courtyard and a windowless corridor
+    can be built from the same geometry and materials; the corridor reads as a
+    corridor because its fog closes in at nine cells instead of twelve, fades to
+    black instead of grey, and has no discernible light direction. *)
 
 type t = private {
   haze : Color.t;

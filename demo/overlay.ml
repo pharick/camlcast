@@ -27,10 +27,9 @@ let nw = Vec.make (-7.) 7.
 (** The layer, as a function of the cycle fraction and the buffer size.
 
     Part of the description rather than a callback handed the framebuffer, with
-    {!Camlcast.Events.use_viewport} supplying the
-    size — which is not the window's: the engine renders at whatever
-    whole-number fraction of it stays under [max_render_height] and stretches
-    the result. *)
+    {!Camlcast.Events.use_viewport} supplying the size — which is not the
+    window's: the engine renders at whatever whole-number fraction of it stays
+    under [max_render_height] and stretches the result. *)
 let meter ~fraction ~viewport:(width, height) =
   let margin = width / 12 in
   let bar_h = Int.max 4 (height / 60) in

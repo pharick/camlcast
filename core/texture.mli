@@ -80,8 +80,8 @@ type t
     would paint a see-through wall straight over its column and never reach the
     translucent pass at all.
 
-    The cost is a call where a field read would do. {!Renderer} asks
-    {!val-size} to work out how far down a strip each pixel of a wall falls, and
+    The cost is a call where a field read would do. {!Renderer} asks {!val-size}
+    to work out how far down a strip each pixel of a wall falls, and
     {!Material.opaque} asks {!opaque} whether the wall is painted over the
     column or held back — each once per wall per column. That is one call per
     column of every frame and no allocation, which is affordable; a pattern that

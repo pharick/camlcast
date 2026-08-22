@@ -65,8 +65,8 @@ val make : width:int -> ?height:int -> (u:int -> v:int -> Color.t * int) -> t
 
     [width] comes first, as in {!Framebuffer.offscreen}, {!Viewport.make} and
     {!Extent.fits}. Nothing forces that: an optional argument only has to be
-    followed by something, and the generator is something, so [height] could
-    sit in front — which is the one order an extent is never written in.
+    followed by something, and the generator is something, so [height] could sit
+    in front — which is the one order an extent is never written in.
 
     Both colour and alpha are clamped into 0 .. 255 rather than trusted, as
     {!Texture.generate_masked} clamps what a pattern returns: a picture is
@@ -107,16 +107,16 @@ val load : string -> (t, [ `Msg of string ]) result
     decode to no pixels at all, or to more of them than an array can hold.
 
     {b Both of {!make}'s refusals are covered, not just the first.} A size
-    {!make} refuses, reached from here, would be
-    an [Invalid_argument] coming out of a function whose type says a bad file is
-    a condition — the promise broken from the inside, by the one input a caller
-    has least control over. The second case is out of reach of any file a 64-bit
-    build can decode. At 32 bits — where an array holds 2^22 entries and a 2048
-    by 2048 picture is one past it — it is answered a layer down: a decoded file
-    lands in bytes, four per pixel, whose ceiling undercuts the array's by one
-    texel, so {!Bitmap.load} refuses such a picture, as an [Error], before the
-    check here could see it. Both checks stand, each the binding one on its own
-    side of the word size; see {!Extent.fits} on why the ceilings differ. *)
+    {!make} refuses, reached from here, would be an [Invalid_argument] coming
+    out of a function whose type says a bad file is a condition — the promise
+    broken from the inside, by the one input a caller has least control over.
+    The second case is out of reach of any file a 64-bit build can decode. At 32
+    bits — where an array holds 2^22 entries and a 2048 by 2048 picture is one
+    past it — it is answered a layer down: a decoded file lands in bytes, four
+    per pixel, whose ceiling undercuts the array's by one texel, so
+    {!Bitmap.load} refuses such a picture, as an [Error], before the check here
+    could see it. Both checks stand, each the binding one on its own side of the
+    word size; see {!Extent.fits} on why the ceilings differ. *)
 
 val of_asset : string -> (t, [ `Msg of string ]) result
 (** {!load}, given an asset's name instead of a path: {!Asset.path} finds where

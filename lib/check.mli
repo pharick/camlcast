@@ -108,10 +108,10 @@ val assembled : World.t -> t list
 
     {b Not to be read as a spelling of {!Camlcast_core.World.check}} — the same
     two words the other way round, and the other half of the job rather than
-    another name for it. That
-    function asserts what {!Camlcast_core.World.make} guarantees over a world
-    grown instead of made, and {e raises} on the first break. This one assumes
-    those guarantees hold and asks the four questions they leave open:
+    another name for it. That function asserts what {!Camlcast_core.World.make}
+    guarantees over a world grown instead of made, and {e raises} on the first
+    break. This one assumes those guarantees hold and asks the four questions
+    they leave open:
     - a spawn inside a wall;
     - a room nothing leads to;
     - a doorway corner meeting no wall;
