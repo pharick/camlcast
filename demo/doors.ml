@@ -38,12 +38,14 @@ let oak = Surfaces.oak
 let iron = Surfaces.solid (Patterns.door ~color:(Color.rgb 96 104 118))
 let flat = Plane.horizontal 0.
 
-(** The doorway this demo will not open, by the name both its sides share.
+(** The doorway this demo will not open, by the name this demo calls it.
 
     The engine carries no [Locked] state, so a game that wants one keeps the
-    bookkeeping itself. A description names its doorways, which makes that
-    bookkeeping a name: one name for one door, rather than a [(room, threshold)]
-    index for each of its two sides and the job of keeping them in step. *)
+    bookkeeping itself. These names are that bookkeeping and nothing else: the
+    engine stopped needing a doorway to be named when a connection began joining
+    doors rather than names, and what is left is a game keying its own state the
+    way any game would. One name for one opening, whichever side of it you are
+    on. *)
 let locked = [ "sealed" ]
 
 (* The arrival hall: a wide room whose east wall is three doorways. All three
@@ -69,30 +71,40 @@ let leaf ~opened name =
 (* Behind each doorway: the same small chamber three times over, each with its
    own way back and its own copy of whatever hangs in it. *)
 let chamber =
-  Element.declare ~name:"chamber" @@ fun (name, hung, reacts) ->
+  Element.declare ~name:"chamber" @@ fun (back, hung, reacts) ->
   let sw = Vec.make 0. (-3.)
   and se = Vec.make 7. (-3.)
   and ne = Vec.make 7. 3.
   and nw = Vec.make 0. 3. in
   let on_gaze, on_use = reacts in
   P.(
-    room ~name:("behind-" ^ name)
+    room ~height ~material:Surfaces.brick
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ~outline:(corners [ sw; se; ne; nw ])
       [
-        boundary ~closed:false ~height ~material:Surfaces.brick
-          (corners [ sw; se; ne; nw ]);
-        doorway ~name:"back" ?door:hung ~on_gaze ~on_use ~width:2.4 ~opening:3.
-          ~height ~material:Surfaces.brick nw sw;
+        cut back ?leaf:hung ~on_gaze ~on_use ~along:(nw, sw);
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 4. 0.);
       ])
 
+(* One opening per way, made once here rather than in the description, which is
+   rebuilt every frame: a door carries the identity its connection joins by, and
+   a door made per frame would be a different opening every frame. Two per way,
+   because a door belongs to the room it is cut into and each of these joins
+   two. *)
 let ways =
-  [
-    ("bare", hall_se, south);
-    ("worked", south, north);
-    ("sealed", north, hall_ne);
-  ]
+  List.map
+    (fun (name, a, b) ->
+      ( name,
+        a,
+        b,
+        P.door ~name ~width:2.4 ~clearance:3. (),
+        P.door ~name ~width:2.4 ~clearance:3. () ))
+    [
+      ("bare", hall_se, south);
+      ("worked", south, north);
+      ("sealed", north, hall_ne);
+    ]
 
 (* Not (width, height): a local open of P is about to put a wall's height in
    scope, and a buffer's is a different number. *)
@@ -100,31 +112,35 @@ let at ~opened ~refused ~aimed ~viewport:(across, down) ~reacts =
   let unit = Int.max 3 (down / 60) in
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("hall", Vec.make (-6.) 0.)
       ([
-         room ~name:"hall"
+         (* The east side is three legs of the outline, one per opening, and all
+            three are brick where the rest of the hall is stone. *)
+         room ~height ~material:Surfaces.stone
            ~floor:(floor ~plane:flat ~material:Surfaces.ground)
            ~ceiling:
              (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
-           (List.map
-              (fun (name, a, b) ->
-                let on_gaze, on_use = reacts name in
-                doorway ~name ?door:(leaf ~opened name) ~on_gaze ~on_use
-                  ~width:2.4 ~opening:3. ~height ~material:Surfaces.brick a b)
-              ways
-           @ [
-               wall ~height ~material:Surfaces.stone hall_sw hall_se;
-               wall ~height ~material:Surfaces.stone hall_ne hall_nw;
-               wall ~height ~material:Surfaces.stone hall_nw hall_sw;
-             ]);
+           ~outline:
+             [
+               corner hall_sw;
+               corner hall_se ~material:Surfaces.brick;
+               corner south ~material:Surfaces.brick;
+               corner north ~material:Surfaces.brick;
+               corner hall_ne;
+               corner hall_nw;
+             ]
+           (spawn (Vec.make (-6.) 0.)
+           :: List.map
+                (fun (name, a, b, front, _) ->
+                  let on_gaze, on_use = reacts name in
+                  cut front ?leaf:(leaf ~opened name) ~on_gaze ~on_use
+                    ~along:(a, b))
+                ways);
        ]
       @ List.map
-          (fun (name, _, _) ->
-            chamber ~key:name (name, leaf ~opened name, reacts name))
+          (fun (name, _, _, _, back) ->
+            chamber ~key:name (back, leaf ~opened name, reacts name))
           ways
-      @ List.map
-          (fun (name, _, _) -> link ("hall", name) ("behind-" ^ name, "back"))
-          ways
+      @ List.map (fun (_, _, _, front, back) -> connect front back) ways
       @ [
           hud
             ((match aimed with
