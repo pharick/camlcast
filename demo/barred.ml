@@ -24,100 +24,89 @@
 open Camlcast
 
 let height = 4.5
-
-(* Not `opening`: a local open of P puts P.opening in scope, and a wall's
-   clearance and the arithmetic that places one are two different things. *)
 let clearance = 2.6
 let width = 2.4
 let grille = Door.make Surfaces.grille
 let oak = Door.make Surfaces.oak
 let flat = Plane.horizontal 0.
 
-(** A doorway with a leaf in it and a lintel of its own material — everything
-    {!Camlcast.P.doorway} does, except that the strip above the opening is not
-    made of the wall it was cut into. That is the one thing doorway will not do,
-    and the reason {!Camlcast.P.threshold} exists.
+(** The two sides of one opening: a leaf hanging in it and a lintel of its own
+    material over it, which is the whole of what this demo used to build by hand
+    out of two walls and a threshold.
 
-    {!Camlcast.P.opening} works out where the two ends land, so the arithmetic
-    that places an opening is written once, in the engine, and read back here
-    rather than restated. The wall is split about its middle so both jambs keep
-    the boundary's winding, which the link between two rooms is derived from. *)
-let cut_by_hand ~name ~hung ~transom a b =
-  let p, q = P.opening ~width a b in
-  P.
-    [
-      wall ~height ~material:Surfaces.brick a p;
-      wall ~height ~material:Surfaces.brick q b;
-      threshold ~name ~door:hung ~height:clearance
-        ~lintel:{ top = height; material = transom }
-        p q;
-    ]
+    Two doors and not one, because a door belongs to the room it is cut into and
+    there are two rooms. They carry the same leaf and the same transom, which is
+    what makes the view back out match the view in; the connection at the foot
+    of this file is what makes them one opening. *)
+let pair ~leaf ~transom =
+  let side () =
+    P.door ~leaf
+      ~lintel:{ top = height; material = transom }
+      ~width ~clearance ()
+  in
+  (side (), side ())
 
+let hall_bars, back_bars = pair ~leaf:grille ~transom:Surfaces.brick
+let hall_glass, back_glass = pair ~leaf:oak ~transom:Surfaces.window
 let hall_sw = Vec.make (-12.) (-7.)
 let hall_se = Vec.make 0. (-7.)
 let hall_ne = Vec.make 0. 7.
 let hall_nw = Vec.make (-12.) 7.
 let middle = Vec.make 0. 0.
 
-(* What is behind each doorway. Both sides of a link must agree about the
-   door, so each chamber hangs its own copy of whatever the hall hangs — and
-   wears the same transom, so the view back out matches the view in. *)
+(* What is behind each doorway. The door is the one thing about a chamber that
+   is its own, so it is what the two instances are told apart by. *)
 let chamber =
-  Element.declare ~name:"chamber"
-  @@ fun (name, hung, transom, ceiling, sprites) ->
+  Element.declare ~name:"chamber" @@ fun (back, ceiling, sprites) ->
   let sw = Vec.make 0. (-3.5)
   and se = Vec.make 6. (-3.5)
   and ne = Vec.make 6. 3.5
   and nw = Vec.make 0. 3.5 in
   P.(
-    room ~name
+    room ~height ~material:Surfaces.brick
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling
-      (cut_by_hand ~name:"back" ~hung ~transom nw sw
-      @ [
-          wall ~height ~material:Surfaces.brick sw se;
-          wall ~height ~material:Surfaces.brick se ne;
-          wall ~height ~material:Surfaces.brick ne nw;
-        ]
-      @ sprites))
+      ~outline:(corners [ sw; se; ne; nw ])
+      (cut back ~along:(nw, sw) :: sprites))
 
 let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
 
 let level =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("hall", Vec.make (-7.) 0.)
       [
-        (* The arrival hall, its east wall cut twice: the grille to the south,
-           the glazed door to the north. Cut south to north so the wall's
-           winding is unbroken. *)
-        room ~name:"hall"
+        (* The arrival hall. Its east side is two legs of the outline rather
+           than one, because two doors are cut into it: the grille to the
+           south, the glazed door to the north. Both legs are brick where the
+           rest is stone, so the jambs either side of each opening are. *)
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
-          (cut_by_hand ~name:"barred" ~hung:grille ~transom:Surfaces.brick
-             hall_se middle
-          @ cut_by_hand ~name:"glazed" ~hung:oak ~transom:Surfaces.window middle
-              hall_ne
-          @ [
-              wall ~height ~material:Surfaces.stone hall_sw hall_se;
-              wall ~height ~material:Surfaces.stone hall_ne hall_nw;
-              wall ~height ~material:Surfaces.stone hall_nw hall_sw;
-            ]);
+          ~outline:
+            [
+              corner hall_sw;
+              corner hall_se ~material:Surfaces.brick;
+              corner middle ~material:Surfaces.brick;
+              corner hall_ne;
+              corner hall_nw;
+            ]
+          [
+            spawn (Vec.make (-7.) 0.);
+            cut hall_bars ~along:(hall_se, middle);
+            cut hall_glass ~along:(middle, hall_ne);
+          ];
         chamber ~key:"bars"
-          ( "behind-the-bars",
-            grille,
-            Surfaces.brick,
+          ( back_bars,
             roofed,
             (* Close to the bars, and so out of the fog: the room exists to
                make its occupant visible. *)
             [ sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2. 0.) ] );
         (* Open to the sky, which is what the glass over the door shows and the
            door itself does not. *)
-        chamber ~key:"glass"
-          ("behind-the-glass", oak, Surfaces.window, open_sky Surfaces.day, []);
-        link ("hall", "barred") ("behind-the-bars", "back");
-        link ("hall", "glazed") ("behind-the-glass", "back");
+        chamber ~key:"glass" (back_glass, open_sky Surfaces.day, []);
+        connect hall_bars back_bars;
+        connect hall_glass back_glass;
       ])
 
 let world = (Mount.build level).Scene.world
