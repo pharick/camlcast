@@ -38,16 +38,18 @@ let flat = Plane.horizontal 0.
     there are two rooms. They carry the same leaf and the same transom, which is
     what makes the view back out match the view in; the connection at the foot
     of this file is what makes them one opening. *)
-let pair ~leaf ~transom =
-  let side () =
-    P.door ~leaf
-      ~lintel:{ top = height; material = transom }
-      ~width ~clearance ()
-  in
-  (side (), side ())
+let pair () = (P.door ~width ~clearance (), P.door ~width ~clearance ())
 
-let hall_bars, back_bars = pair ~leaf:grille ~transom:Surfaces.brick
-let hall_glass, back_glass = pair ~leaf:oak ~transom:Surfaces.window
+let hall_bars, back_bars = pair ()
+let hall_glass, back_glass = pair ()
+
+(* How a room presents its side of one: the leaf in it and the strip over it.
+   Both sides of each of these give the same pair, which is what makes the view
+   back out match the view in. *)
+let bars =
+  P.cut ~leaf:grille ~lintel:{ top = height; material = Surfaces.brick }
+
+let glass = P.cut ~leaf:oak ~lintel:{ top = height; material = Surfaces.window }
 let hall_sw = Vec.make (-12.) (-7.)
 let hall_se = Vec.make 0. (-7.)
 let hall_ne = Vec.make 0. 7.
@@ -67,7 +69,7 @@ let chamber =
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling
       ~outline:(corners [ sw; se; ne; nw ])
-      (cut back ~along:(nw, sw) :: sprites))
+      (back ~along:(nw, sw) :: sprites))
 
 let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
 
@@ -93,18 +95,18 @@ let level =
             ]
           [
             spawn (Vec.make (-7.) 0.);
-            cut hall_bars ~along:(hall_se, middle);
-            cut hall_glass ~along:(middle, hall_ne);
+            bars hall_bars ~along:(hall_se, middle);
+            glass hall_glass ~along:(middle, hall_ne);
           ];
         chamber ~key:"bars"
-          ( back_bars,
+          ( bars back_bars,
             roofed,
             (* Close to the bars, and so out of the fog: the room exists to
                make its occupant visible. *)
             [ sprite ~size:1.8 ~image:Pictures.figure (Vec.make 2. 0.) ] );
         (* Open to the sky, which is what the glass over the door shows and the
            door itself does not. *)
-        chamber ~key:"glass" (back_glass, open_sky Surfaces.day, []);
+        chamber ~key:"glass" (glass back_glass, open_sky Surfaces.day, []);
         connect hall_bars back_bars;
         connect hall_glass back_glass;
       ])

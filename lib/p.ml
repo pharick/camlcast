@@ -259,17 +259,15 @@ type door = {
   width : float;
   clearance : float;
   door_name : string option;
-  leaf : Door.t option;
-  lintel : Room.lintel option;
 }
 
 let fresh_door = ref 0
 
-let door ?name ?leaf ?lintel ~width ~clearance () =
+let door ?name ~width ~clearance () =
   incr fresh_door;
-  { id = !fresh_door; width; clearance; door_name = name; leaf; lintel }
+  { id = !fresh_door; width; clearance; door_name = name }
 
-let cut ?key ?on_gaze ?on_use d ~along =
+let cut ?key ?leaf ?lintel ?on_gaze ?on_use d ~along =
   E.prim ?key
     (Prim.Door
        {
@@ -278,8 +276,8 @@ let cut ?key ?on_gaze ?on_use d ~along =
          width = d.width;
          clearance = d.clearance;
          name = d.door_name;
-         leaf = d.leaf;
-         lintel = d.lintel;
+         leaf;
+         lintel;
          reacts = reacts ?on_gaze ?on_use ();
        })
 

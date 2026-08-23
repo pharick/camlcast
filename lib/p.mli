@@ -229,27 +229,25 @@ type door
     world's haze and it is solid to walk into. That is a state to build in, not
     a mistake, so {!Check} reports it as a warning and the engine builds it. *)
 
-val door :
-  ?name:string ->
-  ?leaf:Door.t ->
-  ?lintel:Room.lintel ->
-  width:float ->
-  clearance:float ->
-  unit ->
-  door
-(** An opening [width] across and [clearance] tall, with [leaf] hanging in it
-    and [lintel] over it.
+val door : ?name:string -> width:float -> clearance:float -> unit -> door
+(** An opening [width] across and [clearance] tall.
+
+    {b What the two sides of an opening have to agree about is here, and what
+       they may differ about is on {!cut}.} A width and a height are the opening
+    itself, and the engine refuses a connection between two sides that disagree;
+    a leaf and a lintel are how one room presents it, and two rooms are allowed
+    to present it differently — a hall may hang oak over its side of a gate and
+    a cellar stone over the other.
 
     [clearance] has to fit under the height of every room this is cut into —
     both of them, once it is connected, and they need not be the same height.
-    The strip left above it is the wall's own height and material unless
-    [lintel] says otherwise, which is the whole of what a hand-built opening
-    used to be for.
 
     [name] is for diagnostics alone. *)
 
 val cut :
   ?key:string ->
+  ?leaf:Door.t ->
+  ?lintel:Room.lintel ->
   ?on_gaze:(bool -> unit) ->
   ?on_use:(Aim.spot -> unit) ->
   door ->
@@ -263,6 +261,12 @@ val cut :
     for: a doorway wound against its room is what
     {!Camlcast_core.Transform.between} turns into a neighbour placed outside
     itself, and no check in the engine catches it.
+
+    [leaf] is what hangs in it and [lintel] the strip left above it, which is
+    the wall's own height and material unless this says otherwise. Both are
+    given here rather than on the door because both may change from frame to
+    frame — a leaf that swings open is a different leaf — and a door carries the
+    identity a {!connect} joins by, which may not.
 
     The jambs either side are legs of the outline like any other, so a
     {!val-corner} dresses them. *)
