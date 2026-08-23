@@ -39,41 +39,42 @@ let play mount frame description =
 
 let where scene player = World.name scene.Scene.world player.Player.room
 
-(* Two rooms and the doorway between them, so a frame can be made to cross. *)
+(* Two rooms and the doorway between them, so a frame can be made to cross.
+   The rooms keep their names because these suites report which one the player
+   ended up in. *)
+let west_way = P.door ~name:"east" ~width:2. ~clearance:2.5 ()
+let east_way = P.door ~name:"west" ~width:2. ~clearance:2.5 ()
+
 let joined =
   P.(
     world ~atmosphere:Atmosphere.default
-      ~spawn:("west", Vec.make (-2.) 0.)
       [
-        room ~name:"west" ~floor:(floor ~plane:flat stone)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+        room ~name:"west" ~height ~material:stone
+          ~floor:(floor ~plane:flat stone) ~ceiling:(roof stone)
+          ~outline:
+            (corners
+               [
+                 Vec.make 0. (-3.);
+                 Vec.make 0. 3.;
+                 Vec.make (-5.) 3.;
+                 Vec.make (-5.) (-3.);
+               ])
           [
-            boundary ~closed:false ~height ~material:stone
-              (corners
-                 [
-                   Vec.make 0. 3.;
-                   Vec.make (-5.) 3.;
-                   Vec.make (-5.) (-3.);
-                   Vec.make 0. (-3.);
-                 ]);
-            doorway ~name:"east" ~width:2. ~opening:2.5 ~height ~material:stone
-              (Vec.make 0. (-3.)) (Vec.make 0. 3.);
+            spawn (Vec.make (-2.) 0.);
+            cut west_way ~along:(Vec.make 0. (-3.), Vec.make 0. 3.);
           ];
-        room ~name:"east" ~floor:(floor ~plane:flat stone)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
-          [
-            boundary ~closed:false ~height ~material:stone
-              (corners
-                 [
-                   Vec.make 0. (-3.);
-                   Vec.make 5. (-3.);
-                   Vec.make 5. 3.;
-                   Vec.make 0. 3.;
-                 ]);
-            doorway ~name:"west" ~width:2. ~opening:2.5 ~height ~material:stone
-              (Vec.make 0. 3.) (Vec.make 0. (-3.));
-          ];
-        link ("west", "east") ("east", "west");
+        room ~name:"east" ~height ~material:stone ~floor:(floor stone)
+          ~ceiling:(roof stone)
+          ~outline:
+            (corners
+               [
+                 Vec.make 0. (-3.);
+                 Vec.make 5. (-3.);
+                 Vec.make 5. 3.;
+                 Vec.make 0. 3.;
+               ])
+          [ cut east_way ~along:(Vec.make 0. 3., Vec.make 0. (-3.)) ];
+        connect west_way east_way;
       ])
 
 (* Whether the crosshair is the player's, which decides whether anything in the

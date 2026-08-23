@@ -44,17 +44,17 @@ let flat = Plane.horizontal 0.
 
 let square ~name ~at ~reach contents =
   P.(
-    room ~name ~floor:(floor ~plane:flat ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) stone)
-      (boundary ~height ~material:stone
-         (corners
-            [
-              Vec.make (at -. reach) (-.reach);
-              Vec.make (at +. reach) (-.reach);
-              Vec.make (at +. reach) reach;
-              Vec.make (at -. reach) reach;
-            ])
-      :: contents))
+    room ~name ~height ~material:stone ~floor:(floor ~plane:flat ground)
+      ~ceiling:(roof stone)
+      ~outline:
+        (corners
+           [
+             Vec.make (at -. reach) (-.reach);
+             Vec.make (at +. reach) (-.reach);
+             Vec.make (at +. reach) reach;
+             Vec.make (at -. reach) reach;
+           ])
+      contents)
 
 (* One room and nothing in it: the floor of what a description can cost. *)
 let smallest =
@@ -67,7 +67,7 @@ let smallest =
 let showcase =
   let pillar ~at ~side =
     P.(
-      boundary ~height ~material:stone
+      block ~height ~material:stone
         (corners
            [
              Vec.make (at -. side) (-.side);

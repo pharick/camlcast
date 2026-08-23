@@ -25,38 +25,32 @@ let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
 let described = P.floor ~plane:flat stone
 let overhead = P.roof ~plane:(Plane.above flat wall_height) stone
 
-let west_side =
-  P.boundary ~closed:false ~height:wall_height ~material:stone
-    (P.corners
-       [
-         Vec.make 0. 4.;
-         Vec.make (-6.) 4.;
-         Vec.make (-6.) (-4.);
-         Vec.make 0. (-4.);
-       ])
+let west_outline =
+  P.corners
+    [
+      Vec.make 0. (-4.); Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.);
+    ]
 
-let east_side =
-  P.boundary ~closed:false ~height:wall_height ~material:stone
-    (P.corners
-       [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ])
+let east_outline =
+  P.corners
+    [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ]
 
-let west_door =
-  P.doorway ~name:"east" ~width:2. ~opening:2.5 ~height:wall_height
-    ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.)
-
-let east_door =
-  P.doorway ~name:"west" ~width:2. ~opening:2.5 ~height:wall_height
-    ~material:stone (Vec.make 0. 4.) (Vec.make 0. (-4.))
+let west_door = P.door ~name:"east" ~width:2. ~clearance:2.5 ()
+let east_door = P.door ~name:"west" ~width:2. ~clearance:2.5 ()
 
 let joined =
   P.world ~atmosphere:Atmosphere.default
-    ~spawn:("west", Vec.make (-3.) 0.)
     [
-      P.room ~name:"west" ~floor:described ~ceiling:overhead
-        [ west_side; west_door ];
-      P.room ~name:"east" ~floor:described ~ceiling:overhead
-        [ east_side; east_door ];
-      P.link ("west", "east") ("east", "west");
+      P.room ~height:wall_height ~material:stone ~floor:described
+        ~ceiling:overhead ~outline:west_outline
+        [
+          P.spawn (Vec.make (-3.) 0.);
+          P.cut west_door ~along:(Vec.make 0. (-4.), Vec.make 0. 4.);
+        ];
+      P.room ~height:wall_height ~material:stone ~floor:described
+        ~ceiling:overhead ~outline:east_outline
+        [ P.cut east_door ~along:(Vec.make 0. 4., Vec.make 0. (-4.)) ];
+      P.connect west_door east_door;
     ]
 
 let unlinked_world =
