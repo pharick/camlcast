@@ -20,22 +20,23 @@ let floor = P.floor ~plane:flat stone
 let ceiling = P.roof ~plane:(Plane.above flat height) stone
 let tick = 1. /. 60.
 
-(* [holding] is what stands in the room. A camera is one of those now: it looks
-   from the room it is written in. *)
+(* [holding] is what stands in the room, besides the player: a camera is one of
+   those now, because it looks from the room it is written in. Every world here
+   is this one room, so the spawn is part of it. *)
 let box ?(holding = []) name reach =
-  P.room ~name ~floor ~ceiling
-    (P.boundary ~height ~material:stone
-       (P.corners
-          [
-            Vec.make (-.reach) (-.reach);
-            Vec.make reach (-.reach);
-            Vec.make reach reach;
-            Vec.make (-.reach) reach;
-          ])
-    :: holding)
+  P.room ~name ~height ~material:stone ~floor ~ceiling
+    ~outline:
+      (P.corners
+         [
+           Vec.make (-.reach) (-.reach);
+           Vec.make reach (-.reach);
+           Vec.make reach reach;
+           Vec.make (-.reach) reach;
+         ])
+    (P.spawn (Vec.make 0. 0.) :: holding)
 
 let around ?(atmosphere = Atmosphere.default) children =
-  P.world ~atmosphere ~spawn:("room", Vec.make 0. 0.) children
+  P.world ~atmosphere children
 
 (* A driver: successive frames, each with whatever is held down, rendered into
    one mount so that state carries across them. *)

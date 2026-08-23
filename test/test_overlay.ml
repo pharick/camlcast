@@ -23,22 +23,18 @@ let floor = P.floor ~plane:flat stone
 let ceiling = P.roof ~plane:(Plane.above flat wall_height) stone
 
 let room =
-  P.room ~name:"room" ~floor ~ceiling
-    [
-      P.boundary ~height:wall_height ~material:stone
-        (P.corners
-           [
-             Vec.make (-4.) (-4.);
-             Vec.make 4. (-4.);
-             Vec.make 4. 4.;
-             Vec.make (-4.) 4.;
-           ]);
-    ]
+  P.room ~height:wall_height ~material:stone ~floor ~ceiling
+    ~outline:
+      (P.corners
+         [
+           Vec.make (-4.) (-4.);
+           Vec.make 4. (-4.);
+           Vec.make 4. 4.;
+           Vec.make (-4.) 4.;
+         ])
+    [ P.spawn (Vec.make 0. 0.) ]
 
-let showing items =
-  P.world ~atmosphere:Atmosphere.default
-    ~spawn:("room", Vec.make 0. 0.)
-    [ room; P.hud items ]
+let showing items = P.world ~atmosphere:Atmosphere.default [ room; P.hud items ]
 
 (* Draws only the overlay, over a buffer that starts black, so every non-black
    pixel came from the HUD and nothing has to be subtracted. *)

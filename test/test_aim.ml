@@ -34,11 +34,10 @@ let side index =
 let world_of walls =
   P.(
     world ~atmosphere:Atmosphere.default
-      ~spawn:("room", Vec.make 0. 0.)
       [
-        room ~name:"room" ~floor:(floor ~plane:flat stone)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
-          walls;
+        room ~name:"room" ~height ~material:stone
+          ~floor:(floor ~plane:flat stone) ~ceiling:(roof stone)
+          (spawn (Vec.make 0. 0.) :: walls);
       ])
 
 (* Facing due east from the middle is facing the wall from (4,-4) to (4,4),
@@ -348,47 +347,49 @@ let () =
                  on_use says what to do when it is used, and the described
                  world follows the state. *)
               let leaf = Door.make stone in
+              (* One opening, a door on each side, made once outside the
+                 component that is rebuilt every frame. *)
+              let west_side = P.door ~name:"east" ~width:2. ~clearance:2.5 ()
+              and east_side = P.door ~name:"west" ~width:2. ~clearance:2.5 () in
               let door =
                 Element.declare ~name:"door" @@ fun () ->
                 let shut, set_shut = Hook.use_state true in
                 P.(
                   world ~atmosphere:Atmosphere.default
-                    ~spawn:("west", Vec.make (-2.) 0.)
                     [
-                      room ~name:"west" ~floor:(floor ~plane:flat stone)
-                        ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+                      room ~height ~material:stone
+                        ~floor:(floor ~plane:flat stone) ~ceiling:(roof stone)
+                        ~outline:
+                          (corners
+                             [
+                               Vec.make 0. (-4.);
+                               Vec.make 0. 4.;
+                               Vec.make (-6.) 4.;
+                               Vec.make (-6.) (-4.);
+                             ])
                         [
-                          boundary ~closed:false ~height ~material:stone
-                            (corners
-                               [
-                                 Vec.make 0. 4.;
-                                 Vec.make (-6.) 4.;
-                                 Vec.make (-6.) (-4.);
-                                 Vec.make 0. (-4.);
-                               ]);
-                          doorway
-                            ?door:(if shut then Some leaf else None)
+                          spawn (Vec.make (-2.) 0.);
+                          cut west_side
+                            ?leaf:(if shut then Some leaf else None)
                             ~on_use:(fun _ -> set_shut (not shut))
-                            ~name:"east" ~width:2. ~opening:2.5 ~height
-                            ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.);
+                            ~along:(Vec.make 0. (-4.), Vec.make 0. 4.);
                         ];
-                      room ~name:"east" ~floor:(floor ~plane:flat stone)
-                        ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+                      room ~height ~material:stone ~floor:(floor stone)
+                        ~ceiling:(roof stone)
+                        ~outline:
+                          (corners
+                             [
+                               Vec.make 0. (-4.);
+                               Vec.make 6. (-4.);
+                               Vec.make 6. 4.;
+                               Vec.make 0. 4.;
+                             ])
                         [
-                          boundary ~closed:false ~height ~material:stone
-                            (corners
-                               [
-                                 Vec.make 0. (-4.);
-                                 Vec.make 6. (-4.);
-                                 Vec.make 6. 4.;
-                                 Vec.make 0. 4.;
-                               ]);
-                          doorway
-                            ?door:(if shut then Some leaf else None)
-                            ~name:"west" ~width:2. ~opening:2.5 ~height
-                            ~material:stone (Vec.make 0. 4.) (Vec.make 0. (-4.));
+                          cut east_side
+                            ?leaf:(if shut then Some leaf else None)
+                            ~along:(Vec.make 0. 4., Vec.make 0. (-4.));
                         ];
-                      link ("west", "east") ("east", "west");
+                      connect west_side east_side;
                     ])
               in
               let mount = Mount.create () in
