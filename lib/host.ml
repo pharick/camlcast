@@ -252,6 +252,7 @@ let assemble nodes =
               List.iter
                 (fun (g : prim Camlcast_loom.Host.node) ->
                   match g.Camlcast_loom.Host.prim with
+                  | Prim.Camera camera -> eye := Some (name, camera)
                   | Prim.Spawn at ->
                       if Option.is_some !start then
                         raise
@@ -266,7 +267,6 @@ let assemble nodes =
               rooms := (name, floor, ceiling, height, child) :: !rooms
           | Prim.Link { here; there } -> links := (here, there) :: !links
           | Prim.Connect (a, b) -> connections := (a, b) :: !connections
-          | Prim.Camera camera -> eye := Some camera
           | Prim.Finish -> over := true
           | Prim.Cursor -> pointing := true
           | Prim.Hud -> hud := !hud @ collect_hud child
@@ -416,12 +416,12 @@ let assemble nodes =
          mistake as a spawn that names one, and is refused in the same words. *)
       let camera =
         Option.map
-          (fun (c : Prim.camera) ->
-            match World.named world c.room with
+          (fun (where, (c : Prim.camera)) ->
+            match World.named world where with
             | None ->
                 raise
                   (Malformed
-                     (Printf.sprintf "the camera is in a room called %S" c.room))
+                     (Printf.sprintf "the camera is in a room called %S" where))
             | Some room ->
                 Player.pitch_by
                   (Player.make ~room ~pos:c.pos ~angle:c.angle)

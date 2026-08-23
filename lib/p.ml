@@ -31,8 +31,8 @@ let sprite ?key ?on_gaze ?on_use ?base ?glow ~size ~image pos =
     (Prim.Sprite
        (Room.sprite ?base ?glow ~size ~image pos, reacts ?on_gaze ?on_use ()))
 
-let camera ?(pitch = 0.) ~room ~pos ~angle () =
-  E.prim (Prim.Camera { room; pos; angle; pitch })
+let camera ?(pitch = 0.) ~pos ~angle () =
+  E.prim (Prim.Camera { pos; angle; pitch })
 
 let hud children = E.prim ~children Prim.Hud
 

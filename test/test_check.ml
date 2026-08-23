@@ -398,39 +398,14 @@ let the_world_it_makes =
                     [ east_side; east_door () ];
                   P.link ("west", "east") ("east", "west");
                 ])));
-    case "the camera is in a room that is not there" (fun () ->
-        (* The same mistake as the spawn above, and the engine's own words for
-           it. Host raises on this from inside assembling the world, which used
-           to come back out through here as a crash rather than a report. *)
-        Alcotest.check lines "named, so it can be looked for"
-          [ {|the camera is in a room called "cellar"|} ]
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
-                [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
-                  P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ();
-                ])));
-    case "and one that names a room there is nothing to say about" (fun () ->
-        Alcotest.check lines "silence" []
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
-                [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
-                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
-                ])));
     case "two cameras, and the one that is not being listened to" (fun () ->
         (* Host takes the last and says nothing about the rest, so the ones it
-           dropped are exactly what a reader of the description cannot see. *)
+           dropped are exactly what a reader of the description cannot see.
+
+           There is no longer a camera that names a room wrongly: a camera is a
+           child of the room it looks from, so the room it means is the room it
+           was written in. The pair of cases that checked that name are gone
+           with the name. *)
         Alcotest.check lines "the earlier one, named"
           [ "this camera is overruled by a later one" ]
           (summaries
@@ -438,12 +413,15 @@ let the_world_it_makes =
                 ~spawn:("west", Vec.make (-3.) 0.)
                 [
                   P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
+                    [
+                      west_side ();
+                      west_door ();
+                      P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                      P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
+                    ];
                   P.room ~name:"east" ~floor ~ceiling
                     [ east_side; east_door () ];
                   P.link ("west", "east") ("east", "west");
-                  P.camera ~room:"west" ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
-                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
                 ])));
     case "which is a warning, because the world still runs" (fun () ->
         Alcotest.check lines "one of the two is obeyed" [ "warning" ]
@@ -452,56 +430,42 @@ let the_world_it_makes =
                 ~spawn:("west", Vec.make (-3.) 0.)
                 [
                   P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
+                    [
+                      west_side ();
+                      west_door ();
+                      P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                      P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
+                    ];
                   P.room ~name:"east" ~floor ~ceiling
                     [ east_side; east_door () ];
                   P.link ("west", "east") ("east", "west");
-                  P.camera ~room:"west" ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
-                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
                 ])));
-    case "and an overruled one is not judged on the room it names" (fun () ->
-        (* Host looks the last camera's room up and drops the rest without
-           reading them, so this one's "cellar" is never looked for and
-           nothing is broken by it. The right report is that the camera does
-           nothing, not that the room it names is wrong. *)
-        let two_cameras =
-          P.world ~atmosphere:Atmosphere.default
-            ~spawn:("west", Vec.make (-3.) 0.)
-            [
-              P.room ~name:"west" ~floor ~ceiling [ west_side (); west_door () ];
-              P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ];
-              P.link ("west", "east") ("east", "west");
-              P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ();
-              P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
-            ]
-        in
-        Alcotest.check lines "the overruling, and only that"
-          [ "this camera is overruled by a later one" ]
-          (summaries two_cameras);
-        Alcotest.check lines "and nothing here is broken" [ "warning" ]
-          (severities two_cameras));
     case "which leaves the world buildable, and so still checked" (fun () ->
         (* A warning and not an error, because an error stops the tiers below
-           it: raise the severity here and a dead camera naming a typo takes
-           the geometry checks down with it. This world's spawn is in a wall,
-           and the report has to reach that. *)
+           it: raise the severity here and a dead camera takes the geometry
+           checks down with it. This world's spawn is in a wall, and the report
+           has to reach that. *)
         Alcotest.check lines "the camera, and the thing behind it"
           [
             "the player starts inside a wall";
             "this camera is overruled by a later one";
           ]
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-6.) 0.)
-                [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
-                  P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ();
-                  P.camera ~room:"east" ~pos:(Vec.make 3. 0.) ~angle:0. ();
-                ])));
+          (List.sort compare
+             (summaries
+                (P.world ~atmosphere:Atmosphere.default
+                   ~spawn:("west", Vec.make (-6.) 0.)
+                   [
+                     P.room ~name:"west" ~floor ~ceiling
+                       [
+                         west_side ();
+                         west_door ();
+                         P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                         P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
+                       ];
+                     P.room ~name:"east" ~floor ~ceiling
+                       [ east_side; east_door () ];
+                     P.link ("west", "east") ("east", "west");
+                   ]))));
     case "two children under one key are reported, not thrown" (fun () ->
         (* Reconciling refuses this outright, which is a crash where a check is
            supposed to be a report. *)
@@ -724,7 +688,7 @@ let where_it_says =
            it can only say "(root)". A camera is written somewhere. *)
         let eye =
           Camlcast_loom.Element.declare ~name:"eye" @@ fun () ->
-          P.camera ~room:"cellar" ~pos:(Vec.make 0. 0.) ~angle:0. ()
+          P.camera ~pos:(Vec.make 0. 0.) ~angle:0. ()
         in
         let report =
           Check.report

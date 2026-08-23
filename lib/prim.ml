@@ -22,7 +22,7 @@ type ceiling =
     }
   | Sky of Sky.t
 
-type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
+type camera = { pos : Vec.t; angle : float; pitch : float }
 
 type t =
   | World of { atmosphere : Atmosphere.t; spawn : (string * Vec.t) option }
@@ -83,7 +83,7 @@ let describe = function
   | Decal _ -> "decal"
   | Threshold (t, _) -> "threshold " ^ t.Room.name
   | Sprite (s, _) -> "sprite " ^ point s.Room.pos
-  | Camera { room; pos; _ } -> "camera in " ^ room ^ " at " ^ point pos
+  | Camera { pos; _ } -> "camera at " ^ point pos
   | Hud -> "hud"
   | Rect { x; y; _ } -> Printf.sprintf "rect at %d,%d" x y
   | Bar { x; y; _ } -> Printf.sprintf "bar at %d,%d" x y
@@ -113,9 +113,9 @@ let not_a_world prim = Printf.sprintf "a %s is not a world" (describe prim)
 
 let may_contain ~parent ~child =
   match (parent, child) with
-  | World _, (Room _ | Link _ | Connect _ | Camera _ | Cursor | Finish | Hud) ->
+  | World _, (Room _ | Link _ | Connect _ | Cursor | Finish | Hud) -> true
+  | Room _, (Wall _ | Threshold _ | Sprite _ | Door _ | Spawn _ | Camera _) ->
       true
-  | Room _, (Wall _ | Threshold _ | Sprite _ | Door _ | Spawn _) -> true
   | Wall _, Decal _ -> true
   | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Highlight _ | Crosshair _ | Hud)
     ->

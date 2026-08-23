@@ -231,6 +231,16 @@ let structure forest =
           (fun (child : Prim.t Loom.Host.node) ->
             match child.Loom.Host.prim with
             | Prim.Room { name = Some name; _ } ->
+                (* Every camera, in the order written. A camera is a child of
+                   the room it looks from, so there is no room name here to
+                   doubt any more; what is left to report is that Host takes the
+                   last of them and drops the rest in silence. *)
+                List.iter
+                  (fun (g : Prim.t Loom.Host.node) ->
+                    match g.Loom.Host.prim with
+                    | Prim.Camera _ -> cameras := path_of g :: !cameras
+                    | _ -> ())
+                  child.Loom.Host.children;
                 rooms :=
                   {
                     room_path = path_of child;
@@ -240,11 +250,6 @@ let structure forest =
                   :: !rooms
             | Prim.Link { here; there } ->
                 links := (here, there, path_of child) :: !links
-            (* Collect every camera, in the order written. Host takes the last
-               and says nothing about the rest; that silent drop is what this
-               check exists to report. *)
-            | Prim.Camera { room; _ } ->
-                cameras := (room, path_of child) :: !cameras
             | _ -> ())
           root.Loom.Host.children;
         walk ~parent:root.Loom.Host.prim root
@@ -325,7 +330,7 @@ let camera_taken cameras =
 let overruled_cameras cameras =
   let _, earlier = camera_taken cameras in
   List.map
-    (fun (_, at) ->
+    (fun at ->
       warning at "this camera is overruled by a later one"
         ~detail:
           [
@@ -524,27 +529,11 @@ let of_forest forest =
             ]
         | Some _ | None -> []
       in
-      (* The wording matches Host's, which raises on this from inside world
-         assembly. It is caught here instead, where the component that wrote
-         the camera can be named.
-
-         Only the camera Host takes is checked, because only that one's room is
-         ever looked up. An overruled camera may name anything and the world
-         still builds; its only fault is that it does nothing, which it is
-         already told. *)
-      let camera_room =
-        match camera_taken cameras with
-        | Some (room_name, at), _ when not (names_a_room room_name) ->
-            [
-              error at
-                (Printf.sprintf "the camera is in a room called %S" room_name)
-                ~detail:[ no_such_room ];
-            ]
-        | Some _, _ | None, _ -> []
-      in
+      (* A camera is a child of the room it looks from, so there is no name
+         here that could fail to be a room's. What is left to say about one is
+         that it may be overruled, which is said above. *)
       let linked = linking rooms links in
-      if spawn_room <> [] || camera_room <> [] || linked <> [] then
-        spawn_room @ camera_room @ linked
+      if spawn_room <> [] || linked <> [] then spawn_room @ linked
       else
         (* Everything that could stop a world being built has been ruled out, so
            what is left is what only an assembled world can answer. *)

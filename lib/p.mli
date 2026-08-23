@@ -468,14 +468,16 @@ val sprite :
     Key anything that can be rearranged. A list of sprites that sorts itself is
     exactly the case keys exist for. *)
 
-val camera :
-  ?pitch:float -> room:string -> pos:Vec.t -> angle:float -> unit -> t
+val camera : ?pitch:float -> pos:Vec.t -> angle:float -> unit -> t
 (** Put the eye here, instead of letting the runtime walk it.
 
-    A child of {!world}. While one of these is in a description the controls do
-    not move the player at all: the description says where the eye is every
-    frame, and a walk it did not ask for would fight that. Take it out again and
-    the player carries on from wherever the description last put the eye.
+    A child of the room it is in, in that room's own coordinates — the same way
+    a {!val-spawn} says where the player starts, and for the same reason: the
+    room is already the thing it is written inside. While one of these is in a
+    description the controls do not move the player at all: the description says
+    where the eye is every frame, and a walk it did not ask for would fight
+    that. Take it out again and the player carries on from wherever the
+    description last put the eye.
 
     [angle] is in radians. [pitch] is the fraction of the window height the
     horizon is shifted by, the same measure the mouse gives.

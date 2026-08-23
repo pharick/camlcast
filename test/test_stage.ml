@@ -630,8 +630,7 @@ let both_readers =
       (world_with
          [
            E.prim
-             (Prim.Camera
-                { room = "room"; pos = Vec.make 0. 0.; angle = 0.; pitch = 0. })
+             (Prim.Camera { pos = Vec.make 0. 0.; angle = 0.; pitch = 0. })
              ~children:
                [
                  P.room ~name:"stowaway" ~floor:stage_floor

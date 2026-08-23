@@ -20,18 +20,19 @@ let floor = P.floor ~plane:flat stone
 let ceiling = P.roof ~plane:(Plane.above flat height) stone
 let tick = 1. /. 60.
 
-let box name reach =
+(* [holding] is what stands in the room. A camera is one of those now: it looks
+   from the room it is written in. *)
+let box ?(holding = []) name reach =
   P.room ~name ~floor ~ceiling
-    [
-      P.boundary ~height ~material:stone
-        (P.corners
-           [
-             Vec.make (-.reach) (-.reach);
-             Vec.make reach (-.reach);
-             Vec.make reach reach;
-             Vec.make (-.reach) reach;
-           ]);
-    ]
+    (P.boundary ~height ~material:stone
+       (P.corners
+          [
+            Vec.make (-.reach) (-.reach);
+            Vec.make reach (-.reach);
+            Vec.make reach reach;
+            Vec.make (-.reach) reach;
+          ])
+    :: holding)
 
 let around ?(atmosphere = Atmosphere.default) children =
   P.world ~atmosphere ~spawn:("room", Vec.make 0. 0.) children
@@ -276,9 +277,9 @@ let () =
                 Mount.build
                   (around
                      [
-                       box "room" 4.;
-                       P.camera ~room:"room" ~pos:(Vec.make 1.5 (-2.)) ~angle:0.
-                         ();
+                       box "room" 4.
+                         ~holding:
+                           [ P.camera ~pos:(Vec.make 1.5 (-2.)) ~angle:0. () ];
                      ])
               in
               match scene.Scene.camera with
@@ -300,8 +301,8 @@ let () =
                 Events.use_frame (fun ~dt -> set_y (y +. dt));
                 around
                   [
-                    box "room" 4.;
-                    P.camera ~room:"room" ~pos:(Vec.make 0. y) ~angle:0. ();
+                    box "room" 4.
+                      ~holding:[ P.camera ~pos:(Vec.make 0. y) ~angle:0. () ];
                   ]
               in
               let driver = driving (lift ()) in

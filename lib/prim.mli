@@ -41,7 +41,7 @@ type ceiling =
     }
   | Sky of Sky.t
 
-type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
+type camera = { pos : Vec.t; angle : float; pitch : float }
 (** Where a description says the eye is. Its own record rather than an inline
     one, because {!Host} resolves it after the world exists and passes it about
     while it does. *)

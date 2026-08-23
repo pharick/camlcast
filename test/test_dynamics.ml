@@ -88,12 +88,16 @@ let joined =
    this asks the loop's own question rather than one written to look like
    it. *)
 let interacting =
-  let plain contents =
+  (* [holding] is what stands in the hall and [contents] what stands beside it
+     in the world: a camera looks from the room it is written in, a cursor is
+     the world's. *)
+  let plain ?(holding = []) contents =
     Mount.build
       (world_of
          ~spawn:("hall", Vec.make 0. 0.)
-         (box ~name:"hall" ~at:0. [] :: contents))
+         (box ~name:"hall" ~at:0. holding :: contents))
   in
+  let eye () = P.camera ~pos:(Vec.make 0. 0.) ~angle:0. () in
   [
     case "ordinary play aims" (fun () ->
         Alcotest.(check bool)
@@ -106,26 +110,17 @@ let interacting =
     case "nor does one placing the camera" (fun () ->
         Alcotest.(check bool)
           "a cutscene has the eye" false
-          (Run.aiming
-             (plain
-                [ P.camera ~room:"hall" ~pos:(Vec.make 0. 0.) ~angle:0. () ])));
+          (Run.aiming (plain ~holding:[ eye () ] [])));
     case "nor both at once" (fun () ->
         Alcotest.(check bool)
           "neither of them is the player" false
-          (Run.aiming
-             (plain
-                [
-                  P.cursor;
-                  P.camera ~room:"hall" ~pos:(Vec.make 0. 0.) ~angle:0. ();
-                ])));
+          (Run.aiming (plain ~holding:[ eye () ] [ P.cursor ])));
     case "and a placed camera reports no crossings" (fun () ->
         (* Putting the eye somewhere is a jump and not a walk, so there is no
            path along which a doorway was gone through. Documented on
            Events.crossings; asserted here because it is the sort of thing that
            gets quietly changed. *)
-        let scene =
-          plain [ P.camera ~room:"hall" ~pos:(Vec.make 0. 0.) ~angle:0. () ]
-        in
+        let scene = plain ~holding:[ eye () ] [] in
         Alcotest.(check bool)
           "the camera is the description's" true
           (Option.is_some scene.Scene.camera));

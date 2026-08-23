@@ -422,7 +422,7 @@ let game =
              (match freedom with
              | None -> Element.empty
              | Some t ->
-                 camera ~room:"courtyard" ~pos:(Vec.make 5. 0.)
+                 camera ~pos:(Vec.make 5. 0.)
                    ~angle:(2.6 +. (0.2 *. t))
                    ~pitch:(Float.min 0.35 (0.12 *. t))
                    ());
@@ -494,9 +494,8 @@ let title_screen =
   P.(
     world ~atmosphere:(air ~fire:0.4)
       [
-        (* Still named, because the camera below asks for a room by one. *)
-        room ~name:"foyer" ~height:3. ~material:brick
-          ~floor:(floor ~plane:flat ground) ~ceiling:(roof brick)
+        room ~height:3. ~material:brick ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof brick)
           ~outline:
             (corners
                [
@@ -505,10 +504,11 @@ let title_screen =
                  Vec.make 2. 2.;
                  Vec.make (-2.) 2.;
                ])
-          [ spawn (Vec.make (-1.2) 0.); torch ~key:"t" (Vec.make 1.2 1.2) ];
-        camera ~room:"foyer" ~pos:(Vec.make (-1.2) 0.)
-          ~angle:(0.12 *. sin !sway)
-          ();
+          [
+            spawn (Vec.make (-1.2) 0.);
+            camera ~pos:(Vec.make (-1.2) 0.) ~angle:(0.12 *. sin !sway) ();
+            torch ~key:"t" (Vec.make 1.2 1.2);
+          ];
         cursor;
         (if descending then finish else Element.empty);
         hud

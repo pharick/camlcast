@@ -426,7 +426,7 @@ let game =
              (match freedom with
              | None -> Element.empty
              | Some t ->
-                 camera ~room:"courtyard" ~pos:(Vec.make 5. 0.)
+                 camera ~pos:(Vec.make 5. 0.)
                    ~angle:(2.6 +. (0.2 *. t))
                    ~pitch:(Float.min 0.35 (0.12 *. t))
                    ());

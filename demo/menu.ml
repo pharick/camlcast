@@ -30,9 +30,7 @@ let backdrop ~angle ~taken ~over =
   P.(
     world ~atmosphere:Surfaces.air
       [
-        (* Still named, because the camera below names it. That is the last
-           thing in the demos that needs a room to have a name. *)
-        room ~name:"room" ~height ~material:Surfaces.stone
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat Surfaces.ground)
           ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
           ~outline:
@@ -43,11 +41,14 @@ let backdrop ~angle ~taken ~over =
                  Vec.make 4. 4.;
                  Vec.make (-4.) 4.;
                ])
-          [ spawn (Vec.make 0. 0.) ];
-        (* The camera is the description's rather than the runtime's: the
-           backdrop turns on its own and the controls belong to the list, so
-           player movement would fight the arrow keys. *)
-        camera ~room:"room" ~pos:(Vec.make 0. 0.) ~angle ();
+          [
+            spawn (Vec.make 0. 0.);
+            (* The camera is the description's rather than the runtime's: the
+               backdrop turns on its own and the controls belong to the list, so
+               player movement would fight the arrow keys. It is in the room it
+               looks from, in that room's own coordinates. *)
+            camera ~pos:(Vec.make 0. 0.) ~angle ();
+          ];
         hud over;
         (* Chosen: the frame it was chosen on is still drawn, then the run
            stops. This states what ~finished used to. *)
