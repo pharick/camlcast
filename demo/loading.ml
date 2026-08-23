@@ -82,29 +82,32 @@ let build () =
   Ok
     P.(
       world ~atmosphere:air
-        ~spawn:("room", Vec.make (-4.) 0.)
         [
-          room ~name:"room"
+          room ~height ~material:stone
             ~floor:(floor ~plane:flat ~material:Surfaces.ground)
             ~ceiling:
               (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+            ~outline:
+              [
+                corner sw;
+                (* Left: everything on this side came out of a file, colour and
+                   all. *)
+                corner se
+                  ~material:(Material.make ~pattern:tiles)
+                  ~decals:(print poster);
+                (* Right: everything on this side is a function of u and v, and
+                   its colours are the arguments that function was given. *)
+                corner mid
+                  ~material:
+                    (Surfaces.solid
+                       (Patterns.brick ~color:plaster
+                          ~mortar:(Color.rgb 176 170 160)))
+                  ~decals:(print Pictures.painting);
+                corner ne;
+                corner nw;
+              ]
             [
-              wall ~height ~material:stone sw se;
-              (* Left: everything on this side came out of a file, colour and
-                 all. *)
-              wall ~height
-                ~material:(Material.make ~pattern:tiles)
-                ~decals:(print poster) se mid;
-              (* Right: everything on this side is a function of u and v, and
-                 its colours are the arguments that function was given. *)
-              wall ~height
-                ~material:
-                  (Surfaces.solid
-                     (Patterns.brick ~color:plaster
-                        ~mortar:(Color.rgb 176 170 160)))
-                ~decals:(print Pictures.painting) mid ne;
-              wall ~height ~material:stone ne nw;
-              wall ~height ~material:stone nw sw;
+              spawn (Vec.make (-4.) 0.);
               (* A pair of see-through screens, one from each source, each with a
                  wall behind it to reveal. *)
               wall ~height:2.6

@@ -52,6 +52,11 @@ let annex_nw = Vec.make 0. 4.
 let width = 2.8
 let hall_floor = Plane.make ~a:0.07 ~b:0. ~c:0.
 
+(* The way through, made once: a door carries the identity its connection joins
+   by, and this description is rebuilt every frame. *)
+let onward = P.door ~width ~clearance:3.4 ()
+let back = P.door ~width ~clearance:3.4 ()
+
 let annex_floor =
   P.through
     ~from:(P.opening ~width hall_se hall_ne)
@@ -91,19 +96,23 @@ let at ~phase =
   let frame = int_of_float (phase *. float_of_int (3 * frames)) mod frames in
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("hall", Vec.make 0. 0.)
       [
-        room ~name:"hall"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:hall_floor ~material:Surfaces.ground)
           ~ceiling:
             (roof
                ~plane:(Plane.above hall_floor height)
                ~material:Surfaces.soffit)
+          ~outline:
+            [
+              corner hall_sw;
+              corner hall_se ~material:Surfaces.brick;
+              corner hall_ne;
+              corner hall_nw;
+            ]
           ([
-             boundary ~closed:false ~height ~material:Surfaces.stone
-               (corners [ hall_ne; hall_nw; hall_sw; hall_se ]);
-             doorway ~name:"onward" ~width ~opening:3.4 ~height
-               ~material:Surfaces.brick hall_se hall_ne;
+             spawn (Vec.make 0. 0.);
+             cut onward ~along:(hall_se, hall_ne);
              (* A partition well short of the roof, standing across the
                 sightline to the cloud beyond it. *)
              wall ~height:2.2 ~material:Surfaces.panel (Vec.make 9. 1.8)
@@ -113,20 +122,24 @@ let at ~phase =
                ~image:Pictures.motes.(frame) (Vec.make 7.5 (-0.5));
            ]
           @ still);
-        room ~name:"annex"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:annex_floor ~material:Surfaces.ground)
           ~ceiling:
             (roof
                ~plane:(Plane.above annex_floor height)
                ~material:Surfaces.soffit)
+          ~outline:
+            [
+              corner annex_sw;
+              corner annex_se;
+              corner annex_ne;
+              corner annex_nw ~material:Surfaces.brick;
+            ]
           [
-            boundary ~closed:false ~height ~material:Surfaces.stone
-              (corners [ annex_sw; annex_se; annex_ne; annex_nw ]);
-            doorway ~name:"back" ~width ~opening:3.4 ~height
-              ~material:Surfaces.brick annex_nw annex_sw;
+            cut back ~along:(annex_nw, annex_sw);
             cloud ~key:"annex" ~base:1.9 (Vec.make 4. 0.);
           ];
-        link ("hall", "onward") ("annex", "back");
+        connect onward back;
       ])
 
 let drift =
