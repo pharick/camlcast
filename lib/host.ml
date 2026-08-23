@@ -332,20 +332,22 @@ let assemble nodes =
             let ceiling =
               match c with
               | Prim.Sky sky -> Room.open_sky sky
-              | Prim.Roof (s : Prim.surface) ->
+              | Prim.Roof { plane = given; headroom; material } ->
                   let over =
-                    match (s.Prim.plane, height) with
-                    | Some given, _ -> given
-                    | None, Some height -> Plane.above plane height
-                    | None, None ->
+                    match (given, headroom, height) with
+                    | Some given, _, _ -> given
+                    | None, Some headroom, _ -> Plane.above plane headroom
+                    | None, None, Some height -> Plane.above plane height
+                    | None, None, None ->
                         raise
                           (Malformed
                              (Printf.sprintf
-                                "%s: this room's ceiling has no plane and the \
-                                 room no height to put one over its floor at"
+                                "%s: this room's ceiling says neither where it \
+                                 is nor how far over the floor, and the room \
+                                 has no height to fall back on"
                                 name))
                   in
-                  Room.roof ~plane:over ~material:s.Prim.material
+                  Room.roof ~plane:over ~material
             in
             (name, build_room ~floor ~ceiling node))
           collected

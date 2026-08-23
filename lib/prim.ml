@@ -14,7 +14,14 @@ type surface = { plane : Plane.t option; material : Material.t }
     ceiling with none is the room's height above whatever floor it ends up with.
 *)
 
-type ceiling = Roof of surface | Sky of Sky.t
+type ceiling =
+  | Roof of {
+      plane : Plane.t option;
+      headroom : float option;
+      material : Material.t;
+    }
+  | Sky of Sky.t
+
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 
 type t =

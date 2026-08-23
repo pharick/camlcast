@@ -89,14 +89,21 @@ val floor : ?plane:Plane.t -> Material.t -> surface
     is in has to give one, there being nothing to carry it from, and any room
     may give one to stop the carrying there. *)
 
-val roof : ?plane:Plane.t -> Material.t -> ceiling
-(** A ceiling of the same, over the room's own [height] unless [plane] says
-    otherwise.
+val roof : ?plane:Plane.t -> ?headroom:float -> Material.t -> ceiling
+(** A ceiling, over the room's own [height] unless it is told otherwise.
 
     {!Camlcast_core.Plane.above} keeps a plane's gradient, so an implied ceiling
-    over a sloping floor slopes with it at a constant headroom. Give [plane] for
-    one that {e diverges} from its floor — a hall whose headroom grows toward
-    the far wall — which is the only thing the implied one cannot be. *)
+    over a sloping floor slopes with it at a constant headroom.
+
+    [headroom] is that constant, where it is not the room's height: a cellar
+    whose walls stand 2.8 under a ceiling at 2.5. It is said this way rather
+    than as a plane because the floor it is over may itself have been carried
+    through a {!connect}, and a room cannot name a plane nothing wrote.
+
+    [plane] is for a ceiling that {e diverges} from its floor — a hall whose
+    headroom grows toward the far wall — which is the one thing neither of the
+    other two can be. A room that gives one has to give its floor a plane too,
+    there being nothing else to derive the divergence from. *)
 
 val open_sky : Sky.t -> ceiling
 (** Nothing overhead, and the sky that shows instead. *)

@@ -43,6 +43,10 @@ open Camlcast
 (** A floor or ceiling of the level's usual materials. *)
 let ground plane = P.floor ~plane Surfaces.ground
 
+(** The same floor for a room that is given no plane of its own: it is carried
+    through the connection the room is reached by. *)
+let ground_of () = P.floor Surfaces.ground
+
 let roofed plane = P.roof ~plane Surfaces.soffit
 
 (** The two leaves in the level, both hung open at rest.
@@ -74,35 +78,34 @@ let plaza_corner k =
 let gate_width = 2.4
 let door_width = 1.6
 
-(* Every opening's two ends, worked out once. A floor is carried from one room
-   to its neighbour through the doorway they share, so both sides of every join
-   have to be nameable — and the garden's jambs are written by hand, which needs
-   them too. *)
-let plaza_east = P.opening ~width:gate_width (plaza_corner 0) (plaza_corner 1)
-let plaza_north = P.opening ~width:gate_width (plaza_corner 3) (plaza_corner 4)
-let plaza_west = P.opening ~width:gate_width (plaza_corner 6) (plaza_corner 7)
-let hall_west = P.opening ~width:gate_width (Vec.make 0. 5.) (Vec.make 0. (-5.))
+(* The four ways through, two doors each: a door belongs to the room it is cut
+   into, and the connection at the foot of the description is what makes each
+   pair one opening. Made here rather than in the description, which is rebuilt
+   every frame. *)
+let gate name = P.door ~name ~width:gate_width ~clearance:2.6 ()
+let doorstep name = P.door ~name ~width:door_width ~clearance:2.2 ()
 
-let hall_cellar =
-  P.opening ~width:door_width (Vec.make 6. (-5.)) (Vec.make 6. 5.)
+(* Named, though nothing in the description needs them to be: a name is for
+   diagnostics now, and "the cellar door" reads better than the path of the
+   element that made it in whatever Check has to say about it. Names are per
+   room, so the plaza's west gate and the hall's west gate are both "west". *)
+let plaza_east, hall_west = (gate "east", gate "west")
+let plaza_north, nook_south = (gate "north", gate "south")
+let plaza_west, garden_east = (gate "west", gate "east")
+let hall_cellar, cellar_up = (doorstep "cellar", doorstep "up")
 
-let nook_south =
-  P.opening ~width:gate_width (Vec.make (-3.) 0.) (Vec.make 3. 0.)
-
-let garden_east =
-  P.opening ~width:gate_width (Vec.make 0. (-5.)) (Vec.make 0. 5.)
-
-let cellar_up = P.opening ~width:door_width (Vec.make 0. 3.) (Vec.make 0. (-3.))
-
-(* Each neighbour's floor is carried across the doorway rather than restated, so
-   no two rooms can disagree about where the ground is at a threshold they
-   share. Check reports a step in the floor at a doorway, and a plane carried
-   through one never has one. *)
+(* Only the plaza's floor is written. The hall's is written too, because its
+   ceiling is derived from it and a room cannot name a plane nothing wrote; the
+   nook's, the garden's and the cellar's are carried through the connections
+   they are reached by. *)
 let plaza_floor = Plane.make ~a:0.06 ~b:0.03 ~c:0.
-let hall_floor = P.through ~from:plaza_east ~into:hall_west plaza_floor
-let nook_floor = P.through ~from:plaza_north ~into:nook_south plaza_floor
-let garden_floor = P.through ~from:plaza_west ~into:garden_east plaza_floor
-let cellar_floor = P.through ~from:hall_cellar ~into:cellar_up hall_floor
+
+let hall_floor =
+  P.through
+    ~from:(P.opening ~width:gate_width (plaza_corner 0) (plaza_corner 1))
+    ~into:(P.opening ~width:gate_width (Vec.make 0. 5.) (Vec.make 0. (-5.)))
+    plaza_floor
+
 let motes_count = 18
 let motes_period = 7.
 let fraction step k = Float.rem (float_of_int k *. step) 1.
@@ -149,36 +152,25 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
   in
   let cellar_door, cellar_gaze, cellar_use = door "cellar" cellar_leaf in
   let garden_door, garden_gaze, garden_use = door "gate" garden_leaf in
-  (* The garden's own ends, not the plaza's. Two rooms have no coordinates in
-     common, which is the whole point of a world of linked rooms — and using the
-     wrong pair here put a three-quarter-cell step in the floor at the gate,
-     which is what the seam check is for and what it found. *)
-  let garden_p, garden_q = garden_east in
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("plaza", Vec.make 0. 0.)
       [
-        room ~name:"plaza" ~floor:(ground plaza_floor)
+        room ~height:7. ~material:Surfaces.stone ~floor:(ground plaza_floor)
           ~ceiling:(open_sky Surfaces.day)
+          ~outline:(corners (List.init 12 plaza_corner))
           ([
-             doorway ~name:"east" ~width:gate_width ~opening:2.6 ~height:7.
-               ~material:Surfaces.stone (plaza_corner 0) (plaza_corner 1);
-             doorway ~name:"north" ~width:gate_width ~opening:2.6 ~height:7.
-               ~material:Surfaces.stone (plaza_corner 3) (plaza_corner 4);
-             doorway ~name:"west" ~door:garden_door ~on_gaze:garden_gaze
-               ~on_use:garden_use ~width:gate_width ~opening:2.6 ~height:7.
-               ~material:Surfaces.stone (plaza_corner 6) (plaza_corner 7);
+             spawn (Vec.make 0. 0.);
+             cut plaza_east ~along:(plaza_corner 0, plaza_corner 1);
+             cut plaza_north ~along:(plaza_corner 3, plaza_corner 4);
+             cut plaza_west ~leaf:garden_door ~on_gaze:garden_gaze
+               ~on_use:garden_use
+               ~along:(plaza_corner 6, plaza_corner 7);
            ]
-          @ List.map
-              (fun k ->
-                wall ~height:7. ~material:Surfaces.stone (plaza_corner k)
-                  (plaza_corner ((k + 1) mod 12)))
-              [ 1; 2; 4; 5; 7; 8; 9; 10; 11 ]
           (* Six square pillars ringed around the spawn, each a different
              height and material; the low ones can be seen over. *)
           @ List.init 6 (fun k ->
               let angle = float_of_int k *. Float.pi /. 3. in
-              boundary
+              block
                 ~height:[| 3.5; 0.6; 2.2; 4.5; 1.3; 2.8 |].(k)
                 ~material:
                   [|
@@ -227,7 +219,7 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
               sprite ~key:"barrel-b" ~size:0.9 ~image:Pictures.barrel
                 (Vec.make 4.5 4.3);
             ]);
-        room ~name:"hall"
+        room ~height:4.5 ~material:Surfaces.brick
           ~floor:(ground hall_floor)
             (* Not Plane.above, which carries the floor's own slope up bodily
              for a ceiling of fixed headroom. This one has a steeper slope of
@@ -240,75 +232,76 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
                   ~a:(Plane.gradient hall_floor (Vec.make 1. 0.) +. 0.05)
                   ~b:(Plane.gradient hall_floor (Vec.make 0. 1.))
                   ~c:(Plane.elevation hall_floor (Vec.make 0. 0.) +. 4.)))
+          ~outline:
+            (corners
+               [
+                 Vec.make 0. 5.;
+                 Vec.make 0. (-5.);
+                 Vec.make 6. (-5.);
+                 Vec.make 6. 5.;
+               ])
           [
-            doorway ~name:"west" ~width:gate_width ~opening:2.6 ~height:4.5
-              ~material:Surfaces.brick (Vec.make 0. 5.) (Vec.make 0. (-5.));
-            doorway ~name:"cellar" ~door:cellar_door ~on_gaze:cellar_gaze
-              ~on_use:cellar_use ~width:door_width ~opening:2.2 ~height:4.5
-              ~material:Surfaces.brick (Vec.make 6. (-5.)) (Vec.make 6. 5.);
-            wall ~height:4.5 ~material:Surfaces.brick (Vec.make 0. (-5.))
-              (Vec.make 6. (-5.));
-            wall ~height:4.5 ~material:Surfaces.brick (Vec.make 6. 5.)
-              (Vec.make 0. 5.);
+            cut hall_west ~along:(Vec.make 0. 5., Vec.make 0. (-5.));
+            cut hall_cellar ~leaf:cellar_door ~on_gaze:cellar_gaze
+              ~on_use:cellar_use
+              ~along:(Vec.make 6. (-5.), Vec.make 6. 5.);
             (* A low bench, seen over. *)
             wall ~height:0.5 ~material:Surfaces.panel (Vec.make 3. (-4.))
               (Vec.make 5. (-4.));
-            boundary ~height:4.5 ~material:Surfaces.tile
+            block ~height:4.5 ~material:Surfaces.tile
               (polygon ~center:(Vec.make 4. 3.) ~radius:0.7 ~sides:4
                  ~rotation:0.3);
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
               (Vec.make 3. (-2.));
           ];
-        room ~name:"nook" ~floor:(ground nook_floor)
-          ~ceiling:(roofed (Plane.above nook_floor 2.9))
-          [
-            doorway ~name:"south" ~width:gate_width ~opening:2.6 ~height:3.2
-              ~material:Surfaces.tile (Vec.make (-3.) 0.) (Vec.make 3. 0.);
-            boundary ~closed:false ~height:3.2 ~material:Surfaces.tile
-              (corners [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ]);
-          ];
-        room ~name:"garden"
-          ~floor:(ground garden_floor)
+        room ~height:3.2 ~material:Surfaces.tile ~floor:(ground_of ())
+          ~ceiling:(roof ~headroom:2.9 Surfaces.soffit)
+          ~outline:
+            (corners [ Vec.make 3. 0.; Vec.make 0. 5.; Vec.make (-3.) 0. ])
+          [ cut nook_south ~along:(Vec.make (-3.) 0., Vec.make 3. 0.) ];
+        room ~height:7. ~material:Surfaces.stone
+          ~floor:(ground_of ())
             (* A sky of its own, and the only thing about the garden that is not
              the plaza's. A Sky belongs to the room it roofs, so two rooms under
              two skies costs a second value and nothing else; the light on the
              walls does not follow, because that is the world's one Atmosphere
              and it lights both. *)
           ~ceiling:(open_sky Surfaces.dusk)
+          ~outline:
+            (corners
+               [
+                 Vec.make 0. (-5.);
+                 Vec.make 0. 5.;
+                 Vec.make (-8.) 5.;
+                 Vec.make (-8.) (-5.);
+               ])
           [
-            (* The garden's side of the gate is written by hand rather than
-               cut, for the one thing P.doorway will not do: a lintel of a
-               material other than the wall's. The strip over this opening is
-               brick where the wall either side is stone, which makes it read
-               as a transom rather than more wall. The plaza's side is a plain
-               doorway, so the two rooms disagree about what is over the
-               opening. *)
-            wall ~height:7. ~material:Surfaces.stone (Vec.make 0. (-5.))
-              garden_p;
-            wall ~height:7. ~material:Surfaces.stone garden_q (Vec.make 0. 5.);
-            threshold ~name:"east" ~door:garden_door ~on_gaze:garden_gaze
-              ~on_use:garden_use ~height:2.6
+            (* The strip over this opening is brick where the wall either side
+               is stone, which makes it read as a transom rather than more
+               wall. The plaza's side says nothing about a lintel and so takes
+               its own wall's, and the two rooms disagree about what is over the
+               opening — which they are allowed to, because a lintel is how one
+               room presents an opening rather than part of the opening. *)
+            cut garden_east ~leaf:garden_door ~on_gaze:garden_gaze
+              ~on_use:garden_use
               ~lintel:{ top = 7.; material = Surfaces.brick }
-              garden_p garden_q;
-            wall ~height:7. ~material:Surfaces.stone (Vec.make 0. 5.)
-              (Vec.make (-8.) 5.);
-            wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) 5.)
-              (Vec.make (-8.) (-5.));
-            wall ~height:7. ~material:Surfaces.stone (Vec.make (-8.) (-5.))
-              (Vec.make 0. (-5.));
+              ~along:(Vec.make 0. (-5.), Vec.make 0. 5.);
             (* A lone tall monolith. *)
             wall ~height:6. ~material:Surfaces.brick (Vec.make (-6.) (-3.5))
               (Vec.make (-4.5) (-4.5));
-            (* A winding low wall, seen over into the sky beyond. *)
-            boundary ~closed:false ~height:0.5 ~material:Surfaces.panel
-              (corners
-                 [
-                   Vec.make (-7.) (-3.);
-                   Vec.make (-2.) (-2.);
-                   Vec.make (-4.) 1.;
-                   Vec.make (-1.) 3.;
-                   Vec.make (-6.) 4.;
-                 ]);
+            (* A winding low wall, seen over into the sky beyond. Four walls
+               and not one run: it stands in the room rather than bounding it,
+               so there is no inside for a winding to face and nothing for the
+               engine to work out. The one place in the level where writing the
+               segments out is the whole of what is meant. *)
+            wall ~height:0.5 ~material:Surfaces.panel (Vec.make (-7.) (-3.))
+              (Vec.make (-2.) (-2.));
+            wall ~height:0.5 ~material:Surfaces.panel (Vec.make (-2.) (-2.))
+              (Vec.make (-4.) 1.);
+            wall ~height:0.5 ~material:Surfaces.panel (Vec.make (-4.) 1.)
+              (Vec.make (-1.) 3.);
+            wall ~height:0.5 ~material:Surfaces.panel (Vec.make (-1.) 3.)
+              (Vec.make (-6.) 4.);
             (* Held clear of the floor, which nothing else in the level is: a
                sprite's base is where its feet are, and a barrel with its feet
                at 1.6 is a barrel sitting on nothing. *)
@@ -320,18 +313,20 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
             sprite ~key:"mote" ~base:0.9 ~size:0.5 ~image:Pictures.motes.(0)
               (Vec.make (-5.) 2.);
           ];
-        room ~name:"cellar" ~floor:(ground cellar_floor)
-          ~ceiling:(roofed (Plane.above cellar_floor 2.5))
+        room ~height:2.8 ~material:Surfaces.stone ~floor:(ground_of ())
+          ~ceiling:(roof ~headroom:2.5 Surfaces.soffit)
+          ~outline:
+            (corners
+               [
+                 Vec.make 0. 3.;
+                 Vec.make 0. (-3.);
+                 Vec.make 5. (-3.);
+                 Vec.make 5. 3.;
+               ])
           ([
-             doorway ~name:"up" ~door:cellar_door ~on_gaze:cellar_gaze
-               ~on_use:cellar_use ~width:door_width ~opening:2.2 ~height:2.8
-               ~material:Surfaces.stone (Vec.make 0. 3.) (Vec.make 0. (-3.));
-             wall ~height:2.8 ~material:Surfaces.stone (Vec.make 0. (-3.))
-               (Vec.make 5. (-3.));
-             wall ~height:2.8 ~material:Surfaces.stone (Vec.make 5. (-3.))
-               (Vec.make 5. 3.);
-             wall ~height:2.8 ~material:Surfaces.stone (Vec.make 5. 3.)
-               (Vec.make 0. 3.);
+             cut cellar_up ~leaf:cellar_door ~on_gaze:cellar_gaze
+               ~on_use:cellar_use
+               ~along:(Vec.make 0. 3., Vec.make 0. (-3.));
              sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
                (Vec.make 2.5 0.);
            ]
@@ -340,10 +335,10 @@ let at ~shut ~t ~aim ~refused ~work ~watch =
              adding to it, so reaching for it here with only the motes would
              take the figure away; a description says both and needs neither. *)
           @ List.init motes_count (mote ~t));
-        link ("plaza", "east") ("hall", "west");
-        link ("plaza", "north") ("nook", "south");
-        link ("plaza", "west") ("garden", "east");
-        link ("hall", "cellar") ("cellar", "up");
+        connect plaza_east hall_west;
+        connect plaza_north nook_south;
+        connect plaza_west garden_east;
+        connect hall_cellar cellar_up;
         hud [ crosshair ~color:(tint ~refused aim) () ];
       ])
 

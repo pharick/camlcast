@@ -8,7 +8,7 @@ type surface = Prim.surface
 type ceiling = Prim.ceiling
 
 let floor ?plane material = { Prim.plane; material }
-let roof ?plane material = Prim.Roof { Prim.plane; material }
+let roof ?plane ?headroom material = Prim.Roof { plane; headroom; material }
 let open_sky sky = Prim.Sky sky
 
 let world ?spawn ~atmosphere children =
