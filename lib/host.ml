@@ -166,9 +166,26 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
                         "%s: the door %s is %g tall and the room it is cut \
                          into is %g"
                         (node_path opening) name clearance height));
+              (* A door as wide as the leg it is cut into is allowed and
+                 leaves no jamb, which is how a description says "this whole
+                 leg is the opening" — a room that names its own cut points as
+                 corners, so that each jamb is a leg of its own, is written
+                 that way. The width and the span are then the same number
+                 arrived at by two routes, and agree to the last bits rather
+                 than exactly, so the comparison is made at the tolerance
+                 {!World} uses for the same question and the span is what gets
+                 cut. Wider than that is a real mistake and says so. *)
+              let span = Vec.length (Vec.sub b a) in
+              if width -. span > 1e-6 then
+                raise
+                  (Malformed
+                     (Printf.sprintf
+                        "%s: the door %s is %g wide and the leg it is cut into \
+                         is %g"
+                        (node_path opening) name width span));
               let jambs, threshold =
-                Room.doorway ?door:leaf ~name ~width ~opening:clearance ~height
-                  ~material a b
+                Room.doorway ?door:leaf ~name ~width:(Float.min width span)
+                  ~opening:clearance ~height ~material a b
               in
               let threshold =
                 match lintel with

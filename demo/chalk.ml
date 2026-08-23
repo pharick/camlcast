@@ -156,13 +156,20 @@ let width = 2.2
    doorway is and where its ends land are two different things. *)
 let clearance = 2.8
 
-(** The two ends of each doorway, worked out once so the jambs either side can
-    be written as walls of their own — which is what lets them be chalked, since
-    a handler goes on a wall and {!Camlcast.P.doorway} keeps its jambs to
-    itself. *)
+(** The two ends of each doorway, which this level names as corners of its own
+    outline.
+
+    That is what lets both jambs be chalked separately. A door cut into the
+    middle of a leg leaves two jambs that are one leg's worth of description
+    between them, so a mark on either would be a mark on both; named as corners,
+    the jambs are legs like any other and each carries its own. The opening is
+    then the whole of the short leg between them, which is a cut that leaves no
+    jamb — and {!Camlcast_core.Room.doorway} allows exactly that. *)
 let hall_gate = P.opening ~width hall_se hall_ne
 
 let back_gate = P.opening ~width back_nw back_sw
+let onward = P.door ~name:"onward" ~width ~clearance ()
+let here = P.door ~name:"here" ~width ~clearance ()
 let this_demos_lintel : lintel = { top = height; material = Surfaces.brick }
 
 (** The marks on one wall, oldest first, so the newest ends up on top — the
@@ -280,10 +287,9 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
         mark { wall = name; along; z; facing; symbol = selected }
     | _ -> ()
   in
-  (* The boundary walls, as legs of a {!P.boundary}, which winds itself. A leg
-     carries everything P.wall does, which it has to here: the jambs are brick
-     where the rest is stone, and writing the walls out one by one to say that
-     is what gives the winding up. *)
+  (* The boundary walls, as legs of the room's outline, which winds itself. A
+     leg carries everything P.wall does, which it has to here: the jambs are
+     brick where the rest is stone. *)
   let chalk_leg ?material name p =
     P.corner ?material ~key:name ~decals:(chalked ~marks name)
       ~on_use:(takes_a_mark name) p
@@ -298,23 +304,22 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
   P.(
     world
       ~atmosphere:(air ~lamp:(lamp elapsed))
-      ~spawn:("hall", Vec.make (-4.) (-2.))
       [
-        room ~name:"hall"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat Surfaces.ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
+          ~ceiling:(roof Surfaces.soffit)
+          ~outline:
+            [
+              chalk_leg "south" hall_sw;
+              chalk_leg ~material:Surfaces.brick "jamb-south" hall_se;
+              corner hall_p;
+              chalk_leg ~material:Surfaces.brick "jamb-north" hall_q;
+              chalk_leg "north" hall_ne;
+              chalk_leg "west" hall_nw;
+            ]
           [
-            boundary ~closed:false ~height ~material:Surfaces.stone
-              [
-                chalk_leg ~material:Surfaces.brick "jamb-north" hall_q;
-                chalk_leg "north" hall_ne;
-                chalk_leg "west" hall_nw;
-                chalk_leg "south" hall_sw;
-                chalk_leg ~material:Surfaces.brick "jamb-south" hall_se;
-                corner hall_p;
-              ];
-            threshold ~name:"onward" ~height:clearance ~lintel:this_demos_lintel
-              hall_p hall_q;
+            spawn (Vec.make (-4.) (-2.));
+            cut onward ~lintel:this_demos_lintel ~along:(hall_p, hall_q);
             (* The one wall with two reachable faces: chalk it, walk round an
                end, and the far side is bare. It is opaque, and has to be — a
                see-through wall is one Sight looks through, so the crosshair
@@ -323,25 +328,23 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
             chalkable ~material:Surfaces.panel ~tall:2.4 "partition"
               (Vec.make (-1.5) 1.) (Vec.make 2.5 1.);
           ];
-        room ~name:"back"
-          ~floor:(floor ~plane:flat Surfaces.ground)
+        room ~height ~material:Surfaces.stone ~floor:(floor Surfaces.ground)
           ~ceiling:(roof ~plane:(Plane.horizontal height) Surfaces.soffit)
+          ~outline:
+            [
+              chalk_leg ~material:Surfaces.brick "back-jamb-south" back_q;
+              chalk_leg "back-south" back_sw;
+              chalk_leg ~material:Surfaces.brick "back-east" back_se;
+              chalk_leg "back-north" back_ne;
+              chalk_leg ~material:Surfaces.brick "back-jamb-north" back_nw;
+              corner back_p;
+            ]
           [
-            boundary ~closed:false ~height ~material:Surfaces.stone
-              [
-                chalk_leg ~material:Surfaces.brick "back-jamb-south" back_q;
-                chalk_leg "back-south" back_sw;
-                chalk_leg ~material:Surfaces.brick "back-east" back_se;
-                chalk_leg "back-north" back_ne;
-                chalk_leg ~material:Surfaces.brick "back-jamb-north" back_nw;
-                corner back_p;
-              ];
-            threshold ~name:"here" ~height:clearance ~lintel:this_demos_lintel
-              back_p back_q;
+            cut here ~lintel:this_demos_lintel ~along:(back_p, back_q);
             sprite ~key:"figure" ~size:1.7 ~image:Pictures.figure
               (Vec.make 4. 0.);
           ];
-        link ("hall", "onward") ("back", "here");
+        connect onward here;
         hud (panel ~selected ~left ~aim ~font ~across ~down);
       ])
 

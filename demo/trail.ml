@@ -32,6 +32,14 @@ let depth = 8.
 let rooms = 5
 let named index = Printf.sprintf "chamber-%d" index
 
+(* One opening between each pair of chambers, and two doors in each: a door
+   belongs to the room it is cut into. Made once here rather than in the
+   description, which is rebuilt every frame. *)
+let ways =
+  Array.init (rooms - 1) (fun _ ->
+      ( P.door ~name:"on" ~width:2.2 ~clearance:3. (),
+        P.door ~name:"back" ~width:2.2 ~clearance:3. () ))
+
 (* One chamber of the corridor, with a doorway back and a doorway on, except at
    the two ends. Coats alternate so crossings are visible. *)
 let chamber ~index =
@@ -40,24 +48,20 @@ let chamber ~index =
   and ne = Vec.make depth width
   and nw = Vec.make 0. width in
   let coat = if index mod 2 = 0 then Surfaces.brick else Surfaces.stone in
-  let flat = Plane.horizontal 0. in
   let first = index = 0 and last = index = rooms - 1 in
   P.(
-    room ~name:(named index)
-      ~floor:(floor ~plane:flat Surfaces.ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
-      ([
-         wall ~height ~material:coat sw se;
-         (if last then wall ~height ~material:coat se ne
-          else
-            doorway ~name:"on" ~width:2.2 ~opening:3. ~height ~material:coat se
-              ne);
-         wall ~height ~material:coat ne nw;
-         (if first then wall ~height ~material:coat nw sw
-          else
-            doorway ~name:"back" ~width:2.2 ~opening:3. ~height ~material:coat
-              nw sw);
-       ]
+    (* Only the first chamber's floor is written; every other is carried
+       through the opening it is reached by. A leg with no door on it is left
+       whole, which is what a closed outline means. *)
+    room ~name:(named index) ~height ~material:coat
+      ~floor:
+        (if first then floor ~plane:(Plane.horizontal 0.) Surfaces.ground
+         else floor Surfaces.ground)
+      ~ceiling:(roof Surfaces.soffit)
+      ~outline:(corners [ sw; se; ne; nw ])
+      ((if first then [ spawn (Vec.make 2. 0.) ] else [])
+      @ (if last then [] else [ cut (fst ways.(index)) ~along:(se, ne) ])
+      @ (if first then [] else [ cut (snd ways.(index - 1)) ~along:(nw, sw) ])
       @
       if last then
         [
@@ -111,10 +115,10 @@ let ticks ~stack ~viewport:(_, down) =
 let corridor ~stack ~viewport =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:(named 0, Vec.make 2. 0.)
       (List.init rooms (fun index -> chamber ~index)
       @ List.init (rooms - 1) (fun index ->
-          link (named index, "on") (named (index + 1), "back"))
+          let on, back = ways.(index) in
+          connect on back)
       @ [ hud (ticks ~stack ~viewport) ]))
 
 let unwinding =
