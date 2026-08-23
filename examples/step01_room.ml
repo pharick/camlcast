@@ -24,20 +24,18 @@ let flat = Plane.horizontal 0.
 let level =
   P.(
     world ~atmosphere:Atmosphere.default
-      ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault" ~floor:(floor ~plane:flat ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
-          [
-            boundary ~height ~material:stone
-              (corners
-                 [
-                   Vec.make (-6.) (-6.);
-                   Vec.make 6. (-6.);
-                   Vec.make 6. 6.;
-                   Vec.make (-6.) 6.;
-                 ]);
-          ];
+        room ~height ~material:stone ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof stone)
+          ~outline:
+            (corners
+               [
+                 Vec.make (-6.) (-6.);
+                 Vec.make 6. (-6.);
+                 Vec.make 6. 6.;
+                 Vec.make (-6.) 6.;
+               ])
+          [ spawn (Vec.make (-4.5) 0.) ];
       ])
 
 let () =

@@ -51,32 +51,31 @@ let ne = Vec.make 6. 6.
 let nw = Vec.make (-6.) 6.
 
 let pillar center =
-  P.boundary ~height ~material:slab
+  P.block ~height ~material:slab
     (P.polygon ~center ~radius:0.7 ~sides:6 ~rotation:0.)
 
 let level =
   P.(
     world ~atmosphere:air
-      ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault" ~floor:(floor ~plane:flat ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+        room ~height ~material:stone ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof stone)
+          ~outline:
+            [
+              (* The mural hangs on the wall this corner describes, placed in
+                 that wall's own terms: along from its first end, z up from the
+                 floor. *)
+              corner sw ~material:brick
+                ~decals:
+                  [
+                    decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2 mural;
+                  ];
+              corner se;
+              corner ne;
+              corner nw;
+            ]
           [
-            boundary ~height ~material:stone
-              [
-                (* The mural hangs on the wall this corner describes, placed
-                   in that wall's own terms: along from its first end, z up
-                   from the floor. *)
-                corner sw ~material:brick
-                  ~decals:
-                    [
-                      decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2
-                        mural;
-                    ];
-                corner se;
-                corner ne;
-                corner nw;
-              ];
+            spawn (Vec.make (-4.5) 0.);
             wall ~height:1.1 ~material:slab (Vec.make (-2.) (-1.6))
               (Vec.make (-2.) 1.6);
             pillar (Vec.make 3. 3.);

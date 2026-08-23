@@ -24,16 +24,16 @@ let nw = Vec.make (-6.) 6.
 let level =
   P.(
     world ~atmosphere:Atmosphere.default
-      ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault" ~floor:(floor ~plane:flat ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+        (* A corner describes the wall leaving it, so the south wall — from
+             sw to se — is brick, and the rest fall back to what the room was
+             given. *)
+        room ~height ~material:stone ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof stone)
+          ~outline:
+            [ corner sw ~material:brick; corner se; corner ne; corner nw ]
           [
-            (* A corner describes the wall leaving it, so the south wall —
-               from sw to se — is brick, and the rest fall back to what the
-               boundary was given. *)
-            boundary ~height ~material:stone
-              [ corner sw ~material:brick; corner se; corner ne; corner nw ];
+            spawn (Vec.make (-4.5) 0.);
             (* A free-standing wall, drawn from both sides, low enough to see
                over. For the room's edge reach for boundary; this is for what
                stands on its own. *)

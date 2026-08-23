@@ -91,14 +91,11 @@ let c_se = Vec.make 8. (-2.)
 let c_ne = Vec.make 8. 2.
 let c_nw = Vec.make 0. 2.
 
-(* The corridor's floor is the vault's, carried through the doorway the two
-   rooms share. Derived, it cannot drift — and Check would report a step in
-   the floor if it did. *)
-let corridor_floor =
-  P.through
-    ~from:(P.opening ~width:2. se ne)
-    ~into:(P.opening ~width:2. c_sw c_nw)
-    flat
+(* The doorway the two rooms share, as a door on each side. The corridor's
+   floor is not here because it is not written: a room that gives its floor no
+   plane takes its neighbour's through the connection between them. *)
+let east = P.door ~name:"east" ~width:2. ~clearance:2.6 ()
+let west = P.door ~name:"west" ~width:2. ~clearance:2.6 ()
 
 (* A component: a function from props to a description, declared once at the
    top level. Every torch placed with it is its own instance.
@@ -145,7 +142,7 @@ let brazier =
     pos
 
 let pillar center =
-  P.boundary ~height ~material:slab
+  P.block ~height ~material:slab
     (P.polygon ~center ~radius:0.7 ~sides:6 ~rotation:0.)
 
 (* How long a struck brazier burns, in seconds. *)
@@ -172,28 +169,23 @@ let game =
   P.(
     world
       ~atmosphere:(air ~fire:(fuel /. fuse))
-      ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault" ~floor:(floor ~plane:flat ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+        room ~height ~material:stone ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof stone)
+          ~outline:
+            [
+              corner sw ~material:brick
+                ~decals:
+                  [
+                    decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2 mural;
+                  ];
+              corner se;
+              corner ne;
+              corner nw;
+            ]
           [
-            (* Three sides run as an open boundary; the fourth is cut. The
-               last corner of an open run describes no wall, so it carries
-               nothing. *)
-            boundary ~closed:false ~height ~material:stone
-              [
-                corner ne;
-                corner nw;
-                corner sw ~material:brick
-                  ~decals:
-                    [
-                      decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2
-                        mural;
-                    ];
-                corner se;
-              ];
-            doorway ~name:"east" ~width:2. ~opening:2.6 ~height ~material:stone
-              se ne;
+            spawn (Vec.make (-4.5) 0.);
+            cut east ~along:(se, ne);
             wall ~height:1.1 ~material:slab (Vec.make (-2.) (-1.6))
               (Vec.make (-2.) 1.6);
             pillar (Vec.make 3. 3.);
@@ -207,16 +199,10 @@ let game =
             torch ~key:"sw" (Vec.make (-2.1) (-2.1));
             wisp (Vec.make 0. 0.);
           ];
-        room ~name:"corridor"
-          ~floor:(floor ~plane:corridor_floor ground)
-          ~ceiling:(roof ~plane:(Plane.above corridor_floor height) stone)
-          [
-            boundary ~closed:false ~height ~material:stone
-              (corners [ c_nw; c_ne; c_se; c_sw ]);
-            doorway ~name:"west" ~width:2. ~opening:2.6 ~height ~material:stone
-              c_sw c_nw;
-          ];
-        link ("vault", "east") ("corridor", "west");
+        room ~height ~material:stone ~floor:(floor ground) ~ceiling:(roof stone)
+          ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
+          [ cut west ~along:(c_nw, c_sw) ];
+        connect east west;
         hud
           [
             rect ~alpha:140

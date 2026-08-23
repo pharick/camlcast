@@ -131,31 +131,25 @@ let c_se = Vec.make 8. (-2.)
 let c_ne = Vec.make 8. 2.
 let c_nw = Vec.make 0. 2.
 
-(* The corridor's floor is the vault's, carried through the doorway the two
-   rooms share. Derived, it cannot drift — and Check would report a step in
-   the floor if it did. *)
-let corridor_floor =
-  P.through
-    ~from:(P.opening ~width:2. se ne)
-    ~into:(P.opening ~width:2. c_sw c_nw)
-    flat
+(* The doorway the two rooms share, as a door on each side. The corridor's
+   floor is not here because it is not written: a room that gives its floor no
+   plane takes its neighbour's through the connection between them. *)
+let east = P.door ~name:"east" ~width:2. ~clearance:2.6 ()
+let west = P.door ~name:"west" ~width:2. ~clearance:2.6 ()
 
-(* The courtyard's corners, and its floor carried on through the gate. *)
+(* The courtyard's corners. Its floor is carried on through the gate, which
+   is to say it is not written here either. *)
 let y_sw = Vec.make 0. (-5.)
 let y_se = Vec.make 10. (-5.)
 let y_ne = Vec.make 10. 5.
 let y_nw = Vec.make 0. 5.
 
-(* The gate's two ends, cut into the corridor's east wall by the same
-   arithmetic doorway uses. threshold owns nothing but the opening, so the
-   jambs either side are the game's to build — the price of hanging a brick
-   lintel over an iron gate. *)
-let gate_a, gate_b = P.opening ~width:2. c_ne c_se
-
-let courtyard_floor =
-  P.through ~from:(gate_a, gate_b)
-    ~into:(P.opening ~width:2. y_sw y_nw)
-    corridor_floor
+(* The gate, as a door on each side. A brick lintel over an iron gate used to
+   cost two walls and a threshold, because the strip above an opening was
+   whatever the wall it was cut into is made of; it is an argument now, and one
+   the two rooms are allowed to answer differently. *)
+let gate_out = P.door ~name:"gate" ~width:2. ~clearance:2.6 ()
+let gate_in = P.door ~name:"gate" ~width:2. ~clearance:2.6 ()
 
 (* A component: a function from props to a description, declared once at the
    top level. Every torch placed with it is its own instance.
@@ -236,7 +230,7 @@ let brazier =
     pos
 
 let pillar center =
-  P.boundary ~height ~material:slab
+  P.block ~height ~material:slab
     (P.polygon ~center ~radius:0.7 ~sides:6 ~rotation:0.)
 
 (* How long a struck brazier burns, in seconds. *)
@@ -326,28 +320,23 @@ let game =
   P.(
     world
       ~atmosphere:(air ~fire:(fuel /. fuse))
-      ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault" ~floor:(floor ~plane:flat ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
+        room ~height ~material:stone ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof stone)
+          ~outline:
+            [
+              corner sw ~material:brick
+                ~decals:
+                  [
+                    decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2 mural;
+                  ];
+              corner se;
+              corner ne;
+              corner nw;
+            ]
           [
-            (* Three sides run as an open boundary; the fourth is cut. The
-               last corner of an open run describes no wall, so it carries
-               nothing. *)
-            boundary ~closed:false ~height ~material:stone
-              [
-                corner ne;
-                corner nw;
-                corner sw ~material:brick
-                  ~decals:
-                    [
-                      decal ~along:6. ~z:2. ~half_width:1.2 ~half_height:1.2
-                        mural;
-                    ];
-                corner se;
-              ];
-            doorway ~name:"east" ~width:2. ~opening:2.6 ~height ~material:stone
-              se ne;
+            spawn (Vec.make (-4.5) 0.);
+            cut east ~along:(se, ne);
             wall ~height:1.1 ~material:slab (Vec.make (-2.) (-1.6))
               (Vec.make (-2.) 1.6);
             pillar (Vec.make 3. 3.);
@@ -364,27 +353,19 @@ let game =
             torch ~key:"sw" (Vec.make (-2.1) (-2.1));
             (if gate_open then Element.empty else wisp (Vec.make 0. 0.));
           ];
-        room ~name:"corridor"
-          ~floor:(floor ~plane:corridor_floor ground)
-          ~ceiling:(roof ~plane:(Plane.above corridor_floor height) stone)
+        room ~height ~material:stone ~floor:(floor ground) ~ceiling:(roof stone)
+          ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
           [
-            (* Both ends of the corridor are open now, so its sides are two
-               separate runs. *)
-            boundary ~key:"north" ~closed:false ~height ~material:stone
-              (corners [ c_nw; c_ne ]);
-            boundary ~key:"south" ~closed:false ~height ~material:stone
-              (corners [ c_se; c_sw ]);
-            doorway ~name:"west" ~width:2. ~opening:2.6 ~height ~material:stone
-              c_sw c_nw;
-            (* The gate: jambs by hand, a brick lintel, and a shut iron
-               grille in the opening. *)
-            wall ~height ~material:stone c_ne gate_a;
-            wall ~height ~material:stone gate_b c_se;
-            threshold ~name:"gate"
-              ~door:
+            cut west ~along:(c_sw, c_nw);
+            (* The gate: a brick lintel over an iron grille. Both are arguments
+               to the cut rather than walls of their own, and both are this
+               room's own answer — the courtyard gives its side a leaf too, and
+               need not give it the same lintel. *)
+            cut gate_out
+              ~leaf:
                 (Door.make ~state:(if gate_open then Open else Closed) grille)
               ~lintel:{ top = height; material = brick }
-              ~height:2.6 gate_a gate_b;
+              ~along:(c_ne, c_se);
             (* The winch. Its gaze handler is the game's own state, because
                what it opens is the game's gate. *)
             sprite ~key:"winch" ~size:0.8 ~base:0.8 ~image:wheel
@@ -402,22 +383,19 @@ let game =
                  (Vec.make 5. (-0.8))
              else Element.empty);
           ];
-        room ~name:"courtyard"
-          ~floor:(floor ~plane:courtyard_floor ground)
-          ~ceiling:(roof ~plane:(Plane.above courtyard_floor height) stone)
+        room ~height ~material:stone ~floor:(floor ground) ~ceiling:(roof stone)
+          ~outline:(corners [ y_sw; y_se; y_ne; y_nw ])
           [
-            boundary ~closed:false ~height ~material:stone
-              (corners [ y_nw; y_ne; y_se; y_sw ]);
-            (* The same door, said again: a door hangs in one opening, and
-               both rooms describe that opening, so both say so. *)
-            doorway ~name:"west"
-              ~door:
+            (* The same leaf, said again: one leaf hangs in one opening and both
+               rooms draw their side of it, so both say so. *)
+            cut gate_in
+              ~leaf:
                 (Door.make ~state:(if gate_open then Open else Closed) grille)
-              ~width:2. ~opening:2.6 ~height ~material:stone y_sw y_nw;
+              ~along:(y_sw, y_nw);
             ember ~key:"e" (Vec.make 5. 1.);
           ];
-        link ("vault", "east") ("corridor", "west");
-        link ("corridor", "gate") ("courtyard", "west");
+        connect east west;
+        connect gate_out gate_in;
         hud
           ((if fuel <= 0. then
               List.mapi

@@ -732,17 +732,18 @@ let passes_the_checker (demo : Catalogue.t) =
   | [] -> ()
   | found -> Alcotest.failf "%s" (Check.format found)
 
-(* The shape examples/step06_antechamber.ml through step26_shipping.ml write: a
-   vault whose east wall opens onto a corridor. All twenty-one cut the
-   corridor's doorway from c_sw to c_nw, which runs clockwise about a corridor
-   lying east of it — the mirror of what demo/slopes.ml writes for the same
-   shape. World.make accepts it, World.check accepts it, Check.assembled accepts
-   it, and over these flat floors seam_gap accepts it too, so this is here to
-   show that the check above does not.
+(* The shape the examples used to write: a vault whose east wall opens onto a
+   corridor, the corridor's doorway cut from c_sw to c_nw — clockwise about a
+   corridor lying east of it, and the mirror of what demo/slopes.ml writes for
+   the same shape. All twenty-one of them had it. World.make accepts it,
+   World.check accepts it, Check.assembled accepts it, and over these flat
+   floors seam_gap accepts it too, so this is here to show that the check above
+   does not.
 
    It asserts a bug, and is meant to: a check that cannot fail on the thing it
-   was written for proves nothing. It goes when the examples do. *)
-let the_examples_wind_their_corridor_backwards () =
+   was written for proves nothing. The examples no longer say this, and cannot;
+   it is written out here in the old forms until those go with it. *)
+let the_old_shape_could_wind_a_doorway_backwards () =
   let height = 4. in
   let flat = Plane.horizontal 0. in
   let sw = Vec.make (-6.) (-6.)
@@ -916,8 +917,8 @@ let () =
             the_chalk_demo_has_one_glowing_symbol_and_one_not;
           case "the controls demo binds a second set of walking keys"
             the_controls_demo_binds_a_second_set_of_walking_keys;
-          case "the examples wind their corridor backwards"
-            the_examples_wind_their_corridor_backwards;
+          case "the shape the examples used to write wound one backwards"
+            the_old_shape_could_wind_a_doorway_backwards;
           case "a door cut from an outline is wound with its room"
             a_door_cut_from_an_outline_is_wound_with_its_room;
           case "every demo's first frame, written out" frames_are_unchanged;
