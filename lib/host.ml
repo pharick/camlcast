@@ -214,6 +214,28 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
     Room.make ~thresholds:(List.rev !thresholds) ~sprites:(List.rev !sprites)
       ~floor ~ceiling (List.rev !walls)
   in
+  (* A door names a leg of the outline by its two corners. One that names no leg
+     was cut nowhere, and would otherwise go missing in silence — the room would
+     build with a solid wall where the description asked for a way through, and
+     nothing would say so until a connection failed to find it, or never, if
+     nothing connected it. *)
+  List.iter
+    (fun (d : prim Camlcast_loom.Host.node) ->
+      match d.Camlcast_loom.Host.prim with
+      | Prim.Door { id; along = a, b; name; _ }
+        when not (List.mem_assoc id !cut) ->
+          raise
+            (Malformed
+               (Printf.sprintf
+                  "%s: the door %s runs between %s and %s, and this room's \
+                   outline has no leg there"
+                  (node_path d)
+                  (match name with
+                  | Some name -> name
+                  | None -> Printf.sprintf "#%d" id)
+                  (Prim.point a) (Prim.point b)))
+      | _ -> ())
+    (doors_of node);
   let array reacts = Array.of_list (List.rev !reacts) in
   ( built,
     (array wall_reacts, array sprite_reacts, array threshold_reacts),

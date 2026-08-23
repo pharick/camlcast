@@ -119,6 +119,10 @@ type t =
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)
 
+val point : Vec.t -> string
+(** A point, as a diagnostic spells one: ["(1,-2)"]. Shared so that two
+    complaints about the same coordinates read the same way. *)
+
 val misplaced : child:t -> parent:t -> string
 (** What to say about a nesting {!may_contain} refused:
     ["a sprite (0,0) cannot go in a world"]. One phrase names the thing, another
