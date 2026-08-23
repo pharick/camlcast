@@ -76,6 +76,31 @@ let doors_of (node : prim Camlcast_loom.Host.node) =
       | _ -> None)
     node.Camlcast_loom.Host.children
 
+(* Where each of a room's doors lands on the leg it is cut into, worked out
+   before any room is built. A floor carried through a connection is carried by
+   the transform these four points imply, and a room cannot be built until its
+   floor is settled — so the points have to be known first.
+   {!Room.cut_points} is what {!Room.doorway} cuts at, so these are the same
+   points and not a second opinion about them. *)
+let openings_of (node : prim Camlcast_loom.Host.node) =
+  let legs =
+    List.filter_map
+      (fun (c : prim Camlcast_loom.Host.node) ->
+        match c.Camlcast_loom.Host.prim with
+        | Prim.Wall { a; b; _ } -> Some (a, b)
+        | _ -> None)
+      node.Camlcast_loom.Host.children
+  in
+  List.filter_map
+    (fun (c : prim Camlcast_loom.Host.node) ->
+      match c.Camlcast_loom.Host.prim with
+      | Prim.Door { id; along; width; _ } ->
+          Option.map
+            (fun (a, b) -> (id, Room.cut_points ~width a b))
+            (List.find_opt (fun leg -> same_leg along leg) legs)
+      | _ -> None)
+    node.Camlcast_loom.Host.children
+
 let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
   (* Accumulated reversed and reversed back, so that each list reaches
      {!Room.make} in the order the game wrote it. That order is not cosmetic.
@@ -189,7 +214,7 @@ let assemble nodes =
       List.iter
         (fun (child : prim Camlcast_loom.Host.node) ->
           match child.Camlcast_loom.Host.prim with
-          | Prim.Room { name; floor; ceiling } ->
+          | Prim.Room { name; floor; ceiling; height } ->
               (* A description need not name its rooms: nothing in it refers
                  to a room by name any more, and {!World.make} still wants one.
                  The debug spelling of the path, not the readable one: the
@@ -221,7 +246,7 @@ let assemble nodes =
                       start := Some (name, at)
                   | _ -> ())
                 child.Camlcast_loom.Host.children;
-              rooms := (name, build_room ~floor ~ceiling child) :: !rooms
+              rooms := (name, floor, ceiling, height, child) :: !rooms
           | Prim.Link { here; there } -> links := (here, there) :: !links
           | Prim.Connect (a, b) -> connections := (a, b) :: !connections
           | Prim.Camera camera -> eye := Some camera
@@ -230,8 +255,102 @@ let assemble nodes =
           | Prim.Hud -> hud := !hud @ collect_hud child
           | _ -> ())
         root.Camlcast_loom.Host.children;
-      let built = List.rev !rooms in
-      (* Every door in the world, under the identity a connection joins it by.
+      let collected = List.rev !rooms in
+      let count = List.length collected in
+      (* Every door in the world, by the identity a connection joins it by,
+         with the room it stands in and the two ends it was cut at. *)
+      let openings =
+        List.concat
+          (List.mapi
+             (fun i (_, _, _, _, node) ->
+               List.map (fun (id, ends) -> (id, (i, ends))) (openings_of node))
+             collected)
+      in
+      let joins = List.rev !connections in
+      (* Floors, carried out through the connections from every room that gave
+         a plane of its own. A room that gave none takes its neighbour's,
+         through the transform that neighbour's opening implies — which is the
+         pair of ends the engine itself cut, so it cannot be the wrong pair,
+         which is the mistake this exists to make unwritable.
+
+         Breadth-first, and the first plane to arrive wins. A room a cycle
+         reaches two ways could be given two floors; taking the first and
+         leaving {!Check}'s seam warning to report a disagreement is the rule
+         the engine already has for two floors that do not meet, and a second
+         rule here would be a second answer to one question. *)
+      let planes = Array.make (Int.max count 1) None in
+      List.iteri
+        (fun i (_, (f : Prim.surface), _, _, _) ->
+          match f.Prim.plane with Some p -> planes.(i) <- Some p | None -> ())
+        collected;
+      let beside i =
+        List.filter_map
+          (fun (a, b) ->
+            match (List.assoc_opt a openings, List.assoc_opt b openings) with
+            | Some (ra, ea), Some (rb, eb) ->
+                if ra = i then Some (rb, ea, eb)
+                else if rb = i then Some (ra, eb, ea)
+                else None
+            | _ -> None)
+          joins
+      in
+      let rec carry = function
+        | [] -> ()
+        | i :: rest ->
+            carry
+              (rest
+              @ List.filter_map
+                  (fun (j, (a1, a2), (b1, b2)) ->
+                    match (planes.(i), planes.(j)) with
+                    | Some plane, None ->
+                        planes.(j) <-
+                          Some
+                            (Plane.through
+                               (Transform.between ~a1 ~a2 ~b1 ~b2)
+                               plane);
+                        Some j
+                    | _ -> None)
+                  (beside i))
+      in
+      carry (List.init count Fun.id);
+      let built =
+        List.mapi
+          (fun i (name, (f : Prim.surface), c, height, node) ->
+            let plane =
+              match planes.(i) with
+              | Some plane -> plane
+              | None ->
+                  raise
+                    (Malformed
+                       (Printf.sprintf
+                          "%s: this room's floor is neither given nor \
+                           reachable from one that is — give it a plane, or \
+                           connect it to a room that has one"
+                          name))
+            in
+            let floor = Room.floor ~plane ~material:f.Prim.material in
+            let ceiling =
+              match c with
+              | Prim.Sky sky -> Room.open_sky sky
+              | Prim.Roof (s : Prim.surface) ->
+                  let over =
+                    match (s.Prim.plane, height) with
+                    | Some given, _ -> given
+                    | None, Some height -> Plane.above plane height
+                    | None, None ->
+                        raise
+                          (Malformed
+                             (Printf.sprintf
+                                "%s: this room's ceiling has no plane and the \
+                                 room no height to put one over its floor at"
+                                name))
+                  in
+                  Room.roof ~plane:over ~material:s.Prim.material
+            in
+            (name, build_room ~floor ~ceiling node))
+          collected
+      in
+      (* Every door in the world, by the identity a connection joins it by.
          A door is cut into exactly one room, so this is where a connection
          stops being two identities and becomes the two names World.make wants:
          nothing in the description ever wrote either of them. *)

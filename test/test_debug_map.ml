@@ -21,6 +21,10 @@ let flat = Plane.horizontal 0.
 let floor = Room.floor ~plane:flat ~material:stone
 let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
 
+(* The same two, as a description gives them rather than as Room takes them. *)
+let described = P.floor ~plane:flat stone
+let overhead = P.roof ~plane:(Plane.above flat wall_height) stone
+
 let west_side =
   P.boundary ~closed:false ~height:wall_height ~material:stone
     (P.corners
@@ -48,8 +52,10 @@ let joined =
   P.world ~atmosphere:Atmosphere.default
     ~spawn:("west", Vec.make (-3.) 0.)
     [
-      P.room ~name:"west" ~floor ~ceiling [ west_side; west_door ];
-      P.room ~name:"east" ~floor ~ceiling [ east_side; east_door ];
+      P.room ~name:"west" ~floor:described ~ceiling:overhead
+        [ west_side; west_door ];
+      P.room ~name:"east" ~floor:described ~ceiling:overhead
+        [ east_side; east_door ];
       P.link ("west", "east") ("east", "west");
     ]
 

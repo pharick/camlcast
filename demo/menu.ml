@@ -33,9 +33,8 @@ let backdrop ~angle ~taken ~over =
         (* Still named, because the camera below names it. That is the last
            thing in the demos that needs a room to have a name. *)
         room ~name:"room" ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
           ~outline:
             (corners
                [

@@ -19,8 +19,8 @@ let stone =
 
 let wall_height = 4.
 let flat = Plane.horizontal 0.
-let floor = Room.floor ~plane:flat ~material:stone
-let ceiling = Room.roof ~plane:(Plane.above flat wall_height) ~material:stone
+let floor = P.floor ~plane:flat stone
+let ceiling = P.roof ~plane:(Plane.above flat wall_height) stone
 
 let room =
   P.room ~name:"room" ~floor ~ceiling

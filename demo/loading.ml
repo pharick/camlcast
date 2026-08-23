@@ -84,9 +84,8 @@ let build () =
       world ~atmosphere:air
         [
           room ~height ~material:stone
-            ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-            ~ceiling:
-              (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+            ~floor:(floor ~plane:flat Surfaces.ground)
+            ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
             ~outline:
               [
                 corner sw;

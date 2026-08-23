@@ -755,8 +755,8 @@ let the_examples_wind_their_corridor_backwards () =
   and c_nw = Vec.make 0. 2. in
   (* Not `floor` and `ceiling`: the local open of P below puts its own
      constructors of those names in scope. *)
-  let ground = P.floor ~plane:flat ~material:pale in
-  let soffit = P.roof ~plane:(Plane.above flat height) ~material:pale in
+  let ground = P.floor ~plane:flat pale in
+  let soffit = P.roof ~plane:(Plane.above flat height) pale in
   let level =
     P.(
       world ~atmosphere:Atmosphere.default
@@ -809,8 +809,8 @@ let a_door_cut_from_an_outline_is_wound_with_its_room () =
   and c_se = Vec.make 8. (-2.)
   and c_ne = Vec.make 8. 2.
   and c_nw = Vec.make 0. 2. in
-  let ground = P.floor ~plane:flat ~material:pale in
-  let soffit = P.roof ~plane:(Plane.above flat height) ~material:pale in
+  let ground = P.floor ~plane:flat pale in
+  let soffit = P.roof ~plane:(Plane.above flat height) pale in
   let east = P.door ~width:2. ~clearance:2.6 () in
   let west = P.door ~width:2. ~clearance:2.6 () in
   (* Not one name in it: no room is named, no doorway is named, and the spawn

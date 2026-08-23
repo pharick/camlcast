@@ -42,13 +42,9 @@ let at ~phase =
       [
         room ~height ~material:Surfaces.stone
           ~floor:
-            (floor
-               ~plane:(Plane.horizontal (0.3 *. sin turn))
-               ~material:Surfaces.ground)
+            (floor ~plane:(Plane.horizontal (0.3 *. sin turn)) Surfaces.ground)
           ~ceiling:
-            (roof
-               ~plane:(Plane.horizontal (height +. 0.5))
-               ~material:Surfaces.soffit)
+            (roof ~plane:(Plane.horizontal (height +. 0.5)) Surfaces.soffit)
           ~outline:
             [
               corner sw;

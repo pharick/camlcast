@@ -42,7 +42,7 @@ let nw = Vec.make 0. 8.
 let yard ~gate ~sky ~column ~holds =
   P.(
     room ~height ~material:Surfaces.stone
-      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~floor:(floor ~plane:flat Surfaces.ground)
       ~ceiling:(open_sky sky)
       ~outline:(corners [ sw; se; ne; nw ])
       (cut gate ~along:(se, ne)

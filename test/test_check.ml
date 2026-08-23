@@ -42,9 +42,9 @@ let stone =
 
 let height = 4.
 let flat = Plane.horizontal 0.
-let floor_at z = Room.floor ~plane:(Plane.horizontal z) ~material:stone
+let floor_at z = P.floor ~plane:(Plane.horizontal z) stone
 let floor = floor_at 0.
-let ceiling = Room.roof ~plane:(Plane.above flat height) ~material:stone
+let ceiling = P.roof ~plane:(Plane.above flat height) stone
 
 (* Three sides run open and the fourth cut, which together close the boundary.
    Every world below is a variation of this. *)

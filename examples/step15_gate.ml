@@ -223,9 +223,8 @@ let game =
       ~atmosphere:(air ~fire:(fuel /. fuse))
       ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault"
-          ~floor:(floor ~plane:flat ~material:ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+        room ~name:"vault" ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
           [
             (* Three sides run as an open boundary; the fourth is cut. The
                last corner of an open run describes no wall, so it carries
@@ -258,9 +257,8 @@ let game =
             wisp (Vec.make 0. 0.);
           ];
         room ~name:"corridor"
-          ~floor:(floor ~plane:corridor_floor ~material:ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above corridor_floor height) ~material:stone)
+          ~floor:(floor ~plane:corridor_floor ground)
+          ~ceiling:(roof ~plane:(Plane.above corridor_floor height) stone)
           [
             (* Both ends of the corridor are open now, so its sides are two
                separate runs. *)
@@ -280,9 +278,8 @@ let game =
               ~height:2.6 gate_a gate_b;
           ];
         room ~name:"courtyard"
-          ~floor:(floor ~plane:courtyard_floor ~material:ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above courtyard_floor height) ~material:stone)
+          ~floor:(floor ~plane:courtyard_floor ground)
+          ~ceiling:(roof ~plane:(Plane.above courtyard_floor height) stone)
           [
             boundary ~closed:false ~height ~material:stone
               (corners [ y_nw; y_ne; y_se; y_sw ]);

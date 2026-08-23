@@ -44,8 +44,8 @@ let chamber ~index =
   let first = index = 0 and last = index = rooms - 1 in
   P.(
     room ~name:(named index)
-      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ~floor:(floor ~plane:flat Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
       ([
          wall ~height ~material:coat sw se;
          (if last then wall ~height ~material:coat se ne

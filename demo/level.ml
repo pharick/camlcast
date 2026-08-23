@@ -41,9 +41,9 @@
 open Camlcast
 
 (** A floor or ceiling of the level's usual materials. *)
-let ground plane = P.floor ~plane ~material:Surfaces.ground
+let ground plane = P.floor ~plane Surfaces.ground
 
-let roofed plane = P.roof ~plane ~material:Surfaces.soffit
+let roofed plane = P.roof ~plane Surfaces.soffit
 
 (** The two leaves in the level, both hung open at rest.
 

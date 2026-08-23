@@ -55,8 +55,8 @@ let air =
     ~directional:0.35 ()
 
 let flat = Plane.horizontal 0.
-let ground = P.floor ~plane:flat ~material:Surfaces.ground
-let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
+let ground = P.floor ~plane:flat Surfaces.ground
+let roofed = P.roof ~plane:(Plane.above flat height) Surfaces.soffit
 
 (** Three barrels spread across the doorway's view: one square on, one to each
     side, so turning the head picks a different one.

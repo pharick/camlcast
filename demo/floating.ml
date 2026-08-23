@@ -57,12 +57,6 @@ let hall_floor = Plane.make ~a:0.07 ~b:0. ~c:0.
 let onward = P.door ~width ~clearance:3.4 ()
 let back = P.door ~width ~clearance:3.4 ()
 
-let annex_floor =
-  P.through
-    ~from:(P.opening ~width hall_se hall_ne)
-    ~into:(P.opening ~width annex_nw annex_sw)
-    hall_floor
-
 let cloud ?base ~key pos =
   P.sprite ~key ?base ~size:0.8 ~image:Pictures.motes.(0) pos
 
@@ -98,11 +92,8 @@ let at ~phase =
     world ~atmosphere:Surfaces.air
       [
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:hall_floor ~material:Surfaces.ground)
-          ~ceiling:
-            (roof
-               ~plane:(Plane.above hall_floor height)
-               ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:hall_floor Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above hall_floor height) Surfaces.soffit)
           ~outline:
             [
               corner hall_sw;
@@ -122,12 +113,8 @@ let at ~phase =
                ~image:Pictures.motes.(frame) (Vec.make 7.5 (-0.5));
            ]
           @ still);
-        room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:annex_floor ~material:Surfaces.ground)
-          ~ceiling:
-            (roof
-               ~plane:(Plane.above annex_floor height)
-               ~material:Surfaces.soffit)
+        room ~height ~material:Surfaces.stone ~floor:(floor Surfaces.ground)
+          ~ceiling:(roof Surfaces.soffit)
           ~outline:
             [
               corner annex_sw;

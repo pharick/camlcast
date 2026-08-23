@@ -98,9 +98,8 @@ let at ~t =
     world ~atmosphere:Surfaces.air
       [
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
           ~outline:
             [
               corner sw;

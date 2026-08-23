@@ -29,9 +29,8 @@ let level =
     world ~atmosphere:fog
       [
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
             (* The colonnade runs east, the spawn's facing direction. A plain
                box outline: four corners. *)
           ~outline:

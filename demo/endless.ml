@@ -60,8 +60,8 @@ let segment ~index ~back ~onward =
   let flat = Plane.horizontal 0. in
   P.(
     room ~name:(named index)
-      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ~floor:(floor ~plane:flat Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
       [
         wall ~height ~material:coat sw se;
         (if onward then

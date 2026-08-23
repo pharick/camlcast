@@ -41,8 +41,8 @@ let chamber =
   Element.declare ~name:"chamber" @@ fun back ->
   P.(
     room ~height ~material:Surfaces.brick
-      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-      ~ceiling:(roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
+      ~floor:(floor ~plane:flat Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.horizontal height) Surfaces.soffit)
       ~outline:(corners [ sw; se; ne; nw ])
       [
         cut back ~along:(sw, se);
@@ -61,9 +61,8 @@ let level =
     world ~atmosphere:Surfaces.air
       [
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.horizontal height) Surfaces.soffit)
           ~outline:(corners (List.init 6 hub_corner))
           [
             spawn (Vec.make (-6.) 0.);

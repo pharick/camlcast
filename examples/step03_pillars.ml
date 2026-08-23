@@ -30,9 +30,8 @@ let level =
     world ~atmosphere:Atmosphere.default
       ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault"
-          ~floor:(floor ~plane:flat ~material:ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+        room ~name:"vault" ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
           [
             boundary ~height ~material:stone
               [ corner sw ~material:brick; corner se; corner ne; corner nw ];

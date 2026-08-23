@@ -79,8 +79,8 @@ let chamber =
   let on_gaze, on_use = reacts in
   P.(
     room ~height ~material:Surfaces.brick
-      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ~floor:(floor ~plane:flat Surfaces.ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
       ~outline:(corners [ sw; se; ne; nw ])
       [
         cut back ?leaf:hung ~on_gaze ~on_use ~along:(nw, sw);
@@ -116,9 +116,8 @@ let at ~opened ~refused ~aimed ~viewport:(across, down) ~reacts =
          (* The east side is three legs of the outline, one per opening, and all
             three are brick where the rest of the hall is stone. *)
          room ~height ~material:Surfaces.stone
-           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-           ~ceiling:
-             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+           ~floor:(floor ~plane:flat Surfaces.ground)
+           ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
            ~outline:
              [
                corner hall_sw;

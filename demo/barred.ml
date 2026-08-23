@@ -66,12 +66,12 @@ let chamber =
   and nw = Vec.make 0. 3.5 in
   P.(
     room ~height ~material:Surfaces.brick
-      ~floor:(floor ~plane:flat ~material:Surfaces.ground)
+      ~floor:(floor ~plane:flat Surfaces.ground)
       ~ceiling
       ~outline:(corners [ sw; se; ne; nw ])
       (back ~along:(nw, sw) :: sprites))
 
-let roofed = P.roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit
+let roofed = P.roof ~plane:(Plane.above flat height) Surfaces.soffit
 
 let level =
   P.(
@@ -82,9 +82,8 @@ let level =
            south, the glazed door to the north. Both legs are brick where the
            rest is stone, so the jambs either side of each opening are. *)
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
           ~outline:
             [
               corner hall_sw;

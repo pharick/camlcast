@@ -16,8 +16,8 @@ let stone =
 
 let height = 4.
 let flat = Plane.horizontal 0.
-let floor = Room.floor ~plane:flat ~material:stone
-let ceiling = Room.roof ~plane:(Plane.above flat height) ~material:stone
+let floor = P.floor ~plane:flat stone
+let ceiling = P.roof ~plane:(Plane.above flat height) stone
 let tick = 1. /. 60.
 
 let box name reach =

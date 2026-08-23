@@ -45,9 +45,8 @@ let at ~light ~over =
     world ~atmosphere:(air ~light)
       [
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
           ~outline:(corners [ sw; se; ne; nw ])
           [
             spawn (Vec.make (-5.) 0.);

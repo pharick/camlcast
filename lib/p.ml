@@ -4,10 +4,12 @@ open Camlcast_core
 module E = Camlcast_loom.Element
 
 type t = Prim.t E.t
+type surface = Prim.surface
+type ceiling = Prim.ceiling
 
-let floor = Room.floor
-let roof = Room.roof
-let open_sky = Room.open_sky
+let floor ?plane material = { Prim.plane; material }
+let roof ?plane material = Prim.Roof { Prim.plane; material }
+let open_sky sky = Prim.Sky sky
 
 let world ?spawn ~atmosphere children =
   E.prim ~children (Prim.World { atmosphere; spawn })
@@ -236,7 +238,7 @@ let room ?key ?name ?outline ?height ?material ~floor ~ceiling children =
   in
   E.prim ?key
     ~children:(boundary_walls @ children)
-    (Prim.Room { name; floor; ceiling })
+    (Prim.Room { name; floor; ceiling; height })
 
 let block ?key ~height ~material corners =
   E.fragment ?key

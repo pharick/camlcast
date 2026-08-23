@@ -36,9 +36,8 @@ let world_of walls =
     world ~atmosphere:Atmosphere.default
       ~spawn:("room", Vec.make 0. 0.)
       [
-        room ~name:"room"
-          ~floor:(floor ~plane:flat ~material:stone)
-          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+        room ~name:"room" ~floor:(floor ~plane:flat stone)
+          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
           walls;
       ])
 
@@ -356,10 +355,8 @@ let () =
                   world ~atmosphere:Atmosphere.default
                     ~spawn:("west", Vec.make (-2.) 0.)
                     [
-                      room ~name:"west"
-                        ~floor:(floor ~plane:flat ~material:stone)
-                        ~ceiling:
-                          (roof ~plane:(Plane.above flat height) ~material:stone)
+                      room ~name:"west" ~floor:(floor ~plane:flat stone)
+                        ~ceiling:(roof ~plane:(Plane.above flat height) stone)
                         [
                           boundary ~closed:false ~height ~material:stone
                             (corners
@@ -375,10 +372,8 @@ let () =
                             ~name:"east" ~width:2. ~opening:2.5 ~height
                             ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.);
                         ];
-                      room ~name:"east"
-                        ~floor:(floor ~plane:flat ~material:stone)
-                        ~ceiling:
-                          (roof ~plane:(Plane.above flat height) ~material:stone)
+                      room ~name:"east" ~floor:(floor ~plane:flat stone)
+                        ~ceiling:(roof ~plane:(Plane.above flat height) stone)
                         [
                           boundary ~closed:false ~height ~material:stone
                             (corners

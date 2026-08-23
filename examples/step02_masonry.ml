@@ -26,9 +26,8 @@ let level =
     world ~atmosphere:Atmosphere.default
       ~spawn:("vault", Vec.make (-4.5) 0.)
       [
-        room ~name:"vault"
-          ~floor:(floor ~plane:flat ~material:ground)
-          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+        room ~name:"vault" ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
           [
             (* A corner describes the wall leaving it, so the south wall —
                from sw to se — is brick, and the rest fall back to what the

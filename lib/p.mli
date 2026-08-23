@@ -74,13 +74,31 @@ type t = Prim.t Camlcast_loom.Element.t
 
 (** {1 What is under a room and over it} *)
 
-val floor : plane:Plane.t -> material:Material.t -> Room.surface
-(** A floor: an inclined plane, and what it is made of. *)
+type surface = Prim.surface
+(** A floor or a ceiling: what it is made of, and where it lies. *)
 
-val roof : plane:Plane.t -> material:Material.t -> Room.ceiling
-(** A ceiling of the same. *)
+type ceiling = Prim.ceiling
 
-val open_sky : Sky.t -> Room.ceiling
+val floor : ?plane:Plane.t -> Material.t -> surface
+(** What the floor is made of, and the plane it lies on.
+
+    {b The material is always said and the plane usually is not.} Omit [plane]
+    and the floor is carried through a {!connect} from the room on the other
+    side, by the transform that opening implies — which is the pair of ends the
+    engine cut it at, so it cannot be the wrong pair. The room the {!val-spawn}
+    is in has to give one, there being nothing to carry it from, and any room
+    may give one to stop the carrying there. *)
+
+val roof : ?plane:Plane.t -> Material.t -> ceiling
+(** A ceiling of the same, over the room's own [height] unless [plane] says
+    otherwise.
+
+    {!Camlcast_core.Plane.above} keeps a plane's gradient, so an implied ceiling
+    over a sloping floor slopes with it at a constant headroom. Give [plane] for
+    one that {e diverges} from its floor — a hall whose headroom grows toward
+    the far wall — which is the only thing the implied one cannot be. *)
+
+val open_sky : Sky.t -> ceiling
 (** Nothing overhead, and the sky that shows instead. *)
 
 (** {1 The world} *)
@@ -110,8 +128,8 @@ val room :
   ?outline:corner list ->
   ?height:float ->
   ?material:Material.t ->
-  floor:Room.surface ->
-  ceiling:Room.ceiling ->
+  floor:surface ->
+  ceiling:ceiling ->
   t list ->
   t
 (** A room in a coordinate frame of its own: a closed [outline], and what stands

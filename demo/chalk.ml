@@ -301,9 +301,8 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
       ~spawn:("hall", Vec.make (-4.) (-2.))
       [
         room ~name:"hall"
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
           [
             boundary ~closed:false ~height ~material:Surfaces.stone
               [
@@ -325,9 +324,8 @@ let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)
               (Vec.make (-1.5) 1.) (Vec.make 2.5 1.);
           ];
         room ~name:"back"
-          ~floor:(floor ~plane:flat ~material:Surfaces.ground)
-          ~ceiling:
-            (roof ~plane:(Plane.horizontal height) ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:flat Surfaces.ground)
+          ~ceiling:(roof ~plane:(Plane.horizontal height) Surfaces.soffit)
           [
             boundary ~closed:false ~height ~material:Surfaces.stone
               [

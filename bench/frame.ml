@@ -44,9 +44,8 @@ let flat = Plane.horizontal 0.
 
 let square ~name ~at ~reach contents =
   P.(
-    room ~name
-      ~floor:(floor ~plane:flat ~material:ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+    room ~name ~floor:(floor ~plane:flat ground)
+      ~ceiling:(roof ~plane:(Plane.above flat height) stone)
       (boundary ~height ~material:stone
          (corners
             [

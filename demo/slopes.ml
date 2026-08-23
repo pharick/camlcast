@@ -35,22 +35,27 @@ let width = 2.6
 let onward = P.door ~width ~clearance:3.2 ()
 let back = P.door ~width ~clearance:3.2 ()
 
-(* Both surfaces are carried through the doorway rather than restated. Two
-   rooms have no coordinates in common, so an upper floor written by hand will
-   drift; derived, it cannot, and Check finds no step in the floor at the
-   threshold. *)
-let from = P.opening ~width hall_se hall_ne
-let into = P.opening ~width up_nw up_sw
-let up_floor = P.through ~from ~into hall_floor
-let up_roof = P.through ~from ~into hall_roof
+(* The upper floor is not here, because it is not written any more: a room that
+   gives its floor no plane takes its neighbour's through the connection between
+   them, by the transform the opening implies.
+
+   The roof still is. Plane.above would carry the floor's own slope up bodily
+   for a ceiling of fixed headroom, and this one has a steeper slope of its own
+   so that the way up gains headroom as it climbs. Nothing can derive an intent
+   like that, so it is carried by hand — which is what P.through is left for. *)
+let up_roof =
+  P.through
+    ~from:(P.opening ~width hall_se hall_ne)
+    ~into:(P.opening ~width up_nw up_sw)
+    hall_roof
 
 let level =
   P.(
     world ~atmosphere:Surfaces.air
       [
         room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:hall_floor ~material:Surfaces.ground)
-          ~ceiling:(roof ~plane:hall_roof ~material:Surfaces.soffit)
+          ~floor:(floor ~plane:hall_floor Surfaces.ground)
+          ~ceiling:(roof ~plane:hall_roof Surfaces.soffit)
             (* The leg the way up is cut into is brick where the rest is
                stone, so the jambs either side of the opening are too: they are
                legs of this outline like any other. *)
@@ -71,9 +76,8 @@ let level =
             sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
               (Vec.make 11. 2.5);
           ];
-        room ~height ~material:Surfaces.stone
-          ~floor:(floor ~plane:up_floor ~material:Surfaces.ground)
-          ~ceiling:(roof ~plane:up_roof ~material:Surfaces.soffit)
+        room ~height ~material:Surfaces.stone ~floor:(floor Surfaces.ground)
+          ~ceiling:(roof ~plane:up_roof Surfaces.soffit)
           ~outline:
             [
               corner up_sw;

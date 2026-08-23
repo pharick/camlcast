@@ -346,9 +346,8 @@ let game =
            ~atmosphere:(air ~fire:(fuel /. fuse *. alive))
            ~spawn:("vault", Vec.make (-4.5) 0.)
            [
-             room ~name:"vault"
-               ~floor:(floor ~plane:flat ~material:ground)
-               ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+             room ~name:"vault" ~floor:(floor ~plane:flat ground)
+               ~ceiling:(roof ~plane:(Plane.above flat height) stone)
                [
                  (* Three sides run as an open boundary; the fourth is cut. The
                     last corner of an open run describes no wall, so it carries
@@ -384,11 +383,8 @@ let game =
                  (if gate_open then Element.empty else wisp (Vec.make 0. 0.));
                ];
              room ~name:"corridor"
-               ~floor:(floor ~plane:corridor_floor ~material:ground)
-               ~ceiling:
-                 (roof
-                    ~plane:(Plane.above corridor_floor height)
-                    ~material:stone)
+               ~floor:(floor ~plane:corridor_floor ground)
+               ~ceiling:(roof ~plane:(Plane.above corridor_floor height) stone)
                [
                  (* Both ends of the corridor are open now, so its sides are two
                     separate runs. *)
@@ -422,7 +418,7 @@ let game =
                   else Element.empty);
                ];
              room ~name:"courtyard"
-               ~floor:(floor ~plane:courtyard_floor ~material:ground)
+               ~floor:(floor ~plane:courtyard_floor ground)
                ~ceiling:(open_sky evening)
                [
                  boundary ~closed:false ~height ~material:stone
@@ -518,9 +514,8 @@ let title_screen =
     world ~atmosphere:(air ~fire:0.4)
       ~spawn:("foyer", Vec.make (-1.2) 0.)
       [
-        room ~name:"foyer"
-          ~floor:(floor ~plane:flat ~material:ground)
-          ~ceiling:(roof ~plane:(Plane.above flat 3.) ~material:brick)
+        room ~name:"foyer" ~floor:(floor ~plane:flat ground)
+          ~ceiling:(roof ~plane:(Plane.above flat 3.) brick)
           [
             boundary ~height:3. ~material:brick
               (corners

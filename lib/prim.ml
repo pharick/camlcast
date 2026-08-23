@@ -7,14 +7,23 @@ type reacts = {
   on_use : (Aim.spot -> unit) option;
 }
 
+type surface = { plane : Plane.t option; material : Material.t }
+(** A floor or a ceiling as a description gives it: what it is made of always,
+    and where it lies only when that is not the obvious place. A floor with no
+    plane is carried through a {!Connect} from the room on the other side; a
+    ceiling with none is the room's height above whatever floor it ends up with.
+*)
+
+type ceiling = Roof of surface | Sky of Sky.t
 type camera = { room : string; pos : Vec.t; angle : float; pitch : float }
 
 type t =
   | World of { atmosphere : Atmosphere.t; spawn : (string * Vec.t) option }
   | Room of {
       name : string option;
-      floor : Room.surface;
-      ceiling : Room.ceiling;
+      floor : surface;
+      ceiling : ceiling;
+      height : float option;
     }
   | Wall of {
       a : Vec.t;

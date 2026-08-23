@@ -20,9 +20,8 @@ let flat = Plane.horizontal 0.
    of them can be named and none of them touch. *)
 let box ~name ~at contents =
   P.(
-    room ~name
-      ~floor:(floor ~plane:flat ~material:stone)
-      ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+    room ~name ~floor:(floor ~plane:flat stone)
+      ~ceiling:(roof ~plane:(Plane.above flat height) stone)
       (boundary ~height ~material:stone
          (corners
             [
@@ -46,9 +45,8 @@ let joined =
     world ~atmosphere:Atmosphere.default
       ~spawn:("west", Vec.make (-2.) 0.)
       [
-        room ~name:"west"
-          ~floor:(floor ~plane:flat ~material:stone)
-          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+        room ~name:"west" ~floor:(floor ~plane:flat stone)
+          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
           [
             boundary ~closed:false ~height ~material:stone
               (corners
@@ -61,9 +59,8 @@ let joined =
             doorway ~name:"east" ~width:2. ~opening:2.5 ~height ~material:stone
               (Vec.make 0. (-3.)) (Vec.make 0. 3.);
           ];
-        room ~name:"east"
-          ~floor:(floor ~plane:flat ~material:stone)
-          ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
+        room ~name:"east" ~floor:(floor ~plane:flat stone)
+          ~ceiling:(roof ~plane:(Plane.above flat height) stone)
           [
             boundary ~closed:false ~height ~material:stone
               (corners

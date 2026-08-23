@@ -129,6 +129,10 @@ let height = 4.
 let ground_plane = Plane.horizontal 0.
 let floor = Room.floor ~plane:ground_plane ~material:ground
 let ceiling = Room.roof ~plane:(Plane.above ground_plane height) ~material:stone
+
+(* The same two, as a description gives them rather than as Room takes them. *)
+let stage_floor = P.floor ~plane:ground_plane ground
+let stage_ceiling = P.roof ~plane:(Plane.above ground_plane height) stone
 let spawn = ("room", Vec.make (-4.5) 0.)
 
 (* By hand, exactly as the guide and the README have it. *)
@@ -150,7 +154,7 @@ let corners =
 let described =
   P.world ~atmosphere:Atmosphere.default ~spawn
     [
-      P.room ~name:"room" ~floor ~ceiling
+      P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
         [ P.boundary ~height ~material:stone (P.corners corners) ];
     ]
 
@@ -179,7 +183,10 @@ let runs =
   let described children =
     (Mount.build
        (P.world ~atmosphere:Atmosphere.default ~spawn
-          [ P.room ~name:"room" ~floor ~ceiling children ]))
+          [
+            P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
+              children;
+          ]))
       .Scene.world
   in
   let walls world =
@@ -268,13 +275,13 @@ let winding =
         let forwards =
           P.world ~atmosphere:Atmosphere.default ~spawn
             [
-              P.room ~name:"room" ~floor ~ceiling
+              P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
                 [ P.boundary ~height ~material:stone (P.corners corners) ];
             ]
         and backwards =
           P.world ~atmosphere:Atmosphere.default ~spawn
             [
-              P.room ~name:"room" ~floor ~ceiling
+              P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
                 [
                   P.boundary ~height ~material:stone
                     (P.corners (List.rev corners));
@@ -291,7 +298,7 @@ let winding =
           (Mount.build
              (P.world ~atmosphere:Atmosphere.default ~spawn
                 [
-                  P.room ~name:"room" ~floor ~ceiling
+                  P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
                     [
                       P.boundary ~height ~material:stone
                         (P.corners (List.rev corners));
@@ -325,7 +332,7 @@ let winding =
           (Mount.build
              (P.world ~atmosphere:Atmosphere.default ~spawn
                 [
-                  P.room ~name:"room" ~floor ~ceiling
+                  P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
                     [
                       P.boundary ~closed:true ~height ~material:stone (legs cs);
                     ];
@@ -359,7 +366,8 @@ let winding =
             (Mount.build
                (P.world ~atmosphere:Atmosphere.default ~spawn
                   [
-                    P.room ~name:"room" ~floor ~ceiling
+                    P.room ~name:"room" ~floor:stage_floor
+                      ~ceiling:stage_ceiling
                       [
                         P.boundary ~height ~material:stone
                           (P.corners (List.rev corners));
@@ -389,7 +397,7 @@ let two_room_world ~door =
   P.world ~atmosphere:Atmosphere.default
     ~spawn:("west", Vec.make (-3.) 0.)
     [
-      P.room ~name:"west" ~floor ~ceiling
+      P.room ~name:"west" ~floor:stage_floor ~ceiling:stage_ceiling
         [
           P.boundary ~closed:false ~height ~material:stone
             (P.corners
@@ -402,7 +410,7 @@ let two_room_world ~door =
           P.doorway ?door ~name:"east" ~width:2. ~opening:2.5 ~height
             ~material:stone (Vec.make 0. (-4.)) (Vec.make 0. 4.);
         ];
-      P.room ~name:"east" ~floor ~ceiling
+      P.room ~name:"east" ~floor:stage_floor ~ceiling:stage_ceiling
         [
           P.boundary ~closed:false ~height ~material:stone
             (P.corners
@@ -543,8 +551,10 @@ let malformed =
     fails "a room inside a room"
       (P.world ~atmosphere:Atmosphere.default ~spawn
          [
-           P.room ~name:"outer" ~floor ~ceiling
-             [ P.room ~name:"inner" ~floor ~ceiling [] ];
+           P.room ~name:"outer" ~floor:stage_floor ~ceiling:stage_ceiling
+             [
+               P.room ~name:"inner" ~floor:stage_floor ~ceiling:stage_ceiling [];
+             ];
          ]);
     fails "a sprite where a room should be"
       (P.world ~atmosphere:Atmosphere.default ~spawn
@@ -568,7 +578,7 @@ let malformed =
 let both_readers =
   let module E = Camlcast_loom.Element in
   let only_room =
-    P.room ~name:"room" ~floor ~ceiling
+    P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
       [ P.boundary ~height ~material:stone (P.corners corners) ]
   in
   let world_with extra =
@@ -622,7 +632,11 @@ let both_readers =
            E.prim
              (Prim.Camera
                 { room = "room"; pos = Vec.make 0. 0.; angle = 0.; pitch = 0. })
-             ~children:[ P.room ~name:"stowaway" ~floor ~ceiling [] ];
+             ~children:
+               [
+                 P.room ~name:"stowaway" ~floor:stage_floor
+                   ~ceiling:stage_ceiling [];
+               ];
          ]);
     agree "a wall hung under a cursor" ~misplaced:true
       (world_with
@@ -651,7 +665,7 @@ let furnishing =
   let dressed =
     P.world ~atmosphere:Atmosphere.default ~spawn
       [
-        P.room ~name:"room" ~floor ~ceiling
+        P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
           [
             P.boundary ~height ~material:stone (P.corners corners);
             P.wall ~height:2. ~material:stone
