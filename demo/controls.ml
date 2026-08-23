@@ -110,18 +110,16 @@ let nw = Vec.make (-7.) 7.
 
 let chamber =
   P.(
-    room ~name:"room"
+    room ~height ~material:Surfaces.stone
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ~outline:(corners [ sw; se; ne; nw ])
       [
-        boundary ~height ~material:Surfaces.stone (corners [ sw; se; ne; nw ]);
+        spawn (Vec.make (-4.5) 0.);
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
         sprite ~key:"barrel" ~size:0.9 ~image:Pictures.barrel
           (Vec.make 0. (-2.5));
       ])
-
-(* Not `spawn`: a local open of P puts its own in scope. *)
-let start = ("room", Vec.make (-4.5) 0.)
 
 (* Not (width, height): a local open of P puts a wall's height in scope, and a
    buffer's is a different number. *)
@@ -187,7 +185,7 @@ let reading =
       set_click
         (if Input.pressed actions primary then lamp_time else fade click dt));
   P.(
-    world ~atmosphere:Surfaces.air ~spawn:start
+    world ~atmosphere:Surfaces.air
       [
         chamber;
         (if pointing then cursor else Element.empty);
@@ -208,8 +206,7 @@ let reading =
       ])
 
 let world =
-  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn:start [ chamber ]))
-    .Scene.world
+  (Mount.build P.(world ~atmosphere:Surfaces.air [ chamber ])).Scene.world
 
 let run window =
   Run.on window ~controls:(Controls.make ~bindings ()) (reading ())

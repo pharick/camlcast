@@ -43,16 +43,15 @@ type phase = Waiting | Burning | Done
 let at ~light ~over =
   P.(
     world ~atmosphere:(air ~light)
-      ~spawn:("room", Vec.make (-5.) 0.)
       [
-        room ~name:"room"
+        room ~height ~material:Surfaces.stone
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~outline:(corners [ sw; se; ne; nw ])
           [
-            boundary ~height ~material:Surfaces.stone
-              (corners [ sw; se; ne; nw ]);
-            boundary ~height:2.6 ~material:Surfaces.brick
+            spawn (Vec.make (-5.) 0.);
+            block ~height:2.6 ~material:Surfaces.brick
               (polygon ~center:(Vec.make 4.5 3.5) ~radius:0.8 ~sides:4
                  ~rotation:0.5);
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure

@@ -48,15 +48,14 @@ let meter ~fraction ~viewport:(width, height) =
 let at ~fraction ~viewport =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:("room", Vec.make (-4.5) 0.)
       [
-        room ~name:"room"
+        room ~height ~material:Surfaces.brick
           ~floor:(floor ~plane:flat ~material:Surfaces.ground)
           ~ceiling:
             (roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+          ~outline:(corners [ sw; se; ne; nw ])
           [
-            boundary ~height ~material:Surfaces.brick
-              (corners [ sw; se; ne; nw ]);
+            spawn (Vec.make (-4.5) 0.);
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
               (Vec.make 2.5 0.);
           ];

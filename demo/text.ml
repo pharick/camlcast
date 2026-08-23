@@ -105,27 +105,24 @@ let page ~viewport:(width, height) =
 
 let chamber =
   P.(
-    room ~name:"room"
+    room ~height ~material:Surfaces.brick
       ~floor:(floor ~plane:flat ~material:Surfaces.ground)
       ~ceiling:(roof ~plane:(Plane.above flat height) ~material:Surfaces.soffit)
+      ~outline:(corners [ sw; se; ne; nw ])
       [
-        boundary ~height ~material:Surfaces.brick (corners [ sw; se; ne; nw ]);
+        spawn (Vec.make (-4.5) 0.);
         sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure (Vec.make 3. 0.);
       ])
-
-(* Not `spawn`: a local open of P puts its own in scope. *)
-let start = ("room", Vec.make (-4.5) 0.)
 
 let printed =
   Element.declare ~name:"printed" @@ fun () ->
   P.(
-    world ~atmosphere:Surfaces.air ~spawn:start
+    world ~atmosphere:Surfaces.air
       [ chamber; hud (page ~viewport:(Events.use_viewport ())) ])
 
 (* The room alone, for the catalogue and the suites: they ask only what world
    this demo is, and building that answer must not read a font off the disk. *)
 let world =
-  (Mount.build P.(world ~atmosphere:Surfaces.air ~spawn:start [ chamber ]))
-    .Scene.world
+  (Mount.build P.(world ~atmosphere:Surfaces.air [ chamber ])).Scene.world
 
 let run window = Run.on window ~controls:Bindings.escapable (printed ())
