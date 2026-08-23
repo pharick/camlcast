@@ -36,6 +36,29 @@ let ahead = Config.max_portal_depth
 
 let named index = Printf.sprintf "segment-%d" index
 
+(** The opening between segment [index] and the one after it, as a door on each
+    side.
+
+    Kept in a table because this corridor has no last segment: a door carries
+    the identity its connection is joined by, and a description rebuilt every
+    frame must hand back the same door for the same gap or the world would be
+    re-joined from scratch each time. Where a level with a fixed shape makes its
+    doors at the top level, one that grows makes them once each, on the frame
+    that first needs them, and remembers them by the same number it names its
+    segments by. *)
+let ways : (int, P.door * P.door) Hashtbl.t = Hashtbl.create 16
+
+let way index =
+  match Hashtbl.find_opt ways index with
+  | Some pair -> pair
+  | None ->
+      let pair =
+        ( P.door ~name:"on" ~width:2.2 ~clearance:3. (),
+          P.door ~name:"back" ~width:2.2 ~clearance:3. () )
+      in
+      Hashtbl.add ways index pair;
+      pair
+
 let index_of name =
   match String.index_opt name '-' with
   | Some dash ->
@@ -57,23 +80,19 @@ let segment ~index ~back ~onward =
   and ne = Vec.make depth width
   and nw = Vec.make 0. width in
   let coat = if index mod 2 = 0 then Surfaces.brick else Surfaces.stone in
-  let flat = Plane.horizontal 0. in
   P.(
-    room ~name:(named index)
-      ~floor:(floor ~plane:flat Surfaces.ground)
-      ~ceiling:(roof ~plane:(Plane.above flat height) Surfaces.soffit)
-      [
-        wall ~height ~material:coat sw se;
-        (if onward then
-           doorway ~name:"on" ~width:2.2 ~opening:3. ~height ~material:coat se
-             ne
-         else wall ~height ~material:coat se ne);
-        wall ~height ~material:coat ne nw;
-        (if back then
-           doorway ~name:"back" ~width:2.2 ~opening:3. ~height ~material:coat nw
-             sw
-         else wall ~height ~material:coat nw sw);
-      ])
+    (* A leg with no door cut into it is left whole, so a dead end needs no
+       wall written for it: the segment that has not grown a way on yet is the
+       same outline as the one that has. *)
+    room ~name:(named index) ~height ~material:coat
+      ~floor:
+        (if back then floor Surfaces.ground
+         else floor ~plane:(Plane.horizontal 0.) Surfaces.ground)
+      ~ceiling:(roof Surfaces.soffit)
+      ~outline:(corners [ sw; se; ne; nw ])
+      ((if back then [] else [ spawn (Vec.make 2. 0.) ])
+      @ (if onward then [ cut (fst (way index)) ~along:(se, ne) ] else [])
+      @ if back then [ cut (snd (way (index - 1))) ~along:(nw, sw) ] else []))
 
 (** The corridor as far as it has been built: one more segment than have been
     walked into, and a link joining each to the next.
@@ -84,11 +103,11 @@ let segment ~index ~back ~onward =
 let corridor ~built =
   P.(
     world ~atmosphere:Surfaces.air
-      ~spawn:(named 0, Vec.make 2. 0.)
       (List.init (built + 1) (fun index ->
            segment ~index ~back:(index > 0) ~onward:(index < built))
       @ List.init built (fun index ->
-          link (named index, "on") (named (index + 1), "back"))))
+          let on, back = way index in
+          connect on back)))
 
 let walking =
   Element.declare ~name:"walking" @@ fun () ->

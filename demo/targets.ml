@@ -97,53 +97,55 @@ let tint ~collected ~aimed (aim : Aim.spot option) =
   | Some _, _ -> Color.rgb 235 195 100
   | None, _ -> Color.rgb 245 245 245
 
+(* The one opening, cut into both rooms and joined at the foot of the
+   description. *)
+let east = P.door ~name:"east" ~width:2.6 ~clearance:2.8 ()
+let west = P.door ~name:"west" ~width:2.6 ~clearance:2.8 ()
+
 (* Not (width, height): a local open of P puts a wall's height in scope. *)
 let at ~collected ~aimed ~aim ~take ~look ~viewport:(_, down) =
   let unit = Int.max 3 (down / 60) in
   let color = tint ~collected ~aimed aim in
   P.(
     world ~atmosphere:air
-      ~spawn:("near", Vec.make 1. 0.)
       [
-        room ~name:"near" ~floor:ground ~ceiling:roofed
+        room ~height ~material:Surfaces.brick ~floor:ground ~ceiling:roofed
+          ~outline:
+            (corners
+               [
+                 Vec.make (-6.) (-6.);
+                 Vec.make 6. (-6.);
+                 Vec.make 6. 6.;
+                 Vec.make (-6.) 6.;
+               ])
           [
-            boundary ~closed:false ~height ~material:Surfaces.brick
-              (corners
-                 [
-                   Vec.make 6. 6.;
-                   Vec.make (-6.) 6.;
-                   Vec.make (-6.) (-6.);
-                   Vec.make 6. (-6.);
-                 ]);
-            doorway ~name:"east" ~width:2.6 ~opening:2.8 ~height
-              ~material:Surfaces.brick (Vec.make 6. (-6.)) (Vec.make 6. 6.);
+            spawn (Vec.make 1. 0.);
+            cut east ~along:(Vec.make 6. (-6.), Vec.make 6. 6.);
             sprite ~key:"figure" ~size:1.8 ~image:Pictures.figure
               (Vec.make 2. 3.5);
           ];
-        room ~name:"far" ~floor:ground ~ceiling:roofed
-          ([
-             (* One on the far room's side wall, which the doorway only ever
-                shows at an angle — the ring round this one is a trapezoid. *)
-             wall ~height ~material:Surfaces.stone (Vec.make 0. (-6.))
-               (Vec.make 9. (-6.))
-               ~decals:
-                 [
-                   decal ~along:6.5 ~z:1.7 ~half_width:1. ~half_height:1.
-                     Pictures.poster;
-                 ];
-             (* And one on the end wall, square in the doorway's view. *)
-             wall ~height ~material:Surfaces.stone (Vec.make 9. (-6.))
-               (Vec.make 9. 6.)
-               ~decals:
-                 [
-                   decal ~along:6. ~z:1.6 ~half_width:1. ~half_height:1.
-                     Pictures.painting;
-                 ];
-             wall ~height ~material:Surfaces.stone (Vec.make 9. 6.)
-               (Vec.make 0. 6.);
-             doorway ~name:"west" ~width:2.6 ~opening:2.8 ~height
-               ~material:Surfaces.stone (Vec.make 0. 6.) (Vec.make 0. (-6.));
-           ]
+        room ~height ~material:Surfaces.stone ~floor:ground ~ceiling:roofed
+          ~outline:
+            [
+              (* One on the far room's side wall, which the doorway only ever
+                 shows at an angle — the ring round this one is a trapezoid. *)
+              corner (Vec.make 0. (-6.))
+                ~decals:
+                  [
+                    decal ~along:6.5 ~z:1.7 ~half_width:1. ~half_height:1.
+                      Pictures.poster;
+                  ];
+              (* And one on the end wall, square in the doorway's view. *)
+              corner (Vec.make 9. (-6.))
+                ~decals:
+                  [
+                    decal ~along:6. ~z:1.6 ~half_width:1. ~half_height:1.
+                      Pictures.painting;
+                  ];
+              corner (Vec.make 9. 6.);
+              corner (Vec.make 0. 6.);
+            ]
+          ([ cut west ~along:(Vec.make 0. 6., Vec.make 0. (-6.)) ]
           @ List.map
               (fun (name, pos) ->
                 sprite ~key:name ~size:1.2 ~image:Pictures.barrel
@@ -152,7 +154,7 @@ let at ~collected ~aimed ~aim ~take ~look ~viewport:(_, down) =
                     if may_take ~collected name spot then take name)
                   pos)
               barrels);
-        link ("near", "east") ("far", "west");
+        connect east west;
         hud
           ((* Round the target, wherever the renderer put it. *)
            highlight ~color ()
