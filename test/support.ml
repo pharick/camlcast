@@ -373,3 +373,41 @@ let dot (a : Vec.t) (b : Vec.t) = (a.x *. b.x) +. (a.y *. b.y)
     most tests only care about the closest one. *)
 let nearest_hit world ~origin ~direction =
   Option.get (Ray.nearest (Ray.cast world ~origin ~direction))
+
+(** Whether a threshold's normal faces into the room that owns it.
+
+    That is the winding rule {!Camlcast_core.Room} states, the rule
+    {!Camlcast_core.Transform.between} derives a link from, the rule
+    {!Camlcast_core.World.passable} measures depth with and the rule
+    {!Camlcast_core.World.crossing} tests inside against — and the engine checks
+    it nowhere. World.make's refusals pass a threshold wound backwards,
+    World.check passes it, Check.assembled passes it, and over a flat floor
+    seam_gap passes it too, because Plane.through of a horizontal plane is that
+    plane under any rotation.
+
+    Asked by walking. Step off the middle of the opening along its own normal
+    and look that way: facing in, the ray crosses the room and meets the far
+    wall or a doorway cut into it; facing out, the step has already left the
+    room and the ray is going away from it, so it meets nothing. *)
+let faces_inward room (threshold : Room.threshold) =
+  let origin =
+    Vec.add
+      (Vec.scale (Vec.add threshold.Room.a threshold.Room.b) 0.5)
+      (Vec.scale threshold.Room.normal 0.5)
+  in
+  let direction = threshold.Room.normal in
+  Ray.cast room ~origin ~direction <> []
+  || Ray.openings room ~origin ~direction <> []
+
+(** Every threshold in a world that is wound against its own room, by name. *)
+let wound_wrong world =
+  List.concat_map
+    (fun i ->
+      let room = World.room world i in
+      List.filter_map
+        (fun t ->
+          let threshold = Room.threshold_at room t in
+          if faces_inward room threshold then None
+          else Some (World.name world i ^ "." ^ threshold.Room.name))
+        (List.init (Room.threshold_count room) Fun.id))
+    (List.init (World.room_count world) Fun.id)

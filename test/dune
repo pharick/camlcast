@@ -74,7 +74,8 @@
   test_key
   test_sight
   test_clock
-  test_engine)
+  test_engine
+  test_examples)
  (modules
   :standard
   \
@@ -95,7 +96,7 @@
  (package camlcast)
  (deps
   (glob_files fixtures/*))
- (libraries camlcast_core alcotest support))
+ (libraries camlcast_core camlcast example_levels alcotest support))
 
 ; The runtime's own, and a stanza to itself for the same reason loom's dune has
 ; an empty (libraries) line. A suite sitting in the engine's stanza would link

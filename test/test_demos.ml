@@ -72,27 +72,6 @@ let escaping room ~origin =
    when the module is loaded, so merely reaching this suite has already run
    every one of them. What is checked here is what make does not: that the
    result is somewhere you can stand and look. *)
-(* A threshold's normal faces into the room that owns it. That is the winding
-   rule {!Room} states, the rule {!Transform.between} derives a link from, the
-   rule {!World.passable} measures depth with, and the rule {!World.crossing}
-   tests inside against — and nothing in the engine checks it. World.make's ten
-   refusals pass a threshold wound backwards, World.check passes it, and
-   Check.assembled passes it; over a flat floor seam_gap passes it too, because
-   Plane.through of a horizontal plane is that same plane under any rotation.
-
-   Asked by walking. Step off the middle of the opening along its own normal and
-   look that way: facing in, the ray crosses the room and meets the far wall or
-   a doorway cut into it; facing out, the step has already left the room and the
-   ray is going away from it, so it meets nothing. *)
-let faces_inward room (threshold : Room.threshold) =
-  let origin =
-    Vec.add
-      (Vec.scale (Vec.add threshold.Room.a threshold.Room.b) 0.5)
-      (Vec.scale threshold.Room.normal 0.5)
-  in
-  let direction = threshold.Room.normal in
-  Ray.cast room ~origin ~direction <> []
-  || Ray.openings room ~origin ~direction <> []
 
 let thresholds_face_inward (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in

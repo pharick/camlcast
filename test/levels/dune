@@ -1,0 +1,222 @@
+; The example programs, as a library the suites can build worlds from.
+;
+; examples/ is one complete program per step of the guide, ending in the
+; `let () =` that opens a window. Nothing there changes to be tested: each
+; source is copied here with that last binding cut off, which leaves exactly
+; the definitions above it — the materials, the components and the level.
+;
+; The bug this exists for lived in examples/ for twenty-one files precisely
+; because nothing built these worlds. test_examples does now.
+
+(rule
+ (target step01_room.ml)
+ (deps %{project_root}/examples/step01_room.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step02_masonry.ml)
+ (deps %{project_root}/examples/step02_masonry.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step03_pillars.ml)
+ (deps %{project_root}/examples/step03_pillars.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step04_air.ml)
+ (deps %{project_root}/examples/step04_air.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step05_dressing.ml)
+ (deps %{project_root}/examples/step05_dressing.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step06_antechamber.ml)
+ (deps %{project_root}/examples/step06_antechamber.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step07_component.ml)
+ (deps %{project_root}/examples/step07_component.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step08_state.ml)
+ (deps %{project_root}/examples/step08_state.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step09_gaze.ml)
+ (deps %{project_root}/examples/step09_gaze.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step10_burning.ml)
+ (deps %{project_root}/examples/step10_burning.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step11_wisp.ml)
+ (deps %{project_root}/examples/step11_wisp.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step12_hud.ml)
+ (deps %{project_root}/examples/step12_hud.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step13_words.ml)
+ (deps %{project_root}/examples/step13_words.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step14_prompt.ml)
+ (deps %{project_root}/examples/step14_prompt.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step15_gate.ml)
+ (deps %{project_root}/examples/step15_gate.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step16_winch.ml)
+ (deps %{project_root}/examples/step16_winch.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step17_crossings.ml)
+ (deps %{project_root}/examples/step17_crossings.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step18_effect.ml)
+ (deps %{project_root}/examples/step18_effect.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step19_embers.ml)
+ (deps %{project_root}/examples/step19_embers.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step20_store.ml)
+ (deps %{project_root}/examples/step20_store.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step21_context.ml)
+ (deps %{project_root}/examples/step21_context.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step22_check.ml)
+ (deps %{project_root}/examples/step22_check.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step23_controls.ml)
+ (deps %{project_root}/examples/step23_controls.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step24_escape.ml)
+ (deps %{project_root}/examples/step24_escape.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step25_launcher.ml)
+ (deps %{project_root}/examples/step25_launcher.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(rule
+ (target step26_shipping.ml)
+ (deps %{project_root}/examples/step26_shipping.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
+
+(library
+ (name example_levels)
+ (modules :standard)
+ (libraries camlcast_core camlcast camlcast_loom))
