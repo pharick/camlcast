@@ -100,24 +100,24 @@ let structure =
           [ "a room inner cannot go in a room" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("outer", Vec.make 0. 0.)
                 [
                   P.room ~name:"outer" ~floor ~ceiling
-                    [ P.room ~name:"inner" ~floor ~ceiling [] ];
+                    [
+                      P.spawn (Vec.make 0. 0.);
+                      P.room ~name:"inner" ~floor ~ceiling [];
+                    ];
                 ])));
     case "a sprite where a room should be" (fun () ->
         Alcotest.check lines "not in a world"
           [ "a sprite (0,0) cannot go in a world" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("nowhere", Vec.make 0. 0.)
                 [ P.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ])));
     case "a sprite hung on a wall" (fun () ->
         Alcotest.check lines "only decals go there"
           [ "a sprite (0,0) cannot go on a wall" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("room", Vec.make 0. 0.)
                 [
                   P.room ~name:"room" ~floor ~ceiling
                     [
@@ -158,116 +158,14 @@ let naming =
                 ])));
   ]
 
-let links =
-  let two_rooms ~link_to =
-    P.world ~atmosphere:Atmosphere.default
-      (* Thresholds and not cut doors: a link finds a doorway by the name its
-         room gave it, which is what P.threshold makes. The two forms go
-         together and will go away together. *)
-      [
-        P.room ~name:"west" ~height ~material:stone ~floor ~ceiling
-          ~outline:(west_outline ())
-          [
-            P.spawn (Vec.make (-3.) 0.);
-            P.threshold ~name:"east" ~height:2.5 (Vec.make 0. (-4.))
-              (Vec.make 0. 4.);
-          ];
-        P.room ~name:"east" ~height ~material:stone ~floor ~ceiling
-          ~outline:east_outline
-          [
-            P.threshold ~name:"west" ~height:2.5 (Vec.make 0. 4.)
-              (Vec.make 0. (-4.));
-          ];
-        P.link ("west", "east") link_to;
-      ]
-  in
-  [
-    case "a link to a room that is not there" (fun () ->
-        Alcotest.check lines "named, so it can be looked for"
-          [
-            {|the doorway "west" leads nowhere|};
-            {|this link names a room called "cellar"|};
-          ]
-          (List.sort compare (summaries (two_rooms ~link_to:("cellar", "up")))));
-    case "a link to a doorway that is not there" (fun () ->
-        Alcotest.check lines "the room exists and the doorway does not"
-          [
-            {|the doorway "west" leads nowhere|};
-            {|the room "east" has no doorway called "north"|};
-          ]
-          (List.sort compare (summaries (two_rooms ~link_to:("east", "north")))));
-    case "a doorway nothing links" (fun () ->
-        Alcotest.check lines "both ends of an unmade link"
-          [
-            {|the doorway "east" leads nowhere|};
-            {|the doorway "west" leads nowhere|};
-          ]
-          (List.sort compare
-             (summaries
-                (P.world ~atmosphere:Atmosphere.default
-                   [ west_room west_way; east_room east_way ]))));
-    case "a doorway two links claim" (fun () ->
-        Alcotest.check lines "a place that cannot exist"
-          [
-            {|the doorway "east" is linked 2 times|};
-            {|the doorway "west" is linked 2 times|};
-          ]
-          (List.sort compare
-          @@ summaries
-               (P.world ~atmosphere:Atmosphere.default
-                  [
-                    west_room west_way;
-                    east_room east_way;
-                    P.connect west_way east_way;
-                    P.connect west_way east_way;
-                  ])));
-    case "two sides of one doorway that are different widths" (fun () ->
-        let wider = opening ~name:"west" ~width:3. () in
-        Alcotest.check lines "they are the same opening"
-          [ "the two sides of this link are different widths" ]
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                [
-                  west_room west_way; east_room wider; P.connect west_way wider;
-                ])));
-    case "a door on one side and none on the other" (fun () ->
-        Alcotest.check lines "one leaf hangs in one opening"
-          [ "one side of this link has a door and the other does not" ]
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                [
-                  west_room west_way ~leaf:(Door.make stone);
-                  east_room east_way;
-                  P.connect west_way east_way;
-                ])));
-  ]
+(* The link section was here. Its diagnostics — a link naming a room that is
+   not there, a room with no doorway of that name — existed because a link
+   joined two doorways by the names their rooms gave them. A connection is
+   handed the two doors, so there is no name in it to be wrong, and the cases
+   went with the form. What is left of joining a pair is whether the two sides
+   agree and whether each is joined exactly once, which "connections" below
+   asks. *)
 
-(* Cases where the checker must answer as the engine does. A checker that
-   answers a question differently from the thing it models is worse than no
-   checker: it fails worlds that run and passes worlds that do not, and either
-   way the reader stops believing it.
-
-   Every case here is a way the two can come apart. The tolerance ones are why
-   World.has_length and its three neighbours are public: measuring here with a
-   1e-9 of this file's own, against the engine's 1e-6, disagrees in the band
-   between them. The last is why Element.Render_refused exists. *)
-(* Agreeing about which descriptions are wrong is half of it. The other half
-   is saying so in the same words. The two already share the rule
-   (Prim.may_contain), the traversal (Nesting.misplaced) and the nouns
-   (Prim.describe, Prim.inside), and sharing all of that is not enough: leave
-   the sentence to each and Host says "... does not belong in a world" where
-   the checker says "a ... cannot go in a world". That is one offence under two
-   names, which a developer who meets one and then the other has no way to
-   connect. The verb is the part nobody thinks to share, which is exactly why
-   it has to be pinned.
-
-   The assertion is not the words themselves; those are pinned in "structure"
-   above, and pinning them twice would mean two places to edit. It is the
-   relation: whatever the engine puts in its exception has to contain what the
-   checker puts in its summary. Containment and not equality because Host
-   prefixes the path it was found at while the checker carries that in a field
-   of its own, the one difference between them that is about the job rather
-   than about the words. *)
 let refused_in_the_same_words name description =
   case name (fun () ->
       let said = summaries description in
@@ -295,11 +193,9 @@ let agrees_with_the_engine =
   [
     refused_in_the_same_words "a sprite where a room should be"
       (P.world ~atmosphere:Atmosphere.default
-         ~spawn:("nowhere", Vec.make 0. 0.)
          [ P.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ]);
     refused_in_the_same_words "a room inside a room"
       (P.world ~atmosphere:Atmosphere.default
-         ~spawn:("outer", Vec.make 0. 0.)
          [
            P.room ~name:"outer" ~floor ~ceiling
              [ P.room ~name:"inner" ~floor ~ceiling [] ];
@@ -314,16 +210,16 @@ let agrees_with_the_engine =
           (summaries (pair ~e:(2. +. 1e-7) ())));
     case "a width difference the engine refuses still is" (fun () ->
         Alcotest.check lines "1e-3 is outside the tolerance"
-          [ "the two sides of this link are different widths" ]
+          [ "the two sides of this opening are different widths" ]
           (summaries (pair ~e:(2. +. 1e-3) ())));
-    case "a doorway too narrow to link is named here" (fun () ->
+    case "a doorway too narrow to join is named here" (fun () ->
         (* Below World's epsilon, so the engine refuses it. Named here rather
            than left to arrive as the engine's own message under "the engine
            refused to build this world", which says where but not what. *)
         Alcotest.check lines "once for each side"
           [
-            "this doorway is too narrow to link";
-            "this doorway is too narrow to link";
+            "this doorway is too narrow to join";
+            "this doorway is too narrow to join";
           ]
           (summaries (pair ~w:5e-7 ~e:5e-7 ())));
     case "two sides disagreeing about an open door" (fun () ->
@@ -331,7 +227,8 @@ let agrees_with_the_engine =
            the engine refused it afterwards on the state. *)
         Alcotest.check lines "the state, not just the leaf"
           [
-            "the two sides of this link disagree about whether the door is open";
+            "the two sides of this opening disagree about whether the door is \
+             open";
           ]
           (summaries
              (pair
@@ -340,7 +237,7 @@ let agrees_with_the_engine =
                 ())));
     case "a door on one side and none on the other, still" (fun () ->
         Alcotest.check lines "the presence case is not lost"
-          [ "one side of this link has a door and the other does not" ]
+          [ "one side of this opening has a door and the other does not" ]
           (summaries (pair ~dw:(Door.make stone) ())));
     case "a tolerated difference hides nothing below it" (fun () ->
         (* The tiers short-circuit: a link complaint stops the checks only an
@@ -419,14 +316,25 @@ let assembled_summaries world =
 
 let the_world_it_makes =
   [
-    case "the player starts in a room that is not there" (fun () ->
-        Alcotest.check lines "named, so it can be looked for"
-          [ {|the player starts in a room called "cellar"|} ]
+    (* A spawn is a child of the room it is in, so it cannot name a room that
+       is not there and the diagnostic that said so is gone. The two ways it
+       can still be wrong are these. *)
+    case "nothing says where the player starts" (fun () ->
+        Alcotest.check lines "at the root, because no component wrote it"
+          [ "this description does not say where the player starts" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("cellar", Vec.make 0. 0.)
                 [
-                  west_room west_way;
+                  P.room ~name:"west" ~height ~material:stone ~floor ~ceiling
+                    ~outline:(west_outline ()) [];
+                ])));
+    case "and two of them saying it" (fun () ->
+        Alcotest.check lines "the second one, the way an overruled camera is"
+          [ "this description says twice where the player starts" ]
+          (summaries
+             (P.world ~atmosphere:Atmosphere.default
+                [
+                  west_room west_way ~holding:[ P.spawn (Vec.make (-2.) 0.) ];
                   east_room east_way;
                   P.connect west_way east_way;
                 ])));
@@ -554,10 +462,10 @@ let the_world_it_makes =
         let said = details (Check.assembled (with_a_gap ())) in
         Alcotest.(check bool)
           "it names the form that cannot leave one" true
-          (said_anywhere said "P.doorway");
+          (said_anywhere said "outline");
         Alcotest.(check bool)
           "and the form that can" true
-          (said_anywhere said "P.threshold");
+          (said_anywhere said "Room.threshold");
         Alcotest.(check bool)
           "and does not define a doorway as an opening" false
           (said_anywhere said "A doorway is an opening"));
@@ -687,7 +595,6 @@ let () =
       ("nothing to report", nothing_to_report);
       ("structure", structure);
       ("naming", naming);
-      ("links", links);
       ("agrees with the engine", agrees_with_the_engine);
       ("the world it makes", the_world_it_makes);
       ("the other check", the_other_check);

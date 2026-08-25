@@ -711,68 +711,6 @@ let passes_the_checker (demo : Catalogue.t) =
   | [] -> ()
   | found -> Alcotest.failf "%s" (Check.format found)
 
-(* The shape the examples used to write: a vault whose east wall opens onto a
-   corridor, the corridor's doorway cut from c_sw to c_nw — clockwise about a
-   corridor lying east of it, and the mirror of what demo/slopes.ml writes for
-   the same shape. All twenty-one of them had it. World.make accepts it,
-   World.check accepts it, Check.assembled accepts it, and over these flat
-   floors seam_gap accepts it too, so this is here to show that the check above
-   does not.
-
-   It asserts a bug, and is meant to: a check that cannot fail on the thing it
-   was written for proves nothing. The examples no longer say this, and cannot;
-   it is written out here in the old forms until those go with it. *)
-let the_old_shape_could_wind_a_doorway_backwards () =
-  let height = 4. in
-  let flat = Plane.horizontal 0. in
-  let sw = Vec.make (-6.) (-6.)
-  and se = Vec.make 6. (-6.)
-  and ne = Vec.make 6. 6.
-  and nw = Vec.make (-6.) 6. in
-  let c_sw = Vec.make 0. (-2.)
-  and c_se = Vec.make 8. (-2.)
-  and c_ne = Vec.make 8. 2.
-  and c_nw = Vec.make 0. 2. in
-  (* Not `floor` and `ceiling`: the local open of P below puts its own
-     constructors of those names in scope. *)
-  let ground = P.floor ~plane:flat pale in
-  let soffit = P.roof ~plane:(Plane.above flat height) pale in
-  let level =
-    P.(
-      world ~atmosphere:Atmosphere.default
-        ~spawn:("vault", Vec.make (-4.5) 0.)
-        [
-          room ~name:"vault" ~floor:ground ~ceiling:soffit
-            [
-              boundary ~closed:false ~height ~material:pale
-                (corners [ ne; nw; sw; se ]);
-              doorway ~name:"east" ~width:2. ~opening:2.6 ~height ~material:pale
-                se ne;
-            ];
-          room ~name:"corridor" ~floor:ground ~ceiling:soffit
-            [
-              boundary ~closed:false ~height ~material:pale
-                (corners [ c_nw; c_ne; c_se; c_sw ]);
-              doorway ~name:"west" ~width:2. ~opening:2.6 ~height ~material:pale
-                c_sw c_nw;
-            ];
-          link ("vault", "east") ("corridor", "west");
-        ])
-  in
-  let world = (Mount.build level).Scene.world in
-  let doorway_of name =
-    let i = Option.get (World.named world name) in
-    let room = World.room world i in
-    (room, Room.threshold_at room 0)
-  in
-  let vault, east = doorway_of "vault" in
-  let corridor, west = doorway_of "corridor" in
-  Alcotest.(check bool)
-    "the vault's own doorway is wound with it" true (faces_inward vault east);
-  Alcotest.(check bool)
-    "the corridor's is not, and nothing else in the engine says so" false
-    (faces_inward corridor west)
-
 (* The same two rooms, in the shape that replaces theirs. The corridor's outline
    is written in the order step06 writes it — the order whose shoelace sum is
    negative — and its door is named by the very pair step06 cuts backwards. Cut
@@ -896,8 +834,6 @@ let () =
             the_chalk_demo_has_one_glowing_symbol_and_one_not;
           case "the controls demo binds a second set of walking keys"
             the_controls_demo_binds_a_second_set_of_walking_keys;
-          case "the shape the examples used to write wound one backwards"
-            the_old_shape_could_wind_a_doorway_backwards;
           case "a door cut from an outline is wound with its room"
             a_door_cut_from_an_outline_is_wound_with_its_room;
           case "every demo's first frame, written out" frames_are_unchanged;

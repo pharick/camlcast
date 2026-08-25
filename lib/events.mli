@@ -33,12 +33,11 @@ type crossing = {
     is rebuilt every frame, and an index is whatever assembling one happened to
     produce.
 
-    [from_doorway] and [to_doorway] carry the {e opening}'s name, whichever form
-    made it: {!P.doorway} and {!P.threshold} both take one and both put it on
-    the same place. The core calls that field a threshold; this module calls it
-    a doorway, the ordinary word for it everywhere a game can see. The two terms
-    are only distinct where those two constructors are, and
-    {!Camlcast_core.Room} states the distinction. *)
+    [from_doorway] and [to_doorway] carry the {e opening}'s name — the one
+    {!P.door} was given, which {!P.cut} puts on the gap it cuts. The core calls
+    that field a threshold; this module calls it a doorway, the ordinary word
+    for it everywhere a game can see. The two terms are only distinct down in
+    {!Camlcast_core.Room}, which states the distinction. *)
 
 type t = {
   dt : float;  (** how long the last frame lasted, in seconds *)

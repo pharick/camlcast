@@ -47,17 +47,19 @@ type camera = { pos : Vec.t; angle : float; pitch : float }
     while it does. *)
 
 type t =
-  | World of { atmosphere : Atmosphere.t; spawn : (string * Vec.t) option }
-      (** the root: the air every room is seen through, and where the player
-          starts. Exactly one of these per description. *)
+  | World of { atmosphere : Atmosphere.t }
+      (** the root: the air every room is seen through. Exactly one of these per
+          description; where the player starts is a {!constructor-Spawn} in the
+          room they start in. *)
   | Room of {
       name : string option;
       floor : surface;
       ceiling : ceiling;
       height : float option;
     }
-      (** a room in its own coordinate frame, named so that {!Link} can find it
-      *)
+      (** a room in its own coordinate frame; the name is for diagnostics to
+          point at, and rooms are joined through the doors cut into them rather
+          than by it *)
   | Wall of {
       a : Vec.t;
       b : Vec.t;
@@ -66,9 +68,6 @@ type t =
       reacts : reacts;
     }  (** one segment of a boundary. Its children are the {!Decal}s on it. *)
   | Decal of Room.decal  (** a picture hung on the wall that contains it *)
-  | Threshold of Room.threshold * reacts
-      (** a doorway cut into a room's boundary, named so that {!Link} can join
-          it to another *)
   | Sprite of Room.sprite * reacts
       (** a billboard standing in the room that holds it *)
   | Camera of camera
@@ -117,9 +116,6 @@ type t =
   | Spawn of Vec.t
       (** where the player starts, in the coordinates of the room that holds it
       *)
-  | Link of { here : string * string; there : string * string }
-      (** two thresholds, each named by its room and its own name, that are the
-          same doorway seen from either side *)
 
 val point : Vec.t -> string
 (** A point, as a diagnostic spells one: ["(1,-2)"]. Shared so that two

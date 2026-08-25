@@ -10,10 +10,7 @@ type ceiling = Prim.ceiling
 let floor ?plane material = { Prim.plane; material }
 let roof ?plane ?headroom material = Prim.Roof { plane; headroom; material }
 let open_sky sky = Prim.Sky sky
-
-let world ?spawn ~atmosphere children =
-  E.prim ~children (Prim.World { atmosphere; spawn })
-
+let world ~atmosphere children = E.prim ~children (Prim.World { atmosphere })
 let spawn at = E.prim (Prim.Spawn at)
 let reacts ?on_gaze ?on_use () = { Prim.on_gaze; on_use }
 
@@ -56,17 +53,6 @@ let crosshair ?(color = Color.rgb 255 255 255) () =
 
 let cursor = E.prim Prim.Cursor
 let finish = E.prim Prim.Finish
-let link here there = E.prim (Prim.Link { here; there })
-
-(* Room.wall is private, so a wall the engine built can be read back out and
-   handed to the same Wall primitive a game writes by hand. No second kind of
-   wall is needed for the two.
-
-   It does not carry decals over. Its one caller is {!doorway}, whose jambs
-   come from {!Room.doorway} and never have any. Any wall that did have decals
-   would lose them here silently, so if a second caller ever appears this needs
-   the [?decals] it does not currently pass. *)
-let of_wall (w : Room.wall) = wall ~height:w.height ~material:w.material w.a w.b
 
 (* The same arithmetic Room.doorway does to place its opening. Written once
    there and called here rather than restated, so the two cannot disagree about
@@ -100,12 +86,6 @@ let opening ~width a b =
 let through ~from:(a1, a2) ~into:(b1, b2) plane =
   Plane.through (Transform.between ~a1 ~a2 ~b1 ~b2) plane
 
-let threshold ?key ?door ?lintel ?on_gaze ?on_use ~name ~height a b =
-  E.prim ?key
-    (Prim.Threshold
-       ( Room.threshold ~name ~height ?door ?lintel a b,
-         reacts ?on_gaze ?on_use () ))
-
 (* Twice the signed area, by the shoelace sum. Positive is the winding
    Room.rectangle produces. Room.rectangle is the one boundary the engine
    documents as impossible to get wrong, so it is the definition to measure
@@ -134,24 +114,20 @@ type leg = {
 
 type corner = { at : Vec.t; leg : leg }
 
-let bare l =
-  Option.is_none l.key && Option.is_none l.on_gaze && Option.is_none l.on_use
-  && Option.is_none l.material && Option.is_none l.height
-  && match l.decals with [] -> true | _ -> false
-
 let corner ?key ?on_gaze ?on_use ?(decals = []) ?material ?height at =
   { at; leg = { key; on_gaze; on_use; decals; material; height } }
 
-(* The segments a run describes, in the order they were written, each carrying
-   the leg of the corner it leaves. Built here rather than read back off
-   {!Room.path} because winding may reverse the run, and a leg has to stay with
-   its own wall through that — see {!boundary}. *)
-let legs ~closed corners =
+(* The segments an outline describes, in the order they were written, each
+   carrying the leg of the corner it leaves — including the one back to the
+   first corner, because an outline is closed. Built here rather than read back
+   off {!Room.path} because winding may reverse the run, and a leg has to stay
+   with its own wall through that — see {!laid_outline}. *)
+let legs corners =
   let rec go = function
     | { at = a; leg } :: ({ at = b; _ } :: _ as rest) -> (a, b, leg) :: go rest
-    | [ { at = last; leg } ] when closed -> (
+    | [ { at = last; leg } ] -> (
         match corners with [] -> [] | first :: _ -> [ (last, first.at, leg) ])
-    | _ -> []
+    | [] -> []
   in
   go corners
 
@@ -160,58 +136,18 @@ let corners = List.map corner
 let polygon ~center ~radius ~sides ~rotation =
   corners (Room.polygon_corners ~center ~radius ~sides ~rotation)
 
-let boundary ?key ?(closed = true) ~height ~material corners =
-  let points = List.map (fun c -> c.at) corners in
-  (* Validated by {!Room.path}, so a run of two identical corners, or a closed
-     one of two, gets the established message, under a name a caller wrote. The
-     walls the call builds are discarded: they carry one material and one
-     height, and avoiding that limit is the point of this function. The cost is
-     a handful of vectors normalised per run per frame, which is what that call
-     pays anyway for the walls it hands back. *)
-  ignore (Room.path ~closed ~height ~material points : Room.wall list);
-  (match List.rev corners with
-  | last :: _ when (not closed) && not (bare last.leg) ->
-      invalid_arg
-        "P.boundary: the last corner of an open run leaves no wall, so it can \
-         carry nothing"
-  | _ -> ());
-  let written = legs ~closed corners in
-  (* One reversal, with each wall flipped, so a leg stays on the wall its
-     corner named however the run came out wound. Reversing the corners and
-     letting the legs travel with them is the same thing off by one: a leg
-     describes the wall it {e leaves}, and after a reversal that is the wall it
-     arrives by. *)
-  let laid =
-    if twice_signed_area points >= 0. then written
-    else
-      (* Each wall flipped, and the traversal reversed, except that a closed
-         run's last wall is the one that closes the loop at either winding, so
-         it stays last. Reversing the whole list instead leaves the same walls
-         rotated by one, which builds the same room and puts every leg on its
-         neighbour. *)
-      let flipped = List.map (fun (a, b, leg) -> (b, a, leg)) written in
-      match List.rev flipped with
-      | closing :: rest when closed -> rest @ [ closing ]
-      | reversed -> reversed
-  in
-  E.fragment ?key
-    (List.map
-       (fun (a, b, leg) ->
-         wall ?key:leg.key ?on_gaze:leg.on_gaze ?on_use:leg.on_use
-           ~decals:leg.decals
-           ~height:(Option.value leg.height ~default:height)
-           ~material:(Option.value leg.material ~default:material)
-           a b)
-       laid)
+(* The legs of a closed outline, wound so the room is on the inside.
 
-(* The legs of a closed outline, wound so the room is on the inside. The same
-   correction {!boundary} makes, with the open case gone: an outline is closed,
-   so every corner describes a wall and none of them can be the one that carries
-   nothing. *)
+   Validated by {!Room.path}, so a run of two identical corners, or one of two
+   corners at all, gets the established message under a name a caller wrote. The
+   walls that call builds are discarded: they carry one material and one height,
+   and avoiding that limit is the point of an outline. The cost is a handful of
+   vectors normalised per room per frame, which is what the call pays anyway for
+   the walls it hands back. *)
 let laid_outline ~height ~material corners =
   let points = List.map (fun c -> c.at) corners in
   ignore (Room.path ~closed:true ~height ~material points : Room.wall list);
-  let written = legs ~closed:true corners in
+  let written = legs corners in
   if twice_signed_area points >= 0. then written
   else
     let flipped = List.map (fun (a, b, leg) -> (b, a, leg)) written in
@@ -284,16 +220,3 @@ let cut ?key ?leaf ?lintel ?on_gaze ?on_use d ~along =
        })
 
 let connect a b = E.prim (Prim.Connect (a.id, b.id))
-
-let doorway ?key ?door ?on_gaze ?on_use ~name ~width ~opening ~height ~material
-    a b =
-  let jambs, threshold =
-    Room.doorway ?door ~name ~width ~opening ~height ~material a b
-  in
-  (* The handlers go on the opening and not on the jambs either side of it,
-     because what a player aims at to operate a door is the door. The key goes
-     on the fragment over the pair of them, because a game rearranges the
-     doorway as a whole and no single primitive here is the doorway. *)
-  E.fragment ?key
-    (List.map of_wall jambs
-    @ [ E.prim (Prim.Threshold (threshold, reacts ?on_gaze ?on_use ())) ])

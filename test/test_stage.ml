@@ -152,10 +152,13 @@ let corners =
   [ Vec.make (-6.) (-6.); Vec.make 6. (-6.); Vec.make 6. 6.; Vec.make (-6.) 6. ]
 
 let described =
-  P.world ~atmosphere:Atmosphere.default ~spawn
+  P.world ~atmosphere:Atmosphere.default
     [
       P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
-        [ P.block ~height ~material:stone (P.corners corners) ];
+        [
+          P.spawn (snd spawn);
+          P.block ~height ~material:stone (P.corners corners);
+        ];
     ]
 
 let the_smallest_game =
@@ -172,20 +175,17 @@ let the_smallest_game =
 
    The trap this step exists to close. *)
 
-(* {!P.boundary} with nothing specified at any leg has to equal the two helpers
-   it generalizes, or it is a third way of building a boundary rather than one
-   way with more options. *)
-(* {!P.boundary} is now the only way to lay a run of wall in a description, so
-   the pin is that its two axes still mean what the two functions it replaced
-   meant: [closed] shuts the loop, and {!P.polygon} hands it the corners
-   {!Room.regular_polygon} would have used. *)
+(* A run of corners is the only way to lay wall in a description, so the pin is
+   that the shorthands built on it still mean what the functions they replaced
+   meant: {!P.polygon} hands over the corners {!Room.regular_polygon} would have
+   used. *)
 let runs =
   let described children =
     (Mount.build
-       (P.world ~atmosphere:Atmosphere.default ~spawn
+       (P.world ~atmosphere:Atmosphere.default
           [
             P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
-              children;
+              (P.spawn (snd spawn) :: children);
           ]))
       .Scene.world
   in
@@ -196,8 +196,8 @@ let runs =
   [
     (* Two cases went from here with the flag they tested: that ~closed shuts
        the loop and leaves it open, and that the last corner of an open run can
-       carry nothing. An outline is closed, so every corner describes a wall
-       and none of them is the one that describes none. *)
+       carry nothing. A run of corners is closed, so every corner describes a
+       wall and none of them is the one that describes none. *)
     case "a polygon boundary is Room.regular_polygon" (fun () ->
         (* The corners were split out of that function so a pillar could carry
            per-leg handlers; the split must not have moved a corner. *)
@@ -232,16 +232,20 @@ let winding =
   [
     case "corners in either order build the same room" (fun () ->
         let forwards =
-          P.world ~atmosphere:Atmosphere.default ~spawn
-            [
-              P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
-                [ P.block ~height ~material:stone (P.corners corners) ];
-            ]
-        and backwards =
-          P.world ~atmosphere:Atmosphere.default ~spawn
+          P.world ~atmosphere:Atmosphere.default
             [
               P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
                 [
+                  P.spawn (snd spawn);
+                  P.block ~height ~material:stone (P.corners corners);
+                ];
+            ]
+        and backwards =
+          P.world ~atmosphere:Atmosphere.default
+            [
+              P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
+                [
+                  P.spawn (snd spawn);
                   P.block ~height ~material:stone (P.corners (List.rev corners));
                 ];
             ]
@@ -254,18 +258,19 @@ let winding =
            it. *)
         same_world built
           (Mount.build
-             (P.world ~atmosphere:Atmosphere.default ~spawn
+             (P.world ~atmosphere:Atmosphere.default
                 [
                   P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
                     [
+                      P.spawn (snd spawn);
                       P.block ~height ~material:stone
                         (P.corners (List.rev corners));
                     ];
                 ]))
             .Scene.world);
-    (* {!P.boundary} is the winding above with the whole of {!P.wall} at every
-       leg, so the question is whether a leg stays on the wall its corner named
-       when the run comes out wound the other way. Written in both orders,
+    (* A run of corners carries the whole of {!P.wall} at every leg, so the
+       question is whether a leg stays on the wall its corner named when the
+       run comes out wound the other way. Written in both orders,
        every wall must end up with the same material on it.
 
        This is the case the implementation warns about: a leg describes the
@@ -288,10 +293,13 @@ let winding =
         in
         let describe cs =
           (Mount.build
-             (P.world ~atmosphere:Atmosphere.default ~spawn
+             (P.world ~atmosphere:Atmosphere.default
                 [
                   P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
-                    [ P.block ~height ~material:stone (legs cs) ];
+                    [
+                      P.spawn (snd spawn);
+                      P.block ~height ~material:stone (legs cs);
+                    ];
                 ]))
             .Scene.world
         in
@@ -320,11 +328,12 @@ let winding =
         let room =
           World.room
             (Mount.build
-               (P.world ~atmosphere:Atmosphere.default ~spawn
+               (P.world ~atmosphere:Atmosphere.default
                   [
                     P.room ~name:"room" ~floor:stage_floor
                       ~ceiling:stage_ceiling
                       [
+                        P.spawn (snd spawn);
                         P.block ~height ~material:stone
                           (P.corners (List.rev corners));
                       ];
@@ -392,8 +401,8 @@ let exactly =
     (fun (a : Vec.t) (b : Vec.t) -> a.Vec.x = b.Vec.x && a.Vec.y = b.Vec.y)
 
 let doorways =
-  (* P.opening does the same arithmetic P.doorway does, so it has to refuse
-     what a cut refuses. Unrefused, each of these is a pair of nans that
+  (* P.opening does the same arithmetic a cut does, so it has to refuse what a
+     cut refuses. Unrefused, each of these is a pair of nans that
      surfaces much later as a transform that will not invert, far from the two
      points that were wrong. *)
   let refuses name ~width ~refused a b =
@@ -503,7 +512,7 @@ let malformed =
     fails "a wall loose at the top level"
       (P.wall ~height ~material:stone (Vec.make 0. 0.) (Vec.make 1. 0.));
     fails "a room inside a room"
-      (P.world ~atmosphere:Atmosphere.default ~spawn
+      (P.world ~atmosphere:Atmosphere.default
          [
            P.room ~name:"outer" ~floor:stage_floor ~ceiling:stage_ceiling
              [
@@ -511,7 +520,7 @@ let malformed =
              ];
          ]);
     fails "a sprite where a room should be"
-      (P.world ~atmosphere:Atmosphere.default ~spawn
+      (P.world ~atmosphere:Atmosphere.default
          [ P.sprite ~size:1. ~image:poster (Vec.make 0. 0.) ]);
   ]
 
@@ -533,11 +542,13 @@ let both_readers =
   let module E = Camlcast_loom.Element in
   let only_room =
     P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
-      [ P.block ~height ~material:stone (P.corners corners) ]
+      [
+        P.spawn (snd spawn); P.block ~height ~material:stone (P.corners corners);
+      ]
   in
   let world_with extra =
     E.prim
-      (Prim.World { atmosphere = Atmosphere.default; spawn = Some spawn })
+      (Prim.World { atmosphere = Atmosphere.default })
       ~children:(only_room :: extra)
   in
   let bar =
@@ -616,10 +627,11 @@ let both_readers =
 
 let furnishing =
   let dressed =
-    P.world ~atmosphere:Atmosphere.default ~spawn
+    P.world ~atmosphere:Atmosphere.default
       [
         P.room ~name:"room" ~floor:stage_floor ~ceiling:stage_ceiling
           [
+            P.spawn (snd spawn);
             P.block ~height ~material:stone (P.corners corners);
             P.wall ~height:2. ~material:stone
               ~decals:

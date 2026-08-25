@@ -10,7 +10,7 @@
     screen through the world with {!Camlcast_core.Sight}. It is the same ray the
     renderer draws with, so what can be picked is exactly what can be seen.
     Whatever the ray lands on is notified, if it registered for that. {!P.wall},
-    {!P.sprite} and {!P.doorway} are the three constructors that can register.
+    {!P.sprite} and {!P.cut} are the three constructors that can register.
 
     {1 The camera}
 

@@ -40,26 +40,25 @@
     {b A {!type-threshold} is the opening by itself}: a segment across a gap in
     a boundary, carrying a name, and the thing a {!World} link joins.
     {b A doorway is that opening together with the jambs either side of it.}
-    That is why {!val-doorway} hands back a [wall list] as well as a threshold,
-    and why the {!Camlcast.P.doorway} built on it is three pieces rather than
-    one. {!Camlcast.P.threshold} is the opening on its own, for a description
-    drawing its own jambs.
+    That is why {!val-doorway} hands back a [wall list] as well as a threshold.
+    A description never builds either directly: {!Camlcast.P.cut} takes a leg of
+    a room's outline and hands back the doorway, jambs and all.
 
     The difference has one consequence, and that consequence is the reason to
     keep the words apart:
     {b a doorway cannot have an end that meets no wall, and a bare threshold
        can}. The jambs are cut with the gap, so there is nothing to forget.
     {!Camlcast.Check} reports that mistake as a corner meeting no wall, and only
-    a threshold can make it.
+    a threshold can make it — which is to say only a world grown against this
+    module, since a description has no way to lay one.
 
     {b Everywhere else, "doorway" is the ordinary word for an opening.} The
     whole game-facing layer uses that register, deliberately:
     {!World.doorway_count} counts thresholds, {!Camlcast.Events.crossing} names
     two of them [from_doorway] and [to_doorway], and every message a game
     developer reads calls one a doorway. Nothing above this module says
-    "threshold" if it can avoid it. Read the strict sense only where the two
-    constructors are — here and in {!Camlcast.P} — and the loose one everywhere
-    else. *)
+    "threshold" if it can avoid it. Read the strict sense only here, where the
+    two constructors are, and the loose one everywhere else. *)
 
 (** {1 Surfaces} *)
 

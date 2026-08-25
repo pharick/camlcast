@@ -77,10 +77,12 @@ let doorway_ends_meet_a_wall ~locate world room =
                          a wall. One that is not leaves a hole beside the \
                          opening, and the room shows its floor and sky to the \
                          horizon through it.";
-                        "P.doorway cuts the gap and its jambs together and \
-                         cannot leave one of these. P.threshold makes the \
-                         opening alone and leaves the walls either side to the \
-                         description, which is where this is usually lost.";
+                        "A door cut into a room's outline cannot leave one: \
+                         its jambs are legs of that outline, so its ends are \
+                         wall ends. Only a threshold built against the \
+                         platform directly — Room.threshold with the walls \
+                         either side left to the caller — can, which is what a \
+                         world grown by add_room and open_doorway does.";
                       ]))
            [ threshold.Room.a; threshold.Room.b ]))
 
@@ -186,16 +188,15 @@ let path_of (node : Prim.t Loom.Host.node) =
 type described_room = {
   room_path : string;
   room_name : string;
-  thresholds : (string * Room.threshold * string) list;
   doors : (int * Room.threshold * string) list;
+      (** the doors this room cuts, by the identity a {!Camlcast.P.connect}
+          joins them by. Worked out by {!Host.openings}, which is the same
+          computation assembly uses, so the two cannot answer differently. *)
   measurable : bool;
       (** false when {!Host.openings} refused this room's doors — a door taller
           than the room or wider than the leg it names. Assembly reports that in
           its own words, and until it does there is nothing trustworthy to say
           about what the two sides of a connection agree on. *)
-      (** the doors this room cuts, by the identity a {!Camlcast.P.connect}
-          joins them by. Worked out by {!Host.openings}, which is the same
-          computation assembly uses, so the two cannot answer differently. *)
 }
 
 (* The nesting rule is Prim's, so this and Host cannot drift about what may go
@@ -221,31 +222,19 @@ let walk ~parent (node : Prim.t Loom.Host.node) =
     (Nesting.misplaced ~parent node)
 
 let structure forest =
-  let rooms = ref [] and links = ref [] and spawn = ref None in
+  let rooms = ref [] and spawns = ref [] in
   let connections = ref [] and cameras = ref [] in
   (* {!Host.openings} refuses a door too tall for its room or wider than the leg
      it names. Those are assembly's to report, in assembly's words; here the door
      simply does not appear, and the tier below has nothing to say about it. *)
   let doors_of (node : Prim.t Loom.Host.node) =
     match Host.openings node with
-    | found ->
-        ( List.map (fun (id, t, at) -> (id, t, path_of at)) found,
-          true )
+    | found -> (List.map (fun (id, t, at) -> (id, t, path_of at)) found, true)
     | exception Host.Malformed _ -> ([], false)
-  in
-  let thresholds_of (node : Prim.t Loom.Host.node) =
-    List.filter_map
-      (fun (child : Prim.t Loom.Host.node) ->
-        match child.Loom.Host.prim with
-        | Prim.Threshold (threshold, _) ->
-            Some (threshold.Room.name, threshold, path_of child)
-        | _ -> None)
-      node.Loom.Host.children
   in
   let problems =
     match forest with
-    | [ ({ Loom.Host.prim = Prim.World { spawn = where; _ }; _ } as root) ] ->
-        spawn := where;
+    | [ ({ Loom.Host.prim = Prim.World _; _ } as root) ] ->
         List.iter
           (fun (child : Prim.t Loom.Host.node) ->
             match child.Loom.Host.prim with
@@ -261,27 +250,26 @@ let structure forest =
                   | Some name -> name
                   | None -> Loom.Path.to_debug_string child.Loom.Host.path
                 in
-                (* Every camera, in the order written. A camera is a child of
-                   the room it looks from, so there is no room name here to
-                   doubt any more; what is left to report is that Host takes the
-                   last of them and drops the rest in silence. *)
+                (* Every camera and every spawn, in the order written. Both are
+                   children of the room they belong to, so neither names a room
+                   that could be wrong; what is left to report is how many there
+                   are. Host takes the last camera and drops the rest in
+                   silence, and wants exactly one spawn. *)
                 List.iter
                   (fun (g : Prim.t Loom.Host.node) ->
                     match g.Loom.Host.prim with
                     | Prim.Camera _ -> cameras := path_of g :: !cameras
+                    | Prim.Spawn _ -> spawns := path_of g :: !spawns
                     | _ -> ())
                   child.Loom.Host.children;
                 rooms :=
                   {
                     room_path = path_of child;
                     room_name = name;
-                    thresholds = thresholds_of child;
                     doors = fst (doors_of child);
                     measurable = snd (doors_of child);
                   }
                   :: !rooms
-            | Prim.Link { here; there } ->
-                links := (here, there, path_of child) :: !links
             | Prim.Connect (a, b) ->
                 connections := (a, b, path_of child) :: !connections
             | _ -> ())
@@ -312,9 +300,8 @@ let structure forest =
   in
   ( problems,
     List.rev !rooms,
-    List.rev !links,
     List.rev !connections,
-    !spawn,
+    List.rev !spawns,
     List.rev !cameras )
 
 (* Complain about the second and any later use of a name, never the first. The
@@ -343,19 +330,40 @@ let naming rooms =
     (List.map (fun room -> (room.room_name, room.room_path)) rooms)
   @ List.concat_map
       (fun room ->
-        (* Doors as well as thresholds: {!World.make} refuses two doorways of
-           one name in one room whichever form made them, because a name is
-           still how it tells them apart in its own complaints. *)
+        (* {!World.make} refuses two doorways of one name in one room, because a
+           name is how it tells them apart in its own complaints — even though
+           nothing in a description joins them by one. *)
         duplicates ~what:"doorway"
-          (List.map (fun (name, _, at) -> (name, at)) room.thresholds
-          @ List.map
-              (fun (_, (t : Room.threshold), at) -> (t.Room.name, at))
-              room.doors))
+          (List.map
+             (fun (_, (t : Room.threshold), at) -> (t.Room.name, at))
+             room.doors))
       rooms
 
-(* A name that matches no room is the same mistake whether a link, a spawn, or
-   a camera makes it, so the same sentence goes under all three. *)
-let no_such_room = "There is no room by that name in this world."
+(* Where the player starts. A spawn is a child of the room it is in, so it
+   cannot name a room that is not there — what it can be is missing, or said
+   twice, and {!Host} refuses both. Said here in the same words, so the
+   component that wrote it can be named. *)
+let starting spawns =
+  match spawns with
+  | [ _ ] -> []
+  | [] ->
+      [
+        error "(root)" "this description does not say where the player starts"
+          ~detail:
+            [
+              "Put a spawn in the room they start in. There is no world-wide \
+               compass, so a spawn outside a room would have nothing to be in.";
+            ];
+      ]
+  | _ :: rest ->
+      (* The complaint goes on the ones after the first, the way it goes on an
+         overruled camera: the first is not itself wrong. *)
+      List.map
+        (fun at ->
+          error at "this description says twice where the player starts"
+            ~detail:
+              [ "A world has one player, who begins in one room at one point." ])
+        rest
 
 (* Split the cameras into the one {!Host} takes and the ones it drops. Host
    keeps the camera it saw last, overwriting as it goes, so the final one
@@ -394,14 +402,14 @@ let overruled_cameras cameras =
    door state. That checker failed worlds the engine builds and passed worlds it
    refuses.
 
-   Shared by the two things that can join a pair: a {!Camlcast.P.link}, which
-   names them, and a {!Camlcast.P.connect}, which is handed them. *)
+   Asked of a {!Camlcast.P.connect}, which is handed the two doors rather than
+   naming them. *)
 let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
   List.iter
     (fun (side, (t : Room.threshold)) ->
       if not (World.has_length t) then
         complain
-          (error at "this doorway is too narrow to link"
+          (error at "this doorway is too narrow to join"
              ~detail:
                [
                  Printf.sprintf "%s is %g wide." side t.Room.length;
@@ -412,7 +420,7 @@ let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
     [ (here_name, one); (there_name, other) ];
   if not (World.lengths_agree one other) then
     complain
-      (error at "the two sides of this link are different widths"
+      (error at "the two sides of this opening are different widths"
          ~detail:
            [
              Printf.sprintf "%s is %g wide and %s is %g." here_name
@@ -422,7 +430,7 @@ let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
            ]);
   if not (World.heights_agree one other) then
     complain
-      (error at "the two sides of this link are different heights"
+      (error at "the two sides of this opening are different heights"
          ~detail:
            [
              Printf.sprintf "%s is %g tall and %s is %g." here_name
@@ -439,7 +447,8 @@ let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
       (match (one.Room.door, other.Room.door) with
       | Some _, Some _ ->
           error at
-            "the two sides of this link disagree about whether the door is open"
+            "the two sides of this opening disagree about whether the door is \
+             open"
             ~detail:
               [
                 Printf.sprintf "%s has %s and %s has %s." here_name
@@ -451,7 +460,7 @@ let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
                  once; two descriptions written apart do not.";
               ]
       | _ ->
-          error at "one side of this link has a door and the other does not"
+          error at "one side of this opening has a door and the other does not"
             ~detail:
               [
                 Printf.sprintf "%s has %s and %s has %s." here_name
@@ -547,134 +556,18 @@ and connecting_measurable rooms connections =
     claimed;
   List.rev !problems
 
-let linking rooms links =
-  let problems = ref [] in
-  let complain d = problems := d :: !problems in
-  let find name = List.find_opt (fun room -> room.room_name = name) rooms in
-  (* Every threshold, and how many links claimed it. *)
-  let claimed = Hashtbl.create 16 in
-  List.iter
-    (fun room ->
-      List.iter
-        (fun (name, _, at) ->
-          Hashtbl.replace claimed (room.room_name, name) (0, at))
-        room.thresholds)
-    rooms;
-  let side at (room_name, threshold_name) =
-    match find room_name with
-    | None ->
-        complain
-          (error at
-             (Printf.sprintf "this link names a room called %S" room_name)
-             ~detail:[ no_such_room ]);
-        false
-    | Some room -> (
-        match
-          List.find_opt
-            (fun (name, _, _) -> name = threshold_name)
-            room.thresholds
-        with
-        | None ->
-            complain
-              (error at
-                 (Printf.sprintf "the room %S has no doorway called %S"
-                    room_name threshold_name)
-                 ~detail:
-                   [
-                     "A link joins two doorways by the names their rooms gave \
-                      them.";
-                   ]);
-            false
-        | Some _ ->
-            let count, first =
-              Hashtbl.find claimed (room_name, threshold_name)
-            in
-            Hashtbl.replace claimed
-              (room_name, threshold_name)
-              (count + 1, first);
-            true)
-  in
-  List.iter
-    (fun (here, there, at) ->
-      let ok_here = side at here and ok_there = side at there in
-      if ok_here && ok_there then begin
-        let threshold (room_name, threshold_name) =
-          let room = Option.get (find room_name) in
-          let _, threshold, _ =
-            List.find
-              (fun (name, _, _) -> name = threshold_name)
-              room.thresholds
-          in
-          threshold
-        in
-        let one = threshold here and other = threshold there in
-        let name (room_name, threshold_name) =
-          room_name ^ "." ^ threshold_name
-        in
-        agreement ~at ~complain ~here:(name here, one) ~there:(name there, other)
-      end)
-    links;
-  Hashtbl.iter
-    (fun (room_name, threshold_name) (count, at) ->
-      if count = 0 then
-        complain
-          (warning at
-             (Printf.sprintf "the doorway %S leads nowhere" threshold_name)
-             ~detail:
-               [
-                 Printf.sprintf
-                   "Nothing connects %s.%s to another room's doorway." room_name
-                   threshold_name;
-                 "It is drawn as haze and is solid to walk into. A door and \
-                  the connection that joins two are separate things, so this \
-                  is a level part-built rather than a level wrong — but it is \
-                  not what you want to ship.";
-               ])
-      else if count > 1 then
-        complain
-          (error at
-             (Printf.sprintf "the doorway %S is linked %d times" threshold_name
-                count)
-             ~detail:
-               [
-                 "A doorway has two sides and joins exactly one other. Two \
-                  links claiming the same one describe a place that cannot \
-                  exist.";
-               ]))
-    claimed;
-  (* Hashtbl iteration order is unspecified, so the problems are sorted into a
-     deterministic order that reading and test assertions can both rely on. *)
-  List.sort
-    (fun a b -> compare (a.where, a.summary) (b.where, b.summary))
-    (List.rev !problems)
-
 let of_forest forest =
-  let structural, rooms, links, connections, spawn, cameras =
-    structure forest
-  in
+  let structural, rooms, connections, spawns, cameras = structure forest in
   let named = naming rooms in
   let found =
     if structural <> [] || named <> [] then structural @ named
     else
-      let names_a_room name =
-        List.exists (fun room -> room.room_name = name) rooms
-      in
-      let spawn_room =
-        match spawn with
-        | Some (room_name, _) when not (names_a_room room_name) ->
-            [
-              error "(root)"
-                (Printf.sprintf "the player starts in a room called %S"
-                   room_name)
-                ~detail:[ no_such_room ];
-            ]
-        | Some _ | None -> []
-      in
-      (* A camera is a child of the room it looks from, so there is no name
-         here that could fail to be a room's. What is left to say about one is
-         that it may be overruled, which is said above. *)
-      let linked = linking rooms links @ connecting rooms connections in
-      if spawn_room <> [] || linked <> [] then spawn_room @ linked
+      (* A camera and a spawn are children of the room they belong to, so
+         neither names a room that could fail to be one. What is left to say
+         about a camera is that it may be overruled, which is said above; what
+         is left to say about a spawn is how many there are. *)
+      let joined = starting spawns @ connecting rooms connections in
+      if joined <> [] then joined
       else
         (* Everything that could stop a world being built has been ruled out, so
            what is left is what only an assembled world can answer. *)

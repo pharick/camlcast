@@ -59,8 +59,7 @@ let square ~name ~at ~reach contents =
 (* One room and nothing in it: the floor of what a description can cost. *)
 let smallest =
   P.world ~atmosphere:Atmosphere.default
-    ~spawn:("room", Vec.make 0. 0.)
-    [ square ~name:"room" ~at:0. ~reach:6. [] ]
+    [ square ~name:"room" ~at:0. ~reach:6. [ P.spawn (Vec.make 0. 0.) ] ]
 
 (* Five rooms, pillars, sprites and decals — the shape and roughly the size of
    demo/level.ml, which is the largest world this engine has. *)
@@ -76,10 +75,11 @@ let showcase =
              Vec.make (at -. side) side;
            ]))
   in
-  let furnished ~name ~at =
+  let furnished ~spawns ~name ~at =
     square ~name ~at ~reach:8.
-      (List.init 6 (fun index ->
-           pillar ~at:(at -. 5. +. (float_of_int index *. 2.)) ~side:0.6)
+      ((if spawns then [ P.spawn (Vec.make 0. 0.) ] else [])
+      @ List.init 6 (fun index ->
+          pillar ~at:(at -. 5. +. (float_of_int index *. 2.)) ~side:0.6)
       @ List.init 4 (fun index ->
           P.sprite
             ~key:("sprite" ^ string_of_int index)
@@ -97,9 +97,8 @@ let showcase =
         ])
   in
   P.world ~atmosphere:Atmosphere.default
-    ~spawn:("room0", Vec.make 0. 0.)
     (List.init 5 (fun index ->
-         furnished
+         furnished ~spawns:(index = 0)
            ~name:("room" ^ string_of_int index)
            ~at:(float_of_int index *. 20.)))
 

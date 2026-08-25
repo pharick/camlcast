@@ -119,7 +119,7 @@ val open_sky : Sky.t -> ceiling
 
 (** {1 The world} *)
 
-val world : ?spawn:string * Vec.t -> atmosphere:Atmosphere.t -> t list -> t
+val world : atmosphere:Atmosphere.t -> t list -> t
 (** The root of every description: the air its rooms are seen through.
 
     Its children are {!val-room}s and the {!connect}ions between them. A
@@ -187,59 +187,6 @@ val corner :
 val corners : Vec.t list -> corner list
 (** Every one of these points as a plain corner. The bulk form of {!val-corner},
     for an outline that says nothing at any leg — which is most of them. *)
-
-val boundary :
-  ?key:string ->
-  ?closed:bool ->
-  height:float ->
-  material:Material.t ->
-  corner list ->
-  t
-(** A run of wall through these corners, each leg made to its own taste, wound
-    so the room is on the inside.
-
-    This is the one way to lay a run of wall in a description, and the whole of
-    {!wall} is available at every leg of it.
-
-    One form, not three. A closed run and an open one are this with
-    {!val-corners} in front of them and nothing said at any leg, so naming them
-    separately would be two names for a special case rather than two things. The
-    pull towards separate names is that a run whose legs differ looks like a
-    different shape of problem; it is not, and the alternative is dropping to
-    {!wall} per side and giving up the winding the moment one leg wants a
-    handler.
-
-    [closed] joins the last corner back to the first, and defaults to true. Say
-    [~closed:false] for a run that stops, which is a boundary with a {!doorway}
-    in it. [height] and [material] are what any corner that does not say gets.
-
-    The name says what it builds rather than its shape. It was [run], the
-    ordinary word for a run of wall, and the wrong one here: a game reading
-    [Camlcast] already sees {!Camlcast.Run} and {!Camlcast_core.Engine.run},
-    both about playing a game rather than laying masonry, and a third [run] in
-    the module a level is written in would be one word doing two jobs a facade
-    apart. A free-standing {!wall} is not a boundary and does not come through
-    here, so the name also says when not to reach for it.
-
-    {b The winding is still not the caller's concern}, and it is the reason this
-    takes corners rather than a list of {!wall}s. A boundary written the wrong
-    way round is reversed, and every leg is reversed with it, so what a corner
-    said about its wall stays true of that wall. That is one wall's worth of
-    care to get right and easy to get wrong: reversing the corners and letting
-    each leg travel with its own corner puts every leg one wall out, because a
-    leg describes the wall it leaves and the reversal makes that the wall it
-    arrives by.
-
-    {b One thing does not survive the reversal: a hand-placed {!decal}.} Its
-    [along] is measured from the wall's first point, and a reversed wall has the
-    other point first, so a decal written for a boundary that turns out to need
-    reversing lands mirrored along its wall. Nothing here can fix that: a decal
-    arrives already built, and there is no reading [along] back out of it to
-    flip. A decal whose [along] came {e from} the engine is unaffected, which is
-    the ordinary case and the chalk demo's: {!Aim.spot} reports [along] on the
-    wall as built, and a decal placed back at that [along] is on the same wall
-    in the same frame. For hand-placing a decal on a boundary whose winding is
-    unchecked, {!wall} is still there. *)
 
 val block :
   ?key:string -> height:float -> material:Material.t -> corner list -> t
@@ -325,37 +272,39 @@ val polygon :
     and give the height and material there. *)
 
 val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
-(** The two ends of the opening {!doorway} would cut into the wall from [a] to
-    [b].
+(** The two ends a {!cut} of this [width] lands at, in the leg from [a] to [b].
 
-    {!doorway} works them out for itself; hiding that arithmetic is what
-    {!doorway} is for. This exists for a description that must name the doorway
-    in terms of both sides — "this room's floor is that room's floor, carried
-    through the doorway between them" — without doing the arithmetic twice. Feed
-    the pair to {!through}.
+    A cut works them out for itself, and hiding that arithmetic is most of what
+    it is for. This exists for the two things that need the ends without cutting
+    anything.
+
+    A description carrying a surface from one room to its neighbour needs both
+    sides of the opening — "this room's roof is that room's roof, seen through
+    the gate between them" — which is the pair {!through} takes. A floor needs
+    no such thing: it is carried for you. A ceiling that {e diverges} from its
+    floor cannot be, and that is the case left.
+
+    A room may also name these ends as corners of its own outline, which makes
+    each jamb a leg carrying its own key, handlers and decals rather than the
+    two of them sharing the cut leg's. The opening is then the whole of the
+    short leg between them.
 
     It is literally the same arithmetic: this calls
-    {!Camlcast_core.Room.cut_points}, which is what {!doorway} cuts at, so the
-    two cannot land a doorway in two places. Worth stating because restating the
+    {!Camlcast_core.Room.cut_points}, which is what a cut cuts at, so the two
+    cannot land an opening in two places. Worth stating because restating the
     formula here instead would not look wrong: the two forms of it agree on a
     wall along an axis, and part company by [6.21e-17] on an oblique one — close
     enough that a full-width opening looks placed and is not.
 
-    At [width] equal to the wall's own length the two ends come back as [a] and
-    [b] exactly; measuring in from the ends guarantees it. A description
-    building its own jambs from these — [wall a p] and [wall q b], the way
-    {!doorway} would — then has two walls of no length, and
-    {!Camlcast_core.Room.val-wall} refuses those. That failure is intended, not
-    a trap: a full-width opening has no jambs, {!doorway} drops them, and a
-    description that wants one should not ask for the two walls that are not
-    there.
+    At [width] equal to the leg's own length the two ends come back as [a] and
+    [b] exactly; measuring in from the ends guarantees it.
 
     @raise Invalid_argument
-      on the geometry {!doorway} refuses, and for the same reasons: two points
-      in the same place, a width that is not positive and finite, or one wider
-      than the wall it is being cut into. The check raises here rather than
-      dividing, because dividing would answer with a pair of nans, and a nan
-      travels — it comes back much later as a transform that will not invert. *)
+      on the geometry a cut refuses, and for the same reasons: two points in the
+      same place, a width that is not positive and finite, or one wider than the
+      leg it is being cut into. The check raises here rather than dividing,
+      because dividing would answer with a pair of nans, and a nan travels — it
+      comes back much later as a transform that will not invert. *)
 
 val through : from:Vec.t * Vec.t -> into:Vec.t * Vec.t -> Plane.t -> Plane.t
 (** A plane carried through a doorway. [from] and [into] are the same opening's
@@ -368,32 +317,6 @@ val through : from:Vec.t * Vec.t -> into:Vec.t * Vec.t -> Plane.t -> Plane.t
     a second floor that will drift. A derived one cannot: {!Check} reports a
     step in the floor at a doorway, and a plane carried through one never has
     one. *)
-
-val threshold :
-  ?key:string ->
-  ?door:Door.t ->
-  ?lintel:Room.lintel ->
-  ?on_gaze:(bool -> unit) ->
-  ?on_use:(Aim.spot -> unit) ->
-  name:string ->
-  height:float ->
-  Vec.t ->
-  Vec.t ->
-  t
-(** An opening between two points, with nothing cut for it.
-
-    Reach for {!doorway} first: it cuts the opening out of a wall and hands back
-    the jambs with it, so the two cannot drift apart. This is for the case that
-    will not do — a lintel of a different material from the wall under it, or a
-    boundary whose jambs are already drawn some other way. The caller then owns
-    making the walls either side meet its ends.
-
-    {b That ownership is the whole difference between the two names.} This is
-    the one place in the engine where "threshold" and "doorway" are not the same
-    word; {!Camlcast_core.Room} states the distinction. A doorway is the opening
-    {e and} its jambs; this is the opening alone. Leave an end of it meeting no
-    wall and the room shows its floor and sky to the horizon through the gap,
-    which {!Check} reports and {!doorway} cannot produce. *)
 
 val wall :
   ?key:string ->
@@ -426,31 +349,6 @@ val decal :
 
     [facing] defaults to the inside of the room. [glow] is how much light the
     decal makes of its own, and defaults to none. *)
-
-val doorway :
-  ?key:string ->
-  ?door:Door.t ->
-  ?on_gaze:(bool -> unit) ->
-  ?on_use:(Aim.spot -> unit) ->
-  name:string ->
-  width:float ->
-  opening:float ->
-  height:float ->
-  material:Material.t ->
-  Vec.t ->
-  Vec.t ->
-  t
-(** A wall with a doorway cut through the middle of it: the jambs either side
-    and the opening between them, which is what a {!link} joins.
-
-    [width] is how wide the opening is and [opening] how tall, under a lintel
-    that reaches [height]. The jambs and the threshold are made together and
-    cannot drift apart, which is the reason to cut a doorway rather than place
-    one.
-
-    [key] goes on the three of them together. What a game rearranges is the
-    doorway, and no one part of it is the doorway. The key therefore belongs
-    where {!Camlcast_loom.Element.fragment} takes one, not on a primitive. *)
 
 val sprite :
   ?key:string ->
@@ -611,11 +509,3 @@ val finish : t
     place and the same way it says everything else —
     [if done then P.finish else Element.empty] — instead of reaching for a
     callback the runtime handed it. *)
-
-val link : string * string -> string * string -> t
-(** [link (room, threshold) (room', threshold')] makes two doorways the two
-    sides of one.
-
-    Each is named by its room and its own name. A child of {!world}, not of
-    either room: a link is the one thing in a description that is about two
-    rooms at once, and neither of them can hold it. *)

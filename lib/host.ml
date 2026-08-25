@@ -217,9 +217,6 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
                   threshold_reacts :=
                     reaction_of opening worked :: !threshold_reacts;
                   cut := (id, name) :: !cut))
-      | Prim.Threshold (threshold, reacts) ->
-          thresholds := threshold :: !thresholds;
-          threshold_reacts := reaction_of child reacts :: !threshold_reacts
       | Prim.Sprite (sprite, reacts) ->
           sprites := sprite :: !sprites;
           sprite_reacts := reaction_of child reacts :: !sprite_reacts
@@ -258,10 +255,8 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
 
 let assemble nodes =
   match nodes with
-  | [
-   ({ Camlcast_loom.Host.prim = Prim.World { atmosphere; spawn }; _ } as root);
-  ] ->
-      let rooms = ref [] and links = ref [] and eye = ref None in
+  | [ ({ Camlcast_loom.Host.prim = Prim.World { atmosphere }; _ } as root) ] ->
+      let rooms = ref [] and eye = ref None in
       let connections = ref [] and start = ref None in
       let over = ref false and hud = ref [] and pointing = ref false in
       refuse_strangers ~parent:root.Camlcast_loom.Host.prim root;
@@ -302,7 +297,6 @@ let assemble nodes =
                   | _ -> ())
                 child.Camlcast_loom.Host.children;
               rooms := (name, floor, ceiling, height, child) :: !rooms
-          | Prim.Link { here; there } -> links := (here, there) :: !links
           | Prim.Connect (a, b) -> connections := (a, b) :: !connections
           | Prim.Finish -> over := true
           | Prim.Cursor -> pointing := true
@@ -435,13 +429,11 @@ let assemble nodes =
       let world =
         World.make
           ~rooms:(List.map (fun (name, (room, _, _)) -> (name, room)) built)
-          ~links:(List.rev !links @ connected)
-          ~atmosphere
+          ~links:connected ~atmosphere
           ~spawn:
-            (match (spawn, !start) with
-            | _, Some found -> found
-            | Some given, None -> given
-            | None, None ->
+            (match !start with
+            | Some found -> found
+            | None ->
                 raise
                   (Malformed
                      "this description does not say where the player starts: \
