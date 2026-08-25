@@ -187,6 +187,10 @@ type described_room = {
   room_path : string;
   room_name : string;
   thresholds : (string * Room.threshold * string) list;
+  doors : (int * Room.threshold * string) list;
+      (** the doors this room cuts, by the identity a {!Camlcast.P.connect}
+          joins them by. Worked out by {!Host.openings}, which is the same
+          computation assembly uses, so the two cannot answer differently. *)
 }
 
 (* The nesting rule is Prim's, so this and Host cannot drift about what may go
@@ -213,7 +217,16 @@ let walk ~parent (node : Prim.t Loom.Host.node) =
 
 let structure forest =
   let rooms = ref [] and links = ref [] and spawn = ref None in
-  let cameras = ref [] in
+  let connections = ref [] and cameras = ref [] in
+  (* {!Host.openings} refuses a door too tall for its room or wider than the leg
+     it names. Those are assembly's to report, in assembly's words; here the door
+     simply does not appear, and the tier below has nothing to say about it. *)
+  let doors_of (node : Prim.t Loom.Host.node) =
+    match Host.openings node with
+    | found ->
+        List.map (fun (id, threshold, at) -> (id, threshold, path_of at)) found
+    | exception Host.Malformed _ -> []
+  in
   let thresholds_of (node : Prim.t Loom.Host.node) =
     List.filter_map
       (fun (child : Prim.t Loom.Host.node) ->
@@ -246,10 +259,13 @@ let structure forest =
                     room_path = path_of child;
                     room_name = name;
                     thresholds = thresholds_of child;
+                    doors = doors_of child;
                   }
                   :: !rooms
             | Prim.Link { here; there } ->
                 links := (here, there, path_of child) :: !links
+            | Prim.Connect (a, b) ->
+                connections := (a, b, path_of child) :: !connections
             | _ -> ())
           root.Loom.Host.children;
         walk ~parent:root.Loom.Host.prim root
@@ -276,7 +292,12 @@ let structure forest =
               ];
         ]
   in
-  (problems, List.rev !rooms, List.rev !links, !spawn, List.rev !cameras)
+  ( problems,
+    List.rev !rooms,
+    List.rev !links,
+    List.rev !connections,
+    !spawn,
+    List.rev !cameras )
 
 (* Complain about the second and any later use of a name, never the first. The
    report then reads as "this one is the duplicate" rather than "two of these
@@ -339,6 +360,164 @@ let overruled_cameras cameras =
              are dropped.";
           ])
     earlier
+
+(* Whether two sides of one opening agree about what the engine insists they
+   agree about, in the words a description would use.
+
+   Asked of World rather than measured here, and negated rather than inverted,
+   for the reasons that interface gives. This file used to measure locally: its
+   own 1e-9 against the engine's 1e-6, and Option.is_some against the engine's
+   door state. That checker failed worlds the engine builds and passed worlds it
+   refuses.
+
+   Shared by the two things that can join a pair: a {!Camlcast.P.link}, which
+   names them, and a {!Camlcast.P.connect}, which is handed them. *)
+let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
+  List.iter
+    (fun (side, (t : Room.threshold)) ->
+      if not (World.has_length t) then
+        complain
+          (error at "this doorway is too narrow to link"
+             ~detail:
+               [
+                 Printf.sprintf "%s is %g wide." side t.Room.length;
+                 "A doorway that small has no direction, and the engine cannot \
+                  work out how the two rooms are turned relative to one \
+                  another through it.";
+               ]))
+    [ (here_name, one); (there_name, other) ];
+  if not (World.lengths_agree one other) then
+    complain
+      (error at "the two sides of this link are different widths"
+         ~detail:
+           [
+             Printf.sprintf "%s is %g wide and %s is %g." here_name
+               one.Room.length there_name other.Room.length;
+             "They are the same doorway seen from either side, so they have to \
+              be the same size.";
+           ]);
+  if not (World.heights_agree one other) then
+    complain
+      (error at "the two sides of this link are different heights"
+         ~detail:
+           [
+             Printf.sprintf "%s is %g tall and %s is %g." here_name
+               one.Room.height there_name other.Room.height;
+           ]);
+  if not (World.doors_agree one other) then
+    let describe (t : Room.threshold) =
+      match t.Room.door with
+      | None -> "no door"
+      | Some { Door.state = Door.Open; _ } -> "a door standing open"
+      | Some { Door.state = Door.Closed; _ } -> "a door standing closed"
+    in
+    complain
+      (match (one.Room.door, other.Room.door) with
+      | Some _, Some _ ->
+          error at
+            "the two sides of this link disagree about whether the door is open"
+            ~detail:
+              [
+                Printf.sprintf "%s has %s and %s has %s." here_name
+                  (describe one) there_name (describe other);
+                "It is one leaf in one opening, so a door open from one room \
+                 and closed from the other is one the player could walk \
+                 through in only one direction.";
+                "Door.set_state through World.set_door moves both sides at \
+                 once; two descriptions written apart do not.";
+              ]
+      | _ ->
+          error at "one side of this link has a door and the other does not"
+            ~detail:
+              [
+                Printf.sprintf "%s has %s and %s has %s." here_name
+                  (describe one) there_name (describe other);
+                "A door hangs in one opening, so both sides have to agree that \
+                 it is there.";
+              ])
+
+(* The same questions asked of a {!Camlcast.P.connect}, which hands over two
+   doors rather than naming two doorways. There is no name to be wrong here —
+   that is the whole of what a connection is for — so what is left is whether
+   the two sides agree, and whether every door has exactly one connection. *)
+let connecting rooms connections =
+  let problems = ref [] in
+  let complain d = problems := d :: !problems in
+  let doors =
+    List.concat_map
+      (fun room ->
+        List.map
+          (fun (id, threshold, at) ->
+            (id, (room.room_name ^ "." ^ threshold.Room.name, threshold, at)))
+          room.doors)
+      rooms
+  in
+  let claimed = Hashtbl.create 16 in
+  List.iter (fun (id, (_, _, at)) -> Hashtbl.replace claimed id (0, at)) doors;
+  let count id =
+    match Hashtbl.find_opt claimed id with
+    | Some (n, at) -> Hashtbl.replace claimed id (n + 1, at)
+    | None -> ()
+  in
+  List.iter
+    (fun (a, b, at) ->
+      count a;
+      count b;
+      match (List.assoc_opt a doors, List.assoc_opt b doors) with
+      | Some (here_name, one, _), Some (there_name, other, _) ->
+          agreement ~at ~complain ~here:(here_name, one)
+            ~there:(there_name, other)
+      | _ ->
+          (* A connection naming a door no room cuts. Assembly refuses this too,
+             in the same terms; caught here so the component that wrote it can
+             be named. *)
+          complain
+            (error at "this connection joins a door that no room cuts"
+               ~detail:
+                 [
+                   "A door is made where it is described and cut where it \
+                    stands, and this one was never cut into a room's outline.";
+                 ]))
+    connections;
+  Hashtbl.iter
+    (fun id (n, at) ->
+      let name =
+        match List.assoc_opt id doors with
+        | Some (name, _, _) -> name
+        | None -> "a door"
+      in
+      if n = 0 then
+        complain
+          (warning at
+             (Printf.sprintf "the doorway %S leads nowhere"
+                (match List.assoc_opt id doors with
+                | Some (_, t, _) -> t.Room.name
+                | None -> "?"))
+             ~detail:
+               [
+                 Printf.sprintf "Nothing connects %s to another room's doorway."
+                   name;
+                 "It is drawn as haze and is solid to walk into. A door and \
+                  the connection that joins two are separate things, so this \
+                  is a level part-built rather than a level wrong — but it is \
+                  not what you want to ship.";
+               ])
+      else if n > 1 then
+        complain
+          (error at
+             (Printf.sprintf "the doorway %S is linked %d times"
+                (match List.assoc_opt id doors with
+                | Some (_, t, _) -> t.Room.name
+                | None -> "?")
+                n)
+             ~detail:
+               [
+                 "A doorway has two sides and joins exactly one other. Two \
+                  connections claiming the same one describe a place that \
+                  cannot exist.";
+               ]))
+    claimed;
+  List.rev !problems
 
 let linking rooms links =
   let problems = ref [] in
@@ -404,75 +583,7 @@ let linking rooms links =
         let name (room_name, threshold_name) =
           room_name ^ "." ^ threshold_name
         in
-        (* Asked of World rather than measured here, and negated rather than
-           inverted, for the reasons that interface gives. This file used to
-           measure locally: its own 1e-9 against the engine's 1e-6, and
-           Option.is_some against the engine's door state. That checker failed
-           worlds the engine builds and passed worlds it refuses. *)
-        List.iter
-          (fun (side, t) ->
-            if not (World.has_length t) then
-              complain
-                (error at "this doorway is too narrow to link"
-                   ~detail:
-                     [
-                       Printf.sprintf "%s is %g wide." (name side) t.Room.length;
-                       "A doorway that small has no direction, and the engine \
-                        cannot work out how the two rooms are turned relative \
-                        to one another through it.";
-                     ]))
-          [ (here, one); (there, other) ];
-        if not (World.lengths_agree one other) then
-          complain
-            (error at "the two sides of this link are different widths"
-               ~detail:
-                 [
-                   Printf.sprintf "%s is %g wide and %s is %g." (name here)
-                     one.Room.length (name there) other.Room.length;
-                   "They are the same doorway seen from either side, so they \
-                    have to be the same size.";
-                 ]);
-        if not (World.heights_agree one other) then
-          complain
-            (error at "the two sides of this link are different heights"
-               ~detail:
-                 [
-                   Printf.sprintf "%s is %g tall and %s is %g." (name here)
-                     one.Room.height (name there) other.Room.height;
-                 ]);
-        if not (World.doors_agree one other) then
-          let describe (t : Room.threshold) =
-            match t.Room.door with
-            | None -> "no door"
-            | Some { Door.state = Door.Open; _ } -> "a door standing open"
-            | Some { Door.state = Door.Closed; _ } -> "a door standing closed"
-          in
-          complain
-            (match (one.Room.door, other.Room.door) with
-            | Some _, Some _ ->
-                error at
-                  "the two sides of this link disagree about whether the door \
-                   is open"
-                  ~detail:
-                    [
-                      Printf.sprintf "%s has %s and %s has %s." (name here)
-                        (describe one) (name there) (describe other);
-                      "It is one leaf in one opening, so a door open from one \
-                       room and closed from the other is one the player could \
-                       walk through in only one direction.";
-                      "Door.set_state through World.set_door moves both sides \
-                       at once; two descriptions written apart do not.";
-                    ]
-            | _ ->
-                error at
-                  "one side of this link has a door and the other does not"
-                  ~detail:
-                    [
-                      Printf.sprintf "%s has %s and %s has %s." (name here)
-                        (describe one) (name there) (describe other);
-                      "A door hangs in one opening, so both sides have to \
-                       agree that it is there.";
-                    ])
+        agreement ~at ~complain ~here:(name here, one) ~there:(name there, other)
       end)
     links;
   Hashtbl.iter
@@ -510,7 +621,9 @@ let linking rooms links =
     (List.rev !problems)
 
 let of_forest forest =
-  let structural, rooms, links, spawn, cameras = structure forest in
+  let structural, rooms, links, connections, spawn, cameras =
+    structure forest
+  in
   let named = naming rooms in
   let found =
     if structural <> [] || named <> [] then structural @ named
@@ -532,7 +645,7 @@ let of_forest forest =
       (* A camera is a child of the room it looks from, so there is no name
          here that could fail to be a room's. What is left to say about one is
          that it may be overruled, which is said above. *)
-      let linked = linking rooms links in
+      let linked = linking rooms links @ connecting rooms connections in
       if spawn_room <> [] || linked <> [] then spawn_room @ linked
       else
         (* Everything that could stop a world being built has been ruled out, so

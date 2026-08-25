@@ -30,6 +30,24 @@ exception Malformed of string
     do that, and that is the reason to replace the exception rather than keep
     it. *)
 
+val openings :
+  prim Camlcast_loom.Host.node ->
+  (int * Camlcast_core.Room.threshold * prim Camlcast_loom.Host.node) list
+(** Every door this room cuts, as the threshold it will become: its identity,
+    the threshold, and the node it was written at.
+
+    Exported for {!Check}, which asks it of a description before any of it is
+    built. The two sides of an opening have to agree about their width and their
+    height, and saying so before assembly is what lets the complaint name the
+    component that wrote it rather than come back out of the engine as a raised
+    string. {!assemble} computes the same thresholds the same way, so the two
+    cannot answer differently.
+
+    @raise Malformed
+      on a door too tall for the room it is cut into, or wider than the leg it
+      names — the same two refusals assembly makes, because it is the same code.
+*)
+
 val assemble : prim Camlcast_loom.Host.node list -> scene
 (** Build the world this description describes.
 

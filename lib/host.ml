@@ -101,6 +101,81 @@ let openings_of (node : prim Camlcast_loom.Host.node) =
       | _ -> None)
     node.Camlcast_loom.Host.children
 
+(* What a door cut into this leg comes to: the jambs left either side of it and
+   the threshold filling the gap.
+
+   Written once and asked twice. {!build_room} asks it to build the room, and
+   {!openings} asks it of a description nothing has built yet, because the two
+   sides of an opening have to agree about their width and their height and
+   saying so before assembly is what lets the complaint name the component that
+   wrote it. Two answers to that question could differ; one cannot. *)
+let cut_into ~leg:(a, b) ~height ~material
+    (opening : prim Camlcast_loom.Host.node) =
+  match opening.Camlcast_loom.Host.prim with
+  | Prim.Door { id; width; clearance; name = given; leaf; lintel; _ } ->
+      let name =
+        match given with
+        | Some name -> name
+        | None -> Printf.sprintf "door-%d" id
+      in
+      (* Said here rather than left to {!Room.doorway}, which would refuse it in
+         terms of a wall the description never wrote. *)
+      if not (clearance <= height) then
+        raise
+          (Malformed
+             (Printf.sprintf
+                "%s: the door %s is %g tall and the room it is cut into is %g"
+                (node_path opening) name clearance height));
+      (* A door as wide as the leg it is cut into is allowed and leaves no jamb,
+         which is how a description says "this whole leg is the opening" — a room
+         that names its own cut points as corners, so that each jamb is a leg of
+         its own, is written that way. The width and the span are then the same
+         number arrived at by two routes, and agree to the last bits rather than
+         exactly, so the comparison is made at the tolerance {!World} uses for
+         the same question and the span is what gets cut. Wider than that is a
+         real mistake and says so. *)
+      let span = Vec.length (Vec.sub b a) in
+      if width -. span > 1e-6 then
+        raise
+          (Malformed
+             (Printf.sprintf
+                "%s: the door %s is %g wide and the leg it is cut into is %g"
+                (node_path opening) name width span));
+      let jambs, threshold =
+        Room.doorway ?door:leaf ~name ~width:(Float.min width span)
+          ~opening:clearance ~height ~material a b
+      in
+      let threshold =
+        match lintel with
+        | None -> threshold
+        | Some lintel -> Room.with_lintel threshold (Some lintel)
+      in
+      Some (id, name, jambs, threshold)
+  | _ -> None
+
+(* The door cut into this leg, if any of this room's doors names it. *)
+let door_on (node : prim Camlcast_loom.Host.node) leg =
+  List.find_opt
+    (fun (d : prim Camlcast_loom.Host.node) ->
+      match d.Camlcast_loom.Host.prim with
+      | Prim.Door { along; _ } -> same_leg along leg
+      | _ -> false)
+    (doors_of node)
+
+let openings (node : prim Camlcast_loom.Host.node) =
+  List.filter_map
+    (fun (child : prim Camlcast_loom.Host.node) ->
+      match child.Camlcast_loom.Host.prim with
+      | Prim.Wall { a; b; height; material; _ } -> (
+          match door_on node (a, b) with
+          | None -> None
+          | Some opening ->
+              Option.map
+                (fun (id, _, _, threshold) -> (id, threshold, opening))
+                (cut_into ~leg:(a, b) ~height ~material opening))
+      | _ -> None)
+    node.Camlcast_loom.Host.children
+
 let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
   (* Accumulated reversed and reversed back, so that each list reaches
      {!Room.make} in the order the game wrote it. That order is not cosmetic.
@@ -118,90 +193,30 @@ let build_room ~floor ~ceiling (node : prim Camlcast_loom.Host.node) =
     (fun (child : prim Camlcast_loom.Host.node) ->
       match child.Camlcast_loom.Host.prim with
       | Prim.Wall { a; b; height; material; reacts } -> (
-          match
-            List.find_opt
-              (fun (d : prim Camlcast_loom.Host.node) ->
-                match d.Camlcast_loom.Host.prim with
-                | Prim.Door { along; _ } -> same_leg along (a, b)
-                | _ -> false)
-              (doors_of node)
-          with
+          match door_on node (a, b) with
           | None ->
               walls :=
                 Room.wall ~height ~material ~decals:(decals_of child) a b
                 :: !walls;
               wall_reacts := reaction_of child reacts :: !wall_reacts
-          | Some
-              ({
-                 Camlcast_loom.Host.prim =
-                   Prim.Door
-                     {
-                       id;
-                       width;
-                       clearance;
-                       name = given;
-                       leaf;
-                       lintel;
-                       reacts = worked;
-                       _;
-                     };
-                 _;
-               } as opening) ->
-              (* Cut from the leg as the outline laid it, not as the door named
-                 it. That is what makes the winding the layer's business: the
-                 outline is closed, so its legs are wound already, and a
-                 threshold cut out of one inherits that winding whichever way
-                 round the two corners were given. *)
-              let name =
-                match given with
-                | Some name -> name
-                | None -> Printf.sprintf "door-%d" id
-              in
-              (* Said here rather than left to {!Room.doorway}, which would
-                 refuse it in terms of a wall the description never wrote. *)
-              if not (clearance <= height) then
-                raise
-                  (Malformed
-                     (Printf.sprintf
-                        "%s: the door %s is %g tall and the room it is cut \
-                         into is %g"
-                        (node_path opening) name clearance height));
-              (* A door as wide as the leg it is cut into is allowed and
-                 leaves no jamb, which is how a description says "this whole
-                 leg is the opening" — a room that names its own cut points as
-                 corners, so that each jamb is a leg of its own, is written
-                 that way. The width and the span are then the same number
-                 arrived at by two routes, and agree to the last bits rather
-                 than exactly, so the comparison is made at the tolerance
-                 {!World} uses for the same question and the span is what gets
-                 cut. Wider than that is a real mistake and says so. *)
-              let span = Vec.length (Vec.sub b a) in
-              if width -. span > 1e-6 then
-                raise
-                  (Malformed
-                     (Printf.sprintf
-                        "%s: the door %s is %g wide and the leg it is cut into \
-                         is %g"
-                        (node_path opening) name width span));
-              let jambs, threshold =
-                Room.doorway ?door:leaf ~name ~width:(Float.min width span)
-                  ~opening:clearance ~height ~material a b
-              in
-              let threshold =
-                match lintel with
-                | None -> threshold
-                | Some lintel -> Room.with_lintel threshold (Some lintel)
-              in
-              List.iter
-                (fun jamb ->
-                  walls := jamb :: !walls;
-                  wall_reacts := reaction_of child reacts :: !wall_reacts)
-                jambs;
-              thresholds := threshold :: !thresholds;
-              threshold_reacts :=
-                reaction_of opening worked :: !threshold_reacts;
-              cut := (id, name) :: !cut
-          | Some _ -> ())
+          | Some opening -> (
+              match cut_into ~leg:(a, b) ~height ~material opening with
+              | None -> ()
+              | Some (id, name, jambs, threshold) ->
+                  let worked =
+                    match opening.Camlcast_loom.Host.prim with
+                    | Prim.Door { reacts; _ } -> reacts
+                    | _ -> { Prim.on_gaze = None; on_use = None }
+                  in
+                  List.iter
+                    (fun jamb ->
+                      walls := jamb :: !walls;
+                      wall_reacts := reaction_of child reacts :: !wall_reacts)
+                    jambs;
+                  thresholds := threshold :: !thresholds;
+                  threshold_reacts :=
+                    reaction_of opening worked :: !threshold_reacts;
+                  cut := (id, name) :: !cut))
       | Prim.Threshold (threshold, reacts) ->
           thresholds := threshold :: !thresholds;
           threshold_reacts := reaction_of child reacts :: !threshold_reacts
