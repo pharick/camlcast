@@ -199,11 +199,19 @@ type door = {
   door_name : string option;
 }
 
-let fresh_door = ref 0
+(* Atomic rather than a plain ref, because this is the only mutable state the
+   description layer has and the compiler floor is a multicore runtime. Two
+   domains describing worlds at once would read and write a ref between them
+   and mint one id twice, and a duplicate id is a connection joining the wrong
+   doorway: a world that assembles, is not the one that was written, and says
+   nothing. *)
+let fresh_door = Atomic.make 0
 
 let door ?name ~width ~clearance () =
-  incr fresh_door;
-  { id = !fresh_door; width; clearance; door_name = name }
+  (* [fetch_and_add] hands back the value it replaced, so the [+ 1] keeps the
+     ids the sequence from one they have always been. *)
+  let id = Atomic.fetch_and_add fresh_door 1 + 1 in
+  { id; width; clearance; door_name = name }
 
 let cut ?key ?leaf ?lintel ?on_gaze ?on_use d ~along =
   E.prim ?key
