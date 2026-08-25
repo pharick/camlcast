@@ -115,8 +115,8 @@ type t =
           either side. A child of the world, so that joining two rooms and
           unjoining them touches neither. *)
   | Spawn of Vec.t
-      (** where the player starts, in the coordinates of the room that holds
-          it *)
+      (** where the player starts, in the coordinates of the room that holds it
+      *)
   | Link of { here : string * string; there : string * string }
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)

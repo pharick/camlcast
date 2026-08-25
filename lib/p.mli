@@ -12,18 +12,24 @@
 
     {1 Winding}
 
-    A room is dark from the inside if its boundary is wound the wrong way round.
-    This has been the one silent trap in this engine: nothing catches it,
-    nothing wants the reversed version, and the symptom — a black room — points
-    nowhere near the cause.
+    A room is dark from the inside if its walls are wound the wrong way round,
+    and a doorway wound against its room puts the neighbour behind you when you
+    walk through it. This was the one silent trap in this engine: nothing caught
+    it, nothing wanted the reversed version, and the symptom pointed nowhere
+    near the cause. Twenty-one of the guide's own example programs carried a
+    doorway wound backwards for exactly that reason.
 
-    {!val-boundary} removes the question by not asking it. It measures the loop
-    it is given and winds it correctly, so the same corners in either order
-    build the same room. The mistake becomes impossible instead of merely
-    diagnosable. Write a boundary with it and the question never arises.
+    A room's [outline] removes the question by not asking it. It is closed, so
+    it says which side is in; it measures the loop and lays the legs so the room
+    is on that side, and the same corners in either order build the same room. A
+    door is {!cut} out of a leg rather than described beside one, so it takes
+    that winding too, and the two corners naming the leg are a {e place} and not
+    a direction. The mistake stops being diagnosable and starts being
+    unwritable.
 
-    A free-standing {!wall} needs no rule: it is drawn from both sides and has
-    no inside for a normal to face into. *)
+    A free-standing {!val-wall} needs no rule: it is drawn from both sides and
+    has no inside for a normal to face into. A {!block} is closed and gets the
+    same treatment an outline does. *)
 
 open Camlcast_core
 
@@ -32,7 +38,7 @@ type t = Prim.t Camlcast_loom.Element.t
 
 (** {1 Being looked at}
 
-    {!wall}, {!sprite} and {!doorway} each take [on_gaze] and [on_use], because
+    {!val-wall}, {!sprite} and {!cut} each take [on_gaze] and [on_use], because
     those are the three things an eye can stop on. {!Camlcast_core.Sight}
     defines that set, and defines it by casting the same ray the renderer draws
     with, so what can be picked is exactly what can be seen.
@@ -44,8 +50,11 @@ type t = Prim.t Camlcast_loom.Element.t
     crosshair was, which is what marking a wall where the player pointed needs.
     Both may set state, and the frame after will show it.
 
-    On a {!doorway} the handlers go on the opening rather than on the jambs
-    either side of it, because what a player aims at to work a door is the door.
+    On a {!cut} the handlers go on the opening rather than on the jambs either
+    side of it, because what a player aims at to work a door is the door. A
+    {!val-corner} takes them too, so a leg of an outline is as interactive as a
+    free-standing wall — which is what dressing a leg used to cost the winding
+    to get.
 
     {2 Give one a [key] if its siblings can change}
 
@@ -149,7 +158,7 @@ val room :
     missing, only cut.
 
     [height] and [material] are what a leg that does not say gets, exactly as
-    they were on a boundary; a {!val-corner} overrides either.
+    they were given to the room; a {!val-corner} overrides either.
 
     [name] is for diagnostics alone. Nothing in a description refers to a room
     by name — a {!connect} joins two {!val-door}s, and a door is already in one
@@ -166,19 +175,18 @@ val corner :
   corner
 (** A corner, and what to make of the wall running from it to the next one.
 
-    Every argument is optional, and anything omitted falls back to what
-    {!boundary} was given, so a corner that is only a corner is [corner p]. The
-    arguments are exactly what {!wall} takes, because the wall this describes is
-    one.
+    Every argument is optional, and anything omitted falls back to what the room
+    was given, so a corner that is only a corner is [corner p]. The arguments
+    are exactly what {!wall} takes, because the wall this describes is one.
 
-    {b The wall leaving it, not arriving at it.} The last corner of an open
-    boundary therefore describes no wall at all, and {!boundary} refuses one
-    carrying anything, because a handler put there would never fire — the one
-    mistake this shape invites. A closed boundary has no such corner. *)
+    {b The wall leaving it, not arriving at it.} An outline is closed, so every
+    corner describes a wall and none of them is the one that describes none —
+    which is what an open run had, and what made a handler put on its last
+    corner a handler that never fired. *)
 
 val corners : Vec.t list -> corner list
 (** Every one of these points as a plain corner. The bulk form of {!val-corner},
-    for a boundary that says nothing at any leg — which is most of them. *)
+    for an outline that says nothing at any leg — which is most of them. *)
 
 val boundary :
   ?key:string ->
@@ -238,7 +246,7 @@ val block :
 (** A closed shape standing inside a room: a pillar, a column, a plinth.
 
     An outline like a room's, and wound like one, but it is not the room's
-    boundary and no door is cut into it. Use {!polygon} for the corners of a
+    outline and no door is cut into it. Use {!polygon} for the corners of a
     round one. For something with two ends rather than a loop — a partition, a
     bench seen over — reach for {!val-wall}. *)
 
@@ -306,15 +314,15 @@ val connect : door -> door -> t
 
 val polygon :
   center:Vec.t -> radius:float -> sides:int -> rotation:float -> corner list
-(** The corners of a regular polygon, ready for {!boundary}: [sides] of them,
-    [radius] from [center], turned by [rotation].
+(** The corners of a regular polygon, ready for an outline or a {!block}:
+    [sides] of them, [radius] from [center], turned by [rotation].
 
     Usually a pillar. [radius] is to a corner and not to a face.
 
-    It returns corners and not walls, so that a polygon is a boundary like any
+    It returns corners and not walls, so that a polygon is an outline like any
     other and its legs can carry what any other leg can. A six-sided pillar with
-    a handler on one face was not writable before. Wrap the corners in
-    {!boundary} and give the height and material there. *)
+    a handler on one face was not writable before. Wrap the corners in {!block}
+    and give the height and material there. *)
 
 val opening : width:float -> Vec.t -> Vec.t -> Vec.t * Vec.t
 (** The two ends of the opening {!doorway} would cut into the wall from [a] to
@@ -399,9 +407,9 @@ val wall :
   t
 (** One segment, from one point to another, with any {!decal}s hung on it.
 
-    For a room's boundary use {!val-boundary} instead; every leg of one takes
-    all of this. This is for what stands on its own — a partition, a bench seen
-    over, a monolith. *)
+    For a room's edge use its [outline] instead; every leg of one takes all of
+    this. This is for what stands on its own — a partition, a bench seen over, a
+    monolith. *)
 
 val decal :
   ?key:string ->

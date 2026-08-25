@@ -374,11 +374,14 @@ hand-written level always used.
 
 {2 Two things that are made impossible rather than checked}
 
-{b Winding.} A room is black from the inside if its boundary is wound the wrong
-way round. Nothing catches it, nothing wants the reversed version, and the
-symptom points nowhere near the cause. So {!Camlcast.P.boundary} measures the
-signed area of the loop it was given and winds it correctly: the same corners
-in either order build the same room. The measurement is calibrated against
+{b Winding.} A room is black from the inside if its walls are wound the wrong
+way round, and a doorway wound against its room puts the neighbour behind you
+when you walk through. Nothing catches either, nothing wants the reversed
+version, and the symptom points nowhere near the cause. So a room's outline is
+closed: it measures the signed area of the loop it was given and lays the legs
+so the room is inside, and a door cut out of a leg takes that winding too. The
+same corners in either order build the same room. The measurement is calibrated
+against
 {!Camlcast_core.Room.rectangle}, which the engine documents as impossible to
 get wrong, so the definition cannot drift from what defines it.
 

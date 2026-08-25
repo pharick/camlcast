@@ -142,13 +142,13 @@ primitive the layer has. What each one is a demo of:
 
 | demo | what it needs | where |
 | --- | --- | --- |
-| `masonry`, `loading` | materials, art from disk | `P.boundary`, `Texture`, `Asset` |
+| `masonry`, `loading` | materials, art from disk | `P.corner`, `Texture`, `Asset` |
 | `gallery` | decals and sprites | `P.decal`, `P.sprite` |
-| `glass`, `barred` | see-through materials, a door you see through | `P.wall`, `P.doorway ~door` |
+| `glass`, `barred` | see-through materials, a door you see through | `P.wall`, `P.cut ~leaf` |
 | `slopes` | inclined floors and roofs | `P.floor`, `P.roof` |
 | `daylight` | the open sky, per room | `P.open_sky` |
 | `haze` | atmosphere | `P.world ~atmosphere` |
-| `portals`, `doors` | doorways, links, doors that open | `P.doorway`, `P.link`, `on_use` |
+| `portals`, `doors` | doorways, connections, doors that open | `P.cut`, `P.connect`, `on_use` |
 | `changing` | a room rebuilt every frame | describing it differently |
 | `floating`, `dust` | sprites off the floor, sprites that move | `P.sprite ~base`, `use_frame` |
 | `chalk` | marking a wall where you point | `on_use` and its `Aim.spot` |

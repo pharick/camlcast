@@ -147,12 +147,15 @@ module Config = Camlcast_core.Config
     here, and {!P.floor}, {!P.roof} and {!P.open_sky} are how they are made. *)
 
 type lintel = Camlcast_core.Room.lintel = {
-  top : float;  (** how far the wall a doorway was cut into rises *)
+  top : float;  (** how far the wall a door was cut into rises *)
   material : Material.t;  (** and what the strip above the opening is made of *)
 }
-(** The wall over an opening. What {!P.threshold} hangs there, for the one case
-    {!P.doorway} will not do: a lintel of a different material from the wall
-    under it. *)
+(** The wall over an opening.
+
+    A {!P.cut} takes one where the strip above should not be made of the wall it
+    was cut into — a brick transom over a stone jamb. It is given at the cut and
+    not on the {!P.type-door} because it is how {e this} room presents the
+    opening, and two rooms are allowed to present one differently. *)
 
 type surface = Camlcast_core.Room.surface = {
   plane : Plane.t;
