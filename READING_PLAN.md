@@ -209,9 +209,9 @@ matrices and change-of-basis; e.g. 3Blue1Brown's
 
 | # | files | what to look for |
 |---|-------|------------------|
-| 2.20 | `core/room.mli` (+ `.ml`, 613 lines) | One room: wall segments, thresholds, floor/ceiling surfaces, sprites, decals, collision. **The winding rule is stated once, here, at the top** — everything else in the engine points to it. Test: `test/test_room.ml`; `test/support.ml` holds the hand-checkable 4×4 room used everywhere. |
-| 2.21 | `core/world.mli` (+ `.ml`, 507 lines) | Named rooms, linked portals, spawn, atmosphere — and the three primitives a world *grows* by. The `.mli` documents the portal machinery. Demos: `portals`, `endless`. Tests: `test/test_world.ml`, `test/test_level.ml`. |
-| 2.22 | `core/ray.mli` (+ `.ml`, 163 lines) | Ray-versus-segment intersection, every wall the ray crosses, farthest first — and the derivation of why the reported distance is **free of fish-eye**. The single most classic piece of raycaster math in the repo. Test: `test/test_ray.ml`. |
+| 2.20 | `core/room.mli` (+ `.ml`, ~620 lines) | One room: wall segments, thresholds, floor/ceiling surfaces, sprites, decals, collision. **The winding rule is stated once, here, at the top** — everything else in the engine points to it. Test: `test/test_room.ml`; `test/support.ml` holds the hand-checkable 4×4 room used everywhere. |
+| 2.21 | `core/world.mli` (+ `.ml`, ~490 lines) | Named rooms, linked portals, spawn, atmosphere — and the three primitives a world *grows* by. The `.mli` documents the portal machinery. Demos: `portals`, `endless`. Tests: `test/test_world.ml`, `test/test_level.ml`. |
+| 2.22 | `core/ray.mli` (+ `.ml`, ~180 lines) | Ray-versus-segment intersection, every wall the ray crosses, farthest first — and the derivation of why the reported distance is **free of fish-eye**. The single most classic piece of raycaster math in the repo. Test: `test/test_ray.ml`. |
 
 **Background on raycasting**, if the idea itself is new:
 
@@ -240,7 +240,7 @@ Phase 5 (mouse look, resizing).*
 |---|-------|------------------|
 | 2.23 | `core/player.mli` (+ `.ml`) | The camera as position + unit `dir` + unit `right`, plus pitch. Movement and collision (wall sliding) live here. Test: `test/test_player.ml`. |
 | 2.24 | `core/viewport.mli` (+ `.ml`) | Window size → camera geometry: the projection, eye height, pitch *shear*, and the **Hor+** resize rules (vertical FOV fixed; wider window shows more world). Explains README's "Controls" notes. Test: `test/test_viewport.ml`. |
-| 2.25 | `core/sight.mli` (+ `.ml`, 306 lines) | What the crosshair is on, traced through doorways with per-texel alpha respected. Feeds `lib/aim.ml` later. Demo: `targets`. Test: `test/test_sight.ml`. |
+| 2.25 | `core/sight.mli` (+ `.ml`, ~310 lines) | What the crosshair is on, traced through doorways with per-texel alpha respected. Feeds `lib/aim.ml` later. Demo: `targets`. Test: `test/test_sight.ml`. |
 | 2.26 | `core/input.mli` | Keyboard and mouse *as they are*: controls, edges (`pressed`/`released`), holds, analog reads. No meanings assigned. Test: `test/test_input.ml`. |
 | 2.27 | `core/binding.mli` (+ `.ml`) | Meanings: a game's table from controls to movement axes. The rate-vs-displacement distinction (held key = rate paid out over the frame; mouse = displacement added as-is) is documented here and in README. `Binding.motion` is the one pure function. Demo: `controls`. Test: `test/test_binding.ml`. |
 
@@ -306,10 +306,10 @@ demonstration of why the empty `(libraries)` line matters):
 | 3.1 | `loom/path.mli` | A node's identity *and* its error-message label, in one value — and why those are different readings of the same thing. |
 | 3.2 | `loom/element.mli` | What a component returns: pure description, holding no state, equal when describing the same thing. `Element.declare` and why a component's identity is its `render` function's physical identity. |
 | 3.3 | `loom/trace.mli` | The reconciler will *say what it did*, so tests assert on decisions, not pixels. Free when unused. |
-| 3.4 | `loom/hook.mli` (+ `.ml`, 337 lines) | The slot row: first `use_state` gets the first slot, **order is identity** — hence "the rule" (unconditional, same order, every render). Then the `.ml`: the effect handlers that deliver slots, the tag check that catches a moved hook, when a setter takes effect, why effects run after the frame. The densest file in the repo alongside `reconcile.ml`. |
+| 3.4 | `loom/hook.mli` (+ `.ml`, ~340 lines) | The slot row: first `use_state` gets the first slot, **order is identity** — hence "the rule" (unconditional, same order, every render). Then the `.ml`: the effect handlers that deliver slots, the tag check that catches a moved hook, when a setter takes effect, why effects run after the frame. The densest file in the repo alongside `reconcile.ml`. |
 | 3.5 | `loom/context.mli` | Values handed down a subtree without threading props — and the `Type.Id` witness that replaces React's any-cast. |
 | 3.6 | `loom/store.mli` | Redux in 72 lines: immutable state, actions, one reducer, subscriptions. For state that belongs to no component. Background: [Redux — Core Concepts](https://redux.js.org/introduction/core-concepts). |
-| 3.7 | `loom/reconcile.mli` (+ `.ml`, 405 lines) | The whole of the matching, in one functor: what counts as "the same thing" (component: same render function; host node: same type at the same place; keys override position), what is kept, what is torn down. Guide Phase 2 ("The tree that survives") is the walkthrough. |
+| 3.7 | `loom/reconcile.mli` (+ `.ml`, ~410 lines) | The whole of the matching, in one functor: what counts as "the same thing" (component: same render function; host node: same type at the same place; keys override position), what is kept, what is torn down. Guide Phase 2 ("The tree that survives") is the walkthrough. |
 | 3.8 | `loom/host.mli` | **The seam: two types and one function.** Note what is deliberately absent (no create/update/destroy mutation stream — the host gets the finished forest) and why that inverts React's host config. |
 
 **Checkpoint.** You can answer: *Why must hooks be called unconditionally and
@@ -331,19 +331,19 @@ order:
 | # | file | what to look for |
 |---|------|------------------|
 | 4.1 | `lib/camlcast.mli` | The public surface — the one module a game opens. Mostly re-exports; read it as a table of contents for this phase. Note what is *not* in it (`Engine`, `Renderer`, `World`, `Player`). |
-| 4.2 | `lib/prim.mli` (+ `.ml`, 86 lines) | The primitives — "this engine's `div` and `span`": world, room, boundary, wall, doorway, sprite, decal, hud, text… All inert descriptions. `may_contain` is the nesting rule. |
-| 4.3 | `lib/p.mli` (+ `.ml`) | The constructors a game actually writes (`P.world`, `P.room`, `P.boundary`, `P.sprite`, …) — the vocabulary layer over `Prim`. Compare with `examples/step01_room.ml` from Phase 1; it should now read as obvious. |
+| 4.2 | `lib/prim.mli` (+ `.ml`, ~120 lines) | The primitives — "this engine's `div` and `span`": world, room, wall, door, connect, spawn, sprite, decal, hud, text… All inert descriptions. `may_contain` is the nesting rule. |
+| 4.3 | `lib/p.mli` (+ `.ml`) | The constructors a game actually writes (`P.world`, `P.room`, `P.wall`, `P.cut`, `P.sprite`, …) — the vocabulary layer over `Prim`. Compare with `examples/step01_room.ml` from Phase 1; it should now read as obvious. |
 | 4.4 | `lib/scene.mli` | What one frame of description settles into: a world, maybe a camera, over/not, pointer state, HUD list, and every handler hung on something aimable. A record, and the `.mli` explains why. |
 | 4.5 | `lib/nesting.mli` | `Prim.may_contain` applied to a whole tree — shared between `Host` and `Check` so the runtime and the checker cannot drift (the `.mli` tells the story of when they did). |
-| 4.6 | `lib/host.mli` (+ `.ml`, 161 lines) | **The other half of Phase 3's seam:** `Camlcast_loom.Host.HOST` implemented for the raycaster. Once a frame, the settled forest of `Prim`s → the same `Room.make` / `World.make` a hand-written level always called. |
+| 4.6 | `lib/host.mli` (+ `.ml`, ~480 lines) | **The other half of Phase 3's seam:** `Camlcast_loom.Host.HOST` implemented for the raycaster. Once a frame, the settled forest of `Prim`s → the same `Room.make` / `World.make` a hand-written level always called. |
 | 4.7 | `lib/mount.mli` | The instance tree held between frames; render a description in, get a `Scene.t` out. **No window here** — this is why levels are provable in tests. Test: `test/test_stage.ml` renders a described room beside its hand-built twin and compares every pixel (the layer's ground truth). |
 | 4.8 | `lib/events.mli` | How a component reads the frame it is rendered for: `use_frame`, `use_pressed`, `use_held`, `aim`, `use_crossed` — all reads of a context that `Run` binds around each render. Test: `test/test_events.ml`. |
 | 4.9 | `lib/aim.mli` (+ `.ml`) | From `core/sight`'s "wall 3 of room 2" to "the thing *your component* described" — and `on_use` / `on_gaze` handlers. Demos: `targets`, `chalk`. Test: `test/test_aim.ml`. |
 | 4.10 | `lib/controls.mli` | One record for everything the loop acts on by itself: walk/look bindings, leave, use, map. |
 | 4.11 | `lib/overlay.mli` | `Scene.hud` primitives → `Paint`/`Font` calls. One short fold. Test: `test/test_overlay.ml`. |
 | 4.12 | `lib/debug_map.mli` | The room from above with its mistakes marked (winding ticks, unlinked doorways in red). Read after `Check` or before — it is the visual twin of it. Test: `test/test_debug_map.ml`. |
-| 4.13 | `lib/check.mli` (+ `.ml`, 643 lines) | Static analysis for levels: unreachable rooms, spawn inside a wall, floor steps across doorways, double-linked doorways — errors named in the game's own terms. Guide: making-a-game Step 22. Test: `test/test_check.ml`. |
-| 4.14 | `lib/run.mli` (+ `.ml`, 217 lines) | **The capstone.** `Run.play` / `Run.on` = one call to `Engine.run` with a `Mount` kept beside it: render description → `Scene` → world+player to `Engine`'s `view`, handlers wired to input, `Run.carry` holding the player across a growing world. When this file reads as a summary rather than news, the architecture is yours. |
+| 4.13 | `lib/check.mli` (+ `.ml`, ~670 lines) | Static analysis for levels: unreachable rooms, spawn inside a wall, floor steps across doorways, double-linked doorways — errors named in the game's own terms. Guide: making-a-game Step 22. Test: `test/test_check.ml`. |
+| 4.14 | `lib/run.mli` (+ `.ml`, ~230 lines) | **The capstone.** `Run.play` / `Run.on` = one call to `Engine.run` with a `Mount` kept beside it: render description → `Scene` → world+player to `Engine`'s `view`, handlers wired to input, `Run.carry` holding the player across a growing world. When this file reads as a summary rather than news, the architecture is yours. |
 
 **Checkpoint.** Trace, on paper, one frame end to end: SDL event → `Input` →
 `Events.context` → components re-render → `Reconcile` against the mount →
