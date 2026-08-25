@@ -69,15 +69,14 @@ let doors_agree a b = door_state a = door_state b
 
 (* Refuse two thresholds of one room sharing a name: no link could tell them
     apart, and {!link} resolves by name. *)
-let check_names ~who ~room name (r : Room.t) =
+let check_names ~who name (r : Room.t) =
   let seen = Hashtbl.create (Room.threshold_count r) in
   for i = 0 to Room.threshold_count r - 1 do
     let (t : Room.threshold) = Room.threshold_at r i in
     if Hashtbl.mem seen t.Room.name then
       invalid_arg (who ^ ": two thresholds named " ^ name ^ "." ^ t.Room.name);
     Hashtbl.add seen t.Room.name ()
-  done;
-  ignore room
+  done
 
 (* Refuse two rooms of one world sharing a name, for the same reason as the
     thresholds above. The failure mode is worse here: a duplicate name does
@@ -161,7 +160,7 @@ let make ~rooms ~links ~atmosphere ~spawn =
   in
   check_room_names ~who:"World.make" names;
   Array.iteri
-    (fun room r -> check_names ~who:"World.make" ~room names.(room) r)
+    (fun room r -> check_names ~who:"World.make" names.(room) r)
     values;
   let find_threshold room name =
     let r = values.(room) in
@@ -237,7 +236,7 @@ let open_doorway t ~room ~opened =
         ("World.open_doorway: " ^ where ^ " moved its existing threshold "
        ^ x.Room.name)
   done;
-  check_names ~who:"World.open_doorway" ~room where opened;
+  check_names ~who:"World.open_doorway" where opened;
   let rooms = Array.copy t.rooms and portals = Array.copy t.portals in
   rooms.(room) <- opened;
   portals.(room) <- Array.append t.portals.(room) [| None |];
@@ -246,7 +245,7 @@ let open_doorway t ~room ~opened =
 let add_room t ~name room =
   if Array.exists (String.equal name) t.names then
     invalid_arg ("World.add_room: a room is already named " ^ name);
-  check_names ~who:"World.add_room" ~room:(Array.length t.rooms) name room;
+  check_names ~who:"World.add_room" name room;
   ( {
       t with
       rooms = Array.append t.rooms [| room |];
@@ -345,7 +344,7 @@ let set_door t ~room ~threshold state =
 let check t =
   check_room_names ~who:"World.check" t.names;
   Array.iteri
-    (fun room r -> check_names ~who:"World.check" ~room t.names.(room) r)
+    (fun room r -> check_names ~who:"World.check" t.names.(room) r)
     t.rooms;
   Array.iteri
     (fun room row ->
