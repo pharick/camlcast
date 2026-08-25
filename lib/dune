@@ -11,7 +11,16 @@
 ; one: loom knows nothing of walls, core knows nothing of components, and
 ; everything that has to know both is here.
 
+; -w +70 for the reason core/dune and loom/dune carry it: a module without an
+; interface exports every binding in it, so the boundary a library draws would
+; be whatever its implementation happens to leave visible. All fourteen modules
+; here already carry one, and the flag is what keeps the fifteenth from
+; arriving without it — which matters most here of the three, this being the
+; library a game opens.
+
 (library
+ (flags
+  (:standard -w +70))
  (name camlcast)
  (public_name camlcast)
  (libraries camlcast_core camlcast_loom))
