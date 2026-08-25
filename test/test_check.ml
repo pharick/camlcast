@@ -26,10 +26,8 @@ let lines = Alcotest.(list string)
    otherwise asserts summaries on purpose (see the header). This helper exists
    because a detail once misstated the engine's own vocabulary. A sentence
    that teaches a game developer the words is worth pinning once. *)
-let details description =
-  List.concat_map
-    (fun (d : Check.t) -> d.Check.detail)
-    (Check.report description)
+let details report =
+  List.concat_map (fun (d : Check.t) -> d.Check.detail) report
 
 (* {!Support.mentions} takes the haystack first; this is it over a list of
    lines, which is the shape a detail comes in. *)
@@ -46,34 +44,39 @@ let floor_at z = P.floor ~plane:(Plane.horizontal z) stone
 let floor = floor_at 0.
 let ceiling = P.roof ~plane:(Plane.above flat height) stone
 
-(* Three sides run open and the fourth cut, which together close the boundary.
-   Every world below is a variation of this. *)
-let west_side ?key ?(corner = Vec.make 0. (-4.)) () =
-  P.boundary ~closed:false ?key ~height ~material:stone
-    (P.corners
-       [ Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.); corner ])
+(* Two rooms, each a closed outline, sharing the leg between them. Every world
+   below is a variation of this. *)
+let west_outline ?(corner = Vec.make 0. (-4.)) () =
+  P.corners [ corner; Vec.make 0. 4.; Vec.make (-6.) 4.; Vec.make (-6.) (-4.) ]
 
-let east_side =
-  P.boundary ~closed:false ~height ~material:stone
-    (P.corners
-       [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ])
+let east_outline =
+  P.corners
+    [ Vec.make 0. (-4.); Vec.make 6. (-4.); Vec.make 6. 4.; Vec.make 0. 4. ]
 
-let west_door ?key ?door ?(width = 2.) ?(name = "east") () =
-  P.doorway ?key ?door ~name ~width ~opening:2.5 ~height ~material:stone
-    (Vec.make 0. (-4.)) (Vec.make 0. 4.)
+let opening ?name ?(width = 2.) () = P.door ?name ~width ~clearance:2.5 ()
+let west_leg = (Vec.make 0. (-4.), Vec.make 0. 4.)
+let east_leg = (Vec.make 0. 4., Vec.make 0. (-4.))
 
-let east_door ?door ?(width = 2.) ?(name = "west") () =
-  P.doorway ?door ~name ~width ~opening:2.5 ~height ~material:stone
-    (Vec.make 0. 4.) (Vec.make 0. (-4.))
+let west_room ?key ?name ?corner ?leaf ?(floor = floor)
+    ?(spawn_at = Vec.make (-3.) 0.) ?(holding = []) door =
+  P.room ?key ?name ~height ~material:stone ~floor ~ceiling
+    ~outline:(west_outline ?corner ())
+    (P.spawn spawn_at :: P.cut door ?leaf ~along:west_leg :: holding)
 
+let east_room ?name ?leaf ?(floor = floor) ?(holding = []) door =
+  P.room ?name ~height ~material:stone ~floor ~ceiling ~outline:east_outline
+    (P.cut door ?leaf ~along:east_leg :: holding)
+
+(* One pair of doors, shared by the worlds below. Each of them is built on its
+   own, so the same two identities standing for the same opening in all of them
+   is no more a collision than the same corners are. *)
+let west_way = opening ~name:"east" ()
+let east_way = opening ~name:"west" ()
+
+(* The two rooms joined, and nothing wrong with them. *)
 let good =
   P.world ~atmosphere:Atmosphere.default
-    ~spawn:("west", Vec.make (-3.) 0.)
-    [
-      P.room ~name:"west" ~floor ~ceiling [ west_side (); west_door () ];
-      P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ];
-      P.link ("west", "east") ("east", "west");
-    ]
+    [ west_room west_way; east_room east_way; P.connect west_way east_way ]
 
 let nothing_to_report =
   [
@@ -133,36 +136,48 @@ let naming =
           [ {|there is already a room called "west"|} ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling [ west_side () ];
-                  P.room ~name:"west" ~floor ~ceiling [ east_side ];
+                  P.room ~name:"west" ~height ~material:stone ~floor ~ceiling
+                    ~outline:(west_outline ())
+                    [ P.spawn (Vec.make (-3.) 0.) ];
+                  P.room ~name:"west" ~height ~material:stone ~floor ~ceiling
+                    ~outline:east_outline [];
                 ])));
     case "two doorways of the same name in one room" (fun () ->
         Alcotest.check lines "a link could not tell them apart"
           [ {|there is already a doorway called "east"|} ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [
-                      west_side ();
-                      west_door ();
-                      P.doorway ~name:"east" ~width:2. ~opening:2.5 ~height
-                        ~material:stone (Vec.make (-6.) (-4.))
-                        (Vec.make (-6.) 4.);
-                    ];
+                  west_room west_way
+                    ~holding:
+                      [
+                        P.cut (opening ~name:"east" ())
+                          ~along:(Vec.make (-6.) (-4.), Vec.make (-6.) 4.);
+                      ];
                 ])));
   ]
 
 let links =
   let two_rooms ~link_to =
     P.world ~atmosphere:Atmosphere.default
-      ~spawn:("west", Vec.make (-3.) 0.)
+      (* Thresholds and not cut doors: a link finds a doorway by the name its
+         room gave it, which is what P.threshold makes. The two forms go
+         together and will go away together. *)
       [
-        P.room ~name:"west" ~floor ~ceiling [ west_side (); west_door () ];
-        P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ];
+        P.room ~name:"west" ~height ~material:stone ~floor ~ceiling
+          ~outline:(west_outline ())
+          [
+            P.spawn (Vec.make (-3.) 0.);
+            P.threshold ~name:"east" ~height:2.5 (Vec.make 0. (-4.))
+              (Vec.make 0. 4.);
+          ];
+        P.room ~name:"east" ~height ~material:stone ~floor ~ceiling
+          ~outline:east_outline
+          [
+            P.threshold ~name:"west" ~height:2.5 (Vec.make 0. 4.)
+              (Vec.make 0. (-4.));
+          ];
         P.link ("west", "east") link_to;
       ]
   in
@@ -190,52 +205,40 @@ let links =
           (List.sort compare
              (summaries
                 (P.world ~atmosphere:Atmosphere.default
-                   ~spawn:("west", Vec.make (-3.) 0.)
-                   [
-                     P.room ~name:"west" ~floor ~ceiling
-                       [ west_side (); west_door () ];
-                     P.room ~name:"east" ~floor ~ceiling
-                       [ east_side; east_door () ];
-                   ]))));
+                   [ west_room west_way; east_room east_way ]))));
     case "a doorway two links claim" (fun () ->
         Alcotest.check lines "a place that cannot exist"
-          [ {|the doorway "west" is linked 2 times|} ]
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
-                [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door (); west_door ~name:"south" () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
-                  P.link ("west", "south") ("east", "west");
-                ])));
+          [
+            {|the doorway "east" is linked 2 times|};
+            {|the doorway "west" is linked 2 times|};
+          ]
+          (List.sort compare
+          @@ summaries
+               (P.world ~atmosphere:Atmosphere.default
+                  [
+                    west_room west_way;
+                    east_room east_way;
+                    P.connect west_way east_way;
+                    P.connect west_way east_way;
+                  ])));
     case "two sides of one doorway that are different widths" (fun () ->
+        let wider = opening ~name:"west" ~width:3. () in
         Alcotest.check lines "they are the same opening"
           [ "the two sides of this link are different widths" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door ~width:3. () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way; east_room wider; P.connect west_way wider;
                 ])));
     case "a door on one side and none on the other" (fun () ->
         Alcotest.check lines "one leaf hangs in one opening"
           [ "one side of this link has a door and the other does not" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door ~door:(Door.make stone) () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way ~leaf:(Door.make stone);
+                  east_room east_way;
+                  P.connect west_way east_way;
                 ])));
   ]
 
@@ -280,16 +283,13 @@ let refused_in_the_same_words name description =
 
 let agrees_with_the_engine =
   let pair ?east_floor ?dw ?de ?(w = 2.) ?(e = 2.) () =
+    let a = opening ~name:"east" ~width:w ()
+    and b = opening ~name:"west" ~width:e () in
     P.world ~atmosphere:Atmosphere.default
-      ~spawn:("west", Vec.make (-3.) 0.)
       [
-        P.room ~name:"west" ~floor ~ceiling
-          [ west_side (); west_door ?door:dw ~width:w () ];
-        P.room ~name:"east"
-          ~floor:(Option.value east_floor ~default:floor)
-          ~ceiling
-          [ east_side; east_door ?door:de ~width:e () ];
-        P.link ("west", "east") ("east", "west");
+        west_room a ?leaf:dw;
+        east_room b ?leaf:de ?floor:east_floor;
+        P.connect a b;
       ]
   in
   [
@@ -361,28 +361,62 @@ let agrees_with_the_engine =
            Invalid_argument. *)
         let bad =
           Camlcast_loom.Element.declare ~name:"BadRoom" @@ fun () ->
-          P.room ~name:"west" ~floor ~ceiling
-            [ west_side (); west_door ~width:100. () ]
+          west_room (opening ~name:"east" ~width:100. ())
         in
         let report =
           Check.report
             (P.world ~atmosphere:Atmosphere.default
-               ~spawn:("west", Vec.make (-3.) 0.)
-               [
-                 bad ();
-                 P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ];
-                 P.link ("west", "east") ("east", "west");
-               ])
+               [ bad (); east_room east_way; P.connect west_way east_way ])
         in
         Alcotest.check lines "reported"
-          [ "this part of the description was refused" ]
+          [ "the engine refused to build this world" ]
           (List.map (fun (d : Check.t) -> d.Check.summary) report);
-        Alcotest.check lines "and named by the component it came out of"
-          [ "#0/BadRoom#0" ]
-          (List.map (fun (d : Check.t) -> d.Check.where) report));
+        (* The component is named, but in the message rather than in [where].
+           A cut is inert until assembly, so the refusal no longer happens
+           inside the component's own render the way Room.doorway's did — it
+           happens when the room is built, and the layer puts the path in the
+           sentence because that is the only place left to put it. *)
+        Alcotest.(check bool)
+          "and the component it came out of is named" true
+          (said_anywhere (details report) "BadRoom"));
   ]
 
 (* What only an assembled world can answer. Each of these builds cleanly. *)
+(* A threshold whose end meets no wall. A cut door cannot leave one: its jambs
+   are legs of the outline it is cut from, so its ends are wall ends by
+   construction. Only a bare {!Camlcast_core.Room.threshold} can, which is what
+   a generator composing {!Camlcast_core.Room.make} does — so the world is built
+   there and read by {!Check.assembled}, the half of Check that takes a world
+   rather than a description. *)
+let with_a_gap () =
+  let gate =
+    Room.threshold ~name:"east" ~height:2.5 (Vec.make 0. (-4.)) (Vec.make 0. 4.)
+  in
+  let short =
+    Room.make ~thresholds:[ gate ]
+      ~floor:(Room.floor ~plane:flat ~material:stone)
+      ~ceiling:(Room.roof ~plane:(Plane.above flat height) ~material:stone)
+      (Room.path ~closed:false ~height ~material:stone
+         [
+           Vec.make 0. (-3.);
+           Vec.make (-6.) (-4.);
+           Vec.make (-6.) 4.;
+           Vec.make 0. 4.;
+         ])
+  in
+  World.make
+    ~rooms:[ ("west", short) ]
+    ~links:[] ~atmosphere:Atmosphere.default
+    ~spawn:("west", Vec.make (-3.) 0.)
+
+let assembled_summaries world =
+  List.filter_map
+    (fun (d : Check.t) ->
+      match d.Check.severity with
+      | Check.Error -> Some d.Check.summary
+      | Check.Warning -> None)
+    (Check.assembled world)
+
 let the_world_it_makes =
   [
     case "the player starts in a room that is not there" (fun () ->
@@ -392,11 +426,9 @@ let the_world_it_makes =
              (P.world ~atmosphere:Atmosphere.default
                 ~spawn:("cellar", Vec.make 0. 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way;
+                  east_room east_way;
+                  P.connect west_way east_way;
                 ])));
     case "two cameras, and the one that is not being listened to" (fun () ->
         (* Host takes the last and says nothing about the rest, so the ones it
@@ -410,35 +442,29 @@ let the_world_it_makes =
           [ "this camera is overruled by a later one" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [
-                      west_side ();
-                      west_door ();
-                      P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
-                      P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
-                    ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way
+                    ~holding:
+                      [
+                        P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                        P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
+                      ];
+                  east_room east_way;
+                  P.connect west_way east_way;
                 ])));
     case "which is a warning, because the world still runs" (fun () ->
         Alcotest.check lines "one of the two is obeyed" [ "warning" ]
           (severities
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [
-                      west_side ();
-                      west_door ();
-                      P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
-                      P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
-                    ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way
+                    ~holding:
+                      [
+                        P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                        P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
+                      ];
+                  east_room east_way;
+                  P.connect west_way east_way;
                 ])));
     case "which leaves the world buildable, and so still checked" (fun () ->
         (* A warning and not an error, because an error stops the tiers below
@@ -453,18 +479,15 @@ let the_world_it_makes =
           (List.sort compare
              (summaries
                 (P.world ~atmosphere:Atmosphere.default
-                   ~spawn:("west", Vec.make (-6.) 0.)
                    [
-                     P.room ~name:"west" ~floor ~ceiling
-                       [
-                         west_side ();
-                         west_door ();
-                         P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
-                         P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
-                       ];
-                     P.room ~name:"east" ~floor ~ceiling
-                       [ east_side; east_door () ];
-                     P.link ("west", "east") ("east", "west");
+                     west_room west_way ~spawn_at:(Vec.make (-6.) 0.)
+                       ~holding:
+                         [
+                           P.camera ~pos:(Vec.make (-3.) 0.) ~angle:0. ();
+                           P.camera ~pos:(Vec.make (-2.) 0.) ~angle:0. ();
+                         ];
+                     east_room east_way;
+                     P.connect west_way east_way;
                    ]))));
     case "two children under one key are reported, not thrown" (fun () ->
         (* Reconciling refuses this outright, which is a crash where a check is
@@ -473,94 +496,62 @@ let the_world_it_makes =
           [ {|two of these children are keyed "side"|} ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side ~key:"side" (); west_door ~key:"side" () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way
+                    ~holding:
+                      [
+                        P.cut (opening ~name:"south" ()) ~key:"side"
+                          ~along:(Vec.make (-6.) (-4.), Vec.make (-6.) 4.);
+                        P.cut (opening ~name:"north" ()) ~key:"side"
+                          ~along:(Vec.make (-6.) 4., Vec.make 0. 4.);
+                      ];
+                  east_room east_way;
+                  P.connect west_way east_way;
                 ])));
     case "the player starts inside a wall" (fun () ->
         Alcotest.check lines "the first step would be refused"
           [ "the player starts inside a wall" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-6.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
-                  P.link ("west", "east") ("east", "west");
+                  west_room west_way ~spawn_at:(Vec.make (-6.) 0.);
+                  east_room east_way;
+                  P.connect west_way east_way;
                 ])));
     case "a room nothing leads to" (fun () ->
         Alcotest.check lines "content nobody can reach"
           [ "no doorway leads to this room" ]
           (summaries
              (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
                 [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [ west_side (); west_door () ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door () ];
+                  west_room west_way;
+                  east_room east_way;
                   (* No doorways at all, so nothing is unlinked and nothing
                      reaches it either. *)
-                  P.room ~name:"cellar" ~floor ~ceiling
-                    [
-                      P.boundary ~height ~material:stone
-                        (P.corners
-                           [
-                             Vec.make 10. 0.;
-                             Vec.make 14. 0.;
-                             Vec.make 14. 4.;
-                             Vec.make 10. 4.;
-                           ]);
-                    ];
-                  P.link ("west", "east") ("east", "west");
+                  P.room ~name:"cellar" ~height ~material:stone ~floor ~ceiling
+                    ~outline:
+                      (P.corners
+                         [
+                           Vec.make 10. 0.;
+                           Vec.make 14. 0.;
+                           Vec.make 14. 4.;
+                           Vec.make 10. 4.;
+                         ])
+                    [];
+                  P.connect west_way east_way;
                 ])));
     case "a doorway with a gap beside it" (fun () ->
-        (* The boundary stops a cell short of the opening, so the room shows its
-           floor and sky to the horizon through the corner. The doorway is as
-           wide as the wall it is cut into, which leaves no jamb to hide it. *)
         Alcotest.check lines "the corner meets nothing"
           [ {|the doorway "east" has a corner that meets no wall|} ]
-          (summaries
-             (P.world ~atmosphere:Atmosphere.default
-                ~spawn:("west", Vec.make (-3.) 0.)
-                [
-                  P.room ~name:"west" ~floor ~ceiling
-                    [
-                      west_side ~corner:(Vec.make 0. (-3.)) ();
-                      west_door ~width:8. ();
-                    ];
-                  P.room ~name:"east" ~floor ~ceiling
-                    [ east_side; east_door ~width:8. () ];
-                  P.link ("west", "east") ("east", "west");
-                ])));
+          (assembled_summaries (with_a_gap ())));
     case "and the reason it gives keeps the two words apart" (fun () ->
-        (* The two words are not interchangeable, and this detail is where
-           they are easiest to run together. A doorway is an opening {e and its
+        (* The two words are not interchangeable, and this detail is where they
+           are easiest to run together. A doorway is an opening {e and its
            jambs} (see {!Camlcast_core.Room}), and being made with its jambs is
-           why a doorway cannot be the thing this complaint is about. Only a
+           why a cut one cannot be the thing this complaint is about. Only a
            bare threshold can, so the explanation has to say which of the two
            makes this gap and which cannot. *)
-        let gap =
-          P.world ~atmosphere:Atmosphere.default
-            ~spawn:("west", Vec.make (-3.) 0.)
-            [
-              P.room ~name:"west" ~floor ~ceiling
-                [
-                  west_side ~corner:(Vec.make 0. (-3.)) ();
-                  west_door ~width:8. ();
-                ];
-              P.room ~name:"east" ~floor ~ceiling
-                [ east_side; east_door ~width:8. () ];
-              P.link ("west", "east") ("east", "west");
-            ]
-        in
-        let said = details gap in
+        let said = details (Check.assembled (with_a_gap ())) in
         Alcotest.(check bool)
           "it names the form that cannot leave one" true
           (said_anywhere said "P.doorway");
@@ -573,12 +564,10 @@ let the_world_it_makes =
     case "a step in the floor is a warning and not an error" (fun () ->
         let stepped =
           P.world ~atmosphere:Atmosphere.default
-            ~spawn:("west", Vec.make (-3.) 0.)
             [
-              P.room ~name:"west" ~floor ~ceiling [ west_side (); west_door () ];
-              P.room ~name:"east" ~floor:(floor_at 0.5) ~ceiling
-                [ east_side; east_door () ];
-              P.link ("west", "east") ("east", "west");
+              west_room west_way;
+              east_room east_way ~floor:(floor_at 0.5);
+              P.connect west_way east_way;
             ]
         in
         Alcotest.check lines "measured, so it can be judged"
@@ -637,13 +626,10 @@ let the_other_check =
         let stepped =
           world_of
             (P.world ~atmosphere:Atmosphere.default
-               ~spawn:("west", Vec.make (-3.) 0.)
                [
-                 P.room ~name:"west" ~floor ~ceiling
-                   [ west_side (); west_door () ];
-                 P.room ~name:"east" ~floor:(floor_at 0.5) ~ceiling
-                   [ east_side; east_door () ];
-                 P.link ("west", "east") ("east", "west");
+                 west_room west_way;
+                 east_room east_way ~floor:(floor_at 0.5);
+                 P.connect west_way east_way;
                ])
         in
         Alcotest.check lines "Check.assembled measures it"
@@ -665,21 +651,17 @@ let the_other_check =
 let where_it_says =
   let gallery =
     Camlcast_loom.Element.declare ~name:"gallery" @@ fun () ->
-    P.room ~name:"west" ~floor ~ceiling [ west_side (); west_door () ]
+    west_room west_way ~spawn_at:(Vec.make (-6.) 0.)
   in
   let annexe =
-    Camlcast_loom.Element.declare ~name:"annexe" @@ fun () ->
-    P.room ~name:"east" ~floor ~ceiling [ east_side; east_door () ]
+    Camlcast_loom.Element.declare ~name:"annexe" @@ fun () -> east_room east_way
   in
   [
     case "the component, not the room" (fun () ->
         let report =
           Check.report
             (P.world ~atmosphere:Atmosphere.default
-               ~spawn:("west", Vec.make (-6.) 0.)
-               [
-                 gallery (); annexe (); P.link ("west", "east") ("east", "west");
-               ])
+               [ gallery (); annexe (); P.connect west_way east_way ])
         in
         Alcotest.check lines "named by where it was written" [ "gallery" ]
           (List.map (fun (d : Check.t) -> d.Check.where) report));
@@ -693,13 +675,7 @@ let where_it_says =
         let report =
           Check.report
             (P.world ~atmosphere:Atmosphere.default
-               ~spawn:("west", Vec.make (-3.) 0.)
-               [
-                 gallery ();
-                 annexe ();
-                 P.link ("west", "east") ("east", "west");
-                 eye ();
-               ])
+               [ gallery (); annexe (); P.connect west_way east_way; eye () ])
         in
         Alcotest.check lines "named by where it was written" [ "eye" ]
           (List.map (fun (d : Check.t) -> d.Check.where) report));

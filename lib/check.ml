@@ -188,6 +188,11 @@ type described_room = {
   room_name : string;
   thresholds : (string * Room.threshold * string) list;
   doors : (int * Room.threshold * string) list;
+  measurable : bool;
+      (** false when {!Host.openings} refused this room's doors — a door taller
+          than the room or wider than the leg it names. Assembly reports that in
+          its own words, and until it does there is nothing trustworthy to say
+          about what the two sides of a connection agree on. *)
       (** the doors this room cuts, by the identity a {!Camlcast.P.connect}
           joins them by. Worked out by {!Host.openings}, which is the same
           computation assembly uses, so the two cannot answer differently. *)
@@ -224,8 +229,9 @@ let structure forest =
   let doors_of (node : Prim.t Loom.Host.node) =
     match Host.openings node with
     | found ->
-        List.map (fun (id, threshold, at) -> (id, threshold, path_of at)) found
-    | exception Host.Malformed _ -> []
+        ( List.map (fun (id, t, at) -> (id, t, path_of at)) found,
+          true )
+    | exception Host.Malformed _ -> ([], false)
   in
   let thresholds_of (node : Prim.t Loom.Host.node) =
     List.filter_map
@@ -243,7 +249,18 @@ let structure forest =
         List.iter
           (fun (child : Prim.t Loom.Host.node) ->
             match child.Loom.Host.prim with
-            | Prim.Room { name = Some name; _ } ->
+            | Prim.Room { name; _ } ->
+                (* Synthesised the way {!Host} synthesises it, and for the same
+                   reason: almost no description names a room any more, and a
+                   check that only saw the named ones would have nothing to say
+                   about nearly every world it was handed. The debug spelling,
+                   because the readable one drops steps with neither a name nor
+                   a key and two unnamed rooms would come out alike. *)
+                let name =
+                  match name with
+                  | Some name -> name
+                  | None -> Loom.Path.to_debug_string child.Loom.Host.path
+                in
                 (* Every camera, in the order written. A camera is a child of
                    the room it looks from, so there is no room name here to
                    doubt any more; what is left to report is that Host takes the
@@ -259,7 +276,8 @@ let structure forest =
                     room_path = path_of child;
                     room_name = name;
                     thresholds = thresholds_of child;
-                    doors = doors_of child;
+                    doors = fst (doors_of child);
+                    measurable = snd (doors_of child);
                   }
                   :: !rooms
             | Prim.Link { here; there } ->
@@ -325,8 +343,14 @@ let naming rooms =
     (List.map (fun room -> (room.room_name, room.room_path)) rooms)
   @ List.concat_map
       (fun room ->
+        (* Doors as well as thresholds: {!World.make} refuses two doorways of
+           one name in one room whichever form made them, because a name is
+           still how it tells them apart in its own complaints. *)
         duplicates ~what:"doorway"
-          (List.map (fun (name, _, at) -> (name, at)) room.thresholds))
+          (List.map (fun (name, _, at) -> (name, at)) room.thresholds
+          @ List.map
+              (fun (_, (t : Room.threshold), at) -> (t.Room.name, at))
+              room.doors))
       rooms
 
 (* A name that matches no room is the same mistake whether a link, a spawn, or
@@ -440,7 +464,11 @@ let agreement ~at ~complain ~here:(here_name, one) ~there:(there_name, other) =
    doors rather than naming two doorways. There is no name to be wrong here —
    that is the whole of what a connection is for — so what is left is whether
    the two sides agree, and whether every door has exactly one connection. *)
-let connecting rooms connections =
+let rec connecting rooms connections =
+  if not (List.for_all (fun room -> room.measurable) rooms) then []
+  else connecting_measurable rooms connections
+
+and connecting_measurable rooms connections =
   let problems = ref [] in
   let complain d = problems := d :: !problems in
   let doors =
