@@ -16,34 +16,53 @@
 
     {1 The shape of a game}
 
+    Every line below is a line of [examples/step08_state.ml], a program the
+    default build compiles; [test/test_docs.ml] holds the two together, so a
+    sample on this page cannot outlive the API it was written for.
+
     {[
     open Camlcast
 
-    let torch =
-      Element.declare ~name:"torch" @@ fun pos ->
-      let lit, set_lit = Hook.use_state true in
-      Events.use_pressed (Input.Key Key.e) (fun () -> set_lit (not lit));
-      P.sprite ~size:0.8 ~image:(if lit then flame else stub) pos
+    let brazier =
+      Element.declare ~name:"brazier" @@ fun (pos : Vec.t) ->
+      let lit, set_lit = Hook.use_state false in
+      Events.use_pressed (Input.Key Key.space) (fun () -> set_lit true);
+      P.sprite ~size:0.9
+        ~glow:(if lit then 0.85 else 0.)
+        ~image:(if lit then brazier_hot else brazier_cold)
+        pos
 
     let level =
       P.(
-        world ~atmosphere:Atmosphere.default ~spawn:("room", origin)
+        world ~atmosphere:air
           [
-            room ~name:"room" ~floor ~ceiling
+            room ~height ~material:stone ~floor:(floor ~plane:flat ground)
+              ~ceiling:(roof stone)
+              ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
               [
-                boundary ~height:4. ~material:stone (P.corners corners);
-                torch here;
+                spawn (Vec.make (-4.5) 0.);
+                brazier (Vec.make 0. 0.);
               ];
           ])
 
-    let () = ignore (Run.play ~title:"A game" level)
+    let () =
+      match Run.play ~title:"The Undercroft" level with
+      | Ok _ending -> ()
+      | Error (`Msg message) ->
+          prerr_endline message;
+          exit 1
     ]}
+
+    A room is a closed [outline] of corners with its contents inside it, and
+    where the player starts is a [spawn] among those contents rather than a room
+    named from outside. A doorway is a [door] made once and [cut] into a leg of
+    the outline it stands in; two of them joined by a [connect] are one opening.
 
     {!P} is written [P.( ... )] around a description rather than opened over a
     whole file. Its names are short and ordinary — [wall], [room], [text],
-    [boundary] — and a local open puts them in scope exactly where a description
-    is written and nowhere else. The open also marks where a description starts
-    and stops.
+    [spawn] — and a local open puts them in scope exactly where a description is
+    written and nowhere else. The open also marks where a description starts and
+    stops.
 
     {1 Where to read next}
 

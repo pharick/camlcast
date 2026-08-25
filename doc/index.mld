@@ -74,8 +74,8 @@ changes the picture without closing the window.
   let () = ignore (Run.play ~title:"A game" level)
 ]}
 
-A description is made with {!Camlcast.P} — [world], [room], [boundary],
-[doorway], [sprite], [hud]. The parts that have to remember something are
+A description is made with {!Camlcast.P} — [world], [room], [wall], [cut],
+[sprite], [hud]. The parts that have to remember something are
 {e components}: functions from props to a description. A component holds state
 with {!Camlcast.Hook.use_state} and reaches the outside world through
 {!Camlcast.Hook.use_effect}. {!Camlcast.Events} reads the frame being rendered:

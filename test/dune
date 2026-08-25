@@ -88,6 +88,7 @@
   test_overlay
   test_aim
   test_dynamics
+  test_docs
   test_patterns
   test_pictures
   test_level
@@ -138,6 +139,29 @@
   test_dynamics)
  (package camlcast)
  (libraries camlcast_core camlcast camlcast_loom alcotest support))
+
+; The pages'. A stanza to itself because its dependencies are the pages rather
+; than anything under test/: naming them in the engine's stanza above would
+; re-run all twenty-eight of its suites whenever a guide was edited.
+;
+; It links no engine library, and Support is absent for the reason it is absent
+; from the loom stanza: what this reads is text — an interface, two pages and
+; the example programs — and a suite that reads text has no use for a Vec
+; testable. It asks two things of them: that the sample in lib/camlcast.mli is
+; quoted from a program the default build compiles, and that every P.name a
+; page mentions is a name P exports.
+
+(tests
+ (names test_docs)
+ (modules test_docs)
+ (package camlcast)
+ (deps
+  (source_tree ../examples)
+  ../lib/camlcast.mli
+  ../lib/p.mli
+  ../doc/index.mld
+  ../doc/making-a-game.mld)
+ (libraries alcotest))
 
 ; The demos'. Their art comes in through Asset rather than by relative path,
 ; which is why the whole of assets/ is a dependency: test_demos builds every
