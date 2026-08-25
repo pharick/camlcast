@@ -18,21 +18,23 @@ let flat = Plane.horizontal 0.
 
 (* A row of square rooms, each four cells across, side by side along x, so any
    of them can be named and none of them touch. *)
-let box ~name ~at contents =
+(* [start] puts the spawn in this room, which is the only way a description
+   says where the player begins. *)
+let box ?start ~name ~at contents =
   P.(
-    room ~name ~floor:(floor ~plane:flat stone)
-      ~ceiling:(roof ~plane:(Plane.above flat height) stone)
-      (boundary ~height ~material:stone
-         (corners
-            [
-              Vec.make (at -. 2.) (-2.);
-              Vec.make (at +. 2.) (-2.);
-              Vec.make (at +. 2.) 2.;
-              Vec.make (at -. 2.) 2.;
-            ])
-      :: contents))
+    room ~name ~height ~material:stone ~floor:(floor ~plane:flat stone)
+      ~ceiling:(roof stone)
+      ~outline:
+        (corners
+           [
+             Vec.make (at -. 2.) (-2.);
+             Vec.make (at +. 2.) (-2.);
+             Vec.make (at +. 2.) 2.;
+             Vec.make (at -. 2.) 2.;
+           ])
+      ((match start with Some at -> [ spawn at ] | None -> []) @ contents))
 
-let world_of ~spawn rooms = P.world ~atmosphere:Atmosphere.default ~spawn rooms
+let world_of rooms = P.world ~atmosphere:Atmosphere.default rooms
 
 let play mount frame description =
   Mount.render mount (Element.provide Events.context frame [ description ])
@@ -95,8 +97,7 @@ let interacting =
   let plain ?(holding = []) contents =
     Mount.build
       (world_of
-         ~spawn:("hall", Vec.make 0. 0.)
-         (box ~name:"hall" ~at:0. holding :: contents))
+         (box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) holding :: contents))
   in
   let eye () = P.camera ~pos:(Vec.make 0. 0.) ~angle:0. () in
   [
@@ -139,9 +140,9 @@ let () =
               let first =
                 Mount.build
                   (world_of
-                     ~spawn:("cellar", Vec.make 10. 0.)
                      [
-                       box ~name:"hall" ~at:0. []; box ~name:"cellar" ~at:10. [];
+                       box ~name:"hall" ~at:0. [];
+                       box ~name:"cellar" ~at:10. ~start:(Vec.make 10. 0.) [];
                      ])
               in
               let player = Player.spawn first.Scene.world in
@@ -150,9 +151,9 @@ let () =
               let second =
                 Mount.build
                   (world_of
-                     ~spawn:("cellar", Vec.make 10. 0.)
                      [
-                       box ~name:"cellar" ~at:10. []; box ~name:"hall" ~at:0. [];
+                       box ~name:"cellar" ~at:10. ~start:(Vec.make 10. 0.) [];
+                       box ~name:"hall" ~at:0. [];
                      ])
               in
               let carried = Run.carry second ~was:"cellar" player in
@@ -164,16 +165,15 @@ let () =
               let first =
                 Mount.build
                   (world_of
-                     ~spawn:("hall", Vec.make 0. 0.)
-                     [ box ~name:"hall" ~at:0. [] ])
+                     [ box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) [] ])
               in
               let player = Player.spawn first.Scene.world in
               let grown =
                 Mount.build
                   (world_of
-                     ~spawn:("hall", Vec.make 0. 0.)
                      [
-                       box ~name:"porch" ~at:20. []; box ~name:"hall" ~at:0. [];
+                       box ~name:"porch" ~at:20. [];
+                       box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) [];
                      ])
               in
               Alcotest.(check string)
@@ -183,8 +183,7 @@ let () =
               let first =
                 Mount.build
                   (world_of
-                     ~spawn:("hall", Vec.make 0. 0.)
-                     [ box ~name:"hall" ~at:0. [] ])
+                     [ box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) [] ])
               in
               let player =
                 Player.pitch_by
@@ -194,9 +193,9 @@ let () =
               let moved =
                 Mount.build
                   (world_of
-                     ~spawn:("hall", Vec.make 0. 0.)
                      [
-                       box ~name:"attic" ~at:20. []; box ~name:"hall" ~at:0. [];
+                       box ~name:"attic" ~at:20. [];
+                       box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) [];
                      ])
               in
               ignore first;
@@ -210,9 +209,9 @@ let () =
               let first =
                 Mount.build
                   (world_of
-                     ~spawn:("hall", Vec.make 0. 0.)
                      [
-                       box ~name:"hall" ~at:0. []; box ~name:"attic" ~at:10. [];
+                       box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) [];
+                       box ~name:"attic" ~at:10. [];
                      ])
               in
               let up = Player.make ~room:1 ~pos:(Vec.make 10.5 0.5) ~angle:0. in
@@ -221,8 +220,7 @@ let () =
               let shrunk =
                 Mount.build
                   (world_of
-                     ~spawn:("hall", Vec.make 0. 0.)
-                     [ box ~name:"hall" ~at:0. [] ])
+                     [ box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.) [] ])
               in
               let carried = Run.carry shrunk ~was:"attic" up in
               Alcotest.(check string)
@@ -311,9 +309,8 @@ let () =
               let swarm =
                 Element.declare ~name:"swarm" @@ fun () ->
                 world_of
-                  ~spawn:("hall", Vec.make 0. 0.)
                   [
-                    box ~name:"hall" ~at:0.
+                    box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.)
                       (List.init 3 (fun index ->
                            mote
                              ~key:("mote" ^ string_of_int index)
@@ -354,9 +351,8 @@ let () =
                         (float_of_int index))
                 in
                 world_of
-                  ~spawn:("hall", Vec.make 0. 0.)
                   [
-                    box ~name:"hall" ~at:0.
+                    box ~name:"hall" ~at:0. ~start:(Vec.make 0. 0.)
                       (if backwards then List.rev motes else motes);
                   ]
               in
