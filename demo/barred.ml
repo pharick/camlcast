@@ -18,8 +18,8 @@
 
     The transom is why the wall above an opening carries a material of its own.
     {!Camlcast_core.Room.doorway} cuts a wall and gives the jambs and the strip
-    left overhead the same material — the common case, not this one — so {!cut}
-    below does the cutting instead. *)
+    left overhead the same material — the common case, not this one — so
+    {!Camlcast.P.cut} takes a lintel of its own. *)
 
 open Camlcast
 

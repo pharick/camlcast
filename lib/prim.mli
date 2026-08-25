@@ -111,10 +111,12 @@ type t =
           is what the opening takes, which is why it cannot be given backwards.
           [id] is the identity a {!Connect} joins it by. *)
   | Connect of int * int
+      (** two {!constructor-Door}s, by [id], that are the same opening seen from
+          either side. A child of the world, so that joining two rooms and
+          unjoining them touches neither. *)
   | Spawn of Vec.t
-      (** two {!Door}s, by [id], that are the same opening seen from either
-          side. A child of the world, so that joining two rooms and unjoining
-          them touches neither. *)
+      (** where the player starts, in the coordinates of the room that holds
+          it *)
   | Link of { here : string * string; there : string * string }
       (** two thresholds, each named by its room and its own name, that are the
           same doorway seen from either side *)

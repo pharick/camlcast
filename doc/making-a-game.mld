@@ -126,21 +126,19 @@ And [bin/main.ml], which is Step 1.
   let level =
     P.(
       world ~atmosphere:Atmosphere.default
-        ~spawn:("vault", Vec.make (-4.5) 0.)
         [
-          room ~name:"vault"
-            ~floor:(floor ~plane:flat ~material:ground)
-            ~ceiling:(roof ~plane:(Plane.above flat height) ~material:stone)
-            [
-              boundary ~height ~material:stone
-                (corners
-                   [
-                     Vec.make (-6.) (-6.);
-                     Vec.make 6. (-6.);
-                     Vec.make 6. 6.;
-                     Vec.make (-6.) 6.;
-                   ]);
-            ];
+          room ~height ~material:stone
+            ~floor:(floor ~plane:flat ground)
+            ~ceiling:(roof stone)
+            ~outline:
+              (corners
+                 [
+                   Vec.make (-6.) (-6.);
+                   Vec.make 6. (-6.);
+                   Vec.make 6. 6.;
+                   Vec.make (-6.) 6.;
+                 ])
+            [ spawn (Vec.make (-4.5) 0.) ];
         ])
 
   let () =
@@ -169,15 +167,24 @@ A pattern is a pure function from a texel coordinate to a colour.
 {!Camlcast.Texture.generate} turns one into a tiling square.
 {!Camlcast.Material.make} builds the material a wall or floor is rendered with.
 
-{!Camlcast.P.boundary} builds a run of wall through the corners you give it,
-closed into a loop unless you pass [~closed:false]. {b Corner order does not
-matter}: the boundary measures the loop and winds it so the room is on the
-inside. A boundary wound the wrong way draws the room black from within;
-auto-winding is why you will not encounter this.
+A room is its [outline]: a {b closed} run of corners, and the walls between
+them. {b Corner order does not matter}: the outline measures the loop and winds
+it so the room is on the inside. A room wound the wrong way draws black from
+within, and the symptom points nowhere near the cause — auto-winding is why you
+will not meet it.
 
-{!Camlcast.P.val-corners} marks every point as a plain corner, for a boundary
+{!Camlcast.P.val-corners} marks every point as a plain corner, for an outline
 that attaches nothing to any of its sides. The next step shows what a corner is
 for.
+
+The room's [height] and [material] are what a wall gets when its corner says
+nothing, and the [ceiling] takes the height too: [roof stone] is a stone ceiling
+at [height] above the floor, so the relation is stated once rather than at every
+room. Say [~plane] or [~headroom] where it is not that.
+
+{!Camlcast.P.val-spawn} is where the player starts, in the coordinates of the
+room that holds it. There is no world-wide compass and no room to name: the room
+it is written in is the room it means.
 
 {!Camlcast.Run.play} opens a window, renders the description once per frame
 until the player leaves, and reports the result. The [Error] case comes from
@@ -188,18 +195,18 @@ The whole program: [examples/step01_room.ml].
 
 {1 Step 2 — Every wall its own}
 
-A boundary applies its material to every side. Any corner may override it:
+A room applies its material to every side. Any corner may override it:
 
 {[
-  boundary ~height ~material:stone
-    [ corner sw ~material:brick; corner se; corner ne; corner nw ];
+  ~outline:[ corner sw ~material:brick; corner se; corner ne; corner nw ]
 ]}
 
 {b A corner describes the wall {e leaving} it}: [corner sw ~material:brick] is
 the wall from [sw] to [se] — the south wall, in brick. The other three fall
-back to stone. A corner accepts everything {!Camlcast.P.wall} takes — a
-handler, decals, a height of its own. This lets a boundary be decorated or
-interactive without giving up auto-winding.
+back to the room's. A corner accepts everything {!Camlcast.P.wall} takes — a
+handler, decals, a height of its own. This lets a room's edge be decorated or
+interactive without giving up auto-winding, which is the trade writing the walls
+out one by one used to force.
 
 Use {!Camlcast.P.wall} itself only for free-standing walls. This step adds a
 plinth to the vault, low enough to see over, drawn from both sides:
@@ -214,12 +221,14 @@ The whole program as of this step: [examples/step02_masonry.ml].
 {1 Step 3 — Pillars}
 
 {!Camlcast.P.polygon} returns {e corners}, not walls: [sides] of them, [radius]
-from [center] to each corner. A pillar is therefore a boundary like any other.
-Winding is still automatic, and any side can carry a handler.
+from [center] to each corner. So a pillar is an outline like the room's, and
+{!Camlcast.P.block} is what stands one inside a room — a closed shape that is
+not the room's edge and has no door cut into it. Winding is still automatic, and
+any side can carry a handler.
 
 {[
   let pillar center =
-    P.boundary ~height ~material:slab
+    P.block ~height ~material:slab
       (P.polygon ~center ~radius:0.7 ~sides:6 ~rotation:0.)
 ]}
 
@@ -302,27 +311,33 @@ The whole program as of this step: [examples/step05_dressing.ml].
 
 {1 Step 6 — A second room}
 
-Two rooms are joined by a {b doorway} each room describes and a {b link} that
-declares the two doorways to be the same one. The vault's east wall opens onto
-a corridor:
+Two rooms are joined by a {b door} in each and a {b connection} saying the two
+are the same opening. A door is made once and cut into a leg of a room's
+outline:
 
 {[
-  boundary ~closed:false ~height ~material:stone
-    [
-      corner ne;
-      corner nw;
-      corner sw ~material:brick ~decals:[ (* the mural *) ];
-      corner se;
-    ];
-  doorway ~name:"east" ~width:2. ~opening:2.6 ~height ~material:stone se ne;
+  let east = P.door ~name:"east" ~width:2. ~clearance:2.6 ()
+  let west = P.door ~name:"west" ~width:2. ~clearance:2.6 ()
 ]}
 
-{b Three sides run as an open boundary and the fourth is cut.} This is the
-shape for a boundary with a hole in it. An open run still winds itself, and its
-last corner describes no wall, so it must carry nothing. A closed boundary of
-all four corners {e and} a doorway along one of them would leave a solid wall
-standing behind the opening — a doorway you can see through but cannot walk
-through.
+{b The outline stays closed and the door is cut out of it.} The leg is named by
+its two corners, {e in either order} — the outline already says which side is
+in, so the opening takes its winding from the wall rather than from the order
+you wrote. The jambs left either side are legs of the outline like any other, so
+a {!Camlcast.P.val-corner} dresses them.
+
+{[
+  ~outline:
+    [
+      corner sw ~material:brick ~decals:[ (* the mural *) ];
+      corner se;
+      corner ne;
+      corner nw;
+    ]
+
+  (* among the room's children *)
+  cut east ~along:(se, ne);
+]}
 
 The corridor is written in a frame of its own, because every room is:
 
@@ -333,33 +348,43 @@ The corridor is written in a frame of its own, because every room is:
   let c_nw = Vec.make 0. 2.
 ]}
 
-There is no world-wide coordinate frame; only the link places the corridor. A
-neighbour's floor is therefore {e carried} across the doorway rather than
-written out again:
+There is no world-wide coordinate frame; only the connection places the
+corridor. Its floor is not written at all — a floor that gives no [plane] is
+carried through the connection from the room on the other side, by the transform
+that opening implies:
 
 {[
-  let corridor_floor =
-    P.through
-      ~from:(P.opening ~width:2. se ne)
-      ~into:(P.opening ~width:2. c_sw c_nw)
-      flat
+  room ~height ~material:stone ~floor:(floor ground) ~ceiling:(roof stone)
+    ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
+    [ cut west ~along:(c_nw, c_sw) ];
 ]}
 
-{!Camlcast.P.opening} gives the two ends the doorway will cut, in each room's
-own coordinates. {!Camlcast.P.through} carries a plane from one frame to the
-other. Derive the neighbour's floor rather than writing it by hand, because a
-hand-written copy will drift out of agreement and a derived one cannot. Here it
-comes back flat, and if the vault's floor later tilts, the corridor's follows.
+The engine carries it from the pair of ends it cut the opening at, so it cannot
+be carried from the wrong pair — which was the mistake worth making impossible.
+If the vault's floor later tilts, the corridor's follows. Give a room a [plane]
+of its own to stop the carrying there.
 
 {!Camlcast.Check} reports a step in the floor at a doorway either way.
 
-The corridor describes a doorway of its own, and the link joins the two:
+Finally, the connection. It is a child of the world rather than of either room,
+so joining two rooms and unjoining them touches neither:
 
 {[
-  doorway ~name:"west" ~width:2. ~opening:2.6 ~height ~material:stone c_sw c_nw;
-  (* ... *)
-  link ("vault", "east") ("corridor", "west");
+  connect east west;
 ]}
+
+Nothing here names a room. A connection joins two doors, and a door is already
+in one room, so there is nothing left for a name to do — {!Camlcast.P.val-room}
+takes one only for diagnostics.
+
+A door needs no connection to exist. One that has none leads nowhere {e yet}:
+the renderer fills it with haze and it is solid to walk into, which is a level
+part-built rather than a level wrong. Check says so as a warning.
+
+{b Make the doors once, at the top level.} A door carries the identity its
+connection joins by, and a description is rebuilt every frame — a door made
+inside one is a different door each time. It is the rule
+{!Camlcast_loom.Element.declare}'s page states, reached from another direction.
 
 The whole program as of this step: [examples/step06_antechamber.ml].
 [demo/portals.ml] joins one room to a hub twice; [demo/slopes.ml] carries an
@@ -434,9 +459,10 @@ The whole program as of this step: [examples/step08_state.ml].
 
 {1 Step 9 — Being looked at}
 
-{!Camlcast.P.wall}, {!Camlcast.P.sprite} and {!Camlcast.P.doorway} each take
+{!Camlcast.P.wall}, {!Camlcast.P.sprite} and {!Camlcast.P.cut} each take
 [on_gaze] and [on_use], because those are the three things the crosshair can
-land on. The torches take both:
+land on — and a {!Camlcast.P.val-corner} takes them too, so a leg of an outline
+is as interactive as a free-standing wall. The torches take both:
 
 {[
   let torch =
@@ -505,7 +531,6 @@ that reads it can reach.
     P.(
       world
         ~atmosphere:(air ~fire:(fuel /. fuse))
-        ~spawn:("vault", Vec.make (-4.5) 0.)
         [ (* the rooms, as before *) ])
 ]}
 
@@ -716,43 +741,50 @@ opens:
 ]}
 
 A {!Camlcast.Door} is a material and a state, [Open] or [Closed], and it hangs
-in an opening. {!Camlcast.P.doorway} would cut that opening and build the
-jambs in one piece. Here the corridor's east end needs a {e brick} lintel over
-{e stone} jambs, the one case {!Camlcast.P.threshold} exists for: it builds
-the opening alone, and the game builds the walls on either side, using the
-same arithmetic the doorway would have used:
+in an opening. Here the corridor's east end wants a {e brick} lintel over
+{e stone} jambs — the strip over an opening is otherwise made of the wall it
+was cut into, and this one should read as a transom rather than as more wall.
+
+Both are arguments to the cut. The corridor is open at both ends now, and that
+is still one closed outline with two doors cut into it:
 
 {[
-  let gate_a, gate_b = P.opening ~width:2. c_ne c_se
+  let west = P.door ~name:"west" ~width:2. ~clearance:2.6 ()
+  let gate_out = P.door ~name:"gate" ~width:2. ~clearance:2.6 ()
 ]}
 
 {[
-  wall ~height ~material:stone c_ne gate_a;
-  wall ~height ~material:stone gate_b c_se;
-  threshold ~name:"gate"
-    ~door:(Door.make ~state:Closed grille)
+  ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
+
+  (* among the room's children *)
+  cut west ~along:(c_sw, c_nw);
+  cut gate_out
+    ~leaf:(Door.make ~state:Closed grille)
     ~lintel:{ top = height; material = brick }
-    ~height:2.6 gate_a gate_b;
+    ~along:(c_ne, c_se);
 ]}
 
-[~height] is the opening's height; the {!Camlcast.lintel}'s [top] is how far
-the wall over it rises. Building your own jambs makes them your
-responsibility: a threshold end that meets no wall shows floor and sky to the
-horizon through the gap. {!Camlcast.Check} reports this; a doorway cannot
-produce it.
+[clearance] is the opening's height and it lives on the door, because the two
+sides of one opening have to agree about it. The {!Camlcast.lintel} and the
+leaf live on the cut, because they are how {e this} room presents the opening
+and two rooms are allowed to present it differently — the courtyard hangs the
+same leaf and says nothing about a lintel, so its side takes its own wall's.
 
-The courtyard describes the same opening from its side, with {b the same
-door}. A door hangs in one opening; both rooms describe that opening, so both
-must state the door, and {!Camlcast.Check} objects if they disagree:
+{b What must agree is on the door; what may differ is on the cut.}
+
+The courtyard cuts its side of the same opening and hangs the same leaf, and a
+connection says the two are one:
 
 {[
-  doorway ~name:"west"
-    ~door:(Door.make ~state:Closed grille)
-    ~width:2. ~opening:2.6 ~height ~material:stone y_sw y_nw;
+  cut gate_in ~leaf:(Door.make ~state:Closed grille) ~along:(y_sw, y_nw);
+  (* ... *)
+  connect gate_out gate_in;
 ]}
 
-The courtyard's floor is derived the way the corridor's was, carried through
-with {!Camlcast.P.through}. A second link joins gate to courtyard.
+A leaf open from one side and shut from the other is a door you could walk
+through in only one direction, so {!Camlcast.Check} objects if the two
+disagree. Its floor needs no carrying: a room that gives no [plane] takes its
+neighbour's.
 
 The whole program as of this step: [examples/step15_gate.ml]. [demo/doors.ml]
 opens and shuts doors from both sides; [demo/barred.ml] is a room of grilles;
@@ -1124,7 +1156,7 @@ Press {b F3} — or now {b M} — in the running game and the room is drawn from
 above: every wall with a short tick pointing the way its normal faces,
 doorways green when linked and red when they lead nowhere, the player's disc
 with its collision ring, and a mark on anything {!Camlcast.Check} flags. The
-ticks are the fastest way to see a boundary wound wrong — a row of them
+ticks are the fastest way to see an outline wound wrong — a row of them
 pointing out of the room. Auto-winding is why the map has not been needed so
 far. [~map:[]] disables the map, and it costs that game nothing: the walk over
 every wall that feeds the map only happens while the map is up.
