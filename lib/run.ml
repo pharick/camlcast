@@ -51,6 +51,11 @@ type frame = {
      through the world it describes. See Events.crossings. *)
   crossings : Events.crossing list;
   aim : Aim.spot option;
+  (* The frame's one cast, kept whole beside the {!Aim.spot} above, which is
+     the same answer with the indices dropped. A description reads the spot; the
+     ring {!P.highlight} draws needs the indices, and needs them to name what
+     the gaze dispatch was given rather than what a second cast would find. *)
+  sight : Sight.t option;
   scene : Scene.t;
   map : bool;
   found : Check.t list;
@@ -167,6 +172,7 @@ let on window ?(controls = Controls.default) description =
       room = World.name scene.Scene.world player.Player.room;
       crossings;
       aim;
+      sight;
       gazed = looking;
     }
   in
@@ -176,15 +182,18 @@ let on window ?(controls = Controls.default) description =
   let overlay buffer state =
     viewport := (buffer.Framebuffer.width, buffer.Framebuffer.height);
     (* The ring is the drawn counterpart of the gaze dispatch, so it reads the
-       same answer the dispatch above reads: a frame under a cursor or a placed
-       camera highlights nothing, exactly as it dispatches nothing, and the
-       door behind a pause menu is neither operated nor ringed. Withheld here
-       rather than inside {!Overlay.draw} because Overlay.draw has no scene to
+       same answer the dispatch above reads — the same value, not a second cast
+       of the same question: a frame under a cursor or a placed camera
+       highlights nothing, exactly as it dispatches nothing, and the door
+       behind a pause menu is neither operated nor ringed. Withheld here rather
+       than inside {!Overlay.draw} because Overlay.draw has no scene to
        consult. *)
     Overlay.draw
       ?aim:
-        (if aiming state.scene then Some (state.scene.Scene.world, state.player)
-         else None)
+        (match state.sight with
+        | Some sight when aiming state.scene ->
+            Some (state.scene.Scene.world, state.player, sight)
+        | Some _ | None -> None)
       buffer state.scene.Scene.hud;
     (* Drawn over the game's own layer, because the map is a debug view the
        player toggles to inspect the scene rather than something the game
@@ -204,6 +213,9 @@ let on window ?(controls = Controls.default) description =
       room = World.name first.Scene.world player.Player.room;
       crossings = [];
       aim = None;
+      (* No cast yet, and none needed: the loop asks for the next state before
+         it draws, so this one is never the one on screen. See run.mli. *)
+      sight = None;
       map = false;
       found = [];
       gazed = None;

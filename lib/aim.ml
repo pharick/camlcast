@@ -109,7 +109,13 @@ let crosshair t ~sight ~was ~used =
      | _ -> ());
   now
 
-let ring world player ~width ~height =
+(* The cast is a parameter for the reason it is one in {!crosshair}: a frame
+   makes exactly one, and the ring has to go round the thing the dispatch
+   notified. Made here it would be a second answer that nothing guarantees
+   agrees with the first — and, since {!Overlay.draw} folds over a HUD one
+   primitive at a time, one more traversal of the portal recursion for every
+   {!Camlcast.P.highlight} a description writes. *)
+let ring world player ~sight ~width ~height =
   let here = World.room world player.Player.room in
   let viewport =
     Viewport.make ~pitch:player.Player.pitch
@@ -119,8 +125,8 @@ let ring world player ~width ~height =
       ~width ~height
   in
   let whole = List.filter_map Fun.id in
-  match Sight.look world player with
-  | Some { Sight.kind = Sight.Sprite s; room; pose; distance; _ } ->
+  match (sight : Sight.t) with
+  | { Sight.kind = Sight.Sprite s; room; pose; distance; _ } ->
       let there = World.room world room in
       let sprite = Room.sprite_at there s.index in
       let { Viewport.left; top; right; bottom } =
@@ -129,8 +135,7 @@ let ring world player ~width ~height =
           ~distance sprite
       in
       Some [ (left, top); (right, top); (right, bottom); (left, bottom) ]
-  | Some { Sight.kind = Sight.Wall { index; decal = Some d; _ }; room; pose; _ }
-    ->
+  | { Sight.kind = Sight.Wall { index; decal = Some d; _ }; room; pose; _ } ->
       let there = World.room world room in
       let wall = Room.wall_at there index in
       let decal = List.nth wall.Room.decals d in

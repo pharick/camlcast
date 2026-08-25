@@ -102,15 +102,23 @@ val crosshair :
 val ring :
   Camlcast_core.World.t ->
   Camlcast_core.Player.t ->
+  sight:Camlcast_core.Sight.t ->
   width:int ->
   height:int ->
   (float * float) list option
-(** Returns the corners of the crosshair target projected onto a buffer of this
-    size, or [None] if the target is nothing worth ringing.
+(** Returns the corners of [sight] projected onto a buffer of this size, or
+    [None] if what it landed on is nothing worth ringing.
 
     This is in the library because it needs the {!Camlcast_core.Viewport} the
     frame was drawn with, and a description is written before there is a frame.
     {!P.highlight} is how a description asks for it.
+
+    [sight] is the frame's one cast, the same value {!crosshair} was given, and
+    it is a parameter for the same reason: the ring has to go round the thing
+    the dispatch notified, and a second cast is a second answer that nothing
+    guarantees agrees with the first. It also matters here for a reason it does
+    not there — {!Overlay.draw} folds over a HUD one primitive at a time, so a
+    cast made inside this would be made once per {!P.highlight} written.
 
     A {b sprite} is square to the view, so its box is a rectangle. A {b decal}
     is flat on a wall, which recedes — the far edge of a picture on it is

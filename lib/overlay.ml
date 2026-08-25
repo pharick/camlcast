@@ -17,9 +17,9 @@ let draw ?aim buffer items =
       | Prim.Highlight color -> (
           match aim with
           | None -> ()
-          | Some (world, player) -> (
+          | Some (world, player, sight) -> (
               match
-                Aim.ring world player ~width:buffer.Framebuffer.width
+                Aim.ring world player ~sight ~width:buffer.Framebuffer.width
                   ~height:buffer.Framebuffer.height
               with
               | None -> ()
