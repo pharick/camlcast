@@ -65,6 +65,16 @@ val pointer : t -> Camlcast.P.t
 val overlay : t -> font:Camlcast.Font.t -> Camlcast.P.t
 (** The panel, to put in a description's {!Camlcast.P.hud}.
 
+    {b It reads its own keys}, so a game places this and has an editor rather
+    than an editor's parts. [F1] the plan, [F2] the graph, [F3] the tree, [F4]
+    closes it, and [Tab] moves the plan to the next room; with something
+    picked, [\[] and [\]] walk its fields and [-] and [=] move the chosen
+    one, while [u] takes the last change back. Those are the keys
+    {!Camlcast.Controls.default} leaves free.
+
+    The four that choose a panel are read whether or not it is showing, because
+    the one that opens it would otherwise only work while it was already open.
+
     Draws nothing at all while the session is closed, so a game may leave this
     in its description permanently and pay a match on a boolean for it.
 

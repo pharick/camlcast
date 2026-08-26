@@ -7,12 +7,14 @@
 
     {b Run it with} [dune exec studio/studio.exe].
 
-    - {b F1} the plan: this room from above.
-    - {b F2} the graph: how the rooms are joined, and which doorways are not.
-    - {b F3} the tree: what the description came to, and what it is holding.
-    - {b F4} closes the overlay.
+    - {b F1} the plan, {b F2} the graph, {b F3} the tree, {b F4} closes it.
     - {b Tab} moves the plan to the next room.
+    - On the plan, drag a corner. {b \[} and {b \]} walk the fields of what is
+      picked, {b -} and {b =} move the chosen one, {b u} takes it back.
     - {b W A S D} and the mouse to walk, {b Esc} to leave.
+
+    The overlay reads those keys itself; nothing here binds them. What this
+    file does is place two things and hand over the description.
 
     {1 What to look at}
 
@@ -52,23 +54,6 @@ let font =
 (* {1 The overlay} *)
 
 let studio = Camlcast_edit.Session.create ()
-
-(* The keys are read in a component, because that is where input is read. The
-   session is not component state -- half of what fills it arrives from outside
-   the tree, where hooks do not reach -- so this only tells it what was
-   pressed. *)
-let keys =
-  Element.declare ~name:"studio-keys" @@ fun () ->
-  let show panel () = Camlcast_edit.Session.show studio panel in
-  Events.use_pressed (Input.Key Key.f1) (show Camlcast_edit.Session.Plan);
-  Events.use_pressed (Input.Key Key.f2) (show Camlcast_edit.Session.Graph);
-  Events.use_pressed (Input.Key Key.f3) (show Camlcast_edit.Session.Tree);
-  Events.use_pressed (Input.Key Key.f4) (fun () ->
-      Camlcast_edit.Session.close studio);
-  Events.use_pressed (Input.Key Key.tab) (fun () ->
-      Camlcast_edit.Session.show_room studio
-        ((Camlcast_edit.Session.room studio + 1) mod 2));
-  Element.empty
 
 (* {1 The world} *)
 
@@ -123,7 +108,6 @@ let level =
                ])
           [ cut hall_west ~along:(Vec.make (-4.) (-3.), Vec.make (-4.) 3.) ];
         connect plaza_east hall_west;
-        keys ();
         (* A child of the world rather than of the hud: under it the mouse is
            loose, and Run.aiming is already false, so dragging a corner cannot
            work the door the panel is drawn over. *)

@@ -1237,12 +1237,25 @@ The preprocessor is what makes the difference between looking and touching. It
 stamps each constructor with the place in your source it was written at, and
 without it the panels still draw and nothing can be changed.
 
-Three panels. The {b plan} is this room from above, and dragging a corner
-rewrites the [Vec.make] that put it there. The {b graph} is the rooms and the
-ways between them, where two clicks join a doorway that leads nowhere to
-another. The {b tree} is what your description came to and what each component
-is holding, and it is where a component being rebuilt every frame shows up as a
-number that climbs.
+Three panels, and the overlay reads its own keys — [F1] the plan, [F2] the
+graph, [F3] the tree, [F4] closes it, [Tab] moves the plan to the next room.
+
+The {b plan} is this room from above, and dragging a corner rewrites the
+[Vec.make] that put it there. With something picked, [\[] and [\]] walk its
+fields and [-] and [=] move the chosen one, which is how a height or a glow is
+changed — those are numbers, but they are not places, and there is nowhere on a
+plan to drag them to. [u] takes the last change back.
+
+The {b graph} is the rooms and the ways between them, where two clicks join a
+doorway that leads nowhere to another. The {b tree} is what your description
+came to and what each component is holding, and it is where a component being
+rebuilt every frame shows up as a number that climbs.
+
+[x] moves whatever is picked into a component of its own, in a file named after
+its [~key]. Named after the key because that is already there and is already
+what you called the thing: the engine reports keys as places on a keyboard and
+has no text input, so a name asked for would have to be spelled out of
+scancodes.
 
 {2 What can be changed, and what only drawn}
 

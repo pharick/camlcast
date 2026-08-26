@@ -78,3 +78,15 @@ val extract :
     build, naming the line. So this does the move and lets that happen, which
     is the same choice {!Camlcast_edit.Field} makes about a name it cannot know
     is in scope. *)
+
+val extract_call :
+  Span.t ->
+  Span.call ->
+  name:string ->
+  (file * (Span.span * string), [ `Msg of string ]) result
+(** {!extract}, for a whole call rather than a chosen range.
+
+    What an editor has in hand is the call it found behind the thing under the
+    pointer, rather than a range worked out from two clicks. The text moved is
+    that call exactly as written; what replaces it is a call to the new
+    component. *)

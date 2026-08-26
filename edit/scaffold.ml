@@ -42,3 +42,6 @@ let extract parsed ~name span =
     let taken = Span.slice parsed span in
     if String.trim taken = "" then Error (`Msg "the selection is blank")
     else Ok (component ~name ~body:(String.trim taken), (span, name ^ " ()"))
+
+let extract_call parsed (call : Span.call) ~name =
+  extract parsed ~name call.Span.span

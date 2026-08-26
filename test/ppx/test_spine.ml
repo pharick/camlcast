@@ -117,6 +117,23 @@ let frame driver ~holding ~at =
           [ level driver.session ])
        ?trace:watch.Watch.trace ?patch:watch.Watch.patch)
 
+let press driver key =
+  driver.actions <-
+    Input.advance driver.actions
+      ~down:(fun control -> control = Input.Key key)
+      ~mouse:(0., 0.) ~pointer:(0, 0) ~dt:0.016;
+  let events =
+    { Events.still with Events.actions = driver.actions; viewport }
+  in
+  let watch = Camlcast_edit.Session.watch driver.session in
+  ignore
+    (Mount.render driver.mount
+       (Camlcast_loom.Element.provide Events.context events
+          [ level driver.session ])
+       ?trace:watch.Watch.trace ?patch:watch.Watch.patch);
+  (* Let go, so the next press is a press. *)
+  frame driver ~holding:false ~at:(0, 0)
+
 let stop driver = Mount.destroy driver.mount
 
 (* Where the session itself puts a point on the panel. Worked out the same way
@@ -162,6 +179,14 @@ let forest_of driver =
   !taken
 
 let bench_end = Vec.make (-2.) 3.
+
+let pick_the_bench driver =
+  frame driver ~holding:false ~at:(0, 0);
+  let view = projection driver in
+  frame driver ~holding:true
+    ~at:(Camlcast_core.Overhead.to_panel view bench_end);
+  frame driver ~holding:false
+    ~at:(Camlcast_core.Overhead.to_panel view bench_end)
 
 (* Whether this build carries positions, from dune rather than from the
    rewriter -- see test/ppx/dune. Picking a corner up is geometry and works
@@ -256,6 +281,63 @@ let letting_go_writes_the_file () =
     (Camlcast_edit.Session.pending driver.session);
   stop driver
 
+(* {1 The panel keys}
+
+   Read by the overlay itself, so a game places it and has an editor rather
+   than an editor's parts. These were hand-rolled in studio/ and untestable
+   there, which is most of why they moved. *)
+
+let closed_start () =
+  let driver = start () in
+  Camlcast_edit.Session.close driver.session;
+  driver
+
+(* The one that has to work while nothing is showing: an overlay whose opening
+   key is read only when it is open cannot be opened. *)
+let a_key_opens_a_closed_overlay () =
+  let driver = closed_start () in
+  Alcotest.(check bool)
+    "closed to begin with" false
+    (Camlcast_edit.Session.is_open driver.session);
+  press driver Camlcast_core.Key.f2;
+  Alcotest.(check bool)
+    "and F2 opens it" true
+    (Camlcast_edit.Session.is_open driver.session);
+  Alcotest.(check bool)
+    "on the panel it names" true
+    (Camlcast_edit.Session.panel driver.session = Camlcast_edit.Session.Graph);
+  stop driver
+
+let the_keys_choose_between_panels () =
+  let driver = start () in
+  List.iter
+    (fun (key, expected) ->
+      press driver key;
+      Alcotest.(check bool)
+        "the panel the key names" true
+        (Camlcast_edit.Session.panel driver.session = expected))
+    [
+      (Camlcast_core.Key.f3, Camlcast_edit.Session.Tree);
+      (Camlcast_core.Key.f1, Camlcast_edit.Session.Plan);
+      (Camlcast_core.Key.f2, Camlcast_edit.Session.Graph);
+    ];
+  press driver Camlcast_core.Key.f4;
+  Alcotest.(check bool)
+    "and one closes it" false
+    (Camlcast_edit.Session.is_open driver.session);
+  stop driver
+
+(* One room in this fixture, so the next room is the same room -- which is the
+   case that would divide by nothing if it counted rooms wrongly. *)
+let tab_moves_to_the_next_room () =
+  let driver = start () in
+  frame driver ~holding:false ~at:(0, 0);
+  press driver Camlcast_core.Key.tab;
+  Alcotest.(check int)
+    "wrapped rather than running off the end" 0
+    (Camlcast_edit.Session.room driver.session);
+  stop driver
+
 (* {1 What cannot be dragged} *)
 
 let spoke_end = spoke 0
@@ -330,6 +412,61 @@ let its_arguments_say_which_is_which () =
   | _ when not positioned -> ()
   | _ -> Alcotest.fail "the spoke should have been found"
 
+(* {1 Moving something into a file of its own}
+
+   Named after the element's own key rather than typed. The engine reports keys
+   as places on a keyboard and has no text input, so a name asked for would
+   have to be spelled out of scancodes -- and a ~key is already there, already
+   unique among its siblings, and already what the author called the thing. *)
+let extracting_uses_the_key_as_the_name () =
+  let driver = start () in
+  pick_the_bench driver;
+  driver.written := [];
+  press driver Camlcast_core.Key.x;
+  match !(driver.written) with
+  | [] when not positioned -> ()
+  | [] ->
+      Alcotest.failf "nothing written; the session said: %s"
+        (Option.value
+           (Camlcast_edit.Session.said driver.session)
+           ~default:"nothing")
+  | written ->
+      let paths = List.sort compare (List.map fst written) in
+      Alcotest.(check bool)
+        "a file named for the key" true
+        (List.exists (fun p -> Filename.basename p = "bench.ml") paths);
+      let component =
+        List.assoc_opt "bench.ml" written
+        |> Option.value ~default:(snd (List.hd written))
+      in
+      Alcotest.(check bool)
+        "holding the call as it was written" true
+        (let needle = "~height:0.6" in
+         let rec holds i =
+           i + String.length needle <= String.length component
+           && (String.sub component i (String.length needle) = needle
+              || holds (i + 1))
+         in
+         holds 0);
+      Alcotest.(check bool)
+        "declared at the top level, as the rule wants" true
+        (let needle = "Element.declare ~name:\"bench\" @@ fun () ->" in
+         let rec holds i =
+           i + String.length needle <= String.length component
+           && (String.sub component i (String.length needle) = needle
+              || holds (i + 1))
+         in
+         holds 0);
+      Alcotest.(check bool)
+        "and both files parse" true
+        (List.for_all
+           (fun (_, text) ->
+             match Camlcast_edit.Span.parse ~path:"x.ml" text with
+             | Ok _ -> true
+             | Error _ -> false)
+           written);
+      stop driver
+
 (* {1 The graph} *)
 
 (* Two clicks and no key: picking a doorway that leads nowhere and then another
@@ -392,31 +529,6 @@ let joining_two_doorways_takes_two_clicks () =
 
 (* {1 The keys} *)
 
-let press driver key =
-  driver.actions <-
-    Input.advance driver.actions
-      ~down:(fun control -> control = Input.Key key)
-      ~mouse:(0., 0.) ~pointer:(0, 0) ~dt:0.016;
-  let events =
-    { Events.still with Events.actions = driver.actions; viewport }
-  in
-  let watch = Camlcast_edit.Session.watch driver.session in
-  ignore
-    (Mount.render driver.mount
-       (Camlcast_loom.Element.provide Events.context events
-          [ level driver.session ])
-       ?trace:watch.Watch.trace ?patch:watch.Watch.patch);
-  (* Let go, so the next press is a press. *)
-  frame driver ~holding:false ~at:(0, 0)
-
-let pick_the_bench driver =
-  frame driver ~holding:false ~at:(0, 0);
-  let view = projection driver in
-  frame driver ~holding:true
-    ~at:(Camlcast_core.Overhead.to_panel view bench_end);
-  frame driver ~holding:false
-    ~at:(Camlcast_core.Overhead.to_panel view bench_end)
-
 (* A height is not a coordinate: it cannot be dragged on a plan, which is the
    whole reason the keys exist. Nudging it writes the same way a drag does. *)
 let a_field_can_be_nudged () =
@@ -470,12 +582,23 @@ let () =
             dragging_moves_it_in_the_next_frame;
           case "letting go writes the file" letting_go_writes_the_file;
         ] );
+      ( "the panel keys",
+        [
+          case "a key opens a closed overlay" a_key_opens_a_closed_overlay;
+          case "the keys choose between panels" the_keys_choose_between_panels;
+          case "tab moves to the next room" tab_moves_to_the_next_room;
+        ] );
       ( "what cannot be dragged",
         [
           case "a computed wall is picked but not dragged"
             a_computed_wall_is_picked_but_not_dragged;
           case "its arguments say which is which"
             its_arguments_say_which_is_which;
+        ] );
+      ( "moving it out",
+        [
+          case "extracting uses the key as the name"
+            extracting_uses_the_key_as_the_name;
         ] );
       ( "the graph",
         [

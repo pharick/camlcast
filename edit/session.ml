@@ -245,6 +245,62 @@ let join t (door : Graph.door) =
                              source.Link.file)
                   | Error (`Msg message) -> t.said <- Some message))))
 
+(* Moving what is picked into a component of its own.
+
+   Named after the element's own key rather than typed, which is what makes
+   this a gesture at all: the engine reports keys as places on a keyboard and
+   has no text input, so a name asked for would have to be spelled out of
+   scancodes. A key is already there, already unique among its siblings, and
+   already the name the author chose for the thing -- P asks for one on
+   anything that can be rearranged, so anything worth extracting has one. *)
+let extract t =
+  let keyed =
+    match t.selected with
+    | Sheet.Nothing -> None
+    | Sheet.Corner { item; _ } | Sheet.Body item ->
+        let spelling = Camlcast_loom.Path.to_debug_string item.Sheet.path in
+        (* The last step's key, which is what a path prints in brackets. *)
+        let rec last_bracket index found =
+          if index >= String.length spelling then found
+          else if spelling.[index] = '[' then
+            match String.index_from_opt spelling index ']' with
+            | Some stop ->
+                last_bracket (stop + 1)
+                  (Some (String.sub spelling (index + 1) (stop - index - 1)))
+            | None -> found
+          else last_bracket (index + 1) found
+        in
+        Option.map (fun key -> (item, key)) (last_bracket 0 None)
+  in
+  match keyed with
+  | None ->
+      t.said <- Some "give it a ~key and it can be moved into a file of its own"
+  | Some (item, key) -> (
+      match source_of t item with
+      | Link.Unpositioned -> t.said <- Some "no position -- nothing to move"
+      | Link.Unreadable message -> t.said <- Some message
+      | Link.Found source -> (
+          match Link.parsed t.link source.Link.file with
+          | Error (`Msg message) -> t.said <- Some message
+          | Ok parsed -> (
+              match Scaffold.extract_call parsed source.Link.call ~name:key with
+              | Error (`Msg message) -> t.said <- Some message
+              | Ok (file, edit) -> (
+                  match
+                    Revise.write t.revise ~path:file.Scaffold.path
+                      file.Scaffold.source
+                  with
+                  | Error (`Msg message) -> t.said <- Some message
+                  | Ok () -> (
+                      match
+                        Revise.apply t.revise ~path:source.Link.file [ edit ]
+                      with
+                      | Ok () ->
+                          t.said <-
+                            Some
+                              (Printf.sprintf "moved into %s" file.Scaffold.path)
+                      | Error (`Msg message) -> t.said <- Some message)))))
+
 let take_back t =
   match Revise.undo t.revise with
   | Error (`Msg message) -> t.said <- Some message
@@ -364,6 +420,30 @@ let component =
      mistake this whole overlay exists to make visible. *)
   let across, down = Events.use_viewport () in
   let actions = Events.use_actions () in
+  (* Which panel is up, and whether one is, are read whether or not the overlay
+     is showing -- or the key that opens it would only work while it was
+     already open. Everything below the branch acts on what is drawn, and only
+     makes sense once something is. *)
+  let tapped key = Input.pressed actions (Input.Key key) in
+  if tapped Key.f1 then show t Plan;
+  if tapped Key.f2 then show t Graph;
+  if tapped Key.f3 then show t Tree;
+  if tapped Key.f4 then close t;
+  if tapped Key.tab then begin
+    let rooms =
+      List.length
+        (List.concat_map
+           (fun (node : Watch.node) ->
+             List.filter
+               (fun (child : Watch.node) ->
+                 match child.Camlcast_loom.Host.prim with
+                 | Prim.Room _ -> true
+                 | _ -> false)
+               node.Camlcast_loom.Host.children)
+           t.frame)
+    in
+    if rooms > 0 then t.room <- (t.room + 1) mod rooms
+  end;
   if not t.showing then Element.empty
   else begin
     let items = Sheet.items t.frame ~room:t.room in
@@ -375,10 +455,12 @@ let component =
           Overhead.fit ~bounds ~x ~y ~width:side ~height:side ~inset:12)
         (Sheet.bounds items)
     in
-    (* Keys not the bindings already use: walking has WASD and the arrows,
-       leaving has Escape, and the map has F3. These are what is left. *)
-    let tapped key = Input.pressed actions (Input.Key key) in
+    (* The rest act on what is picked, so they belong on this side of the
+       branch. Keys the bindings do not already use: walking has WASD and the
+       arrows, leaving has Escape, and the engine's own map has F3 -- which
+       this takes over while it is up, being the same picture grown. *)
     if tapped Key.u then take_back t;
+    if tapped Key.x then extract t;
     if tapped Key.leftbracket then t.field <- Int.max 0 (t.field - 1);
     if tapped Key.rightbracket then
       t.field <- Int.min (Int.max 0 (List.length (fields t) - 1)) (t.field + 1);
