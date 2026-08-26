@@ -216,7 +216,13 @@
    %{target}
    (run awk "/^let \\(\\) =/{exit}{print}" %{deps}))))
 
+; camlcast_edit because every step turns the editor on: the three lines that do
+; it are above the entry point, so they survive the truncation above and are
+; part of the world these suites build. Not preprocessed, though -- what is
+; checked here is the geometry, and a description carries the same geometry
+; whether or not it knows where it was written.
+
 (library
  (name example_levels)
  (modules :standard)
- (libraries camlcast_core camlcast camlcast_loom))
+ (libraries camlcast_core camlcast camlcast_loom camlcast_edit))

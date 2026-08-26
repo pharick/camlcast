@@ -191,7 +191,8 @@ from a checkout pins both in one step.)
 A game **describes** its world: it says what the world should be right now,
 every frame, from nothing, and the runtime computes what changed. A level is
 OCaml code rather than a data file, so the smallest complete game is one room
-and a call. This is
+and a call — and three more lines turn on an editor that draws that room from
+above and writes your dragging back into the source below. This is
 [`examples/step01_room.ml`](examples/step01_room.ml) — step 1 of the guide,
 compiled with the rest of the tree so that it cannot drift from the engine:
 
@@ -212,6 +213,8 @@ let ground =
 let height = 4.
 let flat = Plane.horizontal 0.
 
+let studio = Camlcast_edit.Session.create ()
+
 let level =
   P.(
     world ~atmosphere:Atmosphere.default
@@ -228,10 +231,12 @@ let level =
                  Vec.make (-6.) 6.;
                ])
           [ spawn (Vec.make (-4.5) 0.) ];
+        Camlcast_edit.Session.pointer studio;
+        hud [ Camlcast_edit.Session.overlay studio () ];
       ])
 
 let () =
-  match Run.play ~title:"The Undercroft" level with
+  match Camlcast_edit.Session.play ~title:"The Undercroft" studio level with
   | Ok _ending -> ()
   | Error (`Msg message) ->
       prerr_endline message;

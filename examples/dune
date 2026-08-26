@@ -43,6 +43,6 @@
   step24_escape
   step25_launcher
   step26_shipping)
- (libraries camlcast_core camlcast camlcast_loom)
+ (libraries camlcast_core camlcast camlcast_loom camlcast_edit)
  (preprocess
   (pps ppx_camlcast)))

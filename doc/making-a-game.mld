@@ -37,9 +37,11 @@ back into the line of your own source that put it there — one number changed
 and the file otherwise byte for byte. What it saves is what you would have
 typed, which is why there is still nothing to parse and nothing to load.
 
-It is turned on properly at step 23. Before then it is mentioned where it would
-have helped, because the point of writing these twenty-odd programs by hand is
-to learn what the tool is writing.
+It is turned on at Step 1, in three lines, and every step after that assumes
+it. Type the corners, open the plan, drag one, watch the line change: that is
+the loop this guide is written around. Typing them yourself is still how you
+learn what a corner is — the tool writes the same thing you would have, and
+watching it write is the quickest way to see what that is.
 
 {2 The engine holds no content}
 
@@ -83,7 +85,15 @@ opam switch create . 5.5.0                # or use a switch you already have
 eval $(opam env --switch=. --set-switch)  # so the pin lands in it, whatever
                                           # OPAMSWITCH was pointing at before
 opam pin add camlcast git+https://github.com/pharick/camlcast.git
+opam pin add ppx_camlcast git+https://github.com/pharick/camlcast.git
 ]}
+
+Two pins from the one repository, because they are two packages. [camlcast] is
+the engine. [ppx_camlcast] is a preprocessor that stamps each part of a
+description with the place in your source it was written at, which is what lets
+the editor find the line behind a wall. The engine does not depend on it and
+never will: a description built without it is the description this engine always
+built, carrying no position. Step 26 takes it back out.
 
 {b If the pin fails on macOS}, the cause is opam's depext check: opam cannot
 detect Homebrew's SDL2 (HACKING.md in the repository explains why). Install
@@ -92,6 +102,7 @@ the system libraries yourself and skip the check:
 {@sh[
 brew install sdl2 sdl2_image
 opam pin add camlcast git+https://github.com/pharick/camlcast.git --no-depexts
+opam pin add ppx_camlcast git+https://github.com/pharick/camlcast.git --no-depexts
 ]}
 
 On Debian or Ubuntu, opam resolves [libsdl2-dev] and [libsdl2-image-dev]
@@ -109,8 +120,16 @@ The project needs three files. [dune-project]:
 {[
 (executable
  (name main)
- (libraries camlcast))
+ (libraries camlcast camlcast.edit)
+ (preprocess
+  (pps ppx_camlcast)))
 ]}
+
+[camlcast] is the engine and is all a shipped game needs. The other two are the
+editor: [camlcast.edit] is the panel, and [ppx_camlcast] is what tells a
+description where it was written. Both are development tooling — a game that
+ships links neither, and Step 26 is where they come out, along with the three
+lines of Step 1 that use them.
 
 And [bin/main.ml], which is Step 1.
 
@@ -133,6 +152,8 @@ And [bin/main.ml], which is Step 1.
   let height = 4.
   let flat = Plane.horizontal 0.
 
+  let studio = Camlcast_edit.Session.create ()
+
   let level =
     P.(
       world ~atmosphere:Atmosphere.default
@@ -149,10 +170,12 @@ And [bin/main.ml], which is Step 1.
                    Vec.make (-6.) 6.;
                  ])
             [ spawn (Vec.make (-4.5) 0.) ];
+          Camlcast_edit.Session.pointer studio;
+          hud [ Camlcast_edit.Session.overlay studio () ];
         ])
 
   let () =
-    match Run.play ~title:"The Undercroft" level with
+    match Camlcast_edit.Session.play ~title:"The Undercroft" studio level with
     | Ok _ending -> ()
     | Error (`Msg message) ->
         prerr_endline message;
@@ -160,6 +183,7 @@ And [bin/main.ml], which is Step 1.
 ]}
 
 Run [dune exec bin/main.exe]. Walk with WASD and the mouse. Escape exits.
+Press {b F5} and the room you just wrote is drawn from above.
 
 {2 What each piece is}
 
@@ -196,18 +220,67 @@ room. Say [~plane] or [~headroom] where it is not that.
 room that holds it. There is no world-wide compass and no room to name: the room
 it is written in is the room it means.
 
-{!Camlcast.Run.play} opens a window, renders the description once per frame
-until the player leaves, and reports the result. The [Error] case comes from
-SDL — an external failure. The [Ok] case carries a {!Camlcast.Run.ending} this
-game does not read yet; Step 24 does.
+[Camlcast_edit.Session.play] opens a window, renders the description once per
+frame until the player leaves, and reports the result. It is
+{!Camlcast.Run.play} with the editor watching — the same window and the same
+loop. The [Error] case comes from SDL — an external failure. The [Ok] case
+carries a {!Camlcast.Run.ending} this game does not read yet; Step 24 does. A
+game with no editor in it calls {!Camlcast.Run.play} directly, which is what
+Step 26 goes back to.
+
+{2 The editor}
+
+Three lines, and none of them is about this room in particular.
+
+[Camlcast_edit.Session.create] makes the thing that holds what outlives a frame:
+which panel is up, what is picked, what has been changed and not yet written.
+Make it once, at the top level. One made inside anything would forget all of it
+every frame.
+
+[Camlcast_edit.Session.pointer] goes in the {b world}. It is the mouse cursor,
+and it draws only while a panel is up. Under it the mouse is loose instead of
+turning the eye, which is what lets you drag something without the room spinning
+away from you.
+
+[Camlcast_edit.Session.overlay] goes in a {!Camlcast.P.hud}, the layer drawn
+over the finished world. Step 12 is where this game puts something of its own in
+that layer; until then it holds the panel and nothing else. The panel draws
+itself and reads its own keys, so placing it gives you an editor rather than an
+editor's parts. No font is passed and none is needed: the
+panel carries one, which is the whole reason it can be turned on here instead of
+after the step that teaches fonts.
+
+The keys:
+
+- {b F5} the plan — this room from above.
+- {b F6} the graph — the rooms, and the ways between them. One room so far.
+- {b F7} the tree — what your description came to, and what it is holding.
+- {b F8} closes it; {b Tab} moves the plan to the next room.
+
+They start at F5 because a run does not leave F3 free: {!Camlcast.Controls}
+binds it to the engine's own overhead map, and nothing in a description can take
+a key back from the loop.
+
+{2 Drag the corner you just typed}
+
+Press F5. The plan is the four corners above, seen from over the top, with the
+spawn marked. Take hold of one and move it. Two things happen: the room changes
+shape in the next frame, and the line you wrote that corner on changes on disk.
+[Vec.make (-6.) (-6.)] becomes wherever you put it, and the rest of the file is
+byte for byte what it was — comments, blank lines, the way [ocamlformat] laid it
+out. What is rewritten is one number, not the file.
+
+{b What makes that possible is that you wrote a literal.} A point written down
+is a point there is somewhere to write back to. Had the corner been computed —
+from a radius, from a loop, from another corner — the plan would still draw it
+and would refuse to move it, because no number in your source means that place.
+The question is asked of every argument separately, and the answer is the whole
+of what an editor can change and what it can only show you. Step 3 is where you
+meet the first corner it says no to.
+
+[u] takes the last change back.
 
 The whole program: [examples/step01_room.ml].
-
-{b From step 23 you will be able to drag these.} The four corners above are
-literals, and that is the whole of what makes them draggable: the editor draws
-the room from over the top, and moving a corner rewrites the [Vec.make] that
-put it there. Typing them is the way to learn what a corner is; the tool is for
-the fiftieth one.
 
 {1 Step 2 — Every wall its own}
 
@@ -230,6 +303,17 @@ plinth to the vault, low enough to see over, drawn from both sides:
 {[
   wall ~height:1.1 ~material:slab (Vec.make (-2.) (-1.6)) (Vec.make (-2.) 1.6);
 ]}
+
+Open the plan and the plinth is on it, a short line inside the ring, and both
+its ends drag. That is the first thing on the plan that is not the room's own
+boundary, and it is worth noticing that the plan does not distinguish them: it
+draws what the description came to, not what the description said. A wall a
+corner produced and a wall you wrote both arrive as walls.
+
+Its [~height] is a literal too, and nothing on a plan seen from above can drag a
+height. Pick the plinth and press [\[] or [\]]: those walk the fields of
+whatever is picked, and [-] and [=] move the one chosen. That is how a number
+that is not a place gets changed — a height, a glow, a size.
 
 The whole program as of this step: [examples/step02_masonry.ml].
 [demo/masonry.ml] shows one pattern function used at several colours.

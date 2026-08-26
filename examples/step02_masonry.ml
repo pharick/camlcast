@@ -20,6 +20,7 @@ let sw = Vec.make (-6.) (-6.)
 let se = Vec.make 6. (-6.)
 let ne = Vec.make 6. 6.
 let nw = Vec.make (-6.) 6.
+let studio = Camlcast_edit.Session.create ()
 
 let level =
   P.(
@@ -40,10 +41,12 @@ let level =
             wall ~height:1.1 ~material:slab (Vec.make (-2.) (-1.6))
               (Vec.make (-2.) 1.6);
           ];
+        Camlcast_edit.Session.pointer studio;
+        hud [ Camlcast_edit.Session.overlay studio () ];
       ])
 
 let () =
-  match Run.play ~title:"The Undercroft" level with
+  match Camlcast_edit.Session.play ~title:"The Undercroft" studio level with
   | Ok _ending -> ()
   | Error (`Msg message) ->
       prerr_endline message;
