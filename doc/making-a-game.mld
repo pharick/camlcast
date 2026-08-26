@@ -278,6 +278,18 @@ The question is asked of every argument separately, and the answer is the whole
 of what an editor can change and what it can only show you. Step 3 is where you
 meet the first corner it says no to.
 
+{{image:images/editor-plan.png}The game with the overlay up: the room drawn
+from above in a box at the top left, its outline as four lines with the spawn
+marked, and one wall picked out in orange; down the right, a list naming the
+picked wall, the line of source it was written on, its height and the
+coordinates of both its ends}
+
+The panel's top line names what is picked and the line under it names the file
+and line it was written on, which is the whole trick stated plainly: the editor
+knows where in your source each thing came from. Under that are its fields, the
+chosen one marked. Down at the foot are the keys, always, because nothing about
+them is guessable.
+
 {b What it writes is your file with one expression different.} It parses to
 find out {e where} things are and then replaces those bytes; nothing
 reconstructs the rest, which is why comments and blank lines and whatever
@@ -550,6 +562,9 @@ in two clicks — which writes the [connect] into your file, the one edit the
 editor makes that is not a number. Cut the two doorways, run, and join them from
 the panel rather than typing the last line.
 
+{{image:images/editor-graph.png}The graph panel: two rooms named one under the
+other, each with the doorway it owns indented beneath it and marked joined}
+
 That is the part of a world hardest to hold in your head, and the only part a
 picture can honestly show: there is no map, because {!Camlcast.Vec}-space is a
 room's own and two rooms share none. It is also why the plan is of one room at a
@@ -585,6 +600,10 @@ to work. {!Camlcast.Element.declare} exists partly to make the right form the
 easy one. Its type also enforces the other rule that comes with identity: a
 render function is monomorphic in its props. Props are one value; use a record
 when there are several things to pass.
+
+{{image:images/editor-tree.png}The tree panel: world at the margin, two rooms
+indented under it, and under each the walls, spawn and doorway it holds, with a
+component named among them and its own wall indented under that}
 
 {b Press F7 and there they are.} The tree panel is what your description came
 to, and until this step it was a world, a room and a list of things. Now four

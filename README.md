@@ -162,6 +162,9 @@ overlay, which draws the room from above, the graph of how the rooms are
 joined, and the component tree. Drag a corner and the coordinate is written
 back into the line of your own source that put it there. A game that ships does
 not link it; `camlcast-demo studio` is one small world with it turned on.
+
+![The game with the overlay up: the room drawn from above in a box at the top left, one wall picked out in orange, and a panel down the right naming that wall, the line of source it was written on, and its fields](doc/images/editor-plan.png)
+
 The guides and the demos teach the layer. Reach for `camlcast.core` when a
 game genuinely needs a `World` or a `Renderer`.
 

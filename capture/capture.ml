@@ -65,7 +65,7 @@ let level =
   P.(
     world ~atmosphere:Atmosphere.default
       [
-        room ~name:"plaza" ~height:4. ~material:stone
+        room ~name:"vault" ~height:4. ~material:stone
           ~floor:(floor ~plane:(Plane.horizontal 0.) ground)
           ~ceiling:(roof stone)
           ~outline:
@@ -77,14 +77,14 @@ let level =
                  Vec.make (-6.) 6.;
                ])
           [
-            spawn (Vec.make (-3.) 0.);
+            spawn (Vec.make (-4.5) 0.);
             cut east ~along:(Vec.make 6. (-6.), Vec.make 6. 6.);
-            wall ~key:"bench" ~height:0.6 ~material:brick (Vec.make (-2.) 3.)
+            wall ~key:"plinth" ~height:0.6 ~material:brick (Vec.make (-2.) 3.)
               (Vec.make 2. 3.);
             lamp (Vec.make 1. (-4.));
           ];
-        room ~name:"hall" ~height:3. ~material:brick ~floor:(floor ground)
-          ~ceiling:(roof stone)
+        room ~name:"antechamber" ~height:3. ~material:brick
+          ~floor:(floor ground) ~ceiling:(roof stone)
           ~outline:
             (corners
                [
@@ -172,7 +172,7 @@ let () =
   | "picked" ->
       step ~keys:[ Key.f5 ] ();
       step ();
-      (* Where the session drew the bench's near end, worked out its way. *)
+      (* Where the session drew the plinth's near end, worked out its way. *)
       let items = Camlcast_edit.Sheet.items !forest ~room:0 in
       let x, y, side, _ =
         Camlcast_edit.Panel.square ~across:width ~down:height
