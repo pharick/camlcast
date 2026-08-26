@@ -68,7 +68,34 @@
 ; keeps that from reaching --profile release, and so from reaching the `-p`
 ; builds opam runs, where a warning must never fail someone else's install.
 
+; CAMLCAST_POSITIONS is what ppx_camlcast reads to decide whether to put a
+; source position on a description, and (dev) is the whole of how a shipped
+; game is kept from carrying one. __POS__ bakes a path per call site into the
+; binary, so a release build that preprocessed with the rewriter awake would
+; carry the directories it was built in -- size, and a list of them for anyone
+; who runs strings on it.
+;
+; Set here rather than argued about at each call site, and set as an
+; environment variable rather than a preprocessor flag because (preprocess) is
+; per-stanza and takes no conditional: this is the only field dune varies by
+; profile that reaches a preprocessing action at all. Dune puts it in the
+; action's digest, so switching profiles re-runs the rewriter rather than
+; serving what the other profile left in the cache.
+;
+; Release says 0 rather than saying nothing, and that is the difference between
+; a default and a decision. Dune digests the variables a stanza names and
+; passes the ambient environment through for the ones it does not, so an
+; unmentioned CAMLCAST_POSITIONS in release would be whatever happened to be
+; exported in the shell that ran the build -- and would not invalidate a cached
+; preprocessing when it changed. Named here, the stanza wins over the
+; environment and the digest tracks it under both profiles.
+
 (env
  (dev
+  (env-vars
+   (CAMLCAST_POSITIONS 1))
   (flags
-   (:standard -w +32..39+9+27 -strict-sequence -strict-formats))))
+   (:standard -w +32..39+9+27 -strict-sequence -strict-formats)))
+ (release
+  (env-vars
+   (CAMLCAST_POSITIONS 0))))

@@ -1,0 +1,33 @@
+; Two libraries, because the rewriter's list of constructor names is data and
+; the rewriter is not. A suite has to read that list rather than keep a copy --
+; a copy is the failure the list exists to prevent -- and a (kind ppx_rewriter)
+; library is not one an ordinary stanza can link: dune builds it for the
+; preprocessing context, and `dune build @check`, which is what merlin and the
+; language server build, cannot resolve it from a test. Split, the names are an
+; ordinary library that anything may name.
+
+(library
+ (name camlcast_vocabulary)
+ (public_name ppx_camlcast.vocabulary)
+ (flags
+  (:standard -w +70))
+ (modules camlcast_vocabulary))
+
+; The rewriter that tells a description where it was written.
+;
+; No .mli, and so no -w +70, for the reason demo/ has none: a rewriter is one
+; module whose whole interface is a side effect on ppxlib's driver, and an
+; interface file for it would restate nothing.
+;
+; It names ppxlib and nothing of camlcast. It has no need to -- it rewrites
+; source text and never links against what that source describes -- and the
+; separation is what keeps ppxlib out of camlcast's own dependency list. What
+; it emits is a call to Camlcast.Element.at, resolved in the game being
+; preprocessed rather than here.
+
+(library
+ (name ppx_camlcast)
+ (public_name ppx_camlcast)
+ (kind ppx_rewriter)
+ (modules ppx_camlcast)
+ (libraries ppxlib camlcast_vocabulary))

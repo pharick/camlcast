@@ -1,0 +1,38 @@
+; The rewriter's suite, and a directory of its own rather than a stanza in
+; test/. It is the one place in this repository preprocessed by ppx_camlcast,
+; and the preprocessing has to reach exactly it: a description compiled with
+; the rewriter carries a position and one compiled without it does not, and
+; every other suite asserts on the second of those.
+;
+; The directory is what makes `dune build @check` work -- the alias merlin and
+; the language server build. Dune's check context is per directory: a stanza
+; here whose (libraries) differ from its neighbours' gets those neighbours'
+; instead, and the modules this suite names stop resolving under @check while
+; an ordinary `dune build` is perfectly happy. Alone in a directory it has its
+; own context and the question does not arise.
+;
+; It links camlcast_vocabulary, which is where the rewriter keeps the names it
+; wraps, so that this suite reads that list rather than a copy of it. A copy is
+; the thing this suite exists to prevent.
+;
+; The action passes %{profile} in, and that is load-bearing rather than
+; decorative. Whether the rewriter put positions on this file is something the
+; rewriter can report about itself, and a test believing that report proves
+; only that it is self-consistent: were CAMLCAST_POSITIONS to reach a release
+; build, the report and the positions would both flip and the suite would pass
+; while the thing it guards had failed. The profile comes from dune instead, so
+; the expectation and the fact have separate sources.
+
+(tests
+ (names test_ppx)
+ (modules test_ppx)
+ (package camlcast)
+ (deps ../../lib/p.mli)
+ (preprocess
+  (pps ppx_camlcast))
+ (action
+  (setenv
+   CAMLCAST_PROFILE
+   %{profile}
+   (run %{test})))
+ (libraries camlcast camlcast_vocabulary alcotest))

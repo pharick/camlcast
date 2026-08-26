@@ -96,4 +96,21 @@
   ; `-p camlcast-demo @runtest` needs the framework they are written in.
   (alcotest :with-test)))
 
+; The rewriter is a package of its own, and the split is what keeps the engine's
+; dependency list where it was. camlcast does not depend on ppx_camlcast and
+; never will: a description built without the rewriter is the description this
+; engine always built, one word per element larger and carrying no position.
+; The dependency runs the other way round only at the source level -- what the
+; rewriter emits is a call to Camlcast.Element.at, resolved in the game being
+; preprocessed -- so ppx_camlcast does not depend on camlcast either.
+
+(package
+ (name ppx_camlcast)
+ (synopsis "Tells a camlcast description where it was written")
+ (description
+  "A ppx rewriter that wraps each of Camlcast.P's element constructors in Element.at, so a description carries the source position it was written at. That is what lets a tool outside find the expression behind a wall the player is looking at. It does nothing unless CAMLCAST_POSITIONS is set, which is how a release build keeps source paths out of the binary.")
+ (depends
+  (ocaml (>= 5.2))
+  ppxlib))
+
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
