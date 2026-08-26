@@ -217,12 +217,13 @@ val make :
     - a threshold with no length — its transform would collapse the world to a
       point;
     - a threshold linked more than once;
-    - a threshold nothing links to — a hole in the wall opening onto nowhere;
     - two linked thresholds differing in length or height — the opening would
       not line up, so the seam would be visible from both sides;
     - two linked thresholds that disagree about a door.
 
-    A floor mismatch across a doorway is {e not} refused; see {!seam_gap}. *)
+    A threshold nothing links to is {e not} refused — it leads nowhere yet, and
+    the paragraph at the top of this page says why. Neither is a floor mismatch
+    across a doorway; see {!seam_gap}. Both are {!Camlcast.Check} warnings. *)
 
 (** {1 What a link has to satisfy}
 
@@ -392,9 +393,12 @@ val check : t -> unit
 
     - every room uniquely named;
     - every room's thresholds uniquely named;
-    - every one of them linked;
     - every portal's [twin] the same doorway seen from the other side;
     - the two sides of every link agreed about a door.
+
+    Said of the links there are. A doorway leading nowhere is passed over in
+    silence, as it is by {!make} — it is a state a world may be in and not a
+    way of being wrong, and hearing about it is {!Camlcast.Check}'s job.
 
     That last one is asked of the rooms as they stand now, not of the
     [threshold] each {!type-portal} carries, which is the copy taken when the

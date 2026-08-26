@@ -122,13 +122,12 @@ let is_consistent (demo : Catalogue.t) =
 let has_no_seams (demo : Catalogue.t) =
   let world = Lazy.force demo.Catalogue.world in
   List.iter
-    (fun (room, _, p) ->
-      let portal : World.portal = Option.get p in
+    (fun (room, _, (portal : World.portal)) ->
       Alcotest.check close
         (World.name world room ^ "." ^ portal.World.threshold.Room.name)
         0.
         (World.seam_gap world ~room portal))
-    (doorways world)
+    (joined world)
 
 (* Every room is reachable from the spawn, so nothing in a demo is content
    nobody can get to. *)
@@ -138,8 +137,14 @@ let is_connected (demo : Catalogue.t) =
   let rec visit i =
     if not seen.(i) then begin
       seen.(i) <- true;
+      (* Only the doorways that lead somewhere. A room reachable through no
+         other way is still reported unreachable, which is the claim; what a
+         doorway leading nowhere must not do is stop the walk with an
+         Invalid_argument naming neither the room nor the demo. *)
       for threshold = 0 to World.doorway_count world ~room:i - 1 do
-        visit (Option.get (World.portal world ~room:i ~threshold)).World.to_room
+        Option.iter
+          (fun (p : World.portal) -> visit p.World.to_room)
+          (World.portal world ~room:i ~threshold)
       done
     end
   in
@@ -297,11 +302,10 @@ let growing_leaves_a_world_that_still_works () =
     longest := World.room_count world;
     World.check world;
     List.iter
-      (fun (room, _, p) ->
-        let portal : World.portal = Option.get p in
+      (fun (room, _, (portal : World.portal)) ->
         Alcotest.check close "no seam appeared" 0.
           (World.seam_gap world ~room portal))
-      (doorways world);
+      (joined world);
     (* Every room has a way back and a way on, and no threshold anywhere is left
        leading nowhere. *)
     List.iter
@@ -763,11 +767,10 @@ let a_door_cut_from_an_outline_is_wound_with_its_room () =
   (* And the two are joined: the connection named no room and no doorway, and
      the layer found both from the doors alone. *)
   List.iter
-    (fun (room, _, p) ->
-      let portal : World.portal = Option.get p in
+    (fun (room, _, (portal : World.portal)) ->
       Alcotest.check close "no step in the floor" 0.
         (World.seam_gap world ~room portal))
-    (doorways world)
+    (joined world)
 
 (* A checksum of the first frame of every demo, drawn from its spawn. Nothing
    asserts on the number here: it is written out so that a change which is meant

@@ -295,8 +295,13 @@ let recessed ?(blind = true) () =
     ~spawn:("first", Vec.make 2. 2.)
 
 (** The portal behind a threshold that is certainly linked. A world may hold
-    doorways that lead nowhere yet, so [World.portal] hands back an option; the
-    fixtures here are all finished worlds. *)
+    doorways that lead nowhere yet, so [World.portal] hands back an option; this
+    is for a fixture whose linkage the suite itself wrote two lines above.
+
+    Not for a world a suite was handed. Use [joined] there: an [Option.get] on a
+    doorway somebody else described raises [Invalid_argument] out of the middle
+    of a check, which reports as a suite that crashed rather than as the world
+    that is wrong. *)
 let portal world ~room ~index =
   Option.get (World.portal world ~room ~threshold:index)
 
@@ -317,6 +322,21 @@ let doorways world =
       List.init (World.doorway_count world ~room) (fun threshold ->
           (room, threshold, World.portal world ~room ~threshold)))
     (List.init (World.room_count world) Fun.id)
+
+(** The doorways that lead somewhere, as [(room, threshold, portal)] with the
+    option already gone.
+
+    Most assertions about linkage are only about the linked ones: a seam is the
+    step in the floor between two rooms, and a doorway with no room behind it
+    has no floor to disagree with. A doorway leading nowhere is a state the
+    engine allows — the renderer fills it with haze and [World.passable] treats
+    it as solid — so a suite that meets one should say what it found, not
+    raise. *)
+let joined world =
+  List.filter_map
+    (fun (room, threshold, portal) ->
+      Option.map (fun p -> (room, threshold, p)) portal)
+    (doorways world)
 
 (** Two rooms joined twice over, into a loop a single step can go all the way
     round. Room a's east doorway leads into b; b's north doorway leads back into

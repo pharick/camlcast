@@ -97,13 +97,12 @@ let is_sound name world =
          | Check.Warning -> None)
        (Check.assembled world));
   List.iter
-    (fun (room, _, p) ->
-      let portal : World.portal = Option.get p in
+    (fun (room, _, (portal : World.portal)) ->
       Alcotest.check close
         (name ^ ": no step in the floor at " ^ portal.World.threshold.Room.name)
         0.
         (World.seam_gap world ~room portal))
-    (doorways world)
+    (joined world)
 
 let each =
   List.map

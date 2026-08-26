@@ -15,8 +15,7 @@ let ceiling_is_open (r : Room.t) =
    haze. *)
 let a_portal_knows_its_twin () =
   List.iter
-    (fun (room, _, p) ->
-      let portal : World.portal = Option.get p in
+    (fun (room, _, (portal : World.portal)) ->
       let back = link Level.default ~room:portal.to_room ~index:portal.twin in
       Alcotest.(check int) "the twin leads back here" room back.World.to_room;
       Alcotest.(check int)
@@ -28,7 +27,7 @@ let a_portal_knows_its_twin () =
         (Transform.point portal.onto portal.threshold.Room.a);
       Alcotest.check vec "and the other way about" back.World.threshold.Room.a
         (Transform.point portal.onto portal.threshold.Room.b))
-    (doorways Level.default)
+    (joined Level.default)
 
 (* The showcase level is the only thing that exercises all of this at once, so
    it is checked for the properties the rest of the engine assumes of it. *)
@@ -56,9 +55,9 @@ let the_default_world_is_connected () =
     if not seen.(i) then begin
       seen.(i) <- true;
       for threshold = 0 to World.doorway_count Level.default ~room:i - 1 do
-        visit
-          (Option.get (World.portal Level.default ~room:i ~threshold))
-            .World.to_room
+        Option.iter
+          (fun (p : World.portal) -> visit p.World.to_room)
+          (World.portal Level.default ~room:i ~threshold)
       done
     end
   in
@@ -113,9 +112,9 @@ let the_default_world_is_varied () =
   Alcotest.(check bool)
     "some link turns as well as moves" true
     (List.exists
-       (fun (_, _, p) ->
-         Float.abs (Option.get p).World.onto.Transform.sin > 1e-6)
-       (doorways Level.default));
+       (fun (_, _, (p : World.portal)) ->
+         Float.abs p.World.onto.Transform.sin > 1e-6)
+       (joined Level.default));
   Alcotest.(check bool)
     "some room's floor is inclined" true
     (List.exists
@@ -212,13 +211,12 @@ let a_diagonal_through_a_turning_doorway_keeps_its_shape () =
    should be zero to the last bit. *)
 let the_default_world_has_no_seams () =
   List.iter
-    (fun (room, _, p) ->
-      let portal : World.portal = Option.get p in
+    (fun (room, _, (portal : World.portal)) ->
       Alcotest.check close
         (World.name Level.default room ^ "." ^ portal.World.threshold.Room.name)
         0.
         (World.seam_gap Level.default ~room portal))
-    (doorways Level.default)
+    (joined Level.default)
 
 let () =
   Alcotest.run "Level"
