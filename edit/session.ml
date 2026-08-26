@@ -21,6 +21,10 @@ type t = {
      end of what is travelling with the mouse. *)
   mutable selected : Sheet.hit;
   mutable dragging : (Camlcast_loom.Path.t * int) option;
+  (* Which of the selection's fields the keys act on, and -- in the graph --
+     the first of the two doorways a join needs. *)
+  mutable field : int;
+  mutable joining : Graph.door option;
   link : Link.t;
   mutable said : string option;
 }
@@ -38,6 +42,8 @@ let create ?read ?write () =
     frame = [];
     selected = Sheet.Nothing;
     dragging = None;
+    field = 0;
+    joining = None;
     link = Link.create read;
     said = None;
   }
@@ -144,6 +150,99 @@ let write_point t (item : Sheet.item) which (at : Vec.t) =
                      source.Link.line)
           | Error (`Msg message) -> t.said <- Some message))
 
+(* {1 Changing one field, and joining two doorways} *)
+
+let fields t =
+  match t.selected with
+  | Sheet.Nothing -> []
+  | Sheet.Corner { item; _ } | Sheet.Body item -> (
+      match source_of t item with
+      | Link.Found source -> (
+          match Link.parsed t.link source.Link.file with
+          | Ok parsed -> Field.of_call parsed source.Link.call
+          | Error _ -> [])
+      | Link.Unpositioned | Link.Unreadable _ -> [])
+
+let file_of t =
+  match t.selected with
+  | Sheet.Nothing -> None
+  | Sheet.Corner { item; _ } | Sheet.Body item -> (
+      match source_of t item with
+      | Link.Found source -> Some source.Link.file
+      | Link.Unpositioned | Link.Unreadable _ -> None)
+
+(* A tenth of a cell, which is the size of thing this is for: a height, a glow,
+   a sprite's size. A coordinate is dragged rather than nudged. *)
+let step = 0.1
+
+let nudge t by =
+  match (List.nth_opt (fields t) t.field, file_of t) with
+  | Some ({ Field.value = Field.Number number; _ } as field), Some path -> (
+      match Field.write field (Field.Number (number +. (by *. step))) with
+      | Error (`Msg message) -> t.said <- Some message
+      | Ok edit -> (
+          match Revise.apply t.revise ~path [ edit ] with
+          | Ok () ->
+              t.said <- Some (Printf.sprintf "%s %s" field.Field.label path)
+          | Error (`Msg message) -> t.said <- Some message))
+  | Some { Field.label; _ }, _ ->
+      t.said <- Some (label ^ " holds a name; there is nothing to nudge")
+  | None, _ -> t.said <- Some "nothing selected to change"
+
+(* The world's own call, which is where a connection is appended: a connection
+   is a child of the world rather than of either room, so joining two rooms and
+   unjoining them touches neither. *)
+let world_call t =
+  List.find_map
+    (fun (node : Watch.node) ->
+      match node.Camlcast_loom.Host.prim with
+      | Prim.World _ -> (
+          match Link.locate t.link node.Camlcast_loom.Host.at with
+          | Link.Found source -> Some source
+          | _ -> None)
+      | _ -> None)
+    t.frame
+
+let join t (door : Graph.door) =
+  match t.joining with
+  | None ->
+      t.joining <- Some door;
+      t.said <-
+        Some
+          (Printf.sprintf "%s picked; choose the doorway it leads to"
+             (Option.value door.Graph.name ~default:"that doorway"))
+  | Some first when first.Graph.id = door.Graph.id ->
+      t.joining <- None;
+      t.said <- Some "let go of that doorway"
+  | Some first -> (
+      t.joining <- None;
+      match world_call t with
+      | None -> t.said <- Some "cannot find the world this is written in"
+      | Some source -> (
+          match Link.parsed t.link source.Link.file with
+          | Error (`Msg message) -> t.said <- Some message
+          | Ok parsed -> (
+              match Graph.join parsed ~world:source.Link.call first door with
+              | Error (`Msg message) -> t.said <- Some message
+              | Ok edit -> (
+                  match
+                    Revise.apply t.revise ~path:source.Link.file [ edit ]
+                  with
+                  | Ok () ->
+                      t.said <-
+                        Some
+                          (Printf.sprintf "joined, in %s -- rebuild to walk it"
+                             source.Link.file)
+                  | Error (`Msg message) -> t.said <- Some message))))
+
+let take_back t =
+  match Revise.undo t.revise with
+  | Error (`Msg message) -> t.said <- Some message
+  | Ok None -> t.said <- Some "nothing left to take back"
+  | Ok (Some (Revise.Restored path)) -> t.said <- Some (path ^ " put back")
+  | Ok (Some (Revise.Created path)) ->
+      t.said <- Some (path ^ " was made by this session and is left where it is")
+
 let title t =
   match t.panel with
   | Plan -> Printf.sprintf "plan  room %d" t.room
@@ -169,6 +268,40 @@ let lines t =
           color = (if pending t = 0 then quiet else loud);
         };
       ]
+    in
+    (* What is picked, where it was written, and what about it can be changed.
+       Shown under the panel's own two lines because an overlay drawn over a
+       game is the only place a game developer is looking. *)
+    let chosen =
+      match t.selected with
+      | Sheet.Nothing -> []
+      | Sheet.Corner { item; _ } | Sheet.Body item ->
+          let where =
+            match source_of t item with
+            | Link.Found source ->
+                Printf.sprintf "%s:%d"
+                  (Filename.basename source.Link.file)
+                  source.Link.line
+            | Link.Unpositioned -> "written where nothing says"
+            | Link.Unreadable message -> message
+          in
+          [
+            { Panel.text = Prim.describe item.Sheet.what; color = loud };
+            { Panel.text = "  " ^ where; color = quiet };
+          ]
+          @ List.mapi
+              (fun index (field : Field.t) ->
+                {
+                  Panel.text =
+                    Printf.sprintf "%s %s %s"
+                      (if index = t.field then ">" else " ")
+                      field.Field.label
+                      (match field.Field.value with
+                      | Field.Number number -> Printf.sprintf "%g" number
+                      | Field.Name name -> name);
+                  color = (if index = t.field then plain else quiet);
+                })
+              (fields t)
     in
     let body =
       match t.panel with
@@ -203,7 +336,7 @@ let lines t =
                    r.Graph.doors)
             graph.Graph.rooms
     in
-    header @ body
+    header @ chosen @ body
 
 (* Declared once, here, and not inside {!overlay}. A component built inside a
    function is a fresh closure every frame, so it is never the same component
@@ -232,6 +365,15 @@ let component =
           Overhead.fit ~bounds ~x ~y ~width:side ~height:side ~inset:12)
         (Sheet.bounds items)
     in
+    (* Keys not the bindings already use: walking has WASD and the arrows,
+       leaving has Escape, and the map has F3. These are what is left. *)
+    let tapped key = Input.pressed actions (Input.Key key) in
+    if tapped Key.u then take_back t;
+    if tapped Key.leftbracket then t.field <- Int.max 0 (t.field - 1);
+    if tapped Key.rightbracket then
+      t.field <- Int.min (Int.max 0 (List.length (fields t) - 1)) (t.field + 1);
+    if tapped Key.minus then nudge t (-1.);
+    if tapped Key.equals then nudge t 1.;
     (* Picking up, holding, and letting go. All three read the same pointer,
        which Input has already put in the framebuffer's coordinates -- the ones
        Overhead.to_room takes. *)
@@ -240,6 +382,7 @@ let component =
         let at = Input.pointer actions in
         if Input.pressed actions (Input.Button Input.Left) then begin
           t.selected <- Sheet.hit view items at;
+          t.field <- 0;
           t.dragging <-
             (match t.selected with
             | Sheet.Corner { item; which } when draggable t item ->
@@ -258,6 +401,14 @@ let component =
             | None -> ());
             t.dragging <- None
         | None -> ())
+    | Graph, _ ->
+        if Input.pressed actions (Input.Button Input.Left) then begin
+          let graph = Graph.read t.frame in
+          let view = Graph.place graph ~x ~y ~width:side ~height:side in
+          match Graph.hit view (Input.pointer actions) with
+          | Graph.Door { door; _ } -> join t door
+          | Graph.Room _ | Graph.Nothing -> ()
+        end
     | _ -> ());
     let ink = Color.rgb 205 210 220
     and computed = Color.rgb 105 112 124

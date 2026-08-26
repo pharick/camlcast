@@ -44,6 +44,11 @@ let locate t = function
 let find t (node : Camlcast.Prim.t Camlcast_loom.Host.node) =
   locate t node.Camlcast_loom.Host.at
 
+let parsed t file =
+  match parsed t file with
+  | Ok p -> Ok p
+  | Error message -> Error (`Msg message)
+
 let editable source =
   List.exists
     (fun (argument : Span.argument) ->

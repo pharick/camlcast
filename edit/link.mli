@@ -55,6 +55,14 @@ val find : t -> Camlcast.Prim.t Camlcast_loom.Host.node -> found
 val locate : t -> Camlcast_loom.Element.pos option -> found
 (** The same, for a position held on its own. *)
 
+val parsed : t -> string -> (Span.t, [ `Msg of string ]) result
+(** The file at this path, read and parsed, from the same cache {!find} uses.
+
+    For the things that need the file rather than one call in it —
+    {!Camlcast_edit.Graph.join} appends to the world's own list of children and
+    has to see where that list ends. Reading it a second time would be a second
+    answer about a file somebody may be editing. *)
+
 val editable : source -> bool
 (** Whether anything about this call can be dragged: whether any argument is
     {!Camlcast_edit.Span.Numbers}.
