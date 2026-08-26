@@ -32,6 +32,15 @@ let font =
 let north = P.door ~name:"north" ~width:1.6 ~clearance:2.2 ()
 let south = P.door ~name:"south" ~width:1.6 ~clearance:2.2 ()
 
+(* A wall whose ends are worked out rather than written down. It carries a
+   position like any other -- it is a P.wall in a preprocessed file -- and
+   there is still no line to write a new coordinate into, because what is
+   written there is a rule. This is the case the whole predicate is about, and
+   the one a reader meets as a surprise if nothing says so. *)
+let spoke k =
+  let angle = float_of_int k *. Float.pi /. 3. in
+  Vec.make (4.5 *. cos angle) (4.5 *. sin angle)
+
 (* The wall this suite drags. Written out, so both its ends are literals. *)
 let level session =
   P.(
@@ -52,6 +61,7 @@ let level session =
             spawn (Vec.make 0. 0.);
             wall ~key:"bench" ~height:0.6 ~material:stone (Vec.make (-2.) 3.)
               (Vec.make 2. 3.);
+            wall ~key:"spoke" ~height:1. ~material:stone (spoke 0) (spoke 1);
             cut north ~along:(Vec.make 6. 6., Vec.make (-6.) 6.);
             cut south ~along:(Vec.make (-6.) (-6.), Vec.make 6. (-6.));
           ];
@@ -246,6 +256,80 @@ let letting_go_writes_the_file () =
     (Camlcast_edit.Session.pending driver.session);
   stop driver
 
+(* {1 What cannot be dragged} *)
+
+let spoke_end = spoke 0
+
+(* Picked like anything else -- it is a wall and it is there -- and then
+   nothing happens, because there is nowhere to write the answer. What matters
+   is that it is drawn and pickable rather than hidden or refused. *)
+let a_computed_wall_is_picked_but_not_dragged () =
+  let driver = start () in
+  frame driver ~holding:false ~at:(0, 0);
+  let view = projection driver in
+  frame driver ~holding:true
+    ~at:(Camlcast_core.Overhead.to_panel view spoke_end);
+  (match Camlcast_edit.Session.selected driver.session with
+  | Camlcast_edit.Sheet.Corner { item; _ } ->
+      Alcotest.(check bool)
+        "the computed wall, picked up like any other" true
+        (Prim.describe item.Camlcast_edit.Sheet.what <> "")
+  | _ -> Alcotest.fail "a computed wall should still be pickable");
+  frame driver ~holding:true
+    ~at:(Camlcast_core.Overhead.to_panel view (Vec.make 0. 0.));
+  Alcotest.(check int)
+    "and nothing is outstanding: there is no line to write it into" 0
+    (Camlcast_edit.Session.pending driver.session);
+  frame driver ~holding:false
+    ~at:(Camlcast_core.Overhead.to_panel view (Vec.make 0. 0.));
+  Alcotest.(check (list string))
+    "nor is anything written" []
+    (List.map fst !(driver.written));
+  stop driver
+
+(* Its arguments say why, one at a time. The height is a number written down
+   and can be nudged; the two ends are worked out and cannot be touched. *)
+let its_arguments_say_which_is_which () =
+  let driver = start () in
+  frame driver ~holding:false ~at:(0, 0);
+  let view = projection driver in
+  frame driver ~holding:true
+    ~at:(Camlcast_core.Overhead.to_panel view spoke_end);
+  frame driver ~holding:false
+    ~at:(Camlcast_core.Overhead.to_panel view spoke_end);
+  let items = Camlcast_edit.Sheet.items (forest_of driver) ~room:0 in
+  let spoke_item =
+    List.find
+      (fun (item : Camlcast_edit.Sheet.item) ->
+        Filename.check_suffix
+          (Camlcast_loom.Path.to_debug_string item.Camlcast_edit.Sheet.path)
+          "[spoke]")
+      items
+  in
+  match
+    Camlcast_edit.Link.locate
+      (Camlcast_edit.Link.create (fun _ -> own_source ()))
+      spoke_item.Camlcast_edit.Sheet.at
+  with
+  | Camlcast_edit.Link.Found source when positioned ->
+      Alcotest.(check (list string))
+        "a height written down, two ends worked out"
+        [ "height numbers"; "material name"; "_ computed"; "_ computed" ]
+        (List.map
+           (fun (a : Camlcast_edit.Span.argument) ->
+             Printf.sprintf "%s %s"
+               (Option.value a.label ~default:"_")
+               (match a.value with
+               | Numbers _ -> "numbers"
+               | Name _ -> "name"
+               | Computed -> "computed"))
+           (List.tl source.Camlcast_edit.Link.call.arguments));
+      Alcotest.(check bool)
+        "so something about it can still be changed" true
+        (Camlcast_edit.Link.editable source)
+  | _ when not positioned -> ()
+  | _ -> Alcotest.fail "the spoke should have been found"
+
 (* {1 The graph} *)
 
 (* Two clicks and no key: picking a doorway that leads nowhere and then another
@@ -385,6 +469,13 @@ let () =
           case "dragging moves it in the next frame"
             dragging_moves_it_in_the_next_frame;
           case "letting go writes the file" letting_go_writes_the_file;
+        ] );
+      ( "what cannot be dragged",
+        [
+          case "a computed wall is picked but not dragged"
+            a_computed_wall_is_picked_but_not_dragged;
+          case "its arguments say which is which"
+            its_arguments_say_which_is_which;
         ] );
       ( "the graph",
         [

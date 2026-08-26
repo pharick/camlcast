@@ -64,7 +64,12 @@ val parsed : t -> string -> (Span.t, [ `Msg of string ]) result
     answer about a file somebody may be editing. *)
 
 val editable : source -> bool
-(** Whether anything about this call can be dragged: whether any argument is
+(** Whether anything about this call could be changed: whether any argument is
     {!Camlcast_edit.Span.Numbers}.
 
-    A call with none is one to draw differently rather than one to hide. *)
+    {b Not the test for whether a thing can be dragged}, and the difference has
+    teeth. A wall whose two ends are worked out from a function still has a
+    height written down, so this says yes about it — correctly, since its
+    height can be nudged — while there is nowhere to write a new coordinate.
+    What decides a drag is whether that particular point is written as numbers,
+    which is a question about one argument and not about the call. *)

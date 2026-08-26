@@ -32,7 +32,21 @@ type value =
 
           [Vec.make (-3.) (-4.)] is two of them. So is a bare [2.]. What makes
           this the editable case is that replacing those bytes with other
-          numbers leaves a program that means the same kind of thing. *)
+          numbers leaves a program that means the same kind of thing.
+
+          {b A call counts only when its name is one that builds a value.}
+          [Vec.make 1. 2.] and [plaza_corner 0] are the same shape — an
+          identifier applied to numeric constants — and nothing available here
+          tells them apart, this running long before types do. So a short list
+          of names does: [Vec.make], [Plane.make], [Plane.horizontal],
+          [Color.rgb], [Color.level]. Anything else applied to anything is
+          {!Computed}.
+
+          Getting that wrong in the other direction is the worst thing a tool
+          which edits source can do. Read as a point, [plaza_corner 0] takes a
+          coordinate written over the {e function's argument} —
+          [plaza_corner (-2.5)] — which compiles, runs, and means something
+          else. *)
   | Name of span
       (** a plain identifier — [Surfaces.stone], [flat]. Not a number and not
           computed: a thing referred to by name, which an editor can swap for

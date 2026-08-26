@@ -101,14 +101,24 @@ let point_spans (call : Span.call) which =
 
 let source_of t (item : Sheet.item) = Link.locate t.link item.at
 
-(* Whether the plan should offer to drag this. The predicate, asked of the
-   source rather than guessed from the frame: a wall can carry a position and
-   still be written out of state, which is exactly the case worth drawing
-   differently. *)
-let draggable t item =
+(* Where the [which]-th point of a thing is written, when it is written at all.
+   Both questions below are this one: colouring a plan asks it of the first
+   point, and taking hold of a corner asks it of that corner's.
+
+   Link.editable is the wrong question here and was asked first: it answers
+   whether {e anything} about a call can be changed, and a wall whose ends are
+   worked out from a function still has a height written down. Coloured by that
+   answer the wall looks draggable; dragged, it moves on the plan and writes
+   nothing. The predicate has to be about the point, not the call. *)
+let written_point t (item : Sheet.item) which =
   match source_of t item with
-  | Link.Found source -> Link.editable source
-  | Link.Unpositioned | Link.Unreadable _ -> false
+  | Link.Found source -> point_spans source.Link.call which
+  | Link.Unpositioned | Link.Unreadable _ -> None
+
+(* Whether the plan should offer to drag this. Asked of the source rather than
+   guessed from the frame: a wall can carry a position and still have its ends
+   worked out, which is exactly the case worth drawing differently. *)
+let draggable t item = written_point t item 0 <> None
 
 let item_at t path =
   List.find_opt
@@ -385,7 +395,8 @@ let component =
           t.field <- 0;
           t.dragging <-
             (match t.selected with
-            | Sheet.Corner { item; which } when draggable t item ->
+            | Sheet.Corner { item; which }
+              when written_point t item which <> None ->
                 Some (item.Sheet.path, which)
             | _ -> None)
         end;

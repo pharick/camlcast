@@ -23,6 +23,20 @@ let anchor_of (loc : Location.t) =
    represented -- which has changed shape more than once. *)
 let slice source { start; stop } = String.sub source start (stop - start)
 
+(* The names that build a value out of numbers. Carried as a list for the
+   reason ppx_camlcast carries one: this runs on an untyped tree, so the only
+   thing it can tell [Vec.make 1. 2.] from [plaza_corner 0] by is the name --
+   and it has to tell them apart, because they are the same shape.
+
+   That difference is not cosmetic. Both are an identifier applied to numeric
+   constants. Read as a written-down point, the second gets a coordinate
+   written over the argument of a function -- [plaza_corner (-2.5)] -- which
+   compiles, means something else entirely, and is the worst thing a tool that
+   edits source can do. So an application is a value only when its head is
+   named here, and everything else is computed. *)
+let builders =
+  [ "Vec.make"; "Plane.make"; "Plane.horizontal"; "Color.rgb"; "Color.level" ]
+
 (* The one classification, and the whole of what makes an argument editable.
 
    Written as a walk that names three constructors rather than as a match over
@@ -31,12 +45,13 @@ let slice source { start; stop } = String.sub source start (stop - start)
    each time one of them changed. What it needs to know is only whether the
    expression is built from numbers alone, and that can be asked of any shape.
 
-   An identifier disqualifies -- unless it is the head of an application, which
-   is how [Vec.make (-3.) (-4.)] is a pair of coordinates written out while
-   [plaza_corner k] is not. The difference is entirely in the arguments, and
-   that is the difference between a value that is the same every frame and one
-   that need not be. *)
-let classify (expression : Parsetree.expression) =
+   An identifier disqualifies unless it is the head of an application of a
+   builder, which is what makes [Vec.make (-3.) (-4.)] a pair of coordinates
+   written out while [plaza_corner k] and [spoke 0] are not. *)
+let classify ~source (expression : Parsetree.expression) =
+  let named head =
+    List.mem (slice source (span_of head.Parsetree.pexp_loc)) builders
+  in
   match expression.pexp_desc with
   | Pexp_ident _ -> Name (span_of expression.pexp_loc)
   | _ ->
@@ -51,7 +66,8 @@ let classify (expression : Parsetree.expression) =
                   { pconst_desc = Pconst_float _ | Pconst_integer _; _ } ->
                   numbers := span_of inner.pexp_loc :: !numbers
               | Pexp_ident _ -> computed := true
-              | Pexp_apply ({ pexp_desc = Pexp_ident _; _ }, arguments) ->
+              | Pexp_apply (({ pexp_desc = Pexp_ident _; _ } as head), arguments)
+                when named head ->
                   List.iter
                     (fun (_, argument) -> self.expr self argument)
                     arguments
@@ -62,14 +78,14 @@ let classify (expression : Parsetree.expression) =
       if !computed || !numbers = [] then Computed
       else Numbers (List.rev !numbers)
 
-let argument_of (label, expression) =
+let argument_of ~source (label, expression) =
   {
     label =
       (match (label : Asttypes.arg_label) with
       | Nolabel -> None
       | Labelled name | Optional name -> Some name);
     span = span_of expression.Parsetree.pexp_loc;
-    value = classify expression;
+    value = classify ~source expression;
   }
 
 (* Every application in the file whose head is a plain name, which is every
@@ -89,7 +105,7 @@ let collect source structure =
                   {
                     callee = slice source (span_of head.pexp_loc);
                     span = span_of expression.pexp_loc;
-                    arguments = List.map argument_of arguments;
+                    arguments = List.map (argument_of ~source) arguments;
                   } )
                 :: !found
           | _ -> ());
