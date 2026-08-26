@@ -415,7 +415,7 @@ let game =
               | Some line ->
                   let tw, _ = Font.measure font line in
                   text ~font ~x:((w - tw) / 2) ~y:(h - 36) line);
-              Camlcast_edit.Session.overlay studio ();
+              Camlcast_edit.Session.overlay studio ~font ();
             ]);
       ])
 

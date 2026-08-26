@@ -231,7 +231,7 @@ let game =
                 ~color:(Color.rgb 230 170 80) ();
               highlight ();
               crosshair ();
-              Camlcast_edit.Session.overlay studio ();
+              Camlcast_edit.Session.overlay studio ~font ();
             ]);
       ])
 
