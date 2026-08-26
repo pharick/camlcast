@@ -99,9 +99,9 @@ jobs:
         with:
           path: _site
 
-  # The floor dune-project names. Both packages declare (ocaml (>= 5.2)) — for
-  # -H, without which (implicit_transitive_deps false) is not enforced — and a
-  # floor nothing ever builds at is a claim rather than a fact. This job was
+  # The floor dune-project names. Every package declares (ocaml (>= 5.3)) — for
+  # the Parsetree shape edit/span.ml reads a game's source with — and a floor
+  # nothing ever builds at is a claim rather than a fact. This job was
   # the only thing that noticed: the compiler development happens on has -H,
   # so the tree built clean everywhere else while three directories' worth of
   # aliases and printers failed here.
@@ -111,10 +111,10 @@ jobs:
   # would drag the pinned ocamlformat and odoc in for no extra coverage. If
   # this job ever fails on a dependency rather than on this code, raise the
   # floor in dune-project instead of pinning around it. The floor reached 5.2
-  # the same way: the failure was the build's own rule, and raising was the
-  # answer.
+  # and then 5.3 the same way: the failure was the build's own rule and then
+  # the tooling's, and raising was the answer both times.
   floor:
-    name: OCaml 5.2
+    name: OCaml 5.3
     runs-on: ubuntu-latest
 
     steps:
@@ -122,7 +122,7 @@ jobs:
 
       - uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: "5.2"
+          ocaml-compiler: "5.3"
           dune-cache: true
 
       - run: opam install . --deps-only --with-test

@@ -24,8 +24,8 @@
 ; the expectation and the fact have separate sources.
 
 (tests
- (names test_ppx)
- (modules test_ppx)
+ (names test_ppx test_link test_graph)
+ (modules test_ppx test_link test_graph)
  (package camlcast)
  (deps ../../lib/p.mli)
  (preprocess
@@ -35,4 +35,9 @@
    CAMLCAST_PROFILE
    %{profile}
    (run %{test})))
- (libraries camlcast camlcast_vocabulary alcotest))
+ (libraries
+  camlcast
+  camlcast_edit
+  camlcast_loom
+  camlcast_vocabulary
+  alcotest))

@@ -1,0 +1,33 @@
+; The overlay's. A directory of its own for the reason test/ppx/ has one: dune's
+; check context is per directory, and a stanza whose (libraries) differ from its
+; neighbours' gets the neighbours' under `dune build @check`.
+;
+; It links camlcast_loom directly. What these suites drive is a Trace feed and a
+; row of hook slots, which are loom's own vocabulary; camlcast re-exports only
+; the part of it a game writes descriptions with.
+
+(tests
+ (names
+  test_tree
+  test_slots
+  test_panel
+  test_span
+  test_patch
+  test_sheet
+  test_field
+  test_scaffold
+  test_revise
+  test_session)
+ (modules
+  test_tree
+  test_slots
+  test_panel
+  test_span
+  test_patch
+  test_sheet
+  test_field
+  test_scaffold
+  test_revise
+  test_session)
+ (package camlcast)
+ (libraries camlcast camlcast_core camlcast_edit camlcast_loom alcotest))

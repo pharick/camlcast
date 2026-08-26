@@ -1,0 +1,27 @@
+; The dev overlay: what a tool outside the game shows about it and edits in it.
+;
+; Above camlcast rather than beside it. core, loom and lib are three libraries
+; with a rule about which may know what; this is a fourth that knows all of
+; them and that none of them knows. Nothing in those three names this one, and
+; a game that ships does not link it -- which is the whole reason it is a
+; library of its own rather than a corner of lib/.
+;
+; It names camlcast.loom directly and not only through camlcast, because what
+; it reads -- Trace events, Path, the slot view -- is loom's own vocabulary and
+; camlcast re-exports only part of it. (implicit_transitive_deps false) makes
+; that an explicit line rather than something inherited.
+;
+; compiler-libs.common is the compiler's own parser, and it is here to find
+; where expressions are and for nothing else. Span parses to locate and then
+; splices bytes; it never prints OCaml, so the part of that library this
+; depends on is the part that does not move between releases.
+;
+; -w +70 for the reason the other three carry it: every module here has an
+; .mli, and the flag is what keeps the next one from arriving without one.
+
+(library
+ (flags
+  (:standard -w +70))
+ (name camlcast_edit)
+ (public_name camlcast.edit)
+ (libraries camlcast camlcast_core camlcast_loom compiler-libs.common))

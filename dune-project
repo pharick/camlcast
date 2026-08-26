@@ -35,13 +35,23 @@
  (description
   "A first-person raycaster with arbitrary-angle wall segments, an inclined floor and either an inclined ceiling or an open sky, per-wall heights, textures generated in code or read from PNG and JPEG, see-through walls, wall decals, billboarded sprites, distance fog, mouse look with pitch, and a resizable/fullscreen window, built on the tsdl bindings.")
  (depends
-  ; Needed for -H, which (implicit_transitive_deps false) above depends on.
-  ; The code itself asks for less: Array.find_index, which World uses to
-  ; resolve a name to an index, is the newest thing in the tree and arrived in
-  ; 5.1. The binding constraint is the build's own rule, not a line of OCaml.
+  ; What binds is edit/span.ml, which reads a game's own source to find the
+  ; expression behind a wall. It matches on Parsetree, and 5.3 is where a
+  ; constant became a record carrying pconst_desc. Everything else in that
+  ; module is written to avoid the parts of the AST that move -- a callee is
+  ; read as text rather than rebuilt from a Longident, and an argument is
+  ; classified by a walk rather than by matching every shape one can take --
+  ; but a constant is the one thing it cannot avoid naming.
+  ;
+  ; Two older constraints sit underneath and are met a fortiori: -H, which
+  ; (implicit_transitive_deps false) above depends on and which arrived in 5.2,
+  ; and Array.find_index in World, which arrived in 5.1. The floor has never
+  ; been a line of OCaml in the engine; it has been the build's own rule, and
+  ; now the tooling's.
+  ;
   ; CI builds and tests at this version as well as the development one, so the
   ; floor is checked rather than merely asserted.
-  (ocaml (>= 5.2))
+  (ocaml (>= 5.3))
   tsdl
   ; PNG and JPEG decoding for Bitmap, Image.load and Texture.load. It brings
   ; SDL2_image and its codecs with it, which is the bulk of what a distributable
@@ -90,7 +100,7 @@
  (description
   "A launcher for twenty-odd demos, one per engine feature, plus a five-room showcase level with all of them at once. Each is a single file under demo/, short enough to read in a sitting. Installed, it carries the art the two demos that read from disk need; the way to a copy that runs on a machine with neither OCaml nor SDL is tools/bundle-*.sh.")
  (depends
-  (ocaml (>= 5.2))
+  (ocaml (>= 5.3))
   (camlcast (= :version))
   ; The demos' own suites are in test/ and belong to this package, so
   ; `-p camlcast-demo @runtest` needs the framework they are written in.
@@ -110,7 +120,7 @@
  (description
   "A ppx rewriter that wraps each of Camlcast.P's element constructors in Element.at, so a description carries the source position it was written at. That is what lets a tool outside find the expression behind a wall the player is looking at. It does nothing unless CAMLCAST_POSITIONS is set, which is how a release build keeps source paths out of the binary.")
  (depends
-  (ocaml (>= 5.2))
+  (ocaml (>= 5.3))
   ppxlib))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
