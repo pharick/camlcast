@@ -169,16 +169,16 @@ let () =
   step ();
   (match name with
   | "plan" ->
-      step ~keys:[ Key.f1 ] ();
+      step ~keys:[ Key.f5 ] ();
       step ()
   | "graph" ->
-      step ~keys:[ Key.f2 ] ();
+      step ~keys:[ Key.f6 ] ();
       step ()
   | "tree" ->
-      step ~keys:[ Key.f3 ] ();
+      step ~keys:[ Key.f7 ] ();
       step ()
   | "picked" ->
-      step ~keys:[ Key.f1 ] ();
+      step ~keys:[ Key.f5 ] ();
       step ();
       (* Where the session drew the bench's near end, worked out its way. *)
       let items = Camlcast_edit.Sheet.items !forest ~room:0 in

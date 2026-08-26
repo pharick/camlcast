@@ -7,7 +7,7 @@
 
     {b Run it with} [dune exec studio/studio.exe].
 
-    - {b F1} the plan, {b F2} the graph, {b F3} the tree, {b F4} closes it.
+    - {b F5} the plan, {b F6} the graph, {b F7} the tree, {b F8} closes it.
     - {b Tab} moves the plan to the next room.
     - On the plan, drag a corner. {b \[} and {b \]} walk the fields of what is
       picked, {b -} and {b =} move the chosen one, {b u} takes it back.

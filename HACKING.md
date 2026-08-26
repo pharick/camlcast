@@ -186,7 +186,7 @@ because it names nothing in the layer: it is what the layer has to reproduce.
 dune exec studio/studio.exe
 ```
 
-F1 the plan, F2 the graph, F3 the tree, F4 closes it; Tab moves the plan to the
+F5 the plan, F6 the graph, F7 the tree, F8 closes it; Tab moves the plan to the
 next room. On the plan, drag a corner and the coordinate is written back into
 `studio/studio.ml`. `[` and `]` walk the fields of whatever is picked and `-`
 and `=` move the chosen one; `u` takes the last change back.

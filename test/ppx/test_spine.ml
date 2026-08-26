@@ -322,9 +322,9 @@ let a_key_opens_a_closed_overlay () =
   Alcotest.(check bool)
     "closed to begin with" false
     (Camlcast_edit.Session.is_open driver.session);
-  press driver Camlcast_core.Key.f2;
+  press driver Camlcast_core.Key.f6;
   Alcotest.(check bool)
-    "and F2 opens it" true
+    "and F6 opens it" true
     (Camlcast_edit.Session.is_open driver.session);
   Alcotest.(check bool)
     "on the panel it names" true
@@ -340,11 +340,11 @@ let the_keys_choose_between_panels () =
         "the panel the key names" true
         (Camlcast_edit.Session.panel driver.session = expected))
     [
-      (Camlcast_core.Key.f3, Camlcast_edit.Session.Tree);
-      (Camlcast_core.Key.f1, Camlcast_edit.Session.Plan);
-      (Camlcast_core.Key.f2, Camlcast_edit.Session.Graph);
+      (Camlcast_core.Key.f7, Camlcast_edit.Session.Tree);
+      (Camlcast_core.Key.f5, Camlcast_edit.Session.Plan);
+      (Camlcast_core.Key.f6, Camlcast_edit.Session.Graph);
     ];
-  press driver Camlcast_core.Key.f4;
+  press driver Camlcast_core.Key.f8;
   Alcotest.(check bool)
     "and one closes it" false
     (Camlcast_edit.Session.is_open driver.session);

@@ -421,8 +421,8 @@ let lines t =
         (fun text -> { Panel.text; color = quiet })
         [
           "";
-          "F1 plan  F2 graph  F3 tree";
-          "F4 close   tab next room";
+          "F5 plan  F6 graph  F7 tree";
+          "F8 close   tab next room";
           "[ ] field  - = nudge";
           "u undo     x extract";
         ]
@@ -450,10 +450,10 @@ let component =
      already open. Everything below the branch acts on what is drawn, and only
      makes sense once something is. *)
   let tapped key = Input.pressed actions (Input.Key key) in
-  if tapped Key.f1 then show t Plan;
-  if tapped Key.f2 then show t Graph;
-  if tapped Key.f3 then show t Tree;
-  if tapped Key.f4 then close t;
+  if tapped Key.f5 then show t Plan;
+  if tapped Key.f6 then show t Graph;
+  if tapped Key.f7 then show t Tree;
+  if tapped Key.f8 then close t;
   if tapped Key.tab then begin
     let rooms =
       List.length
@@ -482,8 +482,15 @@ let component =
     in
     (* The rest act on what is picked, so they belong on this side of the
        branch. Keys the bindings do not already use: walking has WASD and the
-       arrows, leaving has Escape, and the engine's own map has F3 -- which
-       this takes over while it is up, being the same picture grown. *)
+       arrows, leaving has Escape, working has E, and the engine's own map has
+       F3.
+
+       That last one is why the panels are at F5 through F8 and not at F1
+       through F4. Nothing here can take a key back from the run: the loop
+       reads the same frame's actions and toggles the map whatever this does,
+       so sharing F3 drew the plan and the debug map of the same room at once.
+       A tool that only works once the game hands it a controls value is a
+       tool with parts. *)
     if tapped Key.u then take_back t;
     if tapped Key.x then extract t;
     if tapped Key.leftbracket then t.field <- Int.max 0 (t.field - 1);

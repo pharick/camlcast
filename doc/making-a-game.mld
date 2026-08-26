@@ -1237,8 +1237,12 @@ The preprocessor is what makes the difference between looking and touching. It
 stamps each constructor with the place in your source it was written at, and
 without it the panels still draw and nothing can be changed.
 
-Three panels, and the overlay reads its own keys — [F1] the plan, [F2] the
-graph, [F3] the tree, [F4] closes it, [Tab] moves the plan to the next room.
+Three panels, and the overlay reads its own keys — [F5] the plan, [F6] the
+graph, [F7] the tree, [F8] closes it, [Tab] moves the plan to the next room.
+
+[F5] rather than [F1] because reading a key here does not take it away from the
+run: the map above is still on [F3], and a panel there would draw itself and the
+map of the same room on the same frame. [F1] through [F4] are left for you.
 
 The {b plan} is this room from above, and dragging a corner rewrites the
 [Vec.make] that put it there. With something picked, [\[] and [\]] walk its
