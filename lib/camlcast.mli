@@ -18,14 +18,16 @@
 
     Every line below is a line of [examples/step08_state.ml], a program the
     default build compiles; [test/test_docs.ml] holds the two together, so a
-    sample on this page cannot outlive the API it was written for.
+    sample on this page cannot outlive the API it was written for. What that
+    program has and this does not is the three lines that turn the editor on,
+    which belong to [camlcast.edit] and not here.
 
     {[
     open Camlcast
 
     let brazier =
       Element.declare ~name:"brazier" @@ fun (pos : Vec.t) ->
-      let lit, set_lit = Hook.use_state false in
+      let lit, set_lit = Hook.use_state ~show:string_of_bool false in
       Events.use_pressed (Input.Key Key.space) (fun () -> set_lit true);
       P.sprite ~size:0.9
         ~glow:(if lit then 0.85 else 0.)
@@ -44,14 +46,10 @@
                 brazier (Vec.make 0. 0.);
               ];
           ])
-
-    let () =
-      match Run.play ~title:"The Undercroft" level with
-      | Ok _ending -> ()
-      | Error (`Msg message) ->
-          prerr_endline message;
-          exit 1
     ]}
+
+    {!Run.play} takes it from there: a window, a frame, and the same
+    description asked for again.
 
     A room is a closed [outline] of corners with its contents inside it, and
     where the player starts is a [spawn] among those contents rather than a room

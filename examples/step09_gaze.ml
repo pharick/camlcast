@@ -124,6 +124,8 @@ let pillar center =
   P.block ~height ~material:slab
     (P.polygon ~center ~radius:0.7 ~sides:6 ~rotation:0.)
 
+let studio = Camlcast_edit.Session.create ()
+
 let level =
   P.(
     world ~atmosphere:air
@@ -161,11 +163,12 @@ let level =
           ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
           [ cut west ~along:(c_nw, c_sw) ];
         connect east west;
-        hud [ crosshair () ];
+        Camlcast_edit.Session.pointer studio;
+        hud [ crosshair (); Camlcast_edit.Session.overlay studio () ];
       ])
 
 let () =
-  match Run.play ~title:"The Undercroft" level with
+  match Camlcast_edit.Session.play ~title:"The Undercroft" studio level with
   | Ok _ending -> ()
   | Error (`Msg message) ->
       prerr_endline message;

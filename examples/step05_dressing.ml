@@ -54,6 +54,8 @@ let pillar center =
   P.block ~height ~material:slab
     (P.polygon ~center ~radius:0.7 ~sides:6 ~rotation:0.)
 
+let studio = Camlcast_edit.Session.create ()
+
 let level =
   P.(
     world ~atmosphere:air
@@ -90,10 +92,12 @@ let level =
                room's light goes. *)
             sprite ~base:1.4 ~glow:0.9 ~size:0.25 ~image:mote (Vec.make 1.5 2.);
           ];
+        Camlcast_edit.Session.pointer studio;
+        hud [ Camlcast_edit.Session.overlay studio () ];
       ])
 
 let () =
-  match Run.play ~title:"The Undercroft" level with
+  match Camlcast_edit.Session.play ~title:"The Undercroft" studio level with
   | Ok _ending -> ()
   | Error (`Msg message) ->
       prerr_endline message;

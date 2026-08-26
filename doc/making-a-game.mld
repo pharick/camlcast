@@ -341,6 +341,24 @@ Four of them ring the middle of the vault:
   pillar (Vec.make (-3.) (-3.));
 ]}
 
+{b This is the first thing the editor will not move.} Open the plan and the
+four pillars are on it, six-sided, where you put them. Take hold of one and
+nothing happens. The corners of a pillar are not written anywhere: [polygon]
+works them out from a centre and a radius, so there is no number in your source
+that means {e that} corner, and an editor that moved it would have to invent
+one.
+
+There is a second reason, and it is the more interesting one. All four pillars
+came out of the same two lines — the ones inside [pillar]. Even the centre,
+which {e is} a literal at each call, is a literal in an argument to a function,
+and what the description carries is the place [P.block] was written, not the
+place [pillar] was called. One line cannot mean four different places.
+
+So the rule from Step 1 has a second half: {b written as a literal, and written
+{e there}}. What a helper builds is drawn and not dragged. That is not a
+limitation to work around — it is the editor declining to guess which of four
+things you meant.
+
 The whole program as of this step: [examples/step03_pillars.ml]. [demo/haze.ml]
 is a colonnade of them.
 
@@ -360,6 +378,11 @@ distance fades to, and where the light comes from. This step replaces
 [directional] sets how much of a wall's shading depends on which way it faces;
 [ambient] sets how much does not. Under a high [directional] a six-sided pillar
 reads as six different greys. Walk around one to see it.
+
+The air is not on the plan, and it is worth knowing why: a plan is one room seen
+from above, and every number above belongs to the {e world}. There is nowhere on
+a picture of a room to point at how far you can see. Numbers the editor changes
+are numbers attached to something you can put a cursor on.
 
 The whole program as of this step: [examples/step04_air.ml]. [demo/haze.ml] is
 built to show exactly this.
@@ -405,6 +428,18 @@ the pillars:
   sprite ~size:0.9 ~image:brazier_cold (Vec.make 0. 0.);
   sprite ~base:1.4 ~glow:0.9 ~size:0.25 ~image:mote (Vec.make 1.5 2.);
 ]}
+
+{b This is the step the editor is for.} Both sprites stand at a written-down
+point, so both drag, and placing a thing by eye beats guessing a coordinate and
+rebuilding to see where it landed. Take the mote for a walk round the pillars
+and watch its line change under you.
+
+Its other numbers are literals too. Pick it, then [\[] and [\]] walk the
+fields — [base], [glow], [size] — and [-] and [=] move the one chosen. A glow
+is a number nobody has an intuition for; two seconds of [=] is worth more than a
+paragraph about it. The pictures are the one thing you cannot touch this way:
+[~image:mote] names a value rather than stating one, and a name is not something
+an editor can move.
 
 The whole program as of this step: [examples/step05_dressing.ml].
 [demo/gallery.ml] and [demo/floating.ml] expand on this step.
@@ -494,11 +529,17 @@ inclined floor through seamlessly.
 one, the renderer fills it with haze, and {!Camlcast.Check} reports it as a
 warning rather than an error — a level is built rooms first and ways between
 them after, and refusing the half-built state would refuse the way anyone
-works. The editor's graph panel draws the world as rooms and the ways between
-them, marks the doorways that lead nowhere, and joins two of them in two
-clicks. That is the part of a world hardest to hold in your head, and the only
-part a picture can honestly show: there is no map, because
-{!Camlcast.Vec}-space is a room's own and two rooms share none.
+works. Press {b F6} for it. The graph draws the world as rooms and the ways
+between them, marks in red the doorways that lead nowhere, and joins two of them
+in two clicks — which writes the [connect] into your file, the one edit the
+editor makes that is not a number. Cut the two doorways, run, and join them from
+the panel rather than typing the last line.
+
+That is the part of a world hardest to hold in your head, and the only part a
+picture can honestly show: there is no map, because {!Camlcast.Vec}-space is a
+room's own and two rooms share none. It is also why the plan is of one room at a
+time and {b Tab} moves it to the next — there is no frame in which both could be
+drawn.
 
 {1 Step 7 — Your first component}
 
@@ -530,6 +571,19 @@ easy one. Its type also enforces the other rule that comes with identity: a
 render function is monomorphic in its props. Props are one value; use a record
 when there are several things to pass.
 
+{b Press F7 and there they are.} The tree panel is what your description came
+to, and until this step it was a world, a room and a list of things. Now four
+rows read [torch] under it, each with the key you gave it. That is the first
+time the tool has anything to say that the plan cannot: a plan shows where
+things are, and a tree shows what made them.
+
+The torches are also the second thing the editor draws and will not drag, for
+the reason Step 3 gave: the sprite inside [torch] was written once and placed
+four times, and the place it was written is the place the description carries.
+Notice which way round that is. Writing a component makes four things out of one
+line, and the price is that no one line means any one of them. It is the same
+trade in both directions, and Step 9 shows the other side of it.
+
 The whole program as of this step: [examples/step07_component.ml].
 
 {1 Step 8 — State}
@@ -537,7 +591,7 @@ The whole program as of this step: [examples/step07_component.ml].
 {[
   let brazier =
     Element.declare ~name:"brazier" @@ fun (pos : Vec.t) ->
-    let lit, set_lit = Hook.use_state false in
+    let lit, set_lit = Hook.use_state ~show:string_of_bool false in
     Events.use_pressed (Input.Key Key.space) (fun () -> set_lit true);
     P.sprite ~size:0.9
       ~glow:(if lit then 0.85 else 0.)
@@ -565,20 +619,20 @@ delay is sixteen milliseconds. In exchange, no render can fail to settle.
 description as movement without a component asking. Step 23 makes the bindings
 themselves configurable.
 
+{b [~show] is why you can watch it happen.} It is a function turning the value
+into a line of text, called by nothing but the tree panel. Press F7, press
+space, and the [brazier] row reads [false] and then [true]. Without it the row
+still says which hook made it and whether it changed this frame — that much
+needs no type — but not what it holds. A row of slots is untyped, and a runtime
+that guessed would have to call an [int], a [bool] and a [char] the same thing.
+
+This is the first step whose lesson is invisible from inside the game. A brazier
+that does not light might be a hook that is not firing, a setter writing a slot
+nobody reads, or a component being rebuilt every frame and losing what it wrote.
+They look identical through the window. The tree tells them apart in one glance,
+and that is the whole reason it exists.
+
 The whole program as of this step: [examples/step08_state.ml].
-
-{b The editor can read this back.} {!Camlcast.Hook.use_state} takes a [~show],
-which is a function turning the value into a line of text and is called by
-nothing else:
-
-{[
-  let lit, set_lit = Hook.use_state ~show:string_of_bool false
-]}
-
-A slot without one still says which hook made it and whether it changed this
-frame — that much needs no type. What it holds is readable only where the
-component says how, because a row of slots is untyped and a runtime that
-guessed would have to call an [int], a [bool] and a [char] the same thing.
 
 {1 Step 9 — Being looked at}
 
@@ -625,12 +679,15 @@ occupies that position. A list written out in a fixed order is fine; a list
 built from something that changes needs keys. The rule and the reason are in
 {!Camlcast.P}, under "Being looked at".
 
-This step adds a crosshair so there is something to aim with — one line of
-HUD, which gets its own step:
+This step adds a crosshair so there is something to aim with. It goes in the
+[hud] the panel has been sitting in since Step 1, which is the first time this
+game has put anything of its own in that layer:
 
 {[
-  hud [ crosshair () ];
+  hud [ crosshair (); Camlcast_edit.Session.overlay studio () ];
 ]}
+
+Step 12 is where the layer itself is the subject.
 
 The whole program as of this step: [examples/step09_gaze.ml].
 [demo/targets.ml] refuses by [crossed] as well as [distance]; [demo/chalk.ml]
@@ -640,7 +697,17 @@ marks walls with the rest of the spot.
 should have been updated loses its state, the frame looks right, and nothing
 says so. The panel counts it: a number climbing beside a component every frame
 is one being rebuilt every frame, which almost always means it was declared
-inside another component's render rather than at the top level.
+inside another component's render rather than at the top level. Press F7, look
+at a torch, and let go: the row should say [true] and then [false], and its
+count should not move.
+
+A key is also the editor's answer to the question Step 7 left open. Pick
+something that has one and press [x], and it moves into a component of its own,
+in a file named after the key — a whole [Element.declare] written out with the
+call as you wrote it inside. The name comes from the key because the engine
+reports keys as places on a keyboard and has no text input, so a name asked for
+would have to be spelled out of scancodes. It is what you have already called
+the thing, which is the best name available and often the right one.
 
 {1 Step 10 — Time}
 
