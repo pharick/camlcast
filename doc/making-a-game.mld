@@ -278,6 +278,15 @@ The question is asked of every argument separately, and the answer is the whole
 of what an editor can change and what it can only show you. Step 3 is where you
 meet the first corner it says no to.
 
+{b What it writes is your file with one expression different.} It parses to
+find out {e where} things are and then replaces those bytes; nothing
+reconstructs the rest, which is why comments and blank lines and whatever
+[ocamlformat] had already made of the file all survive. A change that would
+leave text which does not parse is refused, and the file is not written.
+
+Which is why the first sentence of this guide is still true. There is no level
+file format. What the editor saves is the OCaml you would have typed.
+
 [u] takes the last change back.
 
 The whole program: [examples/step01_room.ml].
@@ -314,6 +323,12 @@ Its [~height] is a literal too, and nothing on a plan seen from above can drag a
 height. Pick the plinth and press [\[] or [\]]: those walk the fields of
 whatever is picked, and [-] and [=] move the one chosen. That is how a number
 that is not a place gets changed — a height, a glow, a size.
+
+The room's own four legs behave differently, and now is the moment to try them.
+They are walls, and they are on the plan, and they will not drag: you did not
+write them. {!Camlcast.P.room} made them out of your corners. What drags is the
+corner, and moving one moves the two walls that meet there — which is the right
+answer, since that is what you wrote.
 
 The whole program as of this step: [examples/step02_masonry.ml].
 [demo/masonry.ml] shows one pattern function used at several colours.
@@ -618,6 +633,17 @@ delay is sixteen milliseconds. In exchange, no render can fail to settle.
 {b Walking uses no hook at all.} The bindings handle it, and it reaches the
 description as movement without a component asking. Step 23 makes the bindings
 themselves configurable.
+
+{b The brazier is the first thing that is half editable.} Its position is a
+literal and drags. Its [~glow] is [if lit then 0.85 else 0.] — a rule rather
+than a value, with no line to write a new number into — so the panel shows it
+and greys it. Its [~image] is the same: a name is not something an editor can
+move. Pick it, walk the fields, and watch which ones it will let you touch.
+
+That is the rule from Step 1 asked {e per argument} rather than per thing. One
+call can be draggable, nudgeable and read-only all at once, and nothing about
+that is a limitation to work around: it is the editor declining to overwrite a
+decision you made in code with a number you dragged.
 
 {b [~show] is why you can watch it happen.} It is a function turning the value
 into a line of text, called by nothing but the tree panel. Press F7, press
@@ -1242,6 +1268,13 @@ while one reading [fun s -> s] wakes on every action. There is no provider and
 no dispatch hook, because OCaml needs neither: the store is a module-level
 value, reachable by name.
 
+{b The tree is where that claim stops being a promise.} "Only the components
+whose slice moved" is exactly the kind of thing that is true of the design and
+false of your program, because you selected [fun s -> s] somewhere and forgot.
+Press F7, dispatch, and look at which rows moved. A store that wakes everything
+looks identical through the window and is the difference between a frame you
+can afford and one you cannot.
+
 The whole program as of this step: [examples/step20_store.ml].
 
 {1 Step 21 — Context}
@@ -1354,9 +1387,15 @@ runs only the proof.
 The whole program as of this step: [examples/step22_check.ml].
 
 {b The same diagnostics appear on the plan.} {!Camlcast.Check.t} carries a
-[spot] — a room and a point — and anything with one is marked where it is
-rather than only described. A step in the floor at a doorway is much easier to
-believe when it is drawn on the doorway.
+[spot] — a room and a point — and anything with one is marked where it is rather
+than only described. A step in the floor at a doorway is much easier to believe
+when it is drawn on the doorway.
+
+These are the two ends of one thing, and it is worth seeing them as that. The
+proof in this step is the check with no window, for a machine, in a pipeline
+that has to say yes or no. The panel is the same check with a window, for you,
+while you are standing in the room it is complaining about. Neither is the real
+one.
 
 {1 Step 23 — Controls, and the map}
 
@@ -1404,98 +1443,14 @@ pointing out of the room. Auto-winding is why the map has not been needed so
 far. [~map:[]] disables the map, and it costs that game nothing: the walk over
 every wall that feeds the map only happens while the map is up.
 
+The map and the editor's plan are the same picture: one projection, in
+{!Camlcast_core.Overhead}, used twice. The difference is that the map is the
+engine's own view of a finished world and knows nothing about your source, while
+the plan is drawn from the description and can therefore answer back. A shipped
+game keeps the map and loses the plan, which is Step 26.
+
 The whole program as of this step: [examples/step23_controls.ml].
 [demo/bindings.ml] and [demo/controls.ml] go further.
-
-{2 The studio}
-
-The map shows the room from above so that a wall pointing the wrong way is
-visible. The studio is what happens when that picture is allowed to answer back.
-
-Two lines of a game, and one line of its [dune]:
-
-{[
-  (preprocess (pps ppx_camlcast))
-]}
-
-{[
-  let studio = Camlcast_edit.Session.create ()
-
-  (* in the world *)      Camlcast_edit.Session.pointer studio
-  (* in the hud *)        Camlcast_edit.Session.overlay studio ()
-  (* instead of Run.play *) Camlcast_edit.Session.play studio level
-]}
-
-The preprocessor is what makes the difference between looking and touching. It
-stamps each constructor with the place in your source it was written at, and
-without it the panels still draw and nothing can be changed.
-
-No font is passed, and none is needed: the panel falls back to the one
-[camlcast.edit] carries. A developer's overlay has to be readable before the
-game it is over has any art, so this is the one place the engine's rule about
-holding no content stops — and a shipped game does not link this library at
-all. Pass [~font] where the game has a face it would rather see.
-
-Three panels, and the overlay reads its own keys — [F5] the plan, [F6] the
-graph, [F7] the tree, [F8] closes it, [Tab] moves the plan to the next room.
-
-[F5] rather than [F1] because reading a key here does not take it away from the
-run: the map above is still on [F3], and a panel there would draw itself and the
-map of the same room on the same frame. [F1] through [F4] are left for you.
-
-The {b plan} is this room from above, and dragging a corner rewrites the
-[Vec.make] that put it there. With something picked, [\[] and [\]] walk its
-fields and [-] and [=] move the chosen one, which is how a height or a glow is
-changed — those are numbers, but they are not places, and there is nowhere on a
-plan to drag them to. [u] takes the last change back.
-
-The {b graph} is the rooms and the ways between them, where two clicks join a
-doorway that leads nowhere to another. The {b tree} is what your description
-came to and what each component is holding, and it is where a component being
-rebuilt every frame shows up as a number that climbs.
-
-[x] moves whatever is picked into a component of its own, in a file named after
-its [~key]. Named after the key because that is already there and is already
-what you called the thing: the engine reports keys as places on a keyboard and
-has no text input, so a name asked for would have to be spelled out of
-scancodes.
-
-{2 What can be changed, and what only drawn}
-
-One rule decides it: {b a thing is editable if it was written as a literal}.
-
-{[
-  wall ~height:2.5 ~material:stone (Vec.make (-3.) 1.) (Vec.make 3. 1.)
-]}
-
-Every argument there is written down, so every one of them can be changed — the
-ends by dragging, the height with a key. Against that:
-
-{[
-  sprite ~size:0.9 ~glow:(if lit then 0.8 else 0.) ~image:flame (Vec.make 2. 3.)
-]}
-
-The glow is worked out from state. There is no line to write a new one into,
-because what is written there is a rule and not a value. So the sprite is drawn
-and can be dragged by its position, and its glow is shown and greyed. Per
-argument, not per thing.
-
-The same answer covers a room's outline. Its legs are walls the engine built
-from your corners — {!Camlcast.P.room} makes them, not you — so they are drawn
-and are not draggable, and what an editor offers instead is the outline they
-came from. Nothing here refuses a file for being written the way you wanted;
-what it cannot change, it says it cannot change.
-
-{2 What it writes}
-
-Your file, with one expression different. The editor parses to find out {e
-where} things are and then replaces those bytes: comments, blank lines and
-whatever [ocamlformat] had already made of the file all survive, because
-nothing reconstructs them. A change that would leave text which does not parse
-is refused and the file is not written.
-
-Which is why the sentence at the top of this guide is still true. There is no
-level file format. What the editor saves is the OCaml you would have typed.
 
 {1 Step 24 — The ending}
 
@@ -1614,6 +1569,19 @@ The title's controls list no leave binding, so Enter and the close button are
 the only two ways out of it. Controls are per-run; that is the other
 capability this step gains.
 
+{b [Session.play] goes here, and [~watch] takes its place.} Every step until now
+handed the whole run over to the editor, because the game was one description
+and one window. A launcher owns its window and runs two descriptions on it, so
+the editor cannot be the thing that opens it:
+
+{[
+  Run.on window ~controls ~watch:(Camlcast_edit.Session.watch studio) (game font)
+]}
+
+[Session.play] was only ever {!Camlcast.Run.play} with that argument filled in.
+The title screen gets no [~watch] and no panel — there is nothing on it to edit,
+and a plan of a room nobody is standing in has nothing to say.
+
 The whole program as of this step: [examples/step25_launcher.ml].
 [demo/menu.ml] and [bin/demo.ml] use the same structure at full size.
 
@@ -1650,6 +1618,29 @@ beside the binary, one directory above it, and [share/<exe>] — plus wherever
 [dune build --profile release]
 plus putting the binary, the SDL2 libraries and [assets/] in one directory;
 [tools/bundle-*.sh] in this repository does exactly that, per platform.
+
+{2 And the editor comes out}
+
+This is the step it goes. Delete the [Session.create], the [Session.pointer],
+and the [Session.overlay] from the hud; drop [~watch] from [Run.on]; and take
+[camlcast.edit] and the [(preprocess (pps ppx_camlcast))] out of [bin/dune].
+Five lines in, five lines out, and what is left is a description this engine
+would have run at Step 1.
+
+{b Nothing else changes,} and that is the point rather than a convenience. The
+editor was never a mode the game was in. It read the same description your game
+already produced, through the openings {!Camlcast.Watch} names, and wrote to the
+same files you already owned. There is no export step and no format to convert
+out of, because at no point was anything in a format.
+
+Two of those five lines are worth understanding rather than deleting. [~watch]
+is what the engine offers a tool outside the run; leave it in with
+{!Camlcast.Watch.none} and it costs a match on an option once a frame. And the
+preprocessor is the one with a real cost if forgotten: [__POS__] bakes a source
+path per element into the binary. [--profile release] turns it off by itself —
+[ppx_camlcast] reads an environment variable dune sets per profile — so a
+release build carries no paths even if you leave the stanza in. Deleting it is
+tidiness. Building in release is the guarantee.
 
 The whole program, and the whole game: [examples/step26_shipping.ml].
 [demo/loading.ml] loads pictures from disk with nothing else involved.

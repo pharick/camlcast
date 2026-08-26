@@ -1,13 +1,18 @@
 (* Step 26 of doc/making-a-game.mld — "Shipping". The guide quotes only
    what each step adds; this file is the whole game as of this step.
-   README.md quotes the controls value below.
 
    New here: real pictures. The south wall wears assets/tiles.png, the
    mural becomes assets/poster.png, and everything read from disk is
    gathered into one record loaded through one result — the shape a bundled
    game wants, since a missing file should name itself before any window
    opens. Build with --profile release and see tools/bundle-*.sh for what
-   to put beside the binary. *)
+   to put beside the binary.
+
+   Gone from here: the editor. Every step from 1 to 25 carried a
+   Camlcast_edit.Session, a pointer in the world, a panel in the hud and a
+   ~watch on the run. This file has none of them, and nothing else about the
+   description changed to arrive at that. There was no export step because
+   there was never a format. *)
 
 open Camlcast
 

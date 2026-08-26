@@ -1,6 +1,5 @@
 (* Step 24 of doc/making-a-game.mld — "The ending". The guide quotes only
    what each step adds; this file is the whole game as of this step.
-   README.md quotes the controls value below.
 
    New here: the courtyard opens to an evening sky, stepping into it hands
    the eye to a placed camera for a slow look up, and three seconds later
@@ -255,6 +254,8 @@ let message =
   "The undercroft is dark. Strike the brazier with Space, and carry what light \
    you can."
 
+let studio = Camlcast_edit.Session.create ()
+
 let game =
   Element.declare ~name:"game" @@ fun (font : Font.t) ->
   let fuel, set_fuel = Hook.use_state 0. in
@@ -434,6 +435,7 @@ let game =
              (match freedom with
              | Some t when t >= 3. -> finish
              | _ -> Element.empty);
+             Camlcast_edit.Session.pointer studio;
              hud
                ((if fuel <= 0. then
                    List.mapi
@@ -458,6 +460,7 @@ let game =
                    | Some line ->
                        let tw, _ = Font.measure font line in
                        text ~font ~x:((w - tw) / 2) ~y:(h - 36) line);
+                   Camlcast_edit.Session.overlay studio ();
                  ]);
            ]);
      ]
@@ -537,7 +540,10 @@ let () =
   | Ok font -> (
       prove font;
       if Array.exists (( = ) "--check") Sys.argv then exit 0;
-      match Run.play ~title:"The Undercroft" ~controls (game font) with
+      match
+        Camlcast_edit.Session.play ~title:"The Undercroft" ~controls studio
+          (game font)
+      with
       | Ok Returned ->
           Printf.printf "out of the dark, carrying %d embers\n"
             (Store.state game_store).embers

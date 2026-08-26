@@ -1,6 +1,5 @@
 (* Step 25 of doc/making-a-game.mld — "A launcher". The guide quotes only
    what each step adds; this file is the whole game as of this step.
-   README.md quotes the controls value below.
 
    New here: one window, many runs. A title screen — a world with a swaying
    camera, a loose cursor and a line of text — plays first; Enter descends
@@ -256,6 +255,8 @@ let message =
   "The undercroft is dark. Strike the brazier with Space, and carry what light \
    you can."
 
+let studio = Camlcast_edit.Session.create ()
+
 let game =
   Element.declare ~name:"game" @@ fun (font : Font.t) ->
   let fuel, set_fuel = Hook.use_state 0. in
@@ -435,6 +436,7 @@ let game =
              (match freedom with
              | Some t when t >= 3. -> finish
              | _ -> Element.empty);
+             Camlcast_edit.Session.pointer studio;
              hud
                ((if fuel <= 0. then
                    List.mapi
@@ -459,6 +461,7 @@ let game =
                    | Some line ->
                        let tw, _ = Font.measure font line in
                        text ~font ~x:((w - tw) / 2) ~y:(h - 36) line);
+                   Camlcast_edit.Session.overlay studio ~font ();
                  ]);
            ]);
      ]
@@ -595,7 +598,11 @@ let () =
                 Run.on window ~controls:title_controls (title_screen font)
               with
               | Ok Returned -> (
-                  match Run.on window ~controls (game font) with
+                  match
+                    Run.on window ~controls
+                      ~watch:(Camlcast_edit.Session.watch studio)
+                      (game font)
+                  with
                   | Ok Returned ->
                       Printf.printf "out of the dark, carrying %d embers\n"
                         (Store.state game_store).embers;

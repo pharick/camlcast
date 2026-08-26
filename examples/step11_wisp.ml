@@ -1,4 +1,4 @@
-(* Step 11 of doc/making-a-game.mld — "A box the picture is redrawn around".
+(* Step 11 of doc/making-a-game.mld — "A box, for what merely accumulates".
    The guide quotes only what each step adds; this file is the whole game as
    of this step.
 

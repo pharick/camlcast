@@ -47,7 +47,8 @@ is written back into the line of your own source that put it there — one numbe
 changed, and the file otherwise byte for byte.
 
 It is a library of its own, above the three below, and a game that ships does
-not link it. Step 23 of {{!page-"making-a-game"} the guide} turns it on.
+not link it. Step 1 of {{!page-"making-a-game"} the guide} turns it on, and every
+step after that assumes it.
 
 {1 The libraries}
 
