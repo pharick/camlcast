@@ -12,11 +12,15 @@
     game names it only where it opens the overlay — see {!Camlcast.Watch} for
     the three openings a run offers and this library uses.
 
-    {1 What it does not hold}
+    {1 What it holds, and what it does not}
 
-    No font, no colour, no picture. The engine holds none either, and an overlay
-    drawn over a game should look like it belongs to that game rather than to
-    this library. Every panel is handed what it draws with. *)
+    One typeface, and nothing else — no colour, no picture, no room. The engine
+    holds none of those and holds no typeface either, on the grounds that
+    content is what a game brings. That reasoning stops at this library's edge:
+    a panel a player never sees, on a build a shipped game does not link, has to
+    be readable at the point where the game is one room and no pictures. See
+    {!Typeface}. A game with a face of its own may still pass it, and the panel
+    will look like it belongs. *)
 
 module Session = Session
 (** The overlay itself: what it is showing, what is picked, and the one call a
@@ -26,6 +30,10 @@ module Panel = Panel
 (** The box both views are drawn in, and where the room a HUD actually has is
     worked out. Read it before assuming a maximised window means a large
     overlay. *)
+
+module Typeface = Typeface
+(** The face the panel falls back to, so an overlay draws before the game it is
+    over has any art of its own. *)
 
 module Span = Span
 (** Where an expression sits in a file, and how to change those bytes without

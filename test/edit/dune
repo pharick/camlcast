@@ -8,6 +8,7 @@
 
 (tests
  (names
+  test_typeface
   test_tree
   test_slots
   test_panel
@@ -19,6 +20,7 @@
   test_revise
   test_session)
  (modules
+  test_typeface
   test_tree
   test_slots
   test_panel
@@ -30,4 +32,8 @@
   test_revise
   test_session)
  (package camlcast)
+ ; test_typeface compares the mask camlcast.edit carries against the picture it
+ ; was taken from, and reads that picture by path -- so the file is a dependency
+ ; of this stanza rather than something the suite hopes is on the disk.
+ (deps %{project_root}/assets/font.png)
  (libraries camlcast camlcast_core camlcast_edit camlcast_loom alcotest))

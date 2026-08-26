@@ -572,7 +572,15 @@ let component =
       ]
   end
 
-let overlay t ~font = component (t, font)
+(* The font is resolved here rather than inside the component, so that a game
+   passing none hands over the same physical value every frame. A Lazy.force
+   per render would be cheap -- it is a match on a forced cell -- but the props
+   would still be a fresh pair, and the pair is what the reconciler compares.
+   Resolved here it is one Lazy.force the first frame and none after. *)
+let overlay t ?font () =
+  component
+    ( t,
+      match font with Some font -> font | None -> Lazy.force Typeface.builtin )
 
 let play ?title ?width ?height ?controls t description =
   Run.play ?title ?width ?height ?controls ~watch:(watch t) description

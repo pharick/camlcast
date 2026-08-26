@@ -1229,13 +1229,19 @@ Two lines of a game, and one line of its [dune]:
   let studio = Camlcast_edit.Session.create ()
 
   (* in the world *)      Camlcast_edit.Session.pointer studio
-  (* in the hud *)        Camlcast_edit.Session.overlay studio ~font
+  (* in the hud *)        Camlcast_edit.Session.overlay studio ()
   (* instead of Run.play *) Camlcast_edit.Session.play studio level
 ]}
 
 The preprocessor is what makes the difference between looking and touching. It
 stamps each constructor with the place in your source it was written at, and
 without it the panels still draw and nothing can be changed.
+
+No font is passed, and none is needed: the panel falls back to the one
+[camlcast.edit] carries. A developer's overlay has to be readable before the
+game it is over has any art, so this is the one place the engine's rule about
+holding no content stops — and a shipped game does not link this library at
+all. Pass [~font] where the game has a face it would rather see.
 
 Three panels, and the overlay reads its own keys — [F5] the plan, [F6] the
 graph, [F7] the tree, [F8] closes it, [Tab] moves the plan to the next room.

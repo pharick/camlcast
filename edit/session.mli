@@ -62,7 +62,7 @@ val pointer : t -> Camlcast.P.t
     false — so dragging a corner cannot work the door the panel is drawn over,
     and nothing in the world is told the crosshair arrived on it. *)
 
-val overlay : t -> font:Camlcast.Font.t -> Camlcast.P.t
+val overlay : t -> ?font:Camlcast.Font.t -> unit -> Camlcast.P.t
 (** The panel, to put in a description's {!Camlcast.P.hud}.
 
     {b It reads its own keys}, so a game places this and has an editor rather
@@ -84,9 +84,10 @@ val overlay : t -> font:Camlcast.Font.t -> Camlcast.P.t
     Draws nothing at all while the session is closed, so a game may leave this
     in its description permanently and pay a match on a boolean for it.
 
-    The font is the game's. This library holds none, for the reason the engine
-    holds none, and a panel over a game should look like it belongs to that
-    game. *)
+    [font] is the game's, where it has one. Left out, the panel draws with
+    {!Camlcast_edit.Typeface.builtin} — which is why this works in a game that
+    is one room and no pictures, and why the overlay can be turned on at the
+    first step of a guide rather than the thirteenth. *)
 
 (** {1 What it is doing} *)
 

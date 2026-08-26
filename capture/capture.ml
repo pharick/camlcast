@@ -46,14 +46,6 @@ let ground =
            Color.level (Color.rgb 116 110 98)
              (if ((u / 8) + (v / 8)) land 1 = 0 then 235 else 175)))
 
-let font =
-  match Image.of_asset "assets/font.png" with
-  | Ok atlas ->
-      Font.make ~fallback:'\127' ~atlas ~width:6 ~height:10 ~first:32 ()
-  | Error (`Msg message) ->
-      prerr_endline ("capture: " ^ message);
-      exit 1
-
 let session = Camlcast_edit.Session.create ()
 let east = P.door ~name:"east" ~width:2. ~clearance:2.4 ()
 let west = P.door ~name:"west" ~width:2. ~clearance:2.4 ()
@@ -104,7 +96,7 @@ let level =
           [ cut west ~along:(Vec.make (-4.) (-3.), Vec.make (-4.) 3.) ];
         connect east west;
         Camlcast_edit.Session.pointer session;
-        hud [ crosshair (); Camlcast_edit.Session.overlay session ~font ];
+        hud [ crosshair (); Camlcast_edit.Session.overlay session () ];
       ])
 
 (* One frame: render the description, draw the world it came to, and put the

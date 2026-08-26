@@ -127,7 +127,9 @@ let run window =
             hud
               [
                 crosshair ();
-                Camlcast_edit.Session.overlay studio
-                  ~font:(Lazy.force Typeface.font);
+                (* No ~font. The panel falls back to the one camlcast.edit
+                   carries, which is what a game has before it has any art --
+                   and this demo is about the tool rather than the look. *)
+                Camlcast_edit.Session.overlay studio ();
               ];
           ]))

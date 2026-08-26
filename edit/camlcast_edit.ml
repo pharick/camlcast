@@ -2,6 +2,7 @@
 
 module Session = Session
 module Panel = Panel
+module Typeface = Typeface
 module Span = Span
 module Field = Field
 module Graph = Graph

@@ -21,12 +21,6 @@ let case name body = Alcotest.test_case name `Quick body
 let stone =
   Material.make ~pattern:(Texture.generate (fun ~u:_ ~v:_ -> Color.rgb 1 1 1))
 
-let font =
-  Font.make ~fallback:'?' ~width:6 ~height:10 ~first:32
-    ~atlas:
-      (Image.make ~width:96 ~height:60 (fun ~u:_ ~v:_ -> (Color.rgb 0 0 0, 255)))
-    ()
-
 (* Two doorways leading nowhere, for the graph panel to join. Made once at the
    top level, because a door carries the identity a connection joins by. *)
 let north = P.door ~name:"north" ~width:1.6 ~clearance:2.2 ()
@@ -66,7 +60,7 @@ let level session =
             cut south ~along:(Vec.make (-6.) (-6.), Vec.make 6. (-6.));
           ];
         Camlcast_edit.Session.pointer session;
-        hud [ Camlcast_edit.Session.overlay session ~font ];
+        hud [ Camlcast_edit.Session.overlay session () ];
       ])
 
 let own_source () =
