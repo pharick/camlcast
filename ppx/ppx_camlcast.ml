@@ -30,6 +30,25 @@ let targets ~inside ~names = function
   | Lident name -> inside && List.mem name names
   | _ -> false
 
+(* An application is a constructor call only once it has been given an argument
+   that carries no label. Every name in {!Camlcast_vocabulary.functions} ends in
+   one -- a room's children, a wall's far end, a rect's [unit] -- because P's
+   options are labelled and the thing itself is not.
+
+   So a partial application that stops before it is not a description and must
+   not be wrapped. That is how a game writes a helper: [demo/barred.ml] binds
+   [P.cut ~leaf ~lintel] and applies the door and the wall later, and wrapping
+   it asked Element.at to take a function. The error landed on the game's own
+   line, said nothing about the rewriter, and appeared the moment the ppx was
+   turned on.
+
+   The converse is not asked and cannot be. An application holding the
+   positional argument may still be short of a labelled one it needs, and
+   nothing here knows arities. What this rules out is the shape a helper is
+   actually written in. *)
+let given_the_thing_itself arguments =
+  List.exists (fun (label, _) -> label = Nolabel) arguments
+
 let opens_p = function
   | { pmod_desc = Pmod_ident { txt; _ }; _ } -> named_p txt
   | _ -> false
@@ -72,8 +91,9 @@ class positions =
       | Pexp_open (declaration, body) when opens_p declaration.popen_expr ->
           let body = {<inside = true>}#expression body in
           { expression with pexp_desc = Pexp_open (declaration, body) }
-      | Pexp_apply ({ pexp_desc = Pexp_ident { txt; _ }; _ }, _)
-        when targets ~inside ~names:functions txt ->
+      | Pexp_apply ({ pexp_desc = Pexp_ident { txt; _ }; _ }, arguments)
+        when targets ~inside ~names:functions txt
+             && given_the_thing_itself arguments ->
           (* Descended into first, so that the arguments -- a room's children,
              a wall's decals -- are wrapped as themselves, and then wrapped
              once. Wrapping before descending would put this rewriter's own

@@ -97,6 +97,24 @@ let constant = Camlcast.P.cursor
    Element.at and refused by the typechecker. *)
 let text = "not a description"
 
+(* A constructor stopped before its unlabelled argument. That is how a game
+   writes a helper -- demo/barred.ml binds [P.cut ~leaf ~lintel] and hands over
+   the door and the wall at each place it uses it -- and it is not a
+   description: it is a function. Wrapping it asked Element.at to take one, and
+   the error landed on the game's own line saying nothing about the rewriter.
+
+   As with [text] above, the fact that this file compiles is the assertion. *)
+let partial = Camlcast.P.cut ~key:"way"
+
+(* And what the helper builds. The call that finishes it names [partial], not
+   [P.cut], so nothing here is a constructor the rewriter knows and the element
+   comes out carrying no position -- which is the same answer camlcast.edit
+   gives about a wall built by a helper, and for the same reason. *)
+let through_a_helper =
+  partial
+    (Camlcast.P.door ~name:"way" ~width:1. ~clearance:2. ())
+    ~along:(Camlcast.Vec.make 0. 0., Camlcast.Vec.make 2. 0.)
+
 (* Whether this file was preprocessed by a rewriter that was awake, read off a
    description rather than asked of the rewriter. Nothing here is an extension
    node: an [%ext] would make this file fail to typecheck without the rewriter,
@@ -164,6 +182,13 @@ let () =
           case "what it leaves alone still typechecks" (fun () ->
               Alcotest.(check string)
                 "a local named for a constructor" "not a description" text);
+          case "a constructor short of its unlabelled argument is a function"
+            (fun () ->
+              (* Vacuously true in a build without positions, where nothing
+                 carries one; the case that matters is the other profile. *)
+              Alcotest.(check bool)
+                "what a helper builds carries no position" true
+                (position through_a_helper = None));
         ] );
       ( "the vocabulary",
         [
