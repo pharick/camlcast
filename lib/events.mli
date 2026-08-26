@@ -34,7 +34,7 @@ type crossing = {
     produce.
 
     [from_doorway] and [to_doorway] carry the {e opening}'s name — the one
-    {!P.door} was given, which {!P.cut} puts on the gap it cuts. The core calls
+    {!P.val-door} was given, which {!P.cut} puts on the gap it cuts. The core calls
     that field a threshold; this module calls it a doorway, the ordinary word
     for it everywhere a game can see. The two terms are only distinct down in
     {!Camlcast_core.Room}, which states the distinction. *)
