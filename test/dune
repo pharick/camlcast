@@ -75,6 +75,7 @@
   test_sight
   test_clock
   test_engine
+  test_overhead
   test_examples)
  (modules
   :standard

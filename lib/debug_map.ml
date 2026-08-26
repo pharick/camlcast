@@ -25,32 +25,6 @@ let panel buffer =
   in
   (margin, margin, side, side)
 
-(* Every point the map has to fit: the boundary and the openings in it. Sprites
-   are deliberately left out of the measurement, because a small sprite
-   drifting far from the room would shrink everything else to fit it in. *)
-let bounds room =
-  let corners = ref [] in
-  for index = 0 to Room.wall_count room - 1 do
-    let wall = Room.wall_at room index in
-    corners := wall.Room.a :: wall.Room.b :: !corners
-  done;
-  for index = 0 to Room.threshold_count room - 1 do
-    let threshold = Room.threshold_at room index in
-    corners := threshold.Room.a :: threshold.Room.b :: !corners
-  done;
-  match !corners with
-  | [] -> None
-  | (first : Vec.t) :: rest ->
-      Some
-        (List.fold_left
-           (fun (x0, y0, x1, y1) (v : Vec.t) ->
-             ( Float.min x0 v.x,
-               Float.min y0 v.y,
-               Float.max x1 v.x,
-               Float.max y1 v.y ))
-           (first.x, first.y, first.x, first.y)
-           rest)
-
 let draw buffer world player diagnostics =
   let room_index = player.Player.room in
   let room = World.room world room_index in
@@ -59,22 +33,11 @@ let draw buffer world player diagnostics =
   Paint.ring buffer
     [ (x, y); (x + w - 1, y); (x + w - 1, y + h - 1); (x, y + h - 1) ]
     ~color:border;
-  match bounds room with
+  match Overhead.bounds room with
   | None -> ()
-  | Some (x0, y0, x1, y1) ->
-      let inner = 10 in
-      let span = Float.max 1e-6 (Float.max (x1 -. x0) (y1 -. y0)) in
-      let scale = float_of_int (w - (2 * inner)) /. span in
-      (* Centred on the room's own middle, so a long thin room sits in the
-         panel rather than in one corner of it. *)
-      let cx = (x0 +. x1) /. 2. and cy = (y0 +. y1) /. 2. in
-      let ox = float_of_int (x + (w / 2)) and oy = float_of_int (y + (h / 2)) in
-      (* World y grows downward and so does the screen's, so this is a scale and
-         an offset and never a flip. *)
-      let at (v : Vec.t) =
-        ( int_of_float (ox +. ((v.x -. cx) *. scale)),
-          int_of_float (oy +. ((v.y -. cy) *. scale)) )
-      in
+  | Some bounds ->
+      let view = Overhead.fit ~bounds ~x ~y ~width:w ~height:h ~inset:10 in
+      let at = Overhead.to_panel view in
       let segment a b ~color =
         let x0, y0 = at a and x1, y1 = at b in
         Paint.line buffer ~x0 ~y0 ~x1 ~y1 ~color
