@@ -112,8 +112,8 @@ the script and not through `@doc`. Opening
 `_build/default/_doc/_html/index.html` directly still works, with every
 picture in it broken.
 
-`doc/index.mld` is the landing page and the two guides are `.mld` pages beside
-it. `doc/demo/index.mld` is the demos' own page, in its own directory because
+`doc/index.mld` is the landing page and the three guides are `.mld` pages
+beside it. `doc/demo/index.mld` is the demos' own page, in its own directory because
 it belongs to the other package: a `.mld` page can only name what its
 package's libraries bring in scope, and the engine does not depend on the
 demos. Both libraries have a public name, which is what makes `@doc` pick
@@ -176,6 +176,32 @@ The layer's reference is not a demo but the guide's one room, hand-built
 against the platform and restated inline in `test_stage.ml`, which renders it
 beside its described twin and compares every pixel. It is a valid reference
 because it names nothing in the layer: it is what the layer has to reproduce.
+
+## The studio
+
+`studio/` is one small world with the dev overlay turned on, and the way to see
+`camlcast.edit` work:
+
+```sh
+dune exec studio/studio.exe
+```
+
+F1 the plan, F2 the graph, F3 the tree, F4 closes it; Tab moves the plan to the
+next room. On the plan, drag a corner and the coordinate is written back into
+`studio/studio.ml`. `[` and `]` walk the fields of whatever is picked and `-`
+and `=` move the chosen one; `u` takes the last change back.
+
+It is a directory of its own for two reasons, both load-bearing. It is
+preprocessed, and dune's check context is per directory — a stanza whose
+`(libraries)` differ from its neighbours' gets the neighbours' instead, and
+`dune build @check` then fails on modules an ordinary build resolves. And it
+sits one level below the build root because `Asset` looks beside the executable
+and one directory above it, which is where `assets/` lands.
+
+The rewriter is off in `--profile release`: `__POS__` bakes a source path per
+call site into the binary, and `dune-project`'s `(env (release ...))` names
+`CAMLCAST_POSITIONS` as 0 rather than leaving it to whatever the shell
+exported. `test/ppx/test_spine.ml` asserts both directions.
 
 ## Benchmarks
 

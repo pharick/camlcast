@@ -147,6 +147,7 @@ can share the engine without sharing a look.
 | `loom/`   | `camlcast.loom` | the declarative runtime: elements, reconciling, hooks, store     |
 | `core/`   | `camlcast.core` | the platform: geometry, ray casting, rendering, SDL              |
 | `demo/`   | `camlcast-demo` | the demos and the art they are made of, run by `camlcast-demo`  |
+| `edit/`   | `camlcast.edit` | the dev overlay: the room from above, and editing it in place    |
 
 A game opens `Camlcast` and nothing else. The platform underneath — `Engine`,
 `Renderer`, `Framebuffer`, `World`, `Player` — is not in that module; reaching
@@ -154,6 +155,12 @@ it means adding `camlcast.core` to a dune file.
 
 `camlcast.loom` depends only on the standard library and knows nothing of
 walls; `camlcast` is the only library that knows both loom and the platform.
+
+`camlcast.edit` sits above all three, and none of them knows about it: the dev
+overlay, which draws the room from above, the graph of how the rooms are
+joined, and the component tree. Drag a corner and the coordinate is written
+back into the line of your own source that put it there. A game that ships does
+not link it; `studio/` is one small world with it turned on.
 The guides and the demos teach the layer. Reach for `camlcast.core` when a
 game genuinely needs a `World` or a `Renderer`.
 

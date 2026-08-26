@@ -27,9 +27,19 @@ can read it.
 
 {2 There is no level file format}
 
-A level is OCaml code. There is no editor, no [.map] to parse, and nothing to
-load at start-up. A room is a value, a world is a value, and a level that
-varies with the time of day is a function.
+A level is OCaml code. There is no [.map] to parse and nothing to load at
+start-up: a room is a value, a world is a value, and a level that varies with
+the time of day is a function.
+
+There {e is} an editor, and it does not change that sentence. It draws the room
+you are standing in, lets you take hold of a corner, and writes the coordinate
+back into the line of your own source that put it there — one number changed
+and the file otherwise byte for byte. What it saves is what you would have
+typed, which is why there is still nothing to parse and nothing to load.
+
+It is turned on properly at step 23. Before then it is mentioned where it would
+have helped, because the point of writing these twenty-odd programs by hand is
+to learn what the tool is writing.
 
 {2 The engine holds no content}
 
@@ -192,6 +202,12 @@ SDL — an external failure. The [Ok] case carries a {!Camlcast.Run.ending} this
 game does not read yet; Step 24 does.
 
 The whole program: [examples/step01_room.ml].
+
+{b From step 23 you will be able to drag these.} The four corners above are
+literals, and that is the whole of what makes them draggable: the editor draws
+the room from over the top, and moving a corner rewrites the [Vec.make] that
+put it there. Typing them is the way to learn what a corner is; the tool is for
+the fiftieth one.
 
 {1 Step 2 — Every wall its own}
 
@@ -390,6 +406,16 @@ The whole program as of this step: [examples/step06_antechamber.ml].
 [demo/portals.ml] joins one room to a hub twice; [demo/slopes.ml] carries an
 inclined floor through seamlessly.
 
+{b A doorway that leads nowhere is a state, not a mistake.} The engine builds
+one, the renderer fills it with haze, and {!Camlcast.Check} reports it as a
+warning rather than an error — a level is built rooms first and ways between
+them after, and refusing the half-built state would refuse the way anyone
+works. The editor's graph panel draws the world as rooms and the ways between
+them, marks the doorways that lead nowhere, and joins two of them in two
+clicks. That is the part of a world hardest to hold in your head, and the only
+part a picture can honestly show: there is no map, because
+{!Camlcast.Vec}-space is a room's own and two rooms share none.
+
 {1 Step 7 — Your first component}
 
 Everything so far has been one value. A component is a function from props to
@@ -457,6 +483,19 @@ themselves configurable.
 
 The whole program as of this step: [examples/step08_state.ml].
 
+{b The editor can read this back.} {!Camlcast.Hook.use_state} takes a [~show],
+which is a function turning the value into a line of text and is called by
+nothing else:
+
+{[
+  let lit, set_lit = Hook.use_state ~show:string_of_bool false
+]}
+
+A slot without one still says which hook made it and whether it changed this
+frame — that much needs no type. What it holds is readable only where the
+component says how, because a row of slots is untyped and a runtime that
+guessed would have to call an [int], a [bool] and a [char] the same thing.
+
 {1 Step 9 — Being looked at}
 
 {!Camlcast.P.wall}, {!Camlcast.P.sprite} and {!Camlcast.P.cut} each take
@@ -512,6 +551,12 @@ HUD, which gets its own step:
 The whole program as of this step: [examples/step09_gaze.ml].
 [demo/targets.ml] refuses by [crossed] as well as [distance]; [demo/chalk.ml]
 marks walls with the rest of the spot.
+
+{b Keys are what the editor's tree panel is for.} A component mounted where it
+should have been updated loses its state, the frame looks right, and nothing
+says so. The panel counts it: a number climbing beside a component every frame
+is one being rebuilt every frame, which almost always means it was declared
+inside another component's render rather than at the top level.
 
 {1 Step 10 — Time}
 
@@ -1115,6 +1160,11 @@ runs only the proof.
 
 The whole program as of this step: [examples/step22_check.ml].
 
+{b The same diagnostics appear on the plan.} {!Camlcast.Check.t} carries a
+[spot] — a room and a point — and anything with one is marked where it is
+rather than only described. A step in the floor at a doorway is much easier to
+believe when it is drawn on the doorway.
+
 {1 Step 23 — Controls, and the map}
 
 Everything the loop acts on by itself — walking, looking, leaving, the use
@@ -1163,6 +1213,73 @@ every wall that feeds the map only happens while the map is up.
 
 The whole program as of this step: [examples/step23_controls.ml].
 [demo/bindings.ml] and [demo/controls.ml] go further.
+
+{2 The studio}
+
+The map shows the room from above so that a wall pointing the wrong way is
+visible. The studio is what happens when that picture is allowed to answer back.
+
+Two lines of a game, and one line of its [dune]:
+
+{[
+  (preprocess (pps ppx_camlcast))
+]}
+
+{[
+  let studio = Camlcast_edit.Session.create ()
+
+  (* in the world *)      Camlcast_edit.Session.pointer studio
+  (* in the hud *)        Camlcast_edit.Session.overlay studio ~font
+  (* instead of Run.play *) Camlcast_edit.Session.play studio level
+]}
+
+The preprocessor is what makes the difference between looking and touching. It
+stamps each constructor with the place in your source it was written at, and
+without it the panels still draw and nothing can be changed.
+
+Three panels. The {b plan} is this room from above, and dragging a corner
+rewrites the [Vec.make] that put it there. The {b graph} is the rooms and the
+ways between them, where two clicks join a doorway that leads nowhere to
+another. The {b tree} is what your description came to and what each component
+is holding, and it is where a component being rebuilt every frame shows up as a
+number that climbs.
+
+{2 What can be changed, and what only drawn}
+
+One rule decides it: {b a thing is editable if it was written as a literal}.
+
+{[
+  wall ~height:2.5 ~material:stone (Vec.make (-3.) 1.) (Vec.make 3. 1.)
+]}
+
+Every argument there is written down, so every one of them can be changed — the
+ends by dragging, the height with a key. Against that:
+
+{[
+  sprite ~size:0.9 ~glow:(if lit then 0.8 else 0.) ~image:flame (Vec.make 2. 3.)
+]}
+
+The glow is worked out from state. There is no line to write a new one into,
+because what is written there is a rule and not a value. So the sprite is drawn
+and can be dragged by its position, and its glow is shown and greyed. Per
+argument, not per thing.
+
+The same answer covers a room's outline. Its legs are walls the engine built
+from your corners — {!Camlcast.P.room} makes them, not you — so they are drawn
+and are not draggable, and what an editor offers instead is the outline they
+came from. Nothing here refuses a file for being written the way you wanted;
+what it cannot change, it says it cannot change.
+
+{2 What it writes}
+
+Your file, with one expression different. The editor parses to find out {e
+where} things are and then replaces those bytes: comments, blank lines and
+whatever [ocamlformat] had already made of the file all survive, because
+nothing reconstructs them. A change that would leave text which does not parse
+is refused and the file is not written.
+
+Which is why the sentence at the top of this guide is still true. There is no
+level file format. What the editor saves is the OCaml you would have typed.
 
 {1 Step 24 — The ending}
 
