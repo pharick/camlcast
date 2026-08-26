@@ -5,3 +5,12 @@
 # disagrees with the machine it passed on. A mismatched binary refuses to run
 # rather than quietly reflowing the tree.
 version = 0.29.0
+
+# Doc comments are left exactly as written, and this is load-bearing rather
+# than a preference. A {[ ]} sample on a page has to be a quotation from a
+# program the build compiles -- test/test_docs.ml checks that line for line --
+# and a sample sits indented inside a comment where a program sits at the
+# margin, so a formatter reflowing it to the width it has there produces lines
+# the program does not contain. The check then fails on a repository nobody
+# edited. Off, `dune fmt` is safe to run over the whole tree.
+parse-docstrings = false

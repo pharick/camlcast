@@ -114,6 +114,13 @@ type step =
 
 let step_distance = function Wall h -> h.distance | Opening o -> o.distance
 
+(* Accumulated rather than built on the way out of the recursion, so the stack
+   holds one frame at a time instead of one per thing the ray met. That count
+   is a room's whole boundary, which is the author's number and not the
+   engine's, and this runs once per column per room per frame. The tails go
+   through List.map, tail-recursive since 5.1 and so below the floor
+   dune-project sets. *)
+
 (** Both lists arrive farthest-first, so one merge puts walls and thresholds
     into a single far-to-near stream without sorting either of them again.
 
@@ -145,12 +152,6 @@ let step_distance = function Wall h -> h.distance | Opening o -> o.distance
     concatenating the two lists: concatenation gives the right answer in one of
     its two orders and the wrong one in the other, and knowing which is knowing
     this rule in a second place. *)
-(* Accumulated rather than built on the way out of the recursion, so the stack
-   holds one frame at a time instead of one per thing the ray met. That count
-   is a room's whole boundary, which is the author's number and not the
-   engine's, and this runs once per column per room per frame. The tails go
-   through List.map, tail-recursive since 5.1 and so below the floor
-   dune-project sets. *)
 let merge (walls : hit list) (openings : opening list) =
   let rec go acc (walls : hit list) (openings : opening list) =
     match (walls, openings) with
