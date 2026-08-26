@@ -11,9 +11,15 @@ let stem index (argument : Span.argument) =
   | None -> "#" ^ string_of_int index
 
 (* One number needs no suffix, several need telling apart. A point written
-   [Vec.make 1. 2.] is one argument holding two. *)
+   [Vec.make 1. 2.] is one argument holding two, and a pair is spelled x and y
+   rather than 0 and 1 -- a convention rather than knowledge, since nothing
+   here can see a type, but every two-number group this engine builds is a
+   point and [#3.0] tells a reader nothing. *)
 let numbered stem count position =
-  if count = 1 then stem else Printf.sprintf "%s.%d" stem position
+  if count = 1 then stem
+  else if count = 2 then
+    Printf.sprintf "%s.%c" stem (if position = 0 then 'x' else 'y')
+  else Printf.sprintf "%s.%d" stem position
 
 (* A number as it is written, brackets and all: the span of a negative literal
    covers the brackets it needs to sit where it sits, which is the same fact

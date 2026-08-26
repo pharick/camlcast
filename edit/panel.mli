@@ -57,8 +57,10 @@ val draw :
   Camlcast.P.t
 (** A backing rectangle with these lines over it, clipped to what {!fits}.
 
-    Lines past that are dropped rather than drawn outside the box: a panel that
-    spilled would be drawn over the game and be unreadable against it, and one
-    that overran the buffer would be clipped by {!Camlcast.P} anyway and look
-    like a bug in the view. Deciding what to drop belongs to the view, which
-    knows which of its lines matter; this only refuses to lie about the room. *)
+    Lines past that are dropped rather than drawn outside the box, and a line
+    too long for [width] is cut rather than run out of it. A panel that spilled
+    either way would be drawn over the game and be unreadable against it —
+    and a line running off the buffer's own edge looks like a bug in the view
+    rather than like a name that did not fit. Deciding what to drop belongs to
+    the view, which knows which of its lines matter; this only refuses to lie
+    about the room. *)

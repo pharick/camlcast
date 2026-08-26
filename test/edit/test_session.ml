@@ -136,8 +136,14 @@ let the_tree_is_what_the_description_came_to () =
     "with nothing reported as rebuilt" false
     (List.exists
        (fun t ->
+         (* The mark is an x and a count -- "  x3" -- so the digit is part of
+            what is looked for. Without it this matches any x after a space,
+            which the panel's own legend has. *)
          let rec holds i =
-           i + 2 <= String.length t && (String.sub t i 2 = " x" || holds (i + 1))
+           i + 3 <= String.length t
+           && ((String.sub t i 2 = " x"
+               && match t.[i + 2] with '0' .. '9' -> true | _ -> false)
+              || holds (i + 1))
          in
          holds 0)
        said)

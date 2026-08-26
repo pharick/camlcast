@@ -1,0 +1,21 @@
+; A frame, drawn without a window.
+;
+; The engine renders into a Framebuffer.offscreen with no SDL behind it, which
+; is how every rendering test in this repository works -- Renderer.draw_frame
+; is pure array writes. So a picture of what the overlay looks like needs no
+; window, no display and no permission to synthesise input at one: a script of
+; frames goes in and pixels come out.
+;
+; A directory of its own, and one level down from the build root, for the two
+; reasons studio/ had them. Its own because it is preprocessed and dune's check
+; context is per directory. One level down because Camlcast.Asset looks beside
+; the executable and one above it, and the font lives in assets/.
+;
+; Attached to no package: `dune build` compiles it, nothing installs it.
+
+(executable
+ (name capture)
+ (modules capture)
+ (preprocess
+  (pps ppx_camlcast))
+ (libraries camlcast camlcast_core camlcast_edit camlcast_loom))

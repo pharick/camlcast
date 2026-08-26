@@ -5,3 +5,6 @@ _opam/
 _site/
 __pycache__/
 dist/
+
+# Captures. capture/capture.exe writes these beside wherever it is run.
+*.ppm

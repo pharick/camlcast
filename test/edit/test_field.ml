@@ -61,7 +61,7 @@ let a_sprite_offers_its_numbers_and_its_picture () =
   Alcotest.(check (list (pair string string)))
     "the glow is worked out from state, so it is not a field at all"
     [
-      ("size", "0.9"); ("image", "Pictures.flame"); ("#3.0", "2"); ("#3.1", "-3");
+      ("size", "0.9"); ("image", "Pictures.flame"); ("#3.x", "2"); ("#3.y", "-3");
     ]
     (List.map describe (fields "sprite"))
 

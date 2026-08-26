@@ -281,6 +281,29 @@ let letting_go_writes_the_file () =
     (Camlcast_edit.Session.pending driver.session);
   stop driver
 
+(* A press and a release in the same place is a click, and a click selects.
+   Writing on one would put the pointer's position -- through a projection and
+   back, so not quite what was there -- over a file nobody asked to change. *)
+let a_click_selects_without_writing () =
+  let driver = start () in
+  frame driver ~holding:false ~at:(0, 0);
+  let view = projection driver in
+  let at = Camlcast_core.Overhead.to_panel view bench_end in
+  driver.written := [];
+  frame driver ~holding:true ~at;
+  frame driver ~holding:false ~at;
+  Alcotest.(check bool)
+    "something is picked" true
+    (Camlcast_edit.Session.selected driver.session
+    <> Camlcast_edit.Sheet.Nothing);
+  Alcotest.(check (list string))
+    "and the file is untouched" []
+    (List.map fst !(driver.written));
+  Alcotest.(check int)
+    "with no preview left over" 0
+    (Camlcast_edit.Session.pending driver.session);
+  stop driver
+
 (* {1 The panel keys}
 
    Read by the overlay itself, so a game places it and has an editor rather
@@ -581,6 +604,10 @@ let () =
           case "dragging moves it in the next frame"
             dragging_moves_it_in_the_next_frame;
           case "letting go writes the file" letting_go_writes_the_file;
+        ] );
+      ( "clicking",
+        [
+          case "a click selects without writing" a_click_selects_without_writing;
         ] );
       ( "the panel keys",
         [

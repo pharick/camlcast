@@ -22,6 +22,13 @@ let draw ~font ~backing ~x ~y ~width ~height lines =
     | _ -> List.rev taken
   in
   let shown = take [] 0 lines in
+  (* Cut to what the box holds. Font.measure would answer this for a
+     proportional face; every glyph here advances by the same width, so the
+     count is the arithmetic. *)
+  let across = Int.max 1 (width / font.Font.width) in
+  let fit text =
+    if String.length text <= across then text else String.sub text 0 across
+  in
   P.(
     Camlcast_loom.Element.fragment
       (rect ~x ~y ~w:width ~h:height ~color:backing ~alpha:210 ()
@@ -29,5 +36,5 @@ let draw ~font ~backing ~x ~y ~width ~height lines =
            (fun index line ->
              text ~key:(string_of_int index) ~color:line.color ~font ~x
                ~y:(y + (index * font.Font.height))
-               line.text)
+               (fit line.text))
            shown))

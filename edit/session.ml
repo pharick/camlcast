@@ -20,7 +20,11 @@ type t = {
   (* What is picked on the plan, and -- while a corner is being held -- which
      end of what is travelling with the mouse. *)
   mutable selected : Sheet.hit;
-  mutable dragging : (Camlcast_loom.Path.t * int) option;
+  (* The point it was taken hold of at, as well as what was taken: a press and
+     a release in the same place is a click, and a click selects. Without that
+     distinction every click writes the file -- with the pointer's position put
+     through a projection and back, so it does not even write what was there. *)
+  mutable dragging : (Camlcast_loom.Path.t * int * (int * int)) option;
   (* Which of the selection's fields the keys act on, and -- in the graph --
      the first of the two doorways a join needs. *)
   mutable field : int;
@@ -334,6 +338,14 @@ let lines t =
           color = (if pending t = 0 then quiet else loud);
         };
       ]
+      (* What the last thing it did came to. Everything here writes one --
+         a file written, a doorway that is already joined, a point that is not
+         written as numbers -- and a panel that keeps them to itself leaves a
+         tool which appears to do nothing when it refuses. *)
+      @
+      match t.said with
+      | None -> []
+      | Some said -> [ { Panel.text = said; color = plain } ]
     in
     (* What is picked, where it was written, and what about it can be changed.
        Shown under the panel's own two lines because an overlay drawn over a
@@ -402,7 +414,20 @@ let lines t =
                    r.Graph.doors)
             graph.Graph.rooms
     in
-    header @ chosen @ body
+    (* At the foot, dim, and always: nothing about these keys is guessable, and
+       a panel with forty lines of room and nine in use can afford to say. *)
+    let legend =
+      List.map
+        (fun text -> { Panel.text; color = quiet })
+        [
+          "";
+          "F1 plan  F2 graph  F3 tree";
+          "F4 close   tab next room";
+          "[ ] field  - = nudge";
+          "u undo     x extract";
+        ]
+    in
+    header @ chosen @ body @ legend
 
 (* Declared once, here, and not inside {!overlay}. A component built inside a
    function is a fresh closure every frame, so it is never the same component
@@ -479,19 +504,25 @@ let component =
             (match t.selected with
             | Sheet.Corner { item; which }
               when written_point t item which <> None ->
-                Some (item.Sheet.path, which)
+                Some (item.Sheet.path, which, at)
             | _ -> None)
         end;
         match t.dragging with
-        | Some (path, which) when Input.down actions (Input.Button Input.Left)
-          -> (
+        | Some (path, which, _)
+          when Input.down actions (Input.Button Input.Left) -> (
             match item_at t path with
             | Some item -> drag_to t item which (Overhead.to_room view at)
             | None -> ())
-        | Some (path, which) ->
-            (match item_at t path with
-            | Some item -> write_point t item which (Overhead.to_room view at)
-            | None -> ());
+        | Some (path, which, (fx, fy)) ->
+            (* Far enough to have meant it. A press and a release in the same
+               place is a click, and a click has already done its work by
+               selecting -- while writing on one would put the pointer's
+               position, through a projection and back, over what was there. *)
+            if abs (fst at - fx) > 1 || abs (snd at - fy) > 1 then
+              match item_at t path with
+              | Some item -> write_point t item which (Overhead.to_room view at)
+              | None -> ()
+            else Patch.clear t.patch;
             t.dragging <- None
         | None -> ())
     | Graph, _ ->
