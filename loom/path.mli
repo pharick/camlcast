@@ -40,10 +40,12 @@ type t
     O(1) and shares everything above it with the parent path. A caller holding
     the chain could easily break that sharing.
 
-    There is also nothing to do with the steps beyond the four questions below.
-    A fifth export would mostly invite re-implementing {!equal} by matching on
-    them, which is how the keyed-versus-unkeyed rule ends up written down twice
-    and then only fixed once. *)
+    There is also nothing to do with the steps beyond the questions below, and
+    {!parent} is the shape any addition to them has to take: it answers a
+    question {e about} a path rather than handing over what one is made of. An
+    export that gave out the steps would mostly invite re-implementing {!equal}
+    by matching on them, which is how the keyed-versus-unkeyed rule ends up
+    written down twice and then only fixed once. *)
 
 val root : t
 (** The empty path: the tree's own root, above every component a game writes. *)
@@ -54,6 +56,23 @@ val child : t -> ?key:string -> ?name:string -> int -> t
     the component's own [name] for the two spellings below.
 
     O(1), and shares [parent] rather than copying it. *)
+
+val parent : t -> t option
+(** Where this sits inside, and [None] for {!root}.
+
+    O(1), and the result shares this path's tail rather than copying it, for the
+    reason {!child} does.
+
+    This is what turns a flat report of paths back into a tree. {!Trace} says
+    what happened at each place and not what contains what; its events do arrive
+    in the order the reconciler walked, but reading structure out of an order is
+    an assumption that holds until the first frame a render is refused, and
+    {!Trace.Refused} exists because such frames report a walk rather than a
+    tree. Asking a path what it sits inside is not an assumption.
+
+    It hands out no step. Nothing here shows a caller a key or an index, so
+    nothing here lets one re-decide what makes two places the same place — that
+    question has one answer and it is {!equal}. *)
 
 val equal : t -> t -> bool
 (** Whether two paths name the same place, by the rule at the top of this page:

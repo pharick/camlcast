@@ -45,6 +45,7 @@ module Make (H : Host.HOST) = struct
      that a setter has been called. *)
   type context = {
     trace : (H.prim Trace.event -> unit) option;
+    inspect : (Path.t -> Hook.slot array -> unit) option;
     pending : Hook.Runtime.pending;
     invalidate : unit -> unit;
   }
@@ -75,6 +76,14 @@ module Make (H : Host.HOST) = struct
 
   let emit context event =
     match context.trace with None -> () | Some f -> f event
+
+  (* Reading a row costs an array of that row's length, so this is guarded the
+     way {!emit} is and for the same reason: a game that does not ask pays
+     nothing, not even the allocation of the answer. *)
+  let looked_at context path slots =
+    match context.inspect with
+    | None -> ()
+    | Some f -> f path (Hook.Runtime.inspect slots)
 
   let key_of = function
     | Fragment { key; _ } | Primitive { key; _ } | Component { key; _ } -> key
@@ -190,6 +199,7 @@ module Make (H : Host.HOST) = struct
         let described =
           render_with_hooks ~context ~env ~path ~slots render props
         in
+        looked_at context path slots;
         Component
           {
             path;
@@ -210,6 +220,7 @@ module Make (H : Host.HOST) = struct
         let described =
           render_with_hooks ~context ~env ~path ~slots render props
         in
+        looked_at context path slots;
         Component
           {
             path;
@@ -337,7 +348,7 @@ module Make (H : Host.HOST) = struct
     | Primitive { path; prim; at; children; _ } ->
         [ { Host.path; prim; at; children = List.concat_map collect children } ]
 
-  let render ?trace root element =
+  let render ?trace ?inspect ?patch root element =
     let owed = root.dirty in
     (* Cleared first, so that a setter called from an effect below marks the
        tree for the frame after this one rather than being wiped by it. *)
@@ -345,6 +356,7 @@ module Make (H : Host.HOST) = struct
     let context =
       {
         trace;
+        inspect;
         pending = root.pending;
         invalidate = (fun () -> root.dirty <- true);
       }
@@ -352,9 +364,16 @@ module Make (H : Host.HOST) = struct
     let path = path_for ~parent:Path.root ~index:0 element in
     match
       let tree = reconcile ~context ~env:[] ~path root.tree element in
+      let forest = collect tree in
+      let forest =
+        match patch with None -> forest | Some patch -> patch forest
+      in
       (* Assembled before anything is committed, because this is the last thing
-         that can refuse the frame and a refused frame has to leave no trace. *)
-      (tree, H.assemble (collect tree))
+         that can refuse the frame and a refused frame has to leave no trace.
+         The patch is inside that, so one which raises or which describes
+         something the host will not build refuses the frame in exactly the way
+         a description doing either would. *)
+      (tree, H.assemble forest)
     with
     | tree, scene ->
         root.tree <- Some tree;
@@ -386,7 +405,12 @@ module Make (H : Host.HOST) = struct
 
   let destroy ?trace root =
     let context =
-      { trace; pending = root.pending; invalidate = (fun () -> ()) }
+      {
+        trace;
+        inspect = None;
+        pending = root.pending;
+        invalidate = (fun () -> ());
+      }
     in
     unmount_opt ~context root.tree;
     (* Emptied before the flush rather than after it, so that a second destroy

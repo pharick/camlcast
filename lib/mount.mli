@@ -17,9 +17,26 @@ val create : unit -> t
 (** An empty mount. The first {!render} into it builds everything. *)
 
 val render :
-  ?trace:(Prim.t Camlcast_loom.Trace.event -> unit) -> t -> P.t -> Scene.t
+  ?trace:(Prim.t Camlcast_loom.Trace.event -> unit) ->
+  ?inspect:(Camlcast_loom.Path.t -> Camlcast_loom.Hook.slot array -> unit) ->
+  ?patch:
+    (Prim.t Camlcast_loom.Host.node list -> Prim.t Camlcast_loom.Host.node list) ->
+  t ->
+  P.t ->
+  Scene.t
 (** Reconcile a description against what this mount holds, assemble the result,
     and run whatever effects that leaves owing.
+
+    [trace] reports what the reconciler did, [inspect] what each component is
+    holding as it renders, and [patch] is handed the committed forest and gives
+    back the one to assemble. See {!Camlcast_loom.Reconcile.Make.render} for all
+    three, and for why a patch is a transform of the whole forest rather than of
+    one node.
+
+    A patch is how a tool outside edits a world that is running: it changes what
+    a frame assembles without changing the description that frame came from, so
+    a dragged wall moves in the next frame whichever component wrote it. Nothing
+    in this library installs one.
 
     @raise Host.Malformed if the description could not be a world.
     @raise Invalid_argument from the engine's own constructors. *)

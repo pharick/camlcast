@@ -12,6 +12,7 @@ module Store = Camlcast_loom.Store
 module Events = Events
 module Run = Run
 module Controls = Controls
+module Watch = Watch
 module Check = Check
 module Scene = Scene
 module Mount = Mount

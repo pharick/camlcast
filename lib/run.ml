@@ -71,7 +71,7 @@ type ending = Engine.ending = Closed | Returned
 
 let with_window = Engine.with_window
 
-let on window ?(controls = Controls.default) description =
+let on window ?(controls = Controls.default) ?(watch = Watch.none) description =
   let mount = Mount.create () in
   (* Everything below is inside the mount's lifetime, the first render included:
      a run that ends, and a run that never started because the first
@@ -83,7 +83,8 @@ let on window ?(controls = Controls.default) description =
      into it, so a component reads time and input from the context instead of
      having them threaded through every parent between it and here. *)
   let render frame =
-    Mount.render mount
+    Mount.render ?trace:watch.Watch.trace ?inspect:watch.Watch.inspect
+      ?patch:watch.Watch.patch mount
       (Camlcast_loom.Element.provide Events.context frame [ description ])
   in
   (* The buffer's size is only known where a frame is drawn, and a description
@@ -227,6 +228,6 @@ let on window ?(controls = Controls.default) description =
           ~bindings:controls.Controls.bindings ())
        start)
 
-let play ?title ?width ?height ?controls description =
+let play ?title ?width ?height ?controls ?watch description =
   with_window ?title ?width ?height (fun window ->
-      on window ?controls description)
+      on window ?controls ?watch description)

@@ -59,7 +59,13 @@ module Make (H : Host.HOST) : sig
   val create : unit -> t
   (** An empty root. The first {!render} into it mounts everything. *)
 
-  val render : ?trace:(H.prim Trace.event -> unit) -> t -> element -> H.scene
+  val render :
+    ?trace:(H.prim Trace.event -> unit) ->
+    ?inspect:(Path.t -> Hook.slot array -> unit) ->
+    ?patch:(H.prim Host.node list -> H.prim Host.node list) ->
+    t ->
+    element ->
+    H.scene
   (** [render root description] reconciles [description] against what [root]
       already holds, commits the result, and returns the scene the host
       assembled from it.
@@ -96,7 +102,35 @@ module Make (H : Host.HOST) : sig
 
       [trace], if given, is called with every mount, update and unmount as they
       happen, in the order they happen. Left out, nothing is recorded and
-      nothing is spent recording it. *)
+      nothing is spent recording it.
+
+      [inspect], if given, is called for each component as it is rendered, with
+      its path and what its hooks are holding. A separate channel from [trace]
+      rather than a field on {!Trace.node}, because a trace reports what the
+      reconciler {e did} and a row of slots is not that: the events are a
+      history of one walk and this is a reading taken during it. It is called
+      where the reconciler already holds the row, so it costs a walk of nothing
+      extra; left out it costs the same nothing [trace] does, the row not even
+      being read. See {!Hook.type-slot} for what can be said about a slot and
+      what cannot.
+
+      [patch] is given the committed forest and hands back the one to assemble,
+      and is the seam a tool outside the game edits through. What reaches it is
+      what the description came to rather than what the description said, so a
+      change made here lands whatever component described the thing — and
+      whether that component holds state, hooks or neither does not enter into
+      it. Every node carries the {!Path.t} it was reconciled at, which is what a
+      patch says {e which} node it means by.
+
+      It transforms the whole forest rather than one node at a time so that
+      adding something and moving something are the same kind of edit, made at
+      the same moment. It runs inside the frame's one chance to be refused: a
+      patch that raises, or that hands back a forest the host will not build,
+      loses the frame exactly as a description doing either would, leaving the
+      tree from the frame before standing and no effect run.
+
+      Left out, nothing is spent. It is a match on an option once a frame, which
+      is the same nothing [trace] costs. *)
 
   val dirty : t -> bool
   (** Whether a setter has run since this root was last rendered.

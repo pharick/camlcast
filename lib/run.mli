@@ -74,7 +74,11 @@ val with_window :
     size. *)
 
 val on :
-  window -> ?controls:Controls.t -> P.t -> (ending, [ `Msg of string ]) result
+  window ->
+  ?controls:Controls.t ->
+  ?watch:Watch.t ->
+  P.t ->
+  (ending, [ `Msg of string ]) result
 (** Play a description on a window that is already open, and report how the run
     ended.
 
@@ -89,6 +93,12 @@ val on :
     - leaving,
     - working what the crosshair is on,
     - the map.
+
+    [watch] is what something outside the run asks to be told and allowed to
+    change, and defaults to {!Watch.none}, which is nothing on both counts. It
+    is a record for the reason [controls] is one: a run's openings belong
+    together, so a tool that wants two of them names one value rather than two
+    arguments.
 
     However the run ends — quit, ending, or a description that could not be
     built — the mount it was played on is destroyed before this returns. Every
@@ -144,6 +154,7 @@ val play :
   ?width:int ->
   ?height:int ->
   ?controls:Controls.t ->
+  ?watch:Watch.t ->
   P.t ->
   (ending, [ `Msg of string ]) result
 (** Open a window, play this description on it until the player quits, and close

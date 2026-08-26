@@ -13,6 +13,11 @@ let root = { rev = []; depth = 0 }
 let child parent ?key ?name index =
   { rev = { index; key; name } :: parent.rev; depth = parent.depth + 1 }
 
+let parent t =
+  match t.rev with
+  | [] -> None
+  | _ :: outer -> Some { rev = outer; depth = t.depth - 1 }
+
 (* Outermost first: the order a path is read in, and the reverse of the order
    it is built in. Not exported, because only the two printers below need the
    list and exporting a copy would encourage callers to walk it instead of

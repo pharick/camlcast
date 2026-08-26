@@ -9,12 +9,17 @@ exception
    the use_* functions below, and only Reconcile installs a handler, so
    nothing else needs to name them. *)
 type _ Effect.t +=
-  | Use_state : 'a -> ('a * ('a -> unit)) Effect.t
-  | Use_ref : 'a -> 'a ref Effect.t
+  | Use_state : {
+      initial : 'a;
+      show : ('a -> string) option;
+    }
+      -> ('a * ('a -> unit)) Effect.t
+  | Use_ref : { initial : 'a; show : ('a -> string) option } -> 'a ref Effect.t
   | Use_memo : {
       compute : unit -> 'a;
       deps : 'd;
       equal : 'd -> 'd -> bool;
+      show : ('a -> string) option;
     }
       -> 'a Effect.t
   | Use_effect : {
@@ -30,11 +35,11 @@ let perform request =
   try Effect.perform request
   with Effect.Unhandled _ -> raise Hook_outside_render
 
-let use_state initial = perform (Use_state initial)
-let use_ref initial = perform (Use_ref initial)
+let use_state ?show initial = perform (Use_state { initial; show })
+let use_ref ?show initial = perform (Use_ref { initial; show })
 
-let use_memo ?(equal = ( = )) ~deps compute =
-  perform (Use_memo { compute; deps; equal })
+let use_memo ?show ?(equal = ( = )) ~deps compute =
+  perform (Use_memo { compute; deps; equal; show })
 
 let use_effect ?(equal = ( = )) ~deps start =
   perform (Use_effect { start; deps; equal })
@@ -52,7 +57,33 @@ let tag_effect = 3
 let tag_names = [| "use_state"; "use_ref"; "use_memo"; "use_effect" |]
 let tag_name tag = tag_names.(tag)
 
-type cell = { tag : int; mutable value : Obj.t }
+type kind = State | Ref | Memo | Effect
+
+let kind_of tag =
+  if tag = tag_state then State
+  else if tag = tag_ref then Ref
+  else if tag = tag_memo then Memo
+  else Effect
+
+type slot = { kind : kind; changed : bool; shown : string option }
+
+(* [show] is the printer a hook was given, already wrapped to take the cell's
+   erased value: what a slot holds is not always what the hook was handed --
+   a ref holds a box and a memo holds its deps beside the value -- so the
+   unwrapping belongs where the type is still known, which is the handler
+   below. It answers an option because a memo whose compute has not run, or
+   raised, holds nothing to print.
+
+   [seen] is the value {!Runtime.inspect} last read, kept so that "changed"
+   can be answered by physical inequality. That needs no type and cannot be
+   wrong about a value it does not understand, which is the whole reason the
+   free half of inspection is free. *)
+type cell = {
+  tag : int;
+  mutable value : Obj.t;
+  show : (Obj.t -> string option) option;
+  mutable seen : Obj.t;
+}
 
 module Runtime = struct
   type slots = {
@@ -73,10 +104,25 @@ module Runtime = struct
        unwanted, and on a destroyed root it would never be rendered, leaving
        {!Reconcile.S.dirty} answering true for good. *)
     mutable live : bool;
+    (* Whether {!inspect} has read this row before. "Changed" is measured
+       against the last look, and on the first there is none: without this a
+       memo would report a change it did not make, its slot being claimed
+       empty and filled later in the same render -- an ordering that exists so
+       a compute which raises leaves the row's shape settled, and that nothing
+       outside should be able to see. One word per component rather than per
+       slot. *)
+    mutable looked : bool;
   }
 
   let slots () =
-    { cells = [||]; count = 0; cursor = 0; settled = false; live = true }
+    {
+      cells = [||];
+      count = 0;
+      cursor = 0;
+      settled = false;
+      live = true;
+      looked = false;
+    }
 
   let append slots cell =
     if slots.count = Array.length slots.cells then begin
@@ -89,7 +135,7 @@ module Runtime = struct
 
   (* Claim the next slot. Returns the cell and whether it had to be made, since
      every hook does something different on the render it first appears in. *)
-  let claim slots ~at ~tag ~initial =
+  let claim slots ~at ~tag ~show ~initial =
     if slots.cursor < slots.count then begin
       let cell = slots.cells.(slots.cursor) in
       if cell.tag <> tag then
@@ -103,11 +149,31 @@ module Runtime = struct
       if slots.settled then
         raise
           (Hook_order_changed { at; expected = "nothing"; found = tag_name tag });
-      let cell = { tag; value = initial () } in
+      let value = initial () in
+      let cell = { tag; value; show; seen = value } in
       append slots cell;
       slots.cursor <- slots.cursor + 1;
       (cell, true)
     end
+
+  (* Reads, and writes only [seen]. A slot reports as changed when its value
+     is not physically the one this last read, so "changed" means "since the
+     last look" rather than "since the last render" -- which is what a view
+     redrawn once a frame wants, and what a view redrawn less often wants
+     too. *)
+  let inspect slots =
+    let first = not slots.looked in
+    slots.looked <- true;
+    Array.init slots.count (fun index ->
+        let cell = slots.cells.(index) in
+        let changed = (not first) && not (cell.value == cell.seen) in
+        cell.seen <- cell.value;
+        {
+          kind = kind_of cell.tag;
+          changed;
+          shown =
+            (match cell.show with None -> None | Some show -> show cell.value);
+        })
 
   type pending = {
     mutable cleanups : (unit -> unit) list;
@@ -215,29 +281,37 @@ module Runtime = struct
           effc =
             (fun (type a) (request : a Effect.t) ->
               match request with
-              | Use_state initial ->
+              | Use_state { initial; show } ->
                   Some
                     (fun (k : (a, _) Effect.Deep.continuation) ->
                       answer k @@ fun () ->
                       let cell, _ =
-                        claim slots ~at ~tag:tag_state ~initial:(fun () ->
-                            Obj.repr initial)
+                        claim slots ~at ~tag:tag_state
+                          ~show:
+                            (Option.map
+                               (fun show value -> Some (show (Obj.obj value)))
+                               show)
+                          ~initial:(fun () -> Obj.repr initial)
                       in
                       let set value =
                         cell.value <- Obj.repr value;
                         invalidate ()
                       in
                       (Obj.obj cell.value, set))
-              | Use_ref initial ->
+              | Use_ref { initial; show } ->
                   Some
                     (fun (k : (a, _) Effect.Deep.continuation) ->
                       answer k @@ fun () ->
                       let cell, _ =
-                        claim slots ~at ~tag:tag_ref ~initial:(fun () ->
-                            Obj.repr (ref initial))
+                        claim slots ~at ~tag:tag_ref
+                          ~show:
+                            (Option.map
+                               (fun show value -> Some (show !(Obj.obj value)))
+                               show)
+                          ~initial:(fun () -> Obj.repr (ref initial))
                       in
                       Obj.obj cell.value)
-              | Use_memo { compute; deps; equal } ->
+              | Use_memo { compute; deps; equal; show } ->
                   Some
                     (fun (k : (a, _) Effect.Deep.continuation) ->
                       answer k @@ fun () ->
@@ -255,8 +329,16 @@ module Runtime = struct
                          is computed again on the next render, like any
                          expression that failed. *)
                       let cell, _ =
-                        claim slots ~at ~tag:tag_memo ~initial:(fun () ->
-                            Obj.repr None)
+                        claim slots ~at ~tag:tag_memo
+                          ~show:
+                            (Option.map
+                               (fun show value ->
+                                 match (Obj.obj value : (Obj.t * _) option) with
+                                 | None -> None
+                                 | Some (_, remembered) ->
+                                     Some (show remembered))
+                               show)
+                          ~initial:(fun () -> Obj.repr None)
                       in
                       let remember () =
                         let value = compute () in
@@ -295,7 +377,8 @@ module Runtime = struct
                           :: pending.setups
                       in
                       let cell, fresh =
-                        claim slots ~at ~tag:tag_effect ~initial:(fun () ->
+                        claim slots ~at ~tag:tag_effect ~show:None
+                          ~initial:(fun () ->
                             Obj.repr (deps, (None : (unit -> unit) option)))
                       in
                       if fresh then schedule cell

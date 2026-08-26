@@ -110,7 +110,7 @@ exception
     asked for more hooks than it did last time, and [found] is ["nothing"] when
     it stopped early and asked for fewer. *)
 
-val use_state : 'a -> 'a * ('a -> unit)
+val use_state : ?show:('a -> string) -> 'a -> 'a * ('a -> unit)
 (** [use_state initial] is the value held in this slot and a way to replace it.
 
     [initial] is used the first time this component renders and ignored every
@@ -120,9 +120,15 @@ val use_state : 'a -> 'a * ('a -> unit)
 
     The setter outlives nothing: kept past the component's own life and called
     then, it writes what will not be read and asks for no frame — see "Setting
-    state" above. *)
+    state" above.
 
-val use_ref : 'a -> 'a ref
+    [show] is how this value reads to a tool looking at the tree, and nothing
+    else ever calls it. Omit it and the slot is still counted, still says which
+    hook made it and still says whether it changed; only its value goes unnamed.
+    See "Looking at what a component holds" below for why it is asked for rather
+    than worked out. *)
+
+val use_ref : ?show:('a -> string) -> 'a -> 'a ref
 (** A box made once and handed back unchanged ever after.
 
     It is physically the same box every render. Writing to it is how a component
@@ -133,11 +139,27 @@ val use_ref : 'a -> 'a ref
     Being the same box is also why a write to it survives a frame the host
     refuses. What a refused frame rolls back is the tree and the effects, and a
     ref is neither: it is the component's own, and it was written before there
-    was any refusing. See {!Camlcast_loom.Reconcile}. *)
+    was any refusing. See {!Camlcast_loom.Reconcile}.
 
-val use_memo : ?equal:('d -> 'd -> bool) -> deps:'d -> (unit -> 'a) -> 'a
+    [show] is given the box's {e contents} rather than the box, that being the
+    thing worth reading. Note that a ref written in place holds the same box
+    throughout, so {!type-slot.changed} stays [false] however often it is
+    written: physical identity is what it can ask, and the identity did not
+    move. A ref is for what a component needs to know rather than for what the
+    picture depends on, so there is nothing here for a view to miss. *)
+
+val use_memo :
+  ?show:('a -> string) ->
+  ?equal:('d -> 'd -> bool) ->
+  deps:'d ->
+  (unit -> 'a) ->
+  'a
 (** [use_memo ~deps compute] is [compute ()], recomputed only when [deps]
     changes.
+
+    [show] is given the remembered value. A slot whose [compute] has not run
+    yet, or whose last one raised, holds nothing and reads as {!type-slot.shown}
+    [None].
 
     [equal] decides what changing means, and defaults to structural equality.
     That default raises on functional values, as [( = )] always does, so deps
@@ -200,6 +222,61 @@ val use_invalidate : unit -> unit -> unit
 
     Claims no slot, for the same reason {!use_context} does not. *)
 
+(** {1 Looking at what a component holds}
+
+    A slot's value is an [Obj.t]. The row is a heterogeneous array of whatever
+    each hook was handed, and the tag records which hook made a cell rather than
+    what type it holds — so the runtime cannot print one, and no amount of care
+    here would let it. What can be answered without a type is answered below for
+    every slot at no cost; what cannot is answered only where a component says
+    how.
+
+    That split is the engine's own rule applied once more. It holds no content,
+    only the types content is a value of, and how to write a value down is
+    content. A tool that guessed instead — walking the representation and
+    printing what it found — would have to call an [int], a [bool], a [char] and
+    a constant constructor the same thing, because at runtime they are the same
+    thing. [true] would read as [1]. {!type-slot.shown} being [None] says less
+    and is not wrong. *)
+
+type kind =
+  | State
+  | Ref
+  | Memo
+  | Effect
+      (** Which hook made a slot. Read from the tag the row already carries for
+          the ordering rule above, so it costs nothing to ask. *)
+
+type slot = {
+  kind : kind;
+  changed : bool;
+      (** whether this slot's value is no longer physically the one the last
+          look found.
+
+          Needs no type and cannot be wrong about a value it does not
+          understand, which is what makes it free. It is {e physical}
+          inequality, so a setter called with a value equal to the one already
+          there still counts as a change if it built a new one — which is the
+          honest answer, [==] being the only question that can be asked here.
+
+          "Since the last look" and not "since the last render": nothing is
+          recorded per frame, so a view that redraws every frame reads it as
+          per-frame and one that redraws when something happens reads it as
+          since-then. The first look at a row reports [false] throughout, there
+          being no earlier one to measure against; that a component is new is
+          {!Camlcast_loom.Trace.Mounted}'s to say.
+
+          A {!use_effect} slot holds its deps and whatever its last run took, so
+          a change to one means {b the effect ran} — on the look after it first
+          starts, and again whenever its deps move. That is the useful reading
+          of the same rule rather than an exception to it. *)
+  shown : string option;
+      (** what the component said this holds, and [None] where it said nothing —
+          including a {!use_memo} whose [compute] has not run or has raised,
+          which holds nothing to print. *)
+}
+(** One slot, as much as can be said about it. *)
+
 module Runtime : sig
   (** What {!Camlcast_loom.Reconcile} needs to drive the hooks above, and
       nothing a game should ever call.
@@ -216,6 +293,14 @@ module Runtime : sig
 
   val slots : unit -> slots
   (** A fresh, empty row, for a component being mounted. *)
+
+  val inspect : slots -> slot array
+  (** This row, in the order the component's hooks are called.
+
+      Reads the values and writes nothing but the mark {!type-slot.changed} is
+      measured against, which is why two readers of one row would each see the
+      other's looks as having happened. There is one reader: the [inspect]
+      {!Camlcast_loom.Reconcile.Make.render} takes. *)
 
   type pending
   (** Work a frame has accumulated but not yet done: cleanups to run and effects

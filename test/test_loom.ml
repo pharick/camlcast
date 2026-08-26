@@ -1244,6 +1244,239 @@ let store =
    paths, and it was false for the commonest pair: a named step printed as its
    bare name, so [torch (); torch ()] — two instances written the ordinary way —
    printed alike. A trace saying [mount torch] twice does not say which. *)
+(* {1 What a component is holding}
+
+   The other half of what a tool outside wants, and the half a type erasure
+   stands in the way of. A row of slots is an Obj.t array: the runtime cannot
+   print one and no care here would let it. What it can answer without a type
+   is the hook that made each slot and whether the value moved; what it cannot
+   is answered only where the component said how.
+
+   Both halves are asserted here, and so is the line between them: a slot
+   given no printer still counts, still says which hook it came from and still
+   says whether it changed. *)
+let holder =
+  Element.declare ~name:"holder" @@ fun (latch : (int -> unit) ref) ->
+  let count, set = Hook.use_state ~show:string_of_int 0 in
+  latch := set;
+  let (_ : int ref) = Hook.use_ref 0 in
+  let (_ : string) =
+    Hook.use_memo ~show:Fun.id ~deps:count (fun () ->
+        "memo" ^ string_of_int count)
+  in
+  Hook.use_effect ~deps:() (fun () -> None);
+  Element.prim ("holding " ^ string_of_int count)
+
+let looked_at root element =
+  let seen = ref [] in
+  let inspect path slots =
+    seen := (Path.to_debug_string path, slots) :: !seen
+  in
+  ignore (R.render ~inspect root element);
+  List.rev !seen
+
+let slots_of root element =
+  match looked_at root element with
+  | [ (_, slots) ] -> Array.to_list slots
+  | other -> Alcotest.failf "expected one component, saw %d" (List.length other)
+
+let a_row_says_which_hook_made_each_slot () =
+  let root = R.create () and latch = ref ignore in
+  let kinds =
+    List.map
+      (fun (slot : Hook.slot) ->
+        match slot.Hook.kind with
+        | Hook.State -> "state"
+        | Hook.Ref -> "ref"
+        | Hook.Memo -> "memo"
+        | Hook.Effect -> "effect")
+      (slots_of root (holder latch))
+  in
+  Alcotest.(check (list string))
+    "in the order the hooks are called"
+    [ "state"; "ref"; "memo"; "effect" ]
+    kinds
+
+let a_slot_shows_its_value_only_where_asked () =
+  let root = R.create () and latch = ref ignore in
+  let shown =
+    List.map
+      (fun (slot : Hook.slot) -> slot.Hook.shown)
+      (slots_of root (holder latch))
+  in
+  Alcotest.(check (list (option string)))
+    "the two given printers speak; the ref and the effect do not"
+    [ Some "0"; None; Some "memo0"; None ]
+    shown
+
+let a_slot_says_whether_its_value_moved () =
+  let root = R.create () and latch = ref ignore in
+  let changed () =
+    List.map
+      (fun (slot : Hook.slot) -> slot.Hook.changed)
+      (slots_of root (holder latch))
+  in
+  Alcotest.(check (list bool))
+    "nothing has moved on the first look, there being no earlier one"
+    [ false; false; false; false ]
+    (changed ());
+  (* The effect ran in the flush after that first render, and running is what
+     puts its cleanup in its slot. So the look after reports it, and reports
+     only it: an effect's slot holds its deps and what its last run took, so a
+     change to one means the effect ran. *)
+  Alcotest.(check (list bool))
+    "the effect, which ran between those two looks"
+    [ false; false; false; true ]
+    (changed ());
+  Alcotest.(check (list bool))
+    "and then nothing, nothing having happened"
+    [ false; false; false; false ]
+    (changed ());
+  !latch 7;
+  Alcotest.(check (list bool))
+    "the state that was set, and the memo whose deps it carried -- not the\n\
+    \     effect, whose deps did not move"
+    [ true; false; true; false ]
+    (changed ());
+  Alcotest.(check (list bool))
+    "since the last look, not for ever after"
+    [ false; false; false; false ]
+    (changed ())
+
+(* Costing nothing when it is not asked for is a claim {!Trace} makes and this
+   inherits, and the cheap half of it is checkable: a render given no inspect
+   must not call one. *)
+let nothing_is_looked_at_unasked () =
+  let root = R.create () and latch = ref ignore in
+  ignore (R.render root (holder latch));
+  Alcotest.(check int)
+    "a component rendered without being inspected" 0
+    (List.length (looked_at (R.create ()) Element.empty))
+
+(* {1 A patch edits the frame, not the description}
+
+   The seam a tool outside edits a running world through. What reaches a patch
+   is the committed forest -- what the description came to, with a Path.t on
+   every node -- so an edit lands whatever component described the thing and
+   whether that component holds state does not enter into it.
+
+   Three things are worth pinning. It reaches nodes at any depth, since most of
+   a world is not at the top. It may add and remove and not only alter, which
+   is why it takes the forest rather than a node. And it runs inside the
+   frame's one chance to be refused, so a patch the host will not build loses
+   the frame and leaves the previous tree standing -- the same contract a
+   description that cannot be built has, which is the point: a tool editing
+   through this cannot put the runtime into a state a game could not. *)
+let a_patch_edits_the_committed_frame () =
+  let root = R.create () in
+  let description =
+    Element.prim "room"
+      ~children:[ Element.prim "wall"; Element.prim ~key:"north" "wall" ]
+  in
+  Alcotest.(check string)
+    "unpatched" "room\n  wall\n  wall"
+    (R.render root description);
+  (* Altering a node deep in the forest, and adding one beside it. *)
+  let rec shout (node : Mock.prim Host.node) =
+    {
+      node with
+      Host.prim = String.uppercase_ascii node.Host.prim;
+      children = List.map shout node.Host.children;
+    }
+  in
+  let patch forest = List.map shout forest @ [ List.hd forest ] in
+  Alcotest.(check string)
+    "patched: altered throughout, and one added"
+    "ROOM\n  WALL\n  WALL\nroom\n  wall\n  wall"
+    (R.render ~patch root description);
+  Alcotest.(check string)
+    "and the next unpatched frame is unchanged, the description never having \
+     moved"
+    "room\n  wall\n  wall"
+    (R.render root description)
+
+(* A patch names what it means by Path.t, which is the only thing a node
+   carries that survives the description being rebuilt. *)
+let a_patch_says_which_node_by_path () =
+  let root = R.create () in
+  let description =
+    Element.prim "room"
+      ~children:[ Element.prim ~key:"a" "wall"; Element.prim ~key:"b" "wall" ]
+  in
+  let seen = ref [] in
+  let note forest =
+    let rec go (node : Mock.prim Host.node) =
+      seen := Path.to_debug_string node.Host.path :: !seen;
+      List.iter go node.Host.children
+    in
+    List.iter go forest;
+    forest
+  in
+  ignore (R.render ~patch:note root description);
+  Alcotest.(check (list string))
+    "every node reaches the patch, with its path"
+    [ "#0"; "#0/[a]"; "#0/[b]" ]
+    (List.rev !seen);
+  let rename forest =
+    let rec go (node : Mock.prim Host.node) =
+      let prim =
+        if Path.to_debug_string node.Host.path = "#0/[b]" then "picked"
+        else node.Host.prim
+      in
+      { node with Host.prim; children = List.map go node.Host.children }
+    in
+    List.map go forest
+  in
+  Alcotest.(check string)
+    "the node the patch named by path, and only it" "room\n  wall\n  picked"
+    (R.render ~patch:rename root description)
+
+(* A patch the host refuses loses the frame, exactly as a description the host
+   refuses does: nothing committed, the previous tree still standing. *)
+let a_refused_patch_loses_the_frame () =
+  let root = F.create () in
+  let good = Element.prim "room" ~children:[ Element.prim "wall" ] in
+  Alcotest.(check string) "built" "room\n  wall" (F.render root good);
+  let spoil forest = List.map (fun n -> { n with Host.prim = "bad" }) forest in
+  Alcotest.check_raises "the host refuses what the patch described" Refused
+    (fun () -> ignore (F.render ~patch:spoil root good));
+  Alcotest.(check string)
+    "and the frame after is the description's own, unharmed" "room\n  wall"
+    (F.render root good)
+
+(* {1 A path says what it sits inside}
+
+   Path.parent is what turns a flat report of paths -- which is what a Trace is
+   -- back into a tree. It has to walk all the way out and stop, and it has to
+   agree with Path.equal about where it arrived: a parent worked out by
+   stripping a step must be the very path that step was added to, or a tree
+   rebuilt from a trace hangs its nodes under places that do not exist. *)
+let a_path_says_what_it_sits_inside () =
+  let room = Path.child ~name:"plaza" Path.root 0 in
+  let wall = Path.child ~key:"north" room 3 in
+  let decal = Path.child wall 0 in
+  let parent_of what = Path.parent what in
+  Alcotest.(check bool)
+    "the root sits inside nothing" true
+    (Option.is_none (parent_of Path.root));
+  Alcotest.(check bool)
+    "a step's parent is the path it was added to" true
+    (match parent_of decal with
+    | Some outer -> Path.equal outer wall
+    | None -> false);
+  Alcotest.(check bool)
+    "and again, through a keyed step" true
+    (match parent_of wall with
+    | Some outer -> Path.equal outer room
+    | None -> false);
+  (* Walking out reaches the root and stops there rather than running on. *)
+  let rec depth path count =
+    match Path.parent path with
+    | None -> count
+    | Some outer -> depth outer (count + 1)
+  in
+  Alcotest.(check int) "three steps out to the root" 3 (depth decal 0)
+
 let a_debug_path_names_one_place () =
   let named i = Path.child ~name:"torch" Path.root i
   and bare i = Path.child Path.root i
@@ -1309,7 +1542,27 @@ let () =
       ("refusing", refusing);
       ("hook order", hook_order);
       ( "paths",
-        [ case "a debug path names one place" a_debug_path_names_one_place ] );
+        [
+          case "a debug path names one place" a_debug_path_names_one_place;
+          case "a path says what it sits inside" a_path_says_what_it_sits_inside;
+        ] );
+      ( "holding",
+        [
+          case "a row says which hook made each slot"
+            a_row_says_which_hook_made_each_slot;
+          case "a slot shows its value only where asked"
+            a_slot_shows_its_value_only_where_asked;
+          case "a slot says whether its value moved"
+            a_slot_says_whether_its_value_moved;
+          case "nothing is looked at unasked" nothing_is_looked_at_unasked;
+        ] );
+      ( "patching",
+        [
+          case "a patch edits the committed frame"
+            a_patch_edits_the_committed_frame;
+          case "a patch says which node by path" a_patch_says_which_node_by_path;
+          case "a refused patch loses the frame" a_refused_patch_loses_the_frame;
+        ] );
       ( "properties",
         [
           QCheck_alcotest.to_alcotest ~speed_level:`Quick history_does_not_show;
