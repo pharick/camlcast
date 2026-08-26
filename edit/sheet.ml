@@ -57,6 +57,20 @@ let ends item =
   | Prim.Spawn at -> [ at ]
   | _ -> []
 
+let bounds items =
+  match List.concat_map ends items with
+  | [] -> None
+  | (first : Vec.t) :: rest ->
+      Some
+        (List.fold_left
+           (fun (x0, y0, x1, y1) (v : Vec.t) ->
+             ( Float.min x0 v.x,
+               Float.min y0 v.y,
+               Float.max x1 v.x,
+               Float.max y1 v.y ))
+           (first.x, first.y, first.x, first.y)
+           rest)
+
 (* In pixels rather than world units, so a corner is as easy to take hold of in
    a large room as in a small one: it is the pointer that has to reach it. *)
 let grab = 5

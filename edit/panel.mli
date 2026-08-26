@@ -28,6 +28,19 @@
 type line = { text : string; color : Camlcast.Color.t }
 (** One line, and what colour to draw it. *)
 
+val square : across:int -> down:int -> int * int * int * int
+(** A square box in the corner of a buffer this size: [(x, y, side, side)].
+
+    What a view of the world wants, as against a list of text. A room drawn
+    from above has two dimensions that matter and a column down one side gives
+    it one of them; a plan in a third of a five-hundred-pixel buffer is a
+    letterbox.
+
+    The same shape {!Camlcast.Debug_map.panel} places its map in, and for the
+    same reason — it is not shared with that one because this library sits
+    above camlcast and what two libraries share has to sit below both, which a
+    number this small does not earn. *)
+
 val fits : font:Camlcast.Font.t -> height:int -> int
 (** How many lines of this font fit in a box this tall, the title included.
 

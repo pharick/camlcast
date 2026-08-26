@@ -7,6 +7,12 @@ type line = { text : string; color : Color.t }
 (* The font's own cell height is the line height -- Font says so, and says the
    field is readable so that a layout reads as arithmetic rather than as a
    series of calls. *)
+let margin = 6
+
+let square ~across ~down =
+  let side = Int.max 80 (Int.min across down * 45 / 100) in
+  (margin, margin, side, side)
+
 let fits ~font ~height = Int.max 0 (height / font.Font.height)
 
 let draw ~font ~backing ~x ~y ~width ~height lines =

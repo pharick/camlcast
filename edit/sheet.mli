@@ -53,6 +53,16 @@ val items : Camlcast.Watch.node list -> room:int -> item list
     {!Camlcast_core.World.make} gives them and so the order a
     {!Camlcast_core.Player} names one by. *)
 
+val bounds : item list -> (float * float * float * float) option
+(** The rectangle these occupy, for {!Camlcast_core.Overhead.fit}.
+
+    {!Camlcast_core.Overhead.bounds} answers the same question of a
+    {!Camlcast_core.Room.t}, and this one is asked of a frame instead —
+    which is the whole difference this module exists for. Sprites are measured
+    here where that one leaves them out: what is drawn on a plan should fit on
+    it, and a sprite an editor can drag is a thing it has to be able to reach.
+*)
+
 val hit : Camlcast_core.Overhead.t -> item list -> int * int -> hit
 (** What is under this pixel.
 

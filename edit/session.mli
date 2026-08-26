@@ -52,6 +52,16 @@ val watch : t -> Camlcast.Watch.t
 (** What to hand {!Camlcast.Run.on}: the trace this builds its tree from, and
     the patch that puts pending edits into each frame. *)
 
+val pointer : t -> Camlcast.P.t
+(** The pointer, while the overlay is up: {!Camlcast.P.cursor} when it is open
+    and nothing when it is not.
+
+    {b A child of the world rather than of the hud}, which is why it is a
+    second thing to place rather than part of {!overlay}. Under it the mouse is
+    loose and does not turn the eye, and {!Camlcast.Run.aiming} is already
+    false — so dragging a corner cannot work the door the panel is drawn over,
+    and nothing in the world is told the crosshair arrived on it. *)
+
 val overlay : t -> font:Camlcast.Font.t -> Camlcast.P.t
 (** The panel, to put in a description's {!Camlcast.P.hud}.
 
@@ -80,9 +90,18 @@ val room : t -> int
 
 val show_room : t -> int -> unit
 
+val selected : t -> Sheet.hit
+(** What was last picked on the plan. *)
+
 val pending : t -> int
 (** How many edits are being previewed and not yet written. Above zero means
     the screen and the source agree and the built program does not yet. *)
+
+val said : t -> string option
+(** What the last thing it did came to — a file written, or why one was not.
+
+    Held rather than printed, because an overlay drawn over a game is the only
+    place a game developer is looking. *)
 
 val undo : t -> (Revise.undone option, [ `Msg of string ]) result
 (** Take back the last change written. *)

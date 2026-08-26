@@ -124,6 +124,10 @@ let level =
           [ cut hall_west ~along:(Vec.make (-4.) (-3.), Vec.make (-4.) 3.) ];
         connect plaza_east hall_west;
         keys ();
+        (* A child of the world rather than of the hud: under it the mouse is
+           loose, and Run.aiming is already false, so dragging a corner cannot
+           work the door the panel is drawn over. *)
+        Camlcast_edit.Session.pointer studio;
         hud [ crosshair (); Camlcast_edit.Session.overlay studio ~font ];
       ])
 
