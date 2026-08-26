@@ -432,6 +432,24 @@ val rect :
     arrived at: at or below 0 nothing is drawn, at or above 255 the fill is
     solid. *)
 
+val line :
+  ?key:string ->
+  x0:int ->
+  y0:int ->
+  x1:int ->
+  y1:int ->
+  color:Color.t ->
+  unit ->
+  t
+(** A straight run of pixels from one point to the other, ends included.
+
+    The one thing on this layer that is not square to it. Everything else here
+    is a rectangle because everything else here is an interface, and an
+    interface is built out of boxes; a line is for drawing {e the world} on the
+    layer over it — a plan of the room seen from above, a route across it, a
+    needle pointing somewhere — where the angles are the world's and not the
+    screen's. *)
+
 val bar :
   ?key:string ->
   x:int ->

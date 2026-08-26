@@ -8,6 +8,8 @@ let draw ?aim buffer items =
       match item with
       | Prim.Rect { x; y; w; h; color; alpha } ->
           Paint.rect buffer ~x ~y ~w ~h ~color ~alpha
+      | Prim.Line { x0; y0; x1; y1; color } ->
+          Paint.line buffer ~x0 ~y0 ~x1 ~y1 ~color
       | Prim.Bar { x; y; w; h; fraction; color } ->
           Paint.bar buffer ~x ~y ~w ~h ~fraction ~color
       | Prim.Text { x; y; text; color; font } ->

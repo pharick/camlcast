@@ -14,6 +14,7 @@ let functions =
     "camera";
     "hud";
     "rect";
+    "line";
     "bar";
     "text";
     "picture";

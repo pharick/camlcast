@@ -81,13 +81,13 @@ let row_of = function
 
     Not (width, height): a local open of P puts a wall's height in scope. *)
 let listing font ~selected ~viewport:(across, down) =
-  let line = font.Font.height + 2 in
-  let margin = line in
+  let leading = font.Font.height + 2 in
+  let margin = leading in
   let ink = Color.rgb 200 200 200 in
   let bright = Color.rgb 255 255 255 in
   let dim = Color.rgb 140 140 140 in
-  let top = margin + (2 * line) in
-  let rows = Int.max 1 ((down - top - top) / line) in
+  let top = margin + (2 * leading) in
+  let rows = Int.max 1 ((down - top - top) / leading) in
   let count = Array.length demos in
   let first =
     if count <= rows then 0
@@ -104,12 +104,12 @@ let listing font ~selected ~viewport:(across, down) =
            (fun row ->
              let index = first + row in
              let demo = demos.(index) in
-             let y = top + (row * line) in
+             let y = top + (row * leading) in
              let here = index = selected in
              (if here then
                 [
-                  rect ~x:(margin / 2) ~y:(y - 1) ~w:(across - margin) ~h:line
-                    ~color:(Color.rgb 70 90 120) ~alpha:220 ();
+                  rect ~x:(margin / 2) ~y:(y - 1) ~w:(across - margin)
+                    ~h:leading ~color:(Color.rgb 70 90 120) ~alpha:220 ();
                 ]
               else [])
              @ [
@@ -125,7 +125,7 @@ let listing font ~selected ~viewport:(across, down) =
     @ (if first + rows < count then
          [
            text ~font ~x:(across - margin)
-             ~y:(top + ((rows - 1) * line))
+             ~y:(top + ((rows - 1) * leading))
              ~color:dim "v";
          ]
        else [])

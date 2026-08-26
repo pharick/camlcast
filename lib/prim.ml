@@ -44,6 +44,7 @@ type t =
   | Camera of camera
   | Hud
   | Rect of { x : int; y : int; w : int; h : int; color : Color.t; alpha : int }
+  | Line of { x0 : int; y0 : int; x1 : int; y1 : int; color : Color.t }
   | Bar of {
       x : int;
       y : int;
@@ -83,6 +84,7 @@ let describe = function
   | Camera { pos; _ } -> "camera at " ^ point pos
   | Hud -> "hud"
   | Rect { x; y; _ } -> Printf.sprintf "rect at %d,%d" x y
+  | Line { x0; y0; x1; y1; _ } -> Printf.sprintf "line %d,%d-%d,%d" x0 y0 x1 y1
   | Bar { x; y; _ } -> Printf.sprintf "bar at %d,%d" x y
   | Text { text; _ } -> Printf.sprintf "text %S" text
   | Picture { x; y; _ } -> Printf.sprintf "picture at %d,%d" x y
@@ -111,7 +113,8 @@ let may_contain ~parent ~child =
   | World _, (Room _ | Connect _ | Cursor | Finish | Hud) -> true
   | Room _, (Wall _ | Sprite _ | Door _ | Spawn _ | Camera _) -> true
   | Wall _, Decal _ -> true
-  | Hud, (Rect _ | Bar _ | Text _ | Picture _ | Highlight _ | Crosshair _ | Hud)
-    ->
+  | ( Hud,
+      ( Rect _ | Line _ | Bar _ | Text _ | Picture _ | Highlight _ | Crosshair _
+      | Hud ) ) ->
       true
   | _ -> false

@@ -247,11 +247,11 @@ let panel ~selected ~left ~aim ~font ~across ~down =
   | Some font ->
       let pad = 6 in
       let name, _, glow = symbols.(selected) in
-      let line =
+      let status =
         Printf.sprintf "%s  glow %.2f   %d of %d strokes left" name glow left
           strokes
       in
-      let tw, th = Font.measure font line in
+      let tw, th = Font.measure font status in
       P.(
         [ crosshair ~color () ]
         (* A word under the crosshair when there is something to be done about
@@ -274,7 +274,7 @@ let panel ~selected ~left ~aim ~font ~across ~down =
               ~color:(Color.rgb 14 16 24) ~alpha:190 ();
             text ~font ~x:(2 * pad)
               ~y:(down - th - (2 * pad))
-              ~color:(Color.rgb 236 233 222) line;
+              ~color:(Color.rgb 236 233 222) status;
           ])
 
 let at ~marks ~selected ~left ~elapsed ~aim ~mark ~font ~viewport:(across, down)

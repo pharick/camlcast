@@ -36,6 +36,9 @@ let hud children = E.prim ~children Prim.Hud
 let rect ?key ?(alpha = 255) ~x ~y ~w ~h ~color () =
   E.prim ?key (Prim.Rect { x; y; w; h; color; alpha })
 
+let line ?key ~x0 ~y0 ~x1 ~y1 ~color () =
+  E.prim ?key (Prim.Line { x0; y0; x1; y1; color })
+
 let bar ?key ~x ~y ~w ~h ~fraction ~color () =
   E.prim ?key (Prim.Bar { x; y; w; h; fraction; color })
 

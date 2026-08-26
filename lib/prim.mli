@@ -77,6 +77,11 @@ type t =
       (** the layer drawn over the finished world. A child of {!World}, and its
           own children are the things below. *)
   | Rect of { x : int; y : int; w : int; h : int; color : Color.t; alpha : int }
+  | Line of { x0 : int; y0 : int; x1 : int; y1 : int; color : Color.t }
+      (** a straight run of pixels between two points. The one thing on this
+          layer that is not axis aligned, and the reason it exists: a plan of a
+          room drawn over the frame has walls at whatever angle the room was
+          written at. *)
   | Bar of {
       x : int;
       y : int;
@@ -120,6 +125,19 @@ type t =
 val point : Vec.t -> string
 (** A point, as a diagnostic spells one: ["(1,-2)"]. Shared so that two
     complaints about the same coordinates read the same way. *)
+
+val describe : t -> string
+(** What to call one of these in a sentence: ["wall (0,0)-(1,0)"],
+    ["room plaza"], ["spawn at (2,3)"].
+
+    The noun phrase the three sentences below are built from, exported because a
+    fourth reader wants it: {!Camlcast_loom.Trace} prints a primitive through a
+    [describe] its caller supplies, and a dev overlay listing a frame's
+    primitives should call a wall what a diagnostic about that wall calls it.
+    That is the rule stated once more, for the reason {!may_contain} is stated
+    once — the whole page below is about two readers of one rule drifting, and a
+    third reader with its own wording is the same failure with more places to
+    look. *)
 
 val misplaced : child:t -> parent:t -> string
 (** What to say about a nesting {!may_contain} refused:
