@@ -701,14 +701,6 @@ inside another component's render rather than at the top level. Press F7, look
 at a torch, and let go: the row should say [true] and then [false], and its
 count should not move.
 
-A key is also the editor's answer to the question Step 7 left open. Pick
-something that has one and press [x], and it moves into a component of its own,
-in a file named after the key — a whole [Element.declare] written out with the
-call as you wrote it inside. The name comes from the key because the engine
-reports keys as places on a keyboard and has no text input, so a name asked for
-would have to be spelled out of scancodes. It is what you have already called
-the thing, which is the best name available and often the right one.
-
 {1 Step 10 — Time}
 
 {!Camlcast.Events.use_frame} runs once per frame and receives the previous
@@ -757,6 +749,12 @@ assembled and never during a render, because a render must be a pure function
 of props and state. A handler that set state mid-render would make what a
 frame shows depend on the order its components happened to be walked in.
 
+{b The tree is where a countdown is legible.} A brazier that burns down is a
+number changing sixty times a second, and the window shows you the light rather
+than the number. Give the fuel a [~show] and F7 has it — [39.98], [39.97] —
+which is how you find out whether it is falling at the rate you meant, or twice
+that because a handler is registered in two places.
+
 The whole program as of this step: [examples/step10_burning.ml].
 [demo/phases.ml] uses the same structure with different content.
 
@@ -784,6 +782,13 @@ what merely accumulates while the world is redrawn regardless. A root that
 renders on demand — {!Camlcast.Mount}, step 22 — sees the difference: writing
 a ref never wakes it.
 
+{!Camlcast.Hook.use_ref} takes a [~show] too, and the panel marks a ref
+differently from a state: the row says which hook made it. That is worth a
+glance the first time, because the two mistakes here look alike from outside. A
+value that should be moving and is not may be a ref nobody writes — or a state
+whose setter is called and whose component never re-renders because nothing else
+asked for a frame.
+
 The whole program as of this step: [examples/step11_wisp.ml]. [demo/dust.ml]
 moves a few hundred of these a frame.
 
@@ -810,8 +815,13 @@ and, at the end of the world's children:
         ~color:(Color.rgb 230 170 80) ();
       highlight ();
       crosshair ();
+      Camlcast_edit.Session.overlay studio ();
     ];
 ]}
+
+{b This is the layer the panel has been in since Step 1}, and now it has company.
+Keep the overlay last: a hud is drawn in the order it is written, and anything
+after it is drawn over the top of it.
 
 {!Camlcast.P.hud} is a child of [world], drawn over the finished frame in the
 order it is written. {!Camlcast.P.rect} draws a rectangle and {!Camlcast.P.bar}
@@ -829,6 +839,10 @@ centring is computed from it.
 {!Camlcast.Events.use_dt} returns the same [dt] the frame handler gets, read
 during the render. Here it eases the drawn fraction toward the true one at a
 rate bounded by the actual frame rate.
+
+That fraction is also why the panel is one view at a time rather than two side
+by side: forty-eight lines of six-by-ten type is everything a hud has, however
+large the display, and two panels would each get half of too little.
 
 The whole program as of this step: [examples/step12_hud.ml].
 [demo/overlay.ml] shows everything the layer can draw on one page.
@@ -854,6 +868,14 @@ supplies one: an atlas picture and the grid it is laid out on.
         match Run.play ~title:"The Undercroft" (game font) with
         (* ... *))
 ]}
+
+{b The overlay has been drawing text since Step 1 without any of this.} It
+carries a face of its own, because a developer's panel has to be readable before
+the game it is over has any art — which is the one place the engine's rule about
+holding no content stops, and it stops at [camlcast.edit]'s edge rather than the
+engine's. Now that this game has a face, pass it:
+[Camlcast_edit.Session.overlay studio ~font ()], and the panel looks like it
+belongs here. Leave it out and it goes on looking like a tool.
 
 This is the guide's first picture from disk. {!Camlcast.Image.of_asset} looks
 for [assets/font.png] relative to the executable. Run [dune build] once first
@@ -982,6 +1004,14 @@ through in only one direction, so {!Camlcast.Check} objects if the two
 disagree. Its floor needs no carrying: a room that gives no [plane] takes its
 neighbour's.
 
+{b F6 tells you which side is shut.} A door is one thing described from two
+rooms, and that is the shape hardest to check by walking: you have to go
+through it, turn round and come back, and by then you have stopped believing
+your own eyes. The graph draws the pair and marks them agreeing or not. This is
+the second panel that says something the window cannot, and it is not a
+coincidence that both of them are about how rooms relate — that is exactly what
+first-person view is bad at showing.
+
 The whole program as of this step: [examples/step15_gate.ml]. [demo/doors.ml]
 opens and shuts doors from both sides; [demo/barred.ml] is a room of grilles;
 [demo/glass.ml] demonstrates the translucent pass.
@@ -1027,6 +1057,18 @@ Both hooks are named after {!Camlcast.Input.pressed} and
 {!Camlcast.Input.val-down}; they ask those two questions of the current frame.
 The API takes a control rather than a key throughout, so a mouse button can do
 the same job as a key. Step 23 does exactly that.
+
+{b The winch is the first thing you can press [x] on.} It is a sprite with a
+[~key], written where it stands rather than inside a component, and being
+written there is what the key needs for this to mean anything. Pick it on the
+plan, press [x], and it moves into [winch.ml] as an [Element.declare] of its
+own, with the call as you wrote it inside — the question Step 7 left open,
+answered from the other end.
+
+The file is named after the key because the engine reports keys as places on a
+keyboard and has no text input; a name asked for would have to be spelled out of
+scancodes. The key is what you have already called the thing, which is usually
+the name you would have chosen anyway.
 
 The whole program as of this step: [examples/step16_winch.ml].
 [demo/controls.ml] prints what it is asked with [Key.name].

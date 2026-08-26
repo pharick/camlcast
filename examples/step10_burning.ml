@@ -133,6 +133,7 @@ let pillar center =
 
 (* How long a struck brazier burns, in seconds. *)
 let fuse = 40.
+let studio = Camlcast_edit.Session.create ()
 
 let game =
   Element.declare ~name:"game" @@ fun () ->
@@ -179,11 +180,12 @@ let game =
           ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
           [ cut west ~along:(c_nw, c_sw) ];
         connect east west;
-        hud [ crosshair () ];
+        Camlcast_edit.Session.pointer studio;
+        hud [ crosshair (); Camlcast_edit.Session.overlay studio () ];
       ])
 
 let () =
-  match Run.play ~title:"The Undercroft" (game ()) with
+  match Camlcast_edit.Session.play ~title:"The Undercroft" studio (game ()) with
   | Ok _ending -> ()
   | Error (`Msg message) ->
       prerr_endline message;

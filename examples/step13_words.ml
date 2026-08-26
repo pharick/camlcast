@@ -150,6 +150,8 @@ let message =
   "The undercroft is dark. Strike the brazier with Space, and carry what light \
    you can."
 
+let studio = Camlcast_edit.Session.create ()
+
 let game =
   Element.declare ~name:"game" @@ fun (font : Font.t) ->
   let fuel, set_fuel = Hook.use_state 0. in
@@ -212,6 +214,7 @@ let game =
           ~outline:(corners [ c_sw; c_se; c_ne; c_nw ])
           [ cut west ~along:(c_nw, c_sw) ];
         connect east west;
+        Camlcast_edit.Session.pointer studio;
         hud
           ((if fuel <= 0. then
               List.mapi
@@ -228,6 +231,7 @@ let game =
                 ~color:(Color.rgb 230 170 80) ();
               highlight ();
               crosshair ();
+              Camlcast_edit.Session.overlay studio ();
             ]);
       ])
 
@@ -247,7 +251,9 @@ let () =
       prerr_endline reason;
       exit 1
   | Ok font -> (
-      match Run.play ~title:"The Undercroft" (game font) with
+      match
+        Camlcast_edit.Session.play ~title:"The Undercroft" studio (game font)
+      with
       | Ok _ending -> ()
       | Error (`Msg reason) ->
           prerr_endline reason;
