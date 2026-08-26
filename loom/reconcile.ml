@@ -28,6 +28,7 @@ module Make (H : Host.HOST) = struct
         path : Path.t;
         prim : H.prim;
         key : string option;
+        at : Element.pos option;
         children : instance list;
       }
     | Component of {
@@ -111,7 +112,7 @@ module Make (H : Host.HOST) = struct
     | _, Element.Empty ->
         unmount_opt ~context old;
         Nothing
-    | Some (Fragment previous), Element.Fragment { key; children }
+    | Some (Fragment previous), Element.Fragment { key; children; _ }
       when same_key previous.key key ->
         Fragment
           {
@@ -121,7 +122,7 @@ module Make (H : Host.HOST) = struct
               reconcile_children ~context ~env ~parent:path previous.children
                 children;
           }
-    | _, Element.Fragment { key; children } ->
+    | _, Element.Fragment { key; children; _ } ->
         unmount_opt ~context old;
         Fragment
           {
@@ -150,7 +151,7 @@ module Make (H : Host.HOST) = struct
               reconcile_children ~context ~env:(binding :: env) ~parent:path []
                 children;
           }
-    | Some (Primitive previous), Element.Prim { prim; key; children }
+    | Some (Primitive previous), Element.Prim { prim; key; at; children }
       when same_key previous.key key ->
         if watched context then
           emit context (Trace.Updated (path, Trace.Primitive prim));
@@ -159,11 +160,12 @@ module Make (H : Host.HOST) = struct
             path;
             prim;
             key;
+            at;
             children =
               reconcile_children ~context ~env ~parent:path previous.children
                 children;
           }
-    | _, Element.Prim { prim; key; children } ->
+    | _, Element.Prim { prim; key; at; children } ->
         unmount_opt ~context old;
         if watched context then
           emit context (Trace.Mounted (path, Trace.Primitive prim));
@@ -172,13 +174,15 @@ module Make (H : Host.HOST) = struct
             path;
             prim;
             key;
+            at;
             children = reconcile_children ~context ~env ~parent:path [] children;
           }
     (* The two component branches call [render] where they stand rather than
        through a shared helper. They cannot do otherwise: ['props] is
        existential, bound by the pattern, and a helper in this recursive group
        would be monomorphic and let it escape. *)
-    | Some (Component previous), Element.Component { render; props; key; name }
+    | ( Some (Component previous),
+        Element.Component { render; props; key; name; _ } )
       when previous.render_id == Obj.repr render && same_key previous.key key ->
         if watched context then
           emit context (Trace.Updated (path, Trace.Component name));
@@ -198,7 +202,7 @@ module Make (H : Host.HOST) = struct
                 ~path:(path_for ~parent:path ~index:0 described)
                 (Some previous.child) described;
           }
-    | _, Element.Component { render; props; key; name } ->
+    | _, Element.Component { render; props; key; name; _ } ->
         unmount_opt ~context old;
         if watched context then
           emit context (Trace.Mounted (path, Trace.Component name));
@@ -330,8 +334,8 @@ module Make (H : Host.HOST) = struct
     | Fragment { children; _ } | Provided { children; _ } ->
         List.concat_map collect children
     | Component { child; _ } -> collect child
-    | Primitive { path; prim; children; _ } ->
-        [ { Host.path; prim; children = List.concat_map collect children } ]
+    | Primitive { path; prim; at; children; _ } ->
+        [ { Host.path; prim; at; children = List.concat_map collect children } ]
 
   let render ?trace root element =
     let owed = root.dirty in

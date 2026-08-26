@@ -1,6 +1,11 @@
 (* Implementation of {!Camlcast_loom.Host}; the interface carries the prose. *)
 
-type 'prim node = { path : Path.t; prim : 'prim; children : 'prim node list }
+type 'prim node = {
+  path : Path.t;
+  prim : 'prim;
+  at : Element.pos option;
+  children : 'prim node list;
+}
 
 module type HOST = sig
   type prim

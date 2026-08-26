@@ -97,6 +97,42 @@ exception Render_refused of { at : string; message : string }
     things it needs off the line that stopped it. {!Camlcast.Check} is the way
     to be told before that happens. *)
 
+type pos = string * int * int * int
+(** Where an element was written: a file, a line, and the column the expression
+    starts at. The fourth number is the column it ends at, which is only
+    meaningful for an expression that begins and ends on one line.
+
+    {b An anchor, not a span.} A description spread over several lines — which
+    is most of them — reports the line it starts on and a column on the line it
+    stops on, and those two do not bound anything. Reading the pair as offsets
+    into a file is the mistake this paragraph exists to prevent. What the triple
+    of file, line and starting column {e is} good for is naming one expression
+    uniquely, so that a tool which parses the file afresh can find that
+    expression and take exact spans from the parse. That is the whole intended
+    use.
+
+    The tuple rather than a record of [Lexing.position]s because [__POS__] is
+    already this shape, and a description is rebuilt from scratch every frame:
+    converting would buy nothing and cost an allocation per element per frame.
+*)
+
+(** {1 Where an element was written}
+
+    Every element may carry a {!pos}, and by default none of them does. Nothing
+    in this library reads it. It is carried through reconciliation onto
+    {!Host.node} and handed to whatever is driving the loop, so that a tool
+    outside can answer "which line of this game describes the wall in front of
+    the player" — a question {!Camlcast.Check} cannot answer either, and for the
+    same want.
+
+    {!at} is what puts one there, and [ppx_camlcast] is what calls {!at}. A
+    build without that preprocessor produces the elements it always did, each
+    one word larger. That word is the entire cost, and it is the reason the
+    position lives on the element rather than in a table beside the tree: a
+    description has no identity to key such a table by until it has been
+    reconciled, and reconciling is already past the point where the position
+    would have to be looked up. *)
+
 (** A description of a subtree.
 
     Concrete rather than abstract, because the reconciler is a fold over these
@@ -104,13 +140,22 @@ exception Render_refused of { at : string; message : string }
     none of them can be malformed. *)
 type 'prim t =
   | Empty  (** nothing at all; what a component returns to describe absence *)
-  | Fragment of { key : string option; children : 'prim t list }
+  | Fragment of {
+      key : string option;
+      at : pos option;
+      children : 'prim t list;
+    }
       (** several elements where one is expected, with no primitive of their
           own. They flatten away entirely when the frame is committed — but the
           key does not flatten away with them: it is how the fragment as a whole
           is matched against last frame's, and so how everything under it keeps
           its state through a rearrangement. *)
-  | Prim of { prim : 'prim; key : string option; children : 'prim t list }
+  | Prim of {
+      prim : 'prim;
+      key : string option;
+      at : pos option;
+      children : 'prim t list;
+    }
       (** one of the host's own primitives — a wall, a sprite, a run of text —
           and whatever it contains *)
   | Provide of { binding : Context.binding; children : 'prim t list }
@@ -122,6 +167,7 @@ type 'prim t =
       render : 'props -> 'prim t;
       props : 'props;
       key : string option;
+      at : pos option;
       name : string;
     }
       -> 'prim t
@@ -178,6 +224,18 @@ val declare :
     are the ones it saw last. React's [memo] is the thing that is absent, and
     nothing here stands in for it: a game that wants a subtree to stop being
     rebuilt has to not describe it. *)
+
+val at : pos -> 'prim t -> 'prim t
+(** The same element, remembering where it was written.
+
+    {!Empty} and {!Provide} come back untouched, exactly as {!key} reports
+    nothing for them: neither survives being committed, so neither has anywhere
+    to carry a position to. Everything else keeps what it held and replaces only
+    this.
+
+    Applying it twice keeps the second position. Nothing needs that, and it is
+    stated so that a preprocessor wrapping an expression some other rewriter
+    already wrapped has a defined answer rather than an accidental one. *)
 
 val key : 'prim t -> string option
 (** The key this element was given, if it was given one. {!Empty} never has one,

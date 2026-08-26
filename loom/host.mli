@@ -28,6 +28,11 @@
 type 'prim node = {
   path : Path.t;  (** where this sits, stable from frame to frame *)
   prim : 'prim;  (** what the game asked for here *)
+  at : Element.pos option;
+      (** where in a source file the game asked for it, when something put a
+          position on the element — which is [ppx_camlcast] and nothing else.
+          Read {!Element.pos} before using it: it anchors an expression rather
+          than bounding one. *)
   children : 'prim node list;  (** in the order the game wrote them *)
 }
 (** One primitive, in place, with what it contains.
