@@ -12,6 +12,7 @@ depends: [
   "dune" {>= "3.21"}
   "ocaml" {>= "5.3"}
   "camlcast" {= version}
+  "ppx_camlcast" {= version}
   "alcotest" {with-test}
   "odoc" {with-doc}
 ]

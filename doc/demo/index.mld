@@ -43,6 +43,8 @@ The demos are content and live outside the library they are content for; see
 - {!Camlcast_demo.Loading} — art read from files, beside the generated kind
 - {!Camlcast_demo.Text} — a bitmap font: wrapping, measuring, clipping and
   colour
+- {!Camlcast_demo.Studio} — the dev overlay: this room from above, edited in
+  place
 - {!Camlcast_demo.Level} — [showcase]: the five-room level, with all of the
   above at once
 - {!Camlcast_demo.Patterns} — masonry, joinery, tile and glazing

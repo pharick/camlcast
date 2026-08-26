@@ -102,6 +102,11 @@
  (depends
   (ocaml (>= 5.3))
   (camlcast (= :version))
+  ; demo/ is preprocessed, so every world in it carries the position it was
+  ; written at and the dev overlay can edit any of them -- which is what the
+  ; studio demo is for. The engine does not depend on the rewriter and never
+  ; will; a program built out of the engine may.
+  (ppx_camlcast (= :version))
   ; The demos' own suites are in test/ and belong to this package, so
   ; `-p camlcast-demo @runtest` needs the framework they are written in.
   (alcotest :with-test)))

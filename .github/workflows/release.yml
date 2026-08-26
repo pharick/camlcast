@@ -16,6 +16,13 @@
 # bundlers want the executable and the source assets/ directory and nothing
 # else; platforms.yml is where the suites get built and run.
 #
+# And in --profile release, which is what the (env) stanza in the root dune
+# means by keeping source paths out of a shipped binary: ppx_camlcast reads
+# CAMLCAST_POSITIONS, dune sets it to 0 there and 1 in dev, and these jobs had
+# been taking the default profile. So the gate had never once reached the thing
+# it exists for. demo/ is preprocessed, so this is now the difference between a
+# bundle that carries a position per element and one that carries none.
+#
 # The .app is signed ad-hoc, which is what lets it run at all on Apple silicon —
 # an unsigned binary is refused by the kernel there — but not what Gatekeeper
 # wants to see on a machine that downloaded it. Notarizing needs a paid Apple
@@ -68,7 +75,7 @@ jobs:
       # See platforms.yml for why opam cannot see what brew just installed.
       - run: opam install . --deps-only --no-depexts
 
-      - run: opam exec -- dune build bin/demo.exe
+      - run: opam exec -- dune build --profile release bin/demo.exe
 
       - run: ./tools/bundle-macos.sh
 
@@ -116,7 +123,7 @@ jobs:
       # On Linux opam resolves the SDL2 depexts through apt without help.
       - run: opam install . --deps-only
 
-      - run: opam exec -- dune build bin/demo.exe
+      - run: opam exec -- dune build --profile release bin/demo.exe
 
       - run: ./tools/bundle-linux.sh
 
@@ -156,7 +163,7 @@ jobs:
 
       - run: opam install . --deps-only
 
-      - run: opam exec -- dune build bin/demo.exe
+      - run: opam exec -- dune build --profile release bin/demo.exe
 
       # ldd only reads a PE file from inside MSYS2, so the bundler runs there.
       - name: Bundle

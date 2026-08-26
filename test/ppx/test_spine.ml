@@ -307,8 +307,8 @@ let a_click_selects_without_writing () =
 (* {1 The panel keys}
 
    Read by the overlay itself, so a game places it and has an editor rather
-   than an editor's parts. These were hand-rolled in studio/ and untestable
-   there, which is most of why they moved. *)
+   than an editor's parts. These were hand-rolled by the world that turned the
+   overlay on, and untestable there, which is most of why they moved. *)
 
 let closed_start () =
   let driver = start () in

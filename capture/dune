@@ -6,10 +6,12 @@
 ; window, no display and no permission to synthesise input at one: a script of
 ; frames goes in and pixels come out.
 ;
-; A directory of its own, and one level down from the build root, for the two
-; reasons studio/ had them. Its own because it is preprocessed and dune's check
-; context is per directory. One level down because Camlcast.Asset looks beside
-; the executable and one above it, and the font lives in assets/.
+; A directory of its own, and one level down from the build root, for two
+; reasons. Its own because it is preprocessed and dune's check context is per
+; directory -- a stanza whose (preprocess) or (libraries) differ from its
+; neighbours' gets the neighbours' instead. One level down because
+; Camlcast.Asset looks beside the executable and one above it, and the font
+; lives in assets/.
 ;
 ; Attached to no package: `dune build` compiles it, nothing installs it.
 

@@ -20,7 +20,20 @@
 ; is untouched — it comes from (name) — so every `open Camlcast_demo` and every
 ; (libraries camlcast_demo) still reads the same.
 
+; Preprocessed, so every world here carries the source position it was written
+; at and the dev overlay can find the line behind a wall the player is looking
+; at. The studio demo is the one that turns the overlay on, but the rewriter is
+; a property of the directory rather than of one file -- dune's check context is
+; per directory, and a stanza of its own for one demo would put that demo
+; outside the library the catalogue names it from. Every demo being editable is
+; the better end of that trade anyway.
+;
+; The rewriter emits nothing under --profile release; see the (env) stanza in
+; the root dune for why a shipped binary carries no source path.
+
 (library
  (name camlcast_demo)
  (public_name camlcast-demo)
- (libraries camlcast_core camlcast))
+ (preprocess
+  (pps ppx_camlcast))
+ (libraries camlcast_core camlcast camlcast_edit))

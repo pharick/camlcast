@@ -179,29 +179,36 @@ because it names nothing in the layer: it is what the layer has to reproduce.
 
 ## The studio
 
-`studio/` is one small world with the dev overlay turned on, and the way to see
-`camlcast.edit` work:
+`demo/studio.ml` is one small world with the dev overlay turned on, and the way
+to see `camlcast.edit` work:
 
 ```sh
-dune exec studio/studio.exe
+dune exec camlcast-demo studio
 ```
 
 F5 the plan, F6 the graph, F7 the tree, F8 closes it; Tab moves the plan to the
 next room. On the plan, drag a corner and the coordinate is written back into
-`studio/studio.ml`. `[` and `]` walk the fields of whatever is picked and `-`
-and `=` move the chosen one; `u` takes the last change back.
+`demo/studio.ml`. `[` and `]` walk the fields of whatever is picked and `-` and
+`=` move the chosen one; `u` takes the last change back, and `x` moves what is
+picked into a component file of its own. Two of its doorways lead nowhere on
+purpose, and are the pair the graph panel joins.
 
-It is a directory of its own for two reasons, both load-bearing. It is
-preprocessed, and dune's check context is per directory — a stanza whose
-`(libraries)` differ from its neighbours' gets the neighbours' instead, and
-`dune build @check` then fails on modules an ordinary build resolves. And it
-sits one level below the build root because `Asset` looks beside the executable
-and one directory above it, which is where `assets/` lands.
+Those keys start at F5 rather than F1 because a run does not leave F3 free:
+`Controls.default` binds it to the overhead map, and nothing in a description
+can take a key back from the loop. `edit/session.mli` carries the reasoning.
+
+The whole of `demo/` is preprocessed, so every demo is a world the overlay can
+edit and the studio is only the one that turns it on. That is also why
+`camlcast-demo` depends on `ppx_camlcast` and `camlcast.edit` while `camlcast`
+depends on neither.
 
 The rewriter is off in `--profile release`: `__POS__` bakes a source path per
 call site into the binary, and `dune-project`'s `(env (release ...))` names
 `CAMLCAST_POSITIONS` as 0 rather than leaving it to whatever the shell
-exported. `test/ppx/test_spine.ml` asserts both directions.
+exported. `test/ppx/test_spine.ml` asserts both directions, and
+`.github/workflows/release.yml` builds the bundles in that profile — until
+`demo/` was preprocessed it did not, so the gate had never reached a shipped
+binary.
 
 ## Benchmarks
 

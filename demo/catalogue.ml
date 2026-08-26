@@ -166,6 +166,12 @@ let demos =
       run = Loading.run;
     };
     {
+      name = "studio";
+      blurb = "the dev overlay: this room from above, edited in place";
+      world = lazy Studio.world;
+      run = Studio.run;
+    };
+    {
       name = "showcase";
       blurb = "the five-room level, with all of the above at once";
       (* The level at rest, which is what the suites check. [Level.run] starts

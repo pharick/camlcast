@@ -128,6 +128,7 @@ each spawns the player facing that feature.
 | `controls` | binding keys, press versus hold, and letting go of the mouse   |
 | `text`     | a bitmap font: wrapping, measuring, clipping and colour        |
 | `loading`  | art read from files, beside the generated kind                 |
+| `studio`   | the dev overlay: this room from above, edited in place         |
 | `showcase` | the five-room level, with all of the above at once             |
 
 `demo/catalogue.ml` is the list itself, and `showcase` is `demo/level.ml`.
@@ -160,7 +161,7 @@ walls; `camlcast` is the only library that knows both loom and the platform.
 overlay, which draws the room from above, the graph of how the rooms are
 joined, and the component tree. Drag a corner and the coordinate is written
 back into the line of your own source that put it there. A game that ships does
-not link it; `studio/` is one small world with it turned on.
+not link it; `camlcast-demo studio` is one small world with it turned on.
 The guides and the demos teach the layer. Reach for `camlcast.core` when a
 game genuinely needs a `World` or a `Renderer`.
 
